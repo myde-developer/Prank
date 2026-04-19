@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Voice of the Voiceless • Official Portal</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      background: linear-gradient(145deg, #0b2b26 0%, #1a3f3a 100%);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    /* main container for all "pages" (single-file SPA style) */
+    .page {
+      max-width: 750px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 32px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+      transition: all 0.2s ease;
+    }
+
+    /* header style */
+    .hero {
+      background: linear-gradient(135deg, #1e2f2c, #0f2c27);
+      color: white;
+      padding: 2rem 2rem 1.8rem;
+      text-align: center;
+    }
+    .hero h1 {
+      font-size: 2rem;
+      letter-spacing: -0.3px;
+      margin-bottom: 0.5rem;
+    }
+    .hero p {
+      opacity: 0.85;
+      font-size: 0.9rem;
+    }
+    .badge {
+      display: inline-block;
+      background: #c44536;
+      padding: 6px 14px;
+      border-radius: 60px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      margin-top: 12px;
+      letter-spacing: 0.5px;
+    }
+
+    /* form / content padding */
+    .form-panel {
+      padding: 2rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.4rem;
+    }
+    label {
+      font-weight: 600;
+      display: block;
+      margin-bottom: 6px;
+      color: #1e2a2a;
+      font-size: 0.85rem;
+    }
+    .required {
+      color: #c44536;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid #cfdfda;
+      border-radius: 18px;
+      font-size: 0.9rem;
+      transition: 0.2s;
+      background: #fefefe;
+      font-family: inherit;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #2c7a6e;
+      box-shadow: 0 0 0 3px rgba(44,122,110,0.2);
+    }
+    .row-2col {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .row-2col .form-group {
+      flex: 1;
+      min-width: 140px;
+    }
+    .checkbox-line {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 1rem 0;
+    }
+    .checkbox-line input {
+      width: 20px;
+      height: 20px;
+      margin: 0;
+    }
+    .checkbox-line label {
+      margin: 0;
+      font-weight: normal;
+    }
+    button {
+      width: 100%;
+      background: linear-gradient(95deg, #1f6e5c, #0f4c40);
+      color: white;
+      border: none;
+      padding: 14px;
+      font-size: 1rem;
+      font-weight: 700;
+      border-radius: 40px;
+      cursor: pointer;
+      transition: 0.2s;
+      margin-top: 10px;
+      letter-spacing: 0.3px;
+    }
+    button:hover {
+      transform: scale(1.01);
+      background: linear-gradient(95deg, #268771, #135c4e);
+      box-shadow: 0 6px 14px rgba(0,0,0,0.1);
+    }
+    .secure-note {
+      text-align: center;
+      font-size: 0.7rem;
+      color: #6b8c84;
+      margin-top: 1.5rem;
+    }
+
+    /* plans grid */
+    .plans-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      justify-content: center;
+      margin: 2rem 0;
+    }
+    .plan-card {
+      background: #f9fdfb;
+      border: 1.5px solid #d4e6e0;
+      border-radius: 28px;
+      padding: 1.4rem 1rem;
+      width: 170px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .plan-card:hover {
+      border-color: #2c7a6e;
+      background: white;
+      transform: translateY(-4px);
+    }
+    .plan-name {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: #1f4e44;
+    }
+    .price {
+      font-size: 1.7rem;
+      font-weight: 800;
+      margin: 10px 0;
+      color: #0f3c34;
+    }
+    .small-text {
+      font-size: 0.7rem;
+      color: #5e7c74;
+    }
+    #proceedBtn {
+      max-width: 280px;
+      margin: 20px auto 10px;
+      display: block;
+    }
+    .selected-plan-badge {
+      background: #eef5f2;
+      padding: 10px;
+      border-radius: 60px;
+      text-align: center;
+      font-size: 0.9rem;
+      margin-bottom: 10px;
+    }
+
+    /* bank transfer page */
+    .bank-list {
+      margin: 25px 0;
+    }
+    .bank-item {
+      background: #ffffff;
+      border: 1px solid #e0efea;
+      border-radius: 20px;
+      padding: 1rem;
+      margin-bottom: 14px;
+      cursor: pointer;
+      transition: 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    }
+    .bank-item:hover {
+      background: #f3faf8;
+      border-color: #2c7a6e;
+      transform: scale(1.01);
+    }
+    .bank-icon {
+      font-size: 2rem;
+    }
+    .bank-details strong {
+      font-size: 1.1rem;
+    }
+    .bank-details p {
+      font-size: 0.75rem;
+      color: #4a6b62;
+      margin-top: 4px;
+    }
+
+    /* spinner & success overlays (global) */
+    .global-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.92);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 2000;
+      visibility: hidden;
+      backdrop-filter: blur(4px);
+      font-family: 'Segoe UI', system-ui;
+    }
+    .spinner {
+      border: 6px solid rgba(255,255,255,0.2);
+      border-top: 6px solid #5bc0a8;
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 20px;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .success-box {
+      background: #1e7e5c;
+      padding: 2rem;
+      border-radius: 48px;
+      text-align: center;
+      color: white;
+      max-width: 320px;
+      width: 80%;
+    }
+    .check-circle {
+      font-size: 4rem;
+      background: white;
+      width: 85px;
+      height: 85px;
+      border-radius: 100px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 18px;
+      color: #1e7e5c;
+      font-weight: bold;
+    }
+    .hidden {
+      display: none;
+    }
+    .punchline {
+      font-family: 'Segoe UI', system-ui;
+      text-align: center;
+      padding: 2rem;
+      background: white;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
+  </style>
+</head>
+<body>
+
+<!-- PAGE 1: APPLICATION (deceptive + extra details) -->
+<div id="appPage" class="page">
+  <div class="hero">
+    <h1>🗣️ Voice of the Voiceless</h1>
+    <p>International Alliance for Equal Representation</p>
+    <div class="badge">⭐ UN Global Compact Participant • 2026 Cohort</div>
+  </div>
+  <div class="form-panel">
+    <form id="membershipForm">
+      <h3 style="margin-bottom: 12px;">📝 Official membership registration</h3>
+      <p style="margin-bottom: 22px; font-size: 0.8rem; color: #3b5c53;">Fields marked with * are required for verification.</p>
+
+      <div class="row-2col">
+        <div class="form-group">
+          <label>Full legal name <span class="required">*</span></label>
+          <input type="text" id="fullName" placeholder="e.g., Adaobi N. Okonkwo" required>
+        </div>
+        <div class="form-group">
+          <label>Date of birth <span class="required">*</span></label>
+          <input type="date" id="dob" required>
+        </div>
+      </div>
+
+      <div class="row-2col">
+        <div class="form-group">
+          <label>Email address <span class="required">*</span></label>
+          <input type="email" id="email" placeholder="you@domain.com" required>
+        </div>
+        <div class="form-group">
+          <label>Phone / WhatsApp <span class="required">*</span></label>
+          <input type="tel" id="phone" placeholder="+234 80X XXX XXXX" required>
+        </div>
+      </div>
+
+      <div class="row-2col">
+        <div class="form-group">
+          <label>Country of residence <span class="required">*</span></label>
+          <select id="country" required>
+            <option value="">-- select --</option>
+            <option>Nigeria</option><option>Ghana</option><option>Kenya</option>
+            <option>South Africa</option><option>United Kingdom</option>
+            <option>United States</option><option>Canada</option><option>Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>City / Region</label>
+          <input type="text" id="city" placeholder="e.g., Lagos, Accra">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Occupation / Role</label>
+        <input type="text" id="occupation" placeholder="Student / Activist / Professional">
+      </div>
+
+      <div class="form-group">
+        <label>Why do you want to join? <span class="required">*</span></label>
+        <textarea id="reason" rows="2" placeholder="Tell us why you care about amplifying the voiceless..." required></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Referral source</label>
+        <select id="source">
+          <option>Social media</option><option>Friend / family</option>
+          <option>TV / podcast</option><option>Event / rally</option><option>Other</option>
+        </select>
+      </div>
+
+      <div class="checkbox-line">
+        <input type="checkbox" id="termsCheckbox" required>
+        <label>I confirm that all information is accurate and I agree to the <span style="color:#1f6e5c;">Member Code of Conduct</span> *</label>
+      </div>
+      <div class="checkbox-line">
+        <input type="checkbox" id="newsletterCheck">
+        <label>Subscribe to monthly impact newsletter (optional)</label>
+      </div>
+
+      <button type="submit">✓ SUBMIT & CONTINUE TO MEMBERSHIP PLANS</button>
+      <div class="secure-note">🔐 256-bit SSL encrypted • Your data is never shared</div>
+    </form>
+  </div>
+</div>
+
+<!-- PAGE 2: MEMBERSHIP PLANS (Daily / Monthly / Yearly) -->
+<div id="plansPage" class="page" style="display: none;">
+  <div class="hero">
+    <h1>💰 Select your membership</h1>
+    <p>Choose a plan that fits your commitment level</p>
+  </div>
+  <div class="form-panel" style="text-align: center;">
+    <div id="applicantPreview" style="background:#eff6f3; border-radius: 40px; padding: 10px; margin-bottom: 20px; font-size: 0.8rem;"></div>
+    <div class="plans-grid">
+      <div class="plan-card" data-plan="Daily" data-price="1">
+        <div class="plan-name">Daily</div>
+        <div class="price">$1</div>
+        <div class="small-text">per day • full access</div>
+      </div>
+      <div class="plan-card" data-plan="Monthly" data-price="10">
+        <div class="plan-name">Monthly</div>
+        <div class="price">$10</div>
+        <div class="small-text">best value for advocates</div>
+      </div>
+      <div class="plan-card" data-plan="Yearly" data-price="100">
+        <div class="plan-name">Yearly</div>
+        <div class="price">$100</div>
+        <div class="small-text">save 17% + exclusive badge</div>
+      </div>
+    </div>
+    <div id="selectedPlanDisplay" class="selected-plan-badge" style="margin-top: 6px;">⚡ No plan selected</div>
+    <button id="proceedBtn" disabled>Proceed to payment →</button>
+  </div>
+</div>
+
+<!-- PAGE 3: BANK TRANSFER (realistic bank transfer simulation) -->
+<div id="paymentPage" class="page" style="display: none;">
+  <div class="hero">
+    <h2>🏦 Complete your transfer</h2>
+    <p>Final step — make a secure bank transfer</p>
+  </div>
+  <div class="form-panel">
+    <div id="planSummaryCard" style="background:#eaf6f2; border-radius: 28px; padding: 15px; margin-bottom: 25px; text-align: center;"></div>
+    <p style="font-weight: 500; margin-bottom: 12px;">⬇️ Select your bank to initiate transfer:</p>
+    <div class="bank-list">
+      <div class="bank-item" data-bank="access">
+        <div class="bank-icon">🏦</div>
+        <div class="bank-details">
+          <strong>Access Bank (NG)</strong>
+          <p>Account: 1902876402 • VOV Foundation</p>
+        </div>
+      </div>
+      <div class="bank-item" data-bank="gtb">
+        <div class="bank-icon">🏧</div>
+        <div class="bank-details">
+          <strong>GTBank Plc</strong>
+          <p>Account: 0582910476 • Voice of Voiceless</p>
+        </div>
+      </div>
+      <div class="bank-item" data-bank="opay">
+        <div class="bank-icon">🟠</div>
+        <div class="bank-details">
+          <strong>Opay Digital</strong>
+          <p>Account: 8123456789 • V.O.V Initiative</p>
+        </div>
+      </div>
+      <div class="bank-item" data-bank="moniepoint">
+        <div class="bank-icon">💚</div>
+        <div class="bank-details">
+          <strong>Moniepoint MFB</strong>
+          <p>Account: 7012345678 • Speak Up Fund</p>
+        </div>
+      </div>
+    </div>
+    <div class="secure-note">🔒 Transfer reference will be verified instantly • One-time payment</div>
+  </div>
+</div>
+
+<!-- GLOBAL OVERLAYS (spinner + success) -->
+<div id="spinnerOverlay" class="global-overlay">
+  <div class="spinner"></div>
+  <div style="color:white; font-weight: 500;">Processing transfer securely...</div>
+  <div style="color:#bbd9d1; font-size:13px; margin-top: 10px;">Do not refresh or close</div>
+</div>
+<div id="successOverlay" class="global-overlay">
+  <div class="success-box">
+    <div class="check-circle">✓</div>
+    <h3 style="margin-bottom: 8px;">Transfer successful!</h3>
+    <p id="successAmountMsg" style="margin-bottom: 12px;">₦0 has been credited</p>
+    <p style="font-size: 12px;">Redirecting to receipt...</p>
+  </div>
+</div>
+
+<script>
+  // ---------------------- STATE -------------------------
+  let selectedPlan = null;
+  let selectedPrice = null;
+  let applicantData = {};
+
+  // DOM elements
+  const appPage = document.getElementById('appPage');
+  const plansPage = document.getElementById('plansPage');
+  const paymentPage = document.getElementById('paymentPage');
+  const spinnerOverlay = document.getElementById('spinnerOverlay');
+  const successOverlay = document.getElementById('successOverlay');
+
+  // ------------------- PAGE 1: APPLICATION -------------------
+  const membershipForm = document.getElementById('membershipForm');
+  membershipForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    // collect all fields
+    const fullName = document.getElementById('fullName').value.trim();
+    const dob = document.getElementById('dob').value;
+    const email = document.getElementById('email').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const country = document.getElementById('country').value;
+    const city = document.getElementById('city').value.trim();
+    const occupation = document.getElementById('occupation').value.trim();
+    const reason = document.getElementById('reason').value.trim();
+    const source = document.getElementById('source').value;
+    const termsOk = document.getElementById('termsCheckbox').checked;
+    const newsletter = document.getElementById('newsletterCheck').checked;
+
+    if (!fullName || !dob || !email || !phone || !country || !reason) {
+      alert("⚠️ Please fill all required fields (*) to proceed.");
+      return;
+    }
+    if (!termsOk) {
+      alert("You must agree to the Member Code of Conduct to continue.");
+      return;
+    }
+
+    // save applicant (super realistic)
+    applicantData = {
+      fullName, dob, email, phone, country, city, occupation, reason, source,
+      newsletter: newsletter ? "subscribed" : "not subscribed",
+      applicationID: "VOV-" + Math.floor(Math.random() * 90000 + 10000),
+      appliedAt: new Date().toLocaleString()
+    };
+    localStorage.setItem('vov_applicant', JSON.stringify(applicantData));
+
+    // show plans page and display applicant name + fake ID
+    document.getElementById('applicantPreview').innerHTML = `🎫 Welcome, <strong>${fullName}</strong>! Application ID: ${applicantData.applicationID} • Complete membership activation.`;
+    appPage.style.display = 'none';
+    plansPage.style.display = 'block';
+    paymentPage.style.display = 'none';
+
+    // reset plan selection UI
+    selectedPlan = null;
+    selectedPrice = null;
+    document.getElementById('selectedPlanDisplay').innerHTML = '⚡ No plan selected';
+    const proceedBtn = document.getElementById('proceedBtn');
+    proceedBtn.disabled = true;
+    proceedBtn.innerText = 'Proceed to payment →';
+  });
+
+  // ------------------- PAGE 2: PLANS SELECTION -------------------
+  const planCards = document.querySelectorAll('.plan-card');
+  const selectedPlanDisplay = document.getElementById('selectedPlanDisplay');
+  const proceedBtn = document.getElementById('proceedBtn');
+
+  planCards.forEach(card => {
+    card.addEventListener('click', () => {
+      const planName = card.getAttribute('data-plan');
+      const priceVal = parseInt(card.getAttribute('data-price'));
+      selectedPlan = planName;
+      selectedPrice = priceVal;
+      selectedPlanDisplay.innerHTML = `✅ Selected: ${planName} ($${priceVal}) — proceed to payment`;
+      proceedBtn.disabled = false;
+      proceedBtn.innerText = `Proceed with ${planName} ($${priceVal}) →`;
+    });
+  });
+
+  proceedBtn.addEventListener('click', () => {
+    if (!selectedPlan || !selectedPrice) {
+      alert("Please select a membership plan first.");
+      return;
+    }
+    // store plan info for payment page
+    localStorage.setItem('vov_plan', selectedPlan);
+    localStorage.setItem('vov_price', selectedPrice);
+    // show payment page
+    loadPaymentPage();
+  });
+
+  // ------------------- PAGE 3: PAYMENT (BANK TRANSFER + FAKE FLOW) -------------------
+  function loadPaymentPage() {
+    const plan = localStorage.getItem('vov_plan') || 'Monthly';
+    const price = localStorage.getItem('vov_price') || '10';
+    const applicant = JSON.parse(localStorage.getItem('vov_applicant') || '{}');
+    const applicantName = applicant.fullName || 'member';
+    
+    const nairaAmount = parseInt(price) * 1550; // realistic naira conversion
+    document.getElementById('planSummaryCard').innerHTML = `
+      <strong>👤 ${applicantName}</strong><br>
+      📋 Plan: ${plan} • <strong>$${price}</strong> (≈ ₦${nairaAmount.toLocaleString()})<br>
+      <span style="font-size: 12px;">Transfer to any of the verified accounts below</span>
+    `;
+    
+    appPage.style.display = 'none';
+    plansPage.style.display = 'none';
+    paymentPage.style.display = 'block';
+  }
+
+  // attach bank click handlers (dynamic)
+  function attachBankEvents() {
+    const bankItems = document.querySelectorAll('.bank-item');
+    bankItems.forEach(item => {
+      item.removeEventListener('click', bankClickHandler);
+      item.addEventListener('click', bankClickHandler);
+    });
+  }
+
+  function bankClickHandler() {
+    // get current plan & price for success amount
+    const price = localStorage.getItem('vov_price') || '10';
+    const nairaAmount = parseInt(price) * 1550;
+    
+    // STEP 1: show spinner
+    spinnerOverlay.style.visibility = 'visible';
+    
+    // STEP 2: after 2 sec, show success overlay
+    setTimeout(() => {
+      spinnerOverlay.style.visibility = 'hidden';
+      const successMsg = document.getElementById('successAmountMsg');
+      successMsg.innerHTML = `₦${nairaAmount.toLocaleString()} has been sent to Voice of the Voiceless Foundation.<br>Ref: VOV-TR${Math.floor(Math.random()*100000)}`;
+      successOverlay.style.visibility = 'visible';
+      
+      // STEP 3: after 2 more sec, BLANK SCREEN + PUNCHLINE
+      setTimeout(() => {
+        successOverlay.style.visibility = 'hidden';
+        // wipe everything -> blank
+        document.body.innerHTML = '';
+        document.body.style.margin = '0';
+        document.body.style.padding = '0';
+        document.body.style.backgroundColor = '#ffffff';
+        document.body.style.display = 'flex';
+        document.body.style.alignItems = 'center';
+        document.body.style.justifyContent = 'center';
+        document.body.style.minHeight = '100vh';
+        document.body.style.fontFamily = "'Segoe UI', system-ui";
+        // final brutal message
+        const finalDiv = document.createElement('div');
+        finalDiv.style.textAlign = 'center';
+        finalDiv.style.padding = '2rem';
+        finalDiv.innerHTML = `<h1 style="font-size: 3rem; margin-bottom: 1rem;">🫠</h1>
+                              <h1 style="font-size: 2.2rem; font-weight: 800; color: #1f4e44;">Learn to speak up for yourself</h1>
+                              <p style="margin-top: 1.5rem; color: #6c8b82;">— no one else will do it for you —</p>`;
+        document.body.appendChild(finalDiv);
+      }, 2000);
+    }, 2000);
+  }
+
+  // when payment page becomes visible, attach bank listeners
+  const observer = new MutationObserver(() => {
+    if (paymentPage.style.display === 'block') {
+      attachBankEvents();
+    }
+  });
+  observer.observe(paymentPage, { attributes: true, attributeFilter: ['style'] });
+  
+  // also attach on initial load if payment shown directly (not needed but safe)
+  window.addEventListener('load', () => {
+    attachBankEvents();
+    // prefill any demo? no.
+  });
+</script>
+</body>
+</html>
