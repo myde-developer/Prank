@@ -2,523 +2,571 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JAMB Result Booster</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🔥 Free Fire Solo – Unique Pairing Spin Wheel 🔥</title>
     <style>
         * {
-            margin: 0;
-            padding: 0;
             box-sizing: border-box;
+            user-select: none;
         }
-
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1e3c2c 0%, #2a5a3a 100%);
+            background: radial-gradient(circle at 10% 20%, #0a0f1e, #020617);
             min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', 'Poppins', system-ui, sans-serif;
             padding: 20px;
+            margin: 0;
         }
-
         .container {
-            max-width: 600px;
-            margin: 30px auto;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-            overflow: hidden;
+            max-width: 1100px;
+            width: 100%;
+            background: rgba(10, 18, 35, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 2.5rem;
+            border: 1px solid rgba(255, 140, 0, 0.5);
+            padding: 1.5rem;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
         }
-
-        .header {
-            background: #2d6a4f;
-            color: white;
-            padding: 25px;
+        h1 {
+            font-size: 1.8rem;
             text-align: center;
+            background: linear-gradient(135deg, #FFC857, #FF6A00);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin: 0 0 0.3rem 0;
         }
-
-        .header h1 {
-            font-size: 24px;
-            margin-bottom: 5px;
+        .sub {
+            text-align: center;
+            color: #9bb3e0;
+            margin-bottom: 1.5rem;
+            font-size: 0.85rem;
         }
-
-        .header p {
-            font-size: 14px;
-            opacity: 0.9;
+        .main-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.8rem;
         }
-
-        .content {
-            padding: 30px;
+        .wheel-panel {
+            flex: 2;
+            min-width: 280px;
+            background: #0c1124aa;
+            border-radius: 2rem;
+            padding: 1.2rem;
+            border: 1px solid #2e3b66;
         }
-
-        .form-group {
-            margin-bottom: 20px;
+        .log-panel {
+            flex: 1.5;
+            min-width: 240px;
+            background: #0a0f1ecc;
+            border-radius: 2rem;
+            padding: 1rem;
+            border: 1px solid #ff9f4a60;
         }
-
-        label {
+        canvas {
             display: block;
-            font-weight: bold;
-            margin-bottom: 8px;
-            color: #1e3c2c;
-            font-size: 14px;
-        }
-
-        input, select {
+            margin: 0 auto;
             width: 100%;
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-size: 14px;
-            transition: all 0.3s;
+            max-width: 320px;
+            height: auto;
+            background: #131a2c;
+            border-radius: 50%;
+            box-shadow: 0 10px 20px black, 0 0 0 5px #ffac4a, 0 0 0 10px #1e1a10;
         }
-
-        input:focus, select:focus {
-            outline: none;
-            border-color: #2d6a4f;
-        }
-
-        .btn {
-            width: 100%;
-            padding: 14px;
-            background: #2d6a4f;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-top: 10px;
-        }
-
-        .btn:hover {
-            background: #1e3c2c;
-            transform: scale(1.02);
-        }
-
-        .info-box {
-            background: #f0f7f0;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 20px;
-            font-size: 12px;
-            color: #555;
+        .spin-controls {
             text-align: center;
+            margin-top: 20px;
         }
-
-        .hidden {
+        .name-input-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 15px 0;
+        }
+        .name-input-group input {
+            flex: 2;
+            min-width: 160px;
+            background: #010318;
+            border: 1px solid #ffa24d;
+            border-radius: 60px;
+            padding: 12px 18px;
+            color: white;
+            font-size: 1rem;
+            text-align: center;
+            outline: none;
+        }
+        button {
+            background: linear-gradient(95deg, #1f2a44, #141c30);
+            border: none;
+            border-radius: 60px;
+            padding: 10px 24px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 3px 6px black;
+        }
+        .btn-spin {
+            background: linear-gradient(95deg, #ff8800, #ff4400);
+            font-size: 1.2rem;
+            padding: 12px 28px;
+        }
+        .btn-spin:hover {
+            transform: scale(1.02);
+            filter: brightness(1.05);
+        }
+        .result-box {
+            background: #000000aa;
+            backdrop-filter: blur(12px);
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 60px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: #ffdfaa;
+            border: 1px solid #ffaa44;
+        }
+        .matchup-list {
+            max-height: 350px;
+            overflow-y: auto;
+            margin-top: 12px;
+            background: #050a18;
+            border-radius: 1.2rem;
+            padding: 8px;
+        }
+        .matchup-item {
+            background: #10172b;
+            margin: 6px 0;
+            padding: 8px 12px;
+            border-radius: 40px;
+            border-left: 4px solid #ff8c00;
+            font-size: 0.85rem;
+            color: #cbe4fe;
+        }
+        .admin-toggle {
+            text-align: right;
+            margin-bottom: 12px;
+        }
+        .admin-panel {
+            background: #030917;
+            border-radius: 1.5rem;
+            padding: 1rem;
+            margin-top: 1rem;
+            border: 1px dashed #ff9933;
             display: none;
         }
-
-        .loading {
-            text-align: center;
-            padding: 30px;
+        .admin-panel.show {
+            display: block;
         }
-
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #2d6a4f;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .transfer-details {
-            background: #fff3cd;
-            border: 1px solid #ffc107;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 20px 0;
-            text-align: center;
-        }
-
-        .bank-details {
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
+        textarea {
+            width: 100%;
+            background: #010318;
+            border: 1px solid #ffaa44;
+            border-radius: 1.2rem;
+            padding: 12px;
+            color: white;
             font-family: monospace;
-            font-size: 16px;
+            resize: vertical;
         }
-
-        .fake-input {
-            background: #f9f9f9;
-            border: 1px solid #ddd;
-            padding: 10px;
-            border-radius: 5px;
-            margin: 10px 0;
-            text-align: left;
+        .small-btn {
+            font-size: 0.8rem;
+            padding: 6px 14px;
+            margin-top: 8px;
         }
-
-        .prank-reveal {
-            background: #ffebee;
-            border-left: 4px solid #f44336;
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
+        .warning {
+            color: #ffaa88;
+            font-size: 0.75rem;
         }
-
-        .prank-reveal h2 {
-            color: #f44336;
-            margin-bottom: 10px;
-        }
-
-        .result-preview {
-            background: #e8f5e9;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
-            text-align: center;
-        }
-
-        .price-tag {
-            font-size: 20px;
-            color: #f39c12;
-            font-weight: bold;
-            margin: 10px 0;
-        }
-
-        button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        .score-option {
+        .log-header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            padding: 12px;
-            margin: 8px 0;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s;
+            align-items: baseline;
+            flex-wrap: wrap;
         }
-
-        .score-option:hover {
-            border-color: #2d6a4f;
-            background: #f0f7f0;
+        .reset-spins {
+            background: #3a2a2a;
+            color: #ffbb99;
         }
-
-        .score-option.selected {
-            border-color: #2d6a4f;
-            background: #e8f5e9;
-            box-shadow: 0 0 0 2px rgba(45,106,79,0.2);
-        }
-
-        .score-points {
-            font-weight: bold;
-            font-size: 18px;
-        }
-
-        .score-price {
-            color: #f39c12;
-            font-weight: bold;
+        footer {
+            text-align: center;
+            font-size: 0.7rem;
+            margin-top: 1rem;
+            color: #7e8db0;
         }
     </style>
 </head>
 <body>
-<div class="container" id="app">
-    <!-- Page 1: JAMB Info Form -->
-    <div id="page1">
-        <div class="header">
-            <h1> JAMB Result Booster</h1>
-            <p>Add points to your result - Pay per point!</p>
+<div class="container">
+    <div class="admin-toggle">
+        <button id="adminBtn">🔐 Admin Login</button>
+    </div>
+    <h1>🔫 SOLO TOURNAMENT · UNIQUE PAIRING 🎡</h1>
+    <div class="sub">One spin per warrior | Each player fights exactly once | No shared opponents</div>
+
+    <div class="main-grid">
+        <div class="wheel-panel">
+            <canvas id="wheelCanvas" width="500" height="500"></canvas>
+            <div class="spin-controls">
+                <div class="name-input-group">
+                    <input type="text" id="playerName" placeholder="🔥 Enter your IGN" autocomplete="off">
+                    <button id="spinBtn" class="btn-spin">🎲 SPIN TO FIGHT 🎲</button>
+                </div>
+                <div id="resultArea" class="result-box">
+                    ✨ Ready to fight ✨
+                </div>
+            </div>
         </div>
-        <div class="content">
-            <form id="jambForm">
-                <div class="form-group">
-                    <label>JAMB Registration Number *</label>
-                    <input type="text" id="regNumber" placeholder="e.g., 20241234567890" required>
-                </div>
-                <div class="form-group">
-                    <label>Surname *</label>
-                    <input type="text" id="surname" placeholder="e.g., OKONKWO" required>
-                </div>
-                <div class="form-group">
-                    <label>First Name *</label>
-                    <input type="text" id="firstname" placeholder="e.g., CHIBUIKE" required>
-                </div>
-                <div class="form-group">
-                    <label>Your Current JAMB Score *</label>
-                    <input type="number" id="currentScore" placeholder="e.g., 180" min="0" max="400" required>
-                </div>
-                <div class="info-box">
-                    ⚠️ Upgrade your score by choosing how many points to add! Higher points = higher price.
-                </div>
-                <button type="submit" class="btn">🔍 Continue to Upgrade</button>
-            </form>
+
+        <div class="log-panel">
+            <div class="log-header">
+                <h3>📋 FIGHT LOG (Unique pairings)</h3>
+                <button id="resetMatchupsBtn" class="reset-spins" style="background:#2c1a1a;">🔄 Reset tournament</button>
+            </div>
+            <div id="matchupList" class="matchup-list">
+                <div style="text-align:center; padding:20px;">No matchups yet. Spin the wheel!</div>
+            </div>
+            <div class="warning">⚡ Each player can be in only one match. Admin can reset.</div>
         </div>
     </div>
 
-    <!-- Page 2: Choose upgrade package -->
-    <div id="page2" class="hidden">
-        <div class="header">
-            <h1>📈 Choose Your Upgrade</h1>
-            <p>More points = Higher price</p>
-        </div>
-        <div class="content">
-            <div class="form-group">
-                <label>Select how many points to add:</label>
-                <div id="packageOptions">
-                    <div class="score-option" data-points="50" data-price="5000">
-                        <span class="score-points">➕ Add 50 points</span>
-                        <span class="score-price">₦5,000</span>
-                    </div>
-                    <div class="score-option" data-points="100" data-price="10000">
-                        <span class="score-points">➕ Add 100 points</span>
-                        <span class="score-price">₦10,000</span>
-                    </div>
-                    <div class="score-option" data-points="150" data-price="15000">
-                        <span class="score-points">➕ Add 150 points</span>
-                        <span class="score-price">₦15,000</span>
-                    </div>
-                    <div class="score-option" data-points="200" data-price="20000">
-                        <span class="score-points">➕ Add 200+ points</span>
-                        <span class="score-price">₦20,000</span>
-                    </div>
-                </div>
-            </div>
-            <div class="result-preview" id="scorePreview" style="display: none;">
-                <strong>📊 Result Preview:</strong><br>
-                Current Score: <span id="previewCurrent">0</span><br>
-                + <span id="previewPoints">0</span> points = <strong><span id="previewNew">0</span></strong>
-            </div>
-            <button class="btn" id="proceedToPaymentBtn" disabled>💳 Proceed to Payment</button>
-            <button class="btn" id="backToFormBtn" style="background: #999; margin-top: 10px;">← Back</button>
-        </div>
+    <div id="adminPanel" class="admin-panel">
+        <h3>🛠️ GUILD LEADER ZONE</h3>
+        <label>👥 Guild members (one per line):</label>
+        <textarea id="membersInput" rows="4" placeholder="Axl&#10;ShadowBlade&#10;SniperQueen&#10;Rambo99"></textarea>
+        <button id="buildWheelBtn" class="small-btn">🎨 BUILD / UPDATE WHEEL</button>
+        <div id="adminMsg" class="warning" style="margin-top:8px;"></div>
     </div>
-
-    <!-- Page 3: Transfer Payment -->
-    <div id="page3" class="hidden">
-        <div class="header">
-            <h1>💰 Complete Bank Transfer</h1>
-            <p>Pay exactly the amount below</p>
-        </div>
-        <div class="content">
-            <div class="transfer-details">
-                <h3 id="paymentAmountDisplay">₦0</h3>
-                <div class="bank-details">
-                    <p><strong>Bank:</strong> Moniepoint </p>
-                    <p><strong>Account Name:</strong> JAMB UPGRADE SERV</p>
-                    <p><strong>Account Number:</strong> 8029506923</p>
-                </div>
-                <div class="fake-input">
-                    <label>Enter Amount Sent:</label>
-                    <input type="number" id="amountSent" placeholder="Enter amount">
-                </div>
-                <div class="fake-input">
-                    <label>Transaction Reference (optional):</label>
-                    <input type="text" id="transactionRef" placeholder="e.g., TRX123456">
-                </div>
-                <button class="btn" id="confirmPaymentBtn">✅ I Have Transferred</button>
-            </div>
-            <button class="btn" id="backToPackageBtn" style="background: #999; margin-top: 10px;">← Back to Packages</button>
-        </div>
-    </div>
-
-    <!-- Page 4: Processing -->
-    <div id="page4" class="hidden">
-        <div class="header">
-            <h1>⏳ Processing Upgrade</h1>
-            <p>Please wait...</p>
-        </div>
-        <div class="content">
-            <div class="loading">
-                <div class="spinner"></div>
-                <p>Verifying payment and upgrading score...</p>
-                <p id="processingMessage" style="margin-top: 15px; font-size: 12px; color: #666;"></p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Page 5: Prank Reveal -->
-    <div id="page5" class="hidden">
-        <div class="header" style="background: #f44336;">
-            <h1>😜 SCAM ALERT!</h1>
-            <p>You've been scammed!</p>
-        </div>
-        <div class="content">
-            <div class="prank-reveal">
-                <h2>Why didn't you read your books 🤦😅</h2>
-                <p style="font-size: 18px; margin: 15px 0;">Your JAMB result can never change, try again next year 😂</p>
-                <p id="prankDetails" style="margin: 10px 0;"></p>
-                <p style="font-weight: bold; color: #2d6a4f; margin-top: 20px;">You go cry tire 😅😂</p>
-                <button class="btn" id="restartBtn" style="background: #f44336; margin-top: 20px;">🔄 Start Over</button>
-            </div>
-        </div>
-    </div>
+    <footer>
+        🎮 Leader only: set participants. When a player spins, they are paired with a <strong>random unpaired opponent</strong> (unique matches, no repeats).
+    </footer>
 </div>
 
 <script>
-    // Get all pages
-    const page1 = document.getElementById('page1');
-    const page2 = document.getElementById('page2');
-    const page3 = document.getElementById('page3');
-    const page4 = document.getElementById('page4');
-    const page5 = document.getElementById('page5');
+    (function(){
+        // DOM elements
+        const canvas = document.getElementById('wheelCanvas');
+        const ctx = canvas.getContext('2d');
+        const spinBtn = document.getElementById('spinBtn');
+        const playerNameInput = document.getElementById('playerName');
+        const resultDiv = document.getElementById('resultArea');
+        const matchupContainer = document.getElementById('matchupList');
+        const adminBtn = document.getElementById('adminBtn');
+        const adminPanel = document.getElementById('adminPanel');
+        const membersInput = document.getElementById('membersInput');
+        const buildWheelBtn = document.getElementById('buildWheelBtn');
+        const resetMatchupsBtn = document.getElementById('resetMatchupsBtn');
+        const adminMsgSpan = document.getElementById('adminMsg');
 
-    // Store user data
-    let userData = {
-        currentScore: 0,
-        selectedPoints: 0,
-        selectedPrice: 0
-    };
+        // ---------- Data ----------
+        let participants = [];          // all guild members
+        let currentRotation = 0;
+        let spinning = false;
+        let animationId = null;
 
-    // Page 1: JAMB form submission
-    document.getElementById('jambForm').addEventListener('submit', function(e) {
-        e.preventDefault();
+        // Pairing state: each player can be only in one match
+        let pairedPlayers = new Set();   // players already assigned to a match (as spinner OR opponent)
+        let matchups = [];               // array of {player1, player2} (order: spinner vs opponent)
 
-        userData.regNumber = document.getElementById('regNumber').value;
-        userData.surname = document.getElementById('surname').value;
-        userData.firstname = document.getElementById('firstname').value;
-        userData.currentScore = parseInt(document.getElementById('currentScore').value);
-
-        if (!userData.regNumber || !userData.surname || !userData.firstname || !userData.currentScore) {
-            alert('Please fill all fields!');
-            return;
+        // load from localStorage
+        function loadData() {
+            const storedParticipants = localStorage.getItem('ff_participants');
+            if(storedParticipants) {
+                participants = JSON.parse(storedParticipants);
+            } else {
+                participants = ["Axl","ShadowBlade","SniperQueen","Rambo99","GhostRecon","NovaKill","Blaze"];
+            }
+            const storedPaired = localStorage.getItem('ff_pairedSet');
+            if(storedPaired) {
+                const arr = JSON.parse(storedPaired);
+                pairedPlayers = new Set(arr);
+            }
+            const storedMatchups = localStorage.getItem('ff_matchups_unique');
+            if(storedMatchups) {
+                matchups = JSON.parse(storedMatchups);
+            } else {
+                matchups = [];
+            }
+            membersInput.value = participants.join('\n');
+            renderMatchupLog();
+            drawWheel();
         }
 
-        if (userData.currentScore < 0 || userData.currentScore > 400) {
-            alert('Please enter a valid score between 0 and 400');
-            return;
+        function saveData() {
+            localStorage.setItem('ff_participants', JSON.stringify(participants));
+            localStorage.setItem('ff_pairedSet', JSON.stringify([...pairedPlayers]));
+            localStorage.setItem('ff_matchups_unique', JSON.stringify(matchups));
         }
 
-        // Reset selections
-        userData.selectedPoints = 0;
-        userData.selectedPrice = 0;
-        document.getElementById('proceedToPaymentBtn').disabled = true;
-        document.getElementById('scorePreview').style.display = 'none';
-        
-        // Remove selected class from all options
-        document.querySelectorAll('.score-option').forEach(opt => {
-            opt.classList.remove('selected');
-        });
-
-        page1.classList.add('hidden');
-        page2.classList.remove('hidden');
-    });
-
-    // Package selection
-    document.querySelectorAll('.score-option').forEach(option => {
-        option.addEventListener('click', function() {
-            // Remove selected class from all
-            document.querySelectorAll('.score-option').forEach(opt => {
-                opt.classList.remove('selected');
-            });
+        // Draw wheel (visual only)
+        function drawWheel() {
+            if (!ctx) return;
+            const count = participants.length;
+            const size = Math.min(500, canvas.parentElement.clientWidth * 0.8);
+            canvas.width = size;
+            canvas.height = size;
+            canvas.style.width = `${size}px`;
+            canvas.style.height = `${size}px`;
             
-            // Add selected class to clicked
-            this.classList.add('selected');
-            
-            // Get values
-            userData.selectedPoints = parseInt(this.getAttribute('data-points'));
-            userData.selectedPrice = parseInt(this.getAttribute('data-price'));
-            
-            // Enable proceed button
-            document.getElementById('proceedToPaymentBtn').disabled = false;
-            
-            // Show preview
-            const newScore = userData.currentScore + userData.selectedPoints;
-            document.getElementById('previewCurrent').textContent = userData.currentScore;
-            document.getElementById('previewPoints').textContent = userData.selectedPoints;
-            document.getElementById('previewNew').textContent = newScore > 400 ? 400 : newScore;
-            document.getElementById('scorePreview').style.display = 'block';
-        });
-    });
-
-    // Back to form
-    document.getElementById('backToFormBtn').addEventListener('click', function() {
-        page2.classList.add('hidden');
-        page1.classList.remove('hidden');
-    });
-
-    // Proceed to payment
-    document.getElementById('proceedToPaymentBtn').addEventListener('click', function() {
-        if (userData.selectedPoints === 0) {
-            alert('Please select an upgrade package');
-            return;
-        }
-        
-        // Update payment display
-        document.getElementById('paymentAmountDisplay').innerHTML = `💸 Amount to Pay: ₦${userData.selectedPrice.toLocaleString()}`;
-        document.getElementById('amountSent').value = userData.selectedPrice;
-        
-        page2.classList.add('hidden');
-        page3.classList.remove('hidden');
-    });
-
-    // Back to packages
-    document.getElementById('backToPackageBtn').addEventListener('click', function() {
-        page3.classList.add('hidden');
-        page2.classList.remove('hidden');
-    });
-
-    // Confirm payment
-    document.getElementById('confirmPaymentBtn').addEventListener('click', function() {
-        const amountSent = parseInt(document.getElementById('amountSent').value);
-        
-        if (!amountSent || amountSent < userData.selectedPrice) {
-            alert(`Please enter the correct amount (₦${userData.selectedPrice.toLocaleString()}) to proceed.`);
-            return;
-        }
-        
-        if (amountSent > userData.selectedPrice) {
-            if (!confirm(`You entered ₦${amountSent.toLocaleString()} but the amount is ₦${userData.selectedPrice.toLocaleString()}. Overpayment will not be refunded. Continue?`)) {
+            if (count === 0) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#111';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('NO PLAYERS', canvas.width/2, canvas.height/2);
                 return;
             }
+            
+            const angleStep = (Math.PI * 2) / count;
+            const centerX = canvas.width/2;
+            const centerY = canvas.height/2;
+            const radius = canvas.width/2;
+            const colors = ['#FF4D4D','#FF9B4D','#FFD24D','#A2FF4D','#4DFF79','#4DFFE0','#4DA2FF','#A24DFF','#FF4DE6','#FF6A4D','#4DFFA2','#FFB84D','#E67300','#3399FF','#CC33FF'];
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let i = 0; i < count; i++) {
+                const start = i * angleStep + currentRotation;
+                const end = (i+1) * angleStep + currentRotation;
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, start, end);
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.fill();
+                ctx.strokeStyle = '#fff6cf';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.rotate(start + angleStep/2);
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                let textRadius = radius * 0.7;
+                let fontSize = Math.max(11, Math.floor(radius/13));
+                ctx.font = `bold ${fontSize}px "Segoe UI"`;
+                let name = participants[i];
+                if (name.length > 12) name = name.slice(0,10)+"..";
+                ctx.fillStyle = '#111';
+                ctx.fillText(name, textRadius, 5);
+                ctx.fillStyle = 'white';
+                ctx.shadowBlur = 2;
+                ctx.fillText(name, textRadius-1, 4);
+                ctx.restore();
+            }
+            // pointer
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius*0.1, 0, 2*Math.PI);
+            ctx.fillStyle = '#FFD966';
+            ctx.fill();
+            ctx.fillStyle = '#b45f1b';
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY - radius*0.85);
+            ctx.lineTo(centerX-12, centerY - radius*0.68);
+            ctx.lineTo(centerX+12, centerY - radius*0.68);
+            ctx.fill();
         }
 
-        // Go to processing page
-        page3.classList.add('hidden');
-        page4.classList.remove('hidden');
+        // Get current segment under pointer (for visual only)
+        function getCurrentSegmentName() {
+            if (!participants.length) return null;
+            const angleStep = (Math.PI * 2) / participants.length;
+            const pointerAngle = -Math.PI/2;
+            let rawAngle = (pointerAngle - currentRotation) % (2*Math.PI);
+            if (rawAngle < 0) rawAngle += 2*Math.PI;
+            let idx = Math.floor(rawAngle / angleStep) % participants.length;
+            return participants[idx];
+        }
 
-        // Animated processing messages
-        const messages = [
-            'Connecting to JAMB payment gateway...',
-            'Verifying transaction with bank...',
-            `Adding ${userData.selectedPoints} points to your score...`,
-            'Recalculating aggregate...',
-            'Updating JAMB database...',
-            'Almost there...'
-        ];
-        
-        let msgIndex = 0;
-        const msgElement = document.getElementById('processingMessage');
-        
-        const msgInterval = setInterval(() => {
-            if (msgIndex < messages.length) {
-                msgElement.textContent = messages[msgIndex];
-                msgIndex++;
+        // Spin to a specific target opponent (must be unpaired and != spinner)
+        function spinToOpponent(spinnerName, targetOpponent) {
+            return new Promise((resolve) => {
+                if (spinning) return resolve(false);
+                const targetIdx = participants.indexOf(targetOpponent);
+                if (targetIdx === -1) return resolve(false);
+                
+                const angleStep = (Math.PI * 2) / participants.length;
+                let randomInside = Math.random() * angleStep;
+                let desiredSegmentStart = targetIdx * angleStep;
+                let desiredPointerAngle = desiredSegmentStart + randomInside;
+                let finalRotation = (desiredPointerAngle - (-Math.PI/2)) % (2*Math.PI);
+                let extraSpins = 6 + Math.floor(Math.random() * 8);
+                let targetRotation = finalRotation + (extraSpins * 2 * Math.PI);
+                
+                let startRot = currentRotation;
+                let startTime = performance.now();
+                const duration = 2000;
+                spinning = true;
+                
+                function animate(now) {
+                    let elapsed = now - startTime;
+                    let t = Math.min(1, elapsed / duration);
+                    let easeOut = 1 - Math.pow(1-t, 3);
+                    let newRot = startRot + (targetRotation - startRot) * easeOut;
+                    currentRotation = newRot % (2*Math.PI);
+                    drawWheel();
+                    if (t < 1) {
+                        animationId = requestAnimationFrame(animate);
+                    } else {
+                        currentRotation = targetRotation % (2*Math.PI);
+                        drawWheel();
+                        spinning = false;
+                        cancelAnimationFrame(animationId);
+                        animationId = null;
+                        resolve(true);
+                    }
+                }
+                if (animationId) cancelAnimationFrame(animationId);
+                animationId = requestAnimationFrame(animate);
+            });
+        }
+
+        // Main spin logic with unique pairing
+        async function performSpin(spinnerName) {
+            if (spinning) {
+                resultDiv.innerHTML = "⏳ Wheel is spinning. Wait...";
+                return;
             }
-        }, 1800);
-
-        // After 8 seconds, show prank reveal
-        setTimeout(() => {
-            clearInterval(msgInterval);
-            page4.classList.add('hidden');
+            if (participants.length < 2) {
+                resultDiv.innerHTML = "❌ Not enough participants. Guild leader must add players (Admin).";
+                return;
+            }
+            if (!participants.includes(spinnerName)) {
+                resultDiv.innerHTML = `❗ "${spinnerName}" not in guild list. Ask leader to add you.`;
+                return;
+            }
+            // Already paired?
+            if (pairedPlayers.has(spinnerName)) {
+                // find existing matchup for this player
+                let existing = matchups.find(m => m.player1 === spinnerName || m.player2 === spinnerName);
+                if (existing) {
+                    let opponent = (existing.player1 === spinnerName) ? existing.player2 : existing.player1;
+                    resultDiv.innerHTML = `⚠️ ${spinnerName}, you already fought ${opponent}. Only one match per player.`;
+                } else {
+                    resultDiv.innerHTML = `⚠️ ${spinnerName}, you are already paired (maybe by opponent spin). Tournament is one match per player.`;
+                }
+                return;
+            }
             
-            // Set prank details
-            const newScore = userData.currentScore + userData.selectedPoints;
-            const finalScore = newScore > 400 ? 400 : newScore;
-            document.getElementById('prankDetails').innerHTML = `You wanted to add <strong>${userData.selectedPoints} points</strong> for <strong>₦${userData.selectedPrice.toLocaleString()}</strong><br>Your "new score" would have been: <strong>${finalScore}</strong> 😂`;
+            // Get available opponents (unpaired, different from spinner)
+            let availableOpponents = participants.filter(p => p !== spinnerName && !pairedPlayers.has(p));
+            if (availableOpponents.length === 0) {
+                // If odd number, this player may get a bye (no opponent left)
+                if (participants.length % 2 === 1 && !pairedPlayers.has(spinnerName)) {
+                    // bye: record as a solo qualification (optional)
+                    matchups.push({ player1: spinnerName, player2: "BYE (advances)" });
+                    pairedPlayers.add(spinnerName);
+                    saveData();
+                    renderMatchupLog();
+                    resultDiv.innerHTML = `🎉 ${spinnerName} gets a BYE! No opponent left – advances to next round. 🎉`;
+                    drawWheel();
+                } else {
+                    resultDiv.innerHTML = `😵 No available opponents! All other players are already paired. Tournament full.`;
+                }
+                return;
+            }
             
-            page5.classList.remove('hidden');
-        }, 8000);
-    });
+            // Pick random opponent from available
+            let opponent = availableOpponents[Math.floor(Math.random() * availableOpponents.length)];
+            // Spin the wheel to that opponent (dramatic effect)
+            await spinToOpponent(spinnerName, opponent);
+            // After spin, double-check that opponent is still available (could have been taken by another spin during animation? no, because we lock spins sequentially)
+            if (pairedPlayers.has(opponent) || pairedPlayers.has(spinnerName)) {
+                resultDiv.innerHTML = `⚠️ Pairing conflict! Someone else already took ${opponent}. Please try again.`;
+                return;
+            }
+            // Record matchup
+            matchups.push({ player1: spinnerName, player2: opponent });
+            pairedPlayers.add(spinnerName);
+            pairedPlayers.add(opponent);
+            saveData();
+            renderMatchupLog();
+            resultDiv.innerHTML = `🔥 ${spinnerName} 🆚 <span style="color:#ffcc66;font-size:1.4rem;">${opponent}</span> 🔥<br> Unique match!`;
+            resultDiv.classList.add('glow');
+            setTimeout(() => resultDiv.classList.remove('glow'), 600);
+        }
 
-    // Restart button
-    document.getElementById('restartBtn').addEventListener('click', function() {
-        document.getElementById('jambForm').reset();
-        document.getElementById('amountSent').value = '';
-        document.getElementById('transactionRef').value = '';
-        userData = { currentScore: 0, selectedPoints: 0, selectedPrice: 0 };
-        
-        page5.classList.add('hidden');
-        page1.classList.remove('hidden');
-    });
+        function renderMatchupLog() {
+            if (!matchupContainer) return;
+            if (matchups.length === 0) {
+                matchupContainer.innerHTML = '<div style="text-align:center; padding:20px;">✨ No fights yet. Spin the wheel!</div>';
+                return;
+            }
+            let html = '';
+            for (let m of matchups.slice().reverse()) {
+                html += `<div class="matchup-item">⚔️ ${escapeHtml(m.player1)}  vs  ${escapeHtml(m.player2)}</div>`;
+            }
+            matchupContainer.innerHTML = html;
+        }
+
+        function escapeHtml(str) { return str.replace(/[&<>]/g, function(m){ return m==='&'?'&amp;':m==='<'?'&lt;':'&gt;'; }); }
+
+        // Admin functions
+        function rebuildWheel() {
+            let raw = membersInput.value;
+            let lines = raw.split(/\r?\n/).map(l=>l.trim()).filter(l=>l!=="");
+            if(lines.length < 2) {
+                adminMsgSpan.innerText = "❌ Need at least 2 participants.";
+                return false;
+            }
+            let unique = [];
+            for(let n of lines) if(!unique.includes(n)) unique.push(n);
+            participants = unique;
+            membersInput.value = participants.join('\n');
+            currentRotation = Math.random() * 2 * Math.PI;
+            drawWheel();
+            // Do NOT clear pairings automatically – leader may want to keep matches.
+            saveData();
+            adminMsgSpan.innerText = `✅ Wheel updated with ${participants.length} fighters. Pairings untouched.`;
+            return true;
+        }
+
+        function resetTournament() {
+            if(confirm("⚠️ RESET entire tournament? All matchups and spins will be cleared. Everyone can spin again.")) {
+                pairedPlayers.clear();
+                matchups = [];
+                saveData();
+                renderMatchupLog();
+                resultDiv.innerHTML = "✨ Tournament reset. All players can now spin again.";
+                adminMsgSpan.innerText = "Tournament reset (pairings cleared).";
+                drawWheel();
+            }
+        }
+
+        // Admin password
+        let adminLoggedIn = false;
+        adminBtn.addEventListener('click', () => {
+            if(!adminLoggedIn) {
+                let pwd = prompt("Enter admin password:");
+                if(pwd === "guildmaster123") {
+                    adminLoggedIn = true;
+                    adminPanel.classList.add('show');
+                    adminBtn.textContent = "🔒 Admin Mode ON";
+                    adminMsgSpan.innerText = "Admin active. You can edit participants and reset tournament.";
+                } else { alert("Wrong password!"); }
+            } else {
+                adminLoggedIn = false;
+                adminPanel.classList.remove('show');
+                adminBtn.textContent = "🔐 Admin Login";
+            }
+        });
+        buildWheelBtn.addEventListener('click', () => { if(adminLoggedIn) rebuildWheel(); else alert("Admin only"); });
+        resetMatchupsBtn.addEventListener('click', () => { if(adminLoggedIn) resetTournament(); else alert("Admin only"); });
+        spinBtn.addEventListener('click', async () => {
+            let name = playerNameInput.value.trim();
+            if(!name) { resultDiv.innerHTML = "❗Enter your IGN first!"; return; }
+            await performSpin(name);
+        });
+
+        loadData();
+        window.addEventListener('resize', () => drawWheel());
+        const styleGlow = document.createElement('style');
+        styleGlow.textContent = `.glow { animation: pulse 0.5s ease; } @keyframes pulse { 0% { text-shadow: 0 0 0 orange; } 50% { text-shadow: 0 0 15px #ffaa33; } 100% { text-shadow: 0 0 0; } }`;
+        document.head.appendChild(styleGlow);
+    })();
 </script>
 </body>
 </html>
