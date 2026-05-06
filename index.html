@@ -3,26 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Free Fire Solo Tournament – Professional Spin Wheel</title>
+    <title>Live Free Fire Tournament – Global Spin Wheel</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            user-select: none;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
         body {
             background: radial-gradient(circle at 20% 30%, #0a0f1e, #020617);
             min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            font-family: 'Segoe UI', 'Poppins', system-ui, -apple-system, sans-serif;
+            font-family: 'Segoe UI', 'Poppins', system-ui, sans-serif;
             padding: 20px;
         }
-
-        /* Main card */
         .tournament-card {
             max-width: 1200px;
             width: 100%;
@@ -30,11 +25,9 @@
             backdrop-filter: blur(12px);
             border-radius: 2rem;
             border: 1px solid rgba(255, 140, 0, 0.5);
-            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.6);
             padding: 1.8rem;
-            transition: all 0.2s;
+            box-shadow: 0 25px 45px rgba(0,0,0,0.6);
         }
-
         h1 {
             font-size: 2rem;
             text-align: center;
@@ -42,10 +35,8 @@
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
-            letter-spacing: 1px;
             margin-bottom: 0.25rem;
         }
-
         .tagline {
             text-align: center;
             color: #a0b5e0;
@@ -58,211 +49,32 @@
             margin-right: auto;
             padding-bottom: 6px;
         }
-
-        /* Two columns */
-        .dashboard {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 2rem;
-        }
-
-        .wheel-area {
-            flex: 2;
-            min-width: 280px;
-            background: #0c1225cc;
-            border-radius: 2rem;
-            padding: 1.2rem;
-            border: 1px solid #2e3b66;
-        }
-
-        .log-area {
-            flex: 1.5;
-            min-width: 250px;
-            background: #0a0f1ecc;
-            border-radius: 2rem;
-            padding: 1rem;
-            border: 1px solid #ff9f4a70;
-        }
-
-        /* Wheel canvas */
-        .wheel-wrapper {
-            display: flex;
-            justify-content: center;
-            margin: 0.5rem 0;
-        }
-        canvas {
-            width: 100%;
-            max-width: 350px;
-            height: auto;
-            background: #11161f;
-            border-radius: 50%;
-            box-shadow: 0 15px 30px rgba(0,0,0,0.5), 0 0 0 5px #ffac4a, 0 0 0 10px rgba(0,0,0,0.3);
-        }
-
-        /* Spin controls */
-        .spin-panel {
-            text-align: center;
-            margin-top: 1.2rem;
-        }
-        .name-input-group {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            justify-content: center;
-            margin: 15px 0;
-        }
-        .name-input-group input {
-            flex: 2;
-            min-width: 180px;
-            background: #010318;
-            border: 1px solid #ffa24d;
-            border-radius: 60px;
-            padding: 12px 20px;
-            color: white;
-            font-size: 1rem;
-            text-align: center;
-            outline: none;
-            font-weight: 500;
-        }
-        .name-input-group input:focus {
-            border-color: #ffbb66;
-            box-shadow: 0 0 0 2px #ff990055;
-        }
-        button {
-            background: linear-gradient(95deg, #1f2a44, #141c30);
-            border: none;
-            border-radius: 60px;
-            padding: 10px 26px;
-            font-weight: bold;
-            color: white;
-            font-size: 0.9rem;
-            cursor: pointer;
-            transition: 0.2s;
-            box-shadow: 0 3px 6px rgba(0,0,0,0.4);
-        }
-        .btn-spin {
-            background: linear-gradient(95deg, #ff8800, #ff4400);
-            font-size: 1.2rem;
-            padding: 12px 32px;
-            box-shadow: 0 5px 12px #ff5500a0;
-        }
-        .btn-spin:hover {
-            transform: scale(1.02);
-            filter: brightness(1.05);
-        }
-        button:hover {
-            transform: translateY(-1px);
-        }
-        .result-card {
-            background: #000000bb;
-            backdrop-filter: blur(12px);
-            margin-top: 20px;
-            padding: 14px;
-            border-radius: 60px;
-            text-align: center;
-            font-weight: bold;
-            font-size: 1.1rem;
-            color: #ffefbf;
-            border: 1px solid #ffaa55;
-            letter-spacing: 0.5px;
-        }
-
-        /* Match log */
-        .log-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            flex-wrap: wrap;
-            margin-bottom: 12px;
-        }
-        .log-header h3 {
-            color: #ffbc6e;
-            font-size: 1.2rem;
-        }
-        .matchup-list {
-            max-height: 380px;
-            overflow-y: auto;
-            background: #050a18;
-            border-radius: 1.2rem;
-            padding: 8px;
-        }
-        .matchup-item {
-            background: #10172b;
-            margin: 8px 0;
-            padding: 10px 14px;
-            border-radius: 40px;
-            border-left: 4px solid #ff8c00;
-            font-size: 0.9rem;
-            color: #e2edff;
-            font-weight: 500;
-        }
-        .empty-log {
-            text-align: center;
-            padding: 28px;
-            color: #6b7ea5;
-            font-style: italic;
-        }
-
-        /* Admin panel */
-        .admin-toggle {
-            text-align: right;
-            margin-bottom: 1rem;
-        }
-        .admin-panel {
-            background: #030917ea;
-            border-radius: 1.5rem;
-            padding: 1.2rem;
-            margin-top: 1.5rem;
-            border: 1px solid #ffaa44;
-            display: none;
-        }
-        .admin-panel.show {
-            display: block;
-        }
-        .admin-panel h3 {
-            color: #ffbc6e;
-            margin-bottom: 10px;
-        }
-        textarea {
-            width: 100%;
-            background: #010318;
-            border: 1px solid #ffaa44;
-            border-radius: 1.2rem;
-            padding: 12px;
-            color: white;
-            font-family: monospace;
-            font-size: 0.9rem;
-            resize: vertical;
-        }
-        .small-btn {
-            font-size: 0.8rem;
-            padding: 7px 18px;
-            margin-top: 10px;
-            margin-right: 8px;
-        }
-        .warning-text {
-            color: #ffbc8c;
-            font-size: 0.75rem;
-            margin-top: 8px;
-        }
-        footer {
-            text-align: center;
-            font-size: 0.7rem;
-            margin-top: 1.8rem;
-            color: #6c7ea5;
-        }
-        hr {
-            border-color: #2a3560;
-            margin: 10px 0;
-        }
-        @keyframes pulse {
-            0% { text-shadow: 0 0 0 #ffaa33; }
-            50% { text-shadow: 0 0 16px #ffaa33; }
-            100% { text-shadow: 0 0 0 #ffaa33; }
-        }
-        .glow {
-            animation: pulse 0.5s ease;
-        }
+        .dashboard { display: flex; flex-wrap: wrap; gap: 2rem; }
+        .wheel-area { flex: 2; min-width: 280px; background: #0c1225cc; border-radius: 2rem; padding: 1.2rem; border: 1px solid #2e3b66; }
+        .log-area { flex: 1.5; min-width: 250px; background: #0a0f1ecc; border-radius: 2rem; padding: 1rem; border: 1px solid #ff9f4a70; }
+        .wheel-wrapper { display: flex; justify-content: center; margin: 0.5rem 0; }
+        canvas { width: 100%; max-width: 350px; height: auto; background: #11161f; border-radius: 50%; box-shadow: 0 15px 30px rgba(0,0,0,0.5), 0 0 0 5px #ffac4a, 0 0 0 10px rgba(0,0,0,0.3); }
+        .spin-panel { text-align: center; margin-top: 1.2rem; }
+        .name-input-group { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin: 15px 0; }
+        .name-input-group input { flex: 2; min-width: 180px; background: #010318; border: 1px solid #ffa24d; border-radius: 60px; padding: 12px 20px; color: white; font-size: 1rem; text-align: center; outline: none; }
+        button { background: linear-gradient(95deg, #1f2a44, #141c30); border: none; border-radius: 60px; padding: 10px 26px; font-weight: bold; color: white; cursor: pointer; transition: 0.2s; }
+        .btn-spin { background: linear-gradient(95deg, #ff8800, #ff4400); font-size: 1.2rem; padding: 12px 32px; box-shadow: 0 5px 12px #ff5500a0; }
+        .btn-spin:hover { transform: scale(1.02); filter: brightness(1.05); }
+        .result-card { background: #000000bb; backdrop-filter: blur(12px); margin-top: 20px; padding: 14px; border-radius: 60px; text-align: center; font-weight: bold; font-size: 1.1rem; color: #ffefbf; border: 1px solid #ffaa55; }
+        .log-header { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; margin-bottom: 12px; }
+        .log-header h3 { color: #ffbc6e; }
+        .matchup-list { max-height: 380px; overflow-y: auto; background: #050a18; border-radius: 1.2rem; padding: 8px; }
+        .matchup-item { background: #10172b; margin: 8px 0; padding: 10px 14px; border-radius: 40px; border-left: 4px solid #ff8c00; color: #e2edff; font-weight: 500; }
+        .empty-log { text-align: center; padding: 28px; color: #6b7ea5; font-style: italic; }
+        .admin-toggle { text-align: right; margin-bottom: 1rem; }
+        .admin-panel { background: #030917ea; border-radius: 1.5rem; padding: 1.2rem; margin-top: 1.5rem; border: 1px solid #ffaa44; display: none; }
+        .admin-panel.show { display: block; }
+        textarea { width: 100%; background: #010318; border: 1px solid #ffaa44; border-radius: 1.2rem; padding: 12px; color: white; font-family: monospace; resize: vertical; }
+        .small-btn { font-size: 0.8rem; padding: 7px 18px; margin-top: 10px; margin-right: 8px; }
+        .warning-text { color: #ffbc8c; font-size: 0.75rem; margin-top: 8px; }
+        footer { text-align: center; font-size: 0.7rem; margin-top: 1.8rem; color: #6c7ea5; }
+        @keyframes pulse { 0% { text-shadow: 0 0 0 #ffaa33; } 50% { text-shadow: 0 0 16px #ffaa33; } 100% { text-shadow: 0 0 0 #ffaa33; } }
+        .glow { animation: pulse 0.5s ease; }
     </style>
 </head>
 <body>
@@ -270,11 +82,10 @@
     <div class="admin-toggle">
         <button id="adminBtn">🔐 Admin Login</button>
     </div>
-    <h1>🎯 FREE FIRE · SOLO TOURNAMENT</h1>
-    <div style="text-align: center"><span class="tagline">⚡ One spin per warrior | Unique pairings | Fair wheel ⚡</span></div>
+    <h1>🎯 FREE FIRE · LIVE TOURNAMENT</h1>
+    <div class="tagline">⚡ Synced across all devices | Admin sets names | One spin per player ⚡</div>
 
     <div class="dashboard">
-        <!-- LEFT: Wheel & Spin -->
         <div class="wheel-area">
             <div class="wheel-wrapper">
                 <canvas id="wheelCanvas" width="500" height="500"></canvas>
@@ -284,401 +95,336 @@
                     <input type="text" id="playerName" placeholder="🔰 Enter your IGN" autocomplete="off">
                     <button id="spinBtn" class="btn-spin">🎲 SPIN TO FIGHT 🎲</button>
                 </div>
-                <div id="resultArea" class="result-card">
-                    ✨ Waiting for spin ✨
-                </div>
+                <div id="resultArea" class="result-card">✨ Waiting for spin ✨</div>
             </div>
         </div>
-
-        <!-- RIGHT: Match Log -->
         <div class="log-area">
             <div class="log-header">
                 <h3>📋 BATTLE LOG</h3>
                 <button id="resetTournamentBtn" class="small-btn" style="background:#3a2626;">🔄 Reset All</button>
             </div>
-            <div id="matchupList" class="matchup-list">
-                <div class="empty-log">No matchups yet. Admin must add players first.</div>
-            </div>
-            <div class="warning-text">🔒 Each player appears in exactly one match. Admin only can reset.</div>
+            <div id="matchupList" class="matchup-list"><div class="empty-log">Loading tournament data...</div></div>
+            <div class="warning-text">🔒 Each player appears once. Admin can reset.</div>
         </div>
     </div>
 
-    <!-- ADMIN PANEL (hidden by default) -->
     <div id="adminPanel" class="admin-panel">
         <h3>🛠️ GUILD LEADER CONTROL</h3>
         <label>👥 Enter all guild member names (one per line):</label>
-        <textarea id="membersList" rows="5" placeholder="Ruby&#10;Ared&#10;TST&#10;Khalanoyy&#10;Mournous&#10;Cult"></textarea>
-        <button id="buildWheelBtn" class="small-btn">🎨 Build Wheel</button>
+        <textarea id="membersList" rows="5" placeholder="Ruby&#10;Ared&#10;TST&#10;Khalanoyy"></textarea>
+        <button id="buildWheelBtn" class="small-btn">🎨 Build Wheel (Sync to all)</button>
         <div id="adminFeedback" class="warning-text"></div>
     </div>
-    <footer>
-        🎮 How it works: Admin adds members → Builds wheel → Each player types own name → Spins → Wheel lands on random <strong>unpaired</strong> opponent (unique matches, no repeats).
-    </footer>
+    <footer>🌍 Live sync via Firebase – all players see the same wheel and matchups instantly.</footer>
 </div>
 
 <script>
-    (function(){
-        // ---------- DOM elements ----------
-        const canvas = document.getElementById('wheelCanvas');
-        const ctx = canvas.getContext('2d');
-        const spinBtn = document.getElementById('spinBtn');
-        const playerNameInput = document.getElementById('playerName');
-        const resultDiv = document.getElementById('resultArea');
-        const matchupContainer = document.getElementById('matchupList');
-        const adminBtn = document.getElementById('adminBtn');
-        const adminPanel = document.getElementById('adminPanel');
-        const membersTextarea = document.getElementById('membersList');
-        const buildWheelBtn = document.getElementById('buildWheelBtn');
-        const resetTournamentBtn = document.getElementById('resetTournamentBtn');
-        const adminFeedback = document.getElementById('adminFeedback');
+    // ========== REPLACE WITH YOUR FIREBASE CONFIG ==========
+    const firebaseConfig = {
+    apiKey: "AIzaSyDuUZ6Rej3jeyuPIU-cFwASyfA_lujDWXA",
+    authDomain: "ff-tournament-a1cad.firebaseapp.com",
+    projectId: "ff-tournament-a1cad",
+    storageBucket: "ff-tournament-a1cad.firebasestorage.app",
+    messagingSenderId: "997871905748",
+    appId: "1:997871905748:web:0025a7975618a1cac78441",
+    measurementId: "G-78PNX72RL2"
+  };
+    // =======================================================
 
-        // ---------- Data (stored in localStorage) ----------
-        let participants = [];          // list of guild members
-        let currentRotation = 0;        // radians
-        let spinning = false;
-        let animationId = null;
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
 
-        // Pairing state: each player appears in at most one match
-        let pairedPlayers = new Set();   // players already matched (as spinner OR opponent)
-        let matchups = [];               // array of {player1, player2}
+    // DOM elements
+    const canvas = document.getElementById('wheelCanvas');
+    const ctx = canvas.getContext('2d');
+    const spinBtn = document.getElementById('spinBtn');
+    const playerNameInput = document.getElementById('playerName');
+    const resultDiv = document.getElementById('resultArea');
+    const matchupContainer = document.getElementById('matchupList');
+    const adminBtn = document.getElementById('adminBtn');
+    const adminPanel = document.getElementById('adminPanel');
+    const membersTextarea = document.getElementById('membersList');
+    const buildWheelBtn = document.getElementById('buildWheelBtn');
+    const resetTournamentBtn = document.getElementById('resetTournamentBtn');
+    const adminFeedback = document.getElementById('adminFeedback');
 
-        // ---------- Persistent storage ----------
-        function loadData() {
-            const storedParticipants = localStorage.getItem('ff_pro_participants');
-            if (storedParticipants) {
-                participants = JSON.parse(storedParticipants);
-            } else {
-                participants = [];  // START EMPTY – NO DEMO NAMES
-            }
-            const storedPaired = localStorage.getItem('ff_pro_paired');
-            if (storedPaired) {
-                pairedPlayers = new Set(JSON.parse(storedPaired));
-            } else {
-                pairedPlayers.clear();
-            }
-            const storedMatchups = localStorage.getItem('ff_pro_matchups');
-            if (storedMatchups) {
-                matchups = JSON.parse(storedMatchups);
-            } else {
-                matchups = [];
-            }
-            // Update textarea with current participants for admin
-            membersTextarea.value = participants.join('\n');
-            renderMatchupLog();
-            drawWheel();
-        }
+    // Global state
+    let participants = [];
+    let currentRotation = 0;
+    let spinning = false;
+    let animationId = null;
+    let pairedPlayers = new Set();
+    let matchups = [];
 
-        function saveData() {
-            localStorage.setItem('ff_pro_participants', JSON.stringify(participants));
-            localStorage.setItem('ff_pro_paired', JSON.stringify([...pairedPlayers]));
-            localStorage.setItem('ff_pro_matchups', JSON.stringify(matchups));
-        }
+    // References to Firestore documents
+    const tournamentRef = db.collection('tournament').doc('main');
 
-        // ---------- Draw Wheel (pure visual) ----------
-        function drawWheel() {
-            if (!ctx) return;
-            const count = participants.length;
-            // Responsive canvas size
-            const container = canvas.parentElement;
-            const maxSize = Math.min(350, container.clientWidth);
-            canvas.width = maxSize;
-            canvas.height = maxSize;
-            canvas.style.width = `${maxSize}px`;
-            canvas.style.height = `${maxSize}px`;
-
-            if (count === 0) {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = '#10141f';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = '#aaa';
-                ctx.font = 'bold 14px "Segoe UI"';
-                ctx.textAlign = 'center';
-                ctx.fillText('NO PLAYERS', canvas.width/2, canvas.height/2);
-                return;
-            }
-
-            const angleStep = (Math.PI * 2) / count;
-            const centerX = canvas.width/2;
-            const centerY = canvas.height/2;
-            const radius = canvas.width/2;
-            const colors = ['#FF5E5E','#FF9F4A','#FFD966','#6BCB77','#4D96FF','#9B6BFF','#FF6EC7','#42C2FF','#FFB347','#66CC99'];
-
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            for (let i = 0; i < count; i++) {
-                const start = i * angleStep + currentRotation;
-                const end = (i+1) * angleStep + currentRotation;
-                ctx.beginPath();
-                ctx.moveTo(centerX, centerY);
-                ctx.arc(centerX, centerY, radius, start, end);
-                ctx.fillStyle = colors[i % colors.length];
-                ctx.fill();
-                ctx.strokeStyle = '#fff3cf';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                // Draw text
-                ctx.save();
-                ctx.translate(centerX, centerY);
-                ctx.rotate(start + angleStep/2);
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-                let textRadius = radius * 0.72;
-                let fontSize = Math.max(12, Math.floor(radius/12));
-                ctx.font = `bold ${fontSize}px "Segoe UI"`;
-                let name = participants[i];
-                if (name.length > 12) name = name.slice(0,10)+"..";
-                ctx.fillStyle = '#111';
-                ctx.fillText(name, textRadius, 5);
-                ctx.fillStyle = 'white';
-                ctx.shadowBlur = 2;
-                ctx.fillText(name, textRadius-1, 4);
-                ctx.restore();
-            }
-            // Draw center pin and pointer triangle
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, radius*0.1, 0, 2*Math.PI);
-            ctx.fillStyle = '#FFD966';
-            ctx.fill();
-            ctx.fillStyle = '#bd6b1e';
-            ctx.beginPath();
-            ctx.moveTo(centerX, centerY - radius*0.88);
-            ctx.lineTo(centerX-12, centerY - radius*0.7);
-            ctx.lineTo(centerX+12, centerY - radius*0.7);
-            ctx.fill();
-        }
-
-        // Get the name currently under the fixed pointer (12 o'clock)
-        function getCurrentSegmentName() {
-            if (participants.length === 0) return null;
-            const angleStep = (Math.PI * 2) / participants.length;
-            const pointerAngle = -Math.PI/2; // top
-            let rawAngle = (pointerAngle - currentRotation) % (2*Math.PI);
-            if (rawAngle < 0) rawAngle += 2*Math.PI;
-            const idx = Math.floor(rawAngle / angleStep) % participants.length;
-            return participants[idx];
-        }
-
-        // Spin animation that stops exactly on the target opponent's slice
-        function spinToOpponent(targetOpponent) {
-            return new Promise((resolve) => {
-                if (spinning) return resolve(false);
-                const targetIdx = participants.indexOf(targetOpponent);
-                if (targetIdx === -1) return resolve(false);
-
-                const angleStep = (Math.PI * 2) / participants.length;
-                const pointerAngle = -Math.PI/2;
-                // choose a random point inside the target segment (fairness)
-                const randomOffset = Math.random() * angleStep;
-                const segmentStart = targetIdx * angleStep;
-                const desiredPointerAngle = segmentStart + randomOffset; // where we want the pointer to point
-
-                // We need finalRotation such that (desiredPointerAngle + finalRotation) % 2π = pointerAngle
-                // => finalRotation = (pointerAngle - desiredPointerAngle) mod 2π
-                let finalRotation = (pointerAngle - desiredPointerAngle) % (2*Math.PI);
-                if (finalRotation < 0) finalRotation += 2*Math.PI;
-
-                const extraSpins = 6 + Math.floor(Math.random() * 8);
-                const targetRotation = finalRotation + (extraSpins * 2 * Math.PI);
-
-                const startRot = currentRotation;
-                const startTime = performance.now();
-                const duration = 2000;
-                spinning = true;
-
-                function animate(now) {
-                    let elapsed = now - startTime;
-                    let t = Math.min(1, elapsed / duration);
-                    let easeOut = 1 - Math.pow(1-t, 3);
-                    let newRot = startRot + (targetRotation - startRot) * easeOut;
-                    currentRotation = newRot % (2*Math.PI);
-                    drawWheel();
-                    if (t < 1) {
-                        animationId = requestAnimationFrame(animate);
-                    } else {
-                        // set exact final rotation
-                        currentRotation = finalRotation;
-                        drawWheel();
-                        spinning = false;
-                        cancelAnimationFrame(animationId);
-                        animationId = null;
-                        resolve(true);
-                    }
-                }
-                if (animationId) cancelAnimationFrame(animationId);
-                animationId = requestAnimationFrame(animate);
-            });
-        }
-
-        // Main pairing logic – only when a player spins
-        async function performSpin(spinnerName) {
-            if (spinning) {
-                resultDiv.innerHTML = "⏳ Wheel is spinning. Please wait...";
-                return;
-            }
-            if (participants.length < 2) {
-                resultDiv.innerHTML = "❌ Tournament not ready. Guild leader must add players (Admin).";
-                return;
-            }
-            if (!participants.includes(spinnerName)) {
-                resultDiv.innerHTML = `❗ "${spinnerName}" is not in the guild list. Ask the leader to add you.`;
-                return;
-            }
-            if (pairedPlayers.has(spinnerName)) {
-                const existing = matchups.find(m => m.player1 === spinnerName || m.player2 === spinnerName);
-                const opponent = existing ? (existing.player1 === spinnerName ? existing.player2 : existing.player1) : "unknown";
-                resultDiv.innerHTML = `⚠️ ${spinnerName}, you already fought ${opponent}. Each player fights only once.`;
-                return;
-            }
-
-            // Available opponents = unpaired players except self
-            let available = participants.filter(p => p !== spinnerName && !pairedPlayers.has(p));
-            if (available.length === 0) {
-                // odd number of players? give a bye
-                if (participants.length % 2 === 1 && !pairedPlayers.has(spinnerName)) {
-                    matchups.push({ player1: spinnerName, player2: "BYE (advances)" });
-                    pairedPlayers.add(spinnerName);
-                    saveData();
-                    renderMatchupLog();
-                    resultDiv.innerHTML = `🎉 ${spinnerName} gets a BYE! No opponent left – advances. 🎉`;
-                    drawWheel();
-                } else {
-                    resultDiv.innerHTML = `😵 No available opponents! Tournament bracket is full.`;
-                }
-                return;
-            }
-
-            // Randomly pick an opponent from available
-            const opponent = available[Math.floor(Math.random() * available.length)];
-            // Spin wheel to that opponent (visual)
-            await spinToOpponent(opponent);
-            // Double-check that opponent is still unpaired (safety)
-            if (pairedPlayers.has(opponent) || pairedPlayers.has(spinnerName)) {
-                resultDiv.innerHTML = `⚠️ Conflict: ${opponent} was just paired. Please spin again.`;
-                return;
-            }
-            // Record the match
-            matchups.push({ player1: spinnerName, player2: opponent });
-            pairedPlayers.add(spinnerName);
-            pairedPlayers.add(opponent);
-            saveData();
-            renderMatchupLog();
-
-            // Final visual verification – ensure wheel shows the correct opponent
-            const wheelName = getCurrentSegmentName();
-            if (wheelName !== opponent) {
-                // rare correction
-                await spinToOpponent(opponent);
-            }
-
-            resultDiv.innerHTML = `🔥 ${spinnerName} 🆚 <span style="color:#ffcc66;font-size:1.3rem;">${opponent}</span> 🔥<br> Unique match!`;
-            resultDiv.classList.add('glow');
-            setTimeout(() => resultDiv.classList.remove('glow'), 600);
-        }
-
-        // Render match log
-        function renderMatchupLog() {
-            if (!matchupContainer) return;
-            if (matchups.length === 0) {
-                matchupContainer.innerHTML = '<div class="empty-log">✨ No fights yet. Admin must build wheel, then players spin.</div>';
-                return;
-            }
-            let html = '';
-            for (let m of matchups.slice().reverse()) {
-                html += `<div class="matchup-item">⚔️ ${escapeHtml(m.player1)}  vs  ${escapeHtml(m.player2)}</div>`;
-            }
-            matchupContainer.innerHTML = html;
-        }
-
-        function escapeHtml(str) {
-            return str.replace(/[&<>]/g, function(m) {
-                if (m === '&') return '&amp;';
-                if (m === '<') return '&lt;';
-                if (m === '>') return '&gt;';
-                return m;
-            });
-        }
-
-        // ---------- Admin Functions ----------
-        function rebuildWheelFromAdmin() {
-            const raw = membersTextarea.value;
-            const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(l => l !== "");
-            if (lines.length < 2) {
-                adminFeedback.innerText = "❌ Error: At least 2 guild members required.";
-                return false;
-            }
-            // Remove duplicates
-            const unique = [];
-            for (let n of lines) {
-                if (!unique.includes(n)) unique.push(n);
-            }
-            participants = unique;
-            membersTextarea.value = participants.join('\n');
-            // Reset current rotation randomly
-            currentRotation = Math.random() * 2 * Math.PI;
-            drawWheel();
-            // Do NOT clear pairings automatically – keeps tournament state.
-            saveData();
-            adminFeedback.innerText = `✅ Wheel built with ${participants.length} fighters. Pairings remain unchanged.`;
-            renderMatchupLog();
-            return true;
-        }
-
-        function resetFullTournament() {
-            if (confirm("⚠️ RESET entire tournament? This will delete all matchups and allow everyone to spin again.")) {
-                pairedPlayers.clear();
-                matchups = [];
-                saveData();
+    // ---------- Real-time sync ----------
+    function subscribeToTournament() {
+        tournamentRef.onSnapshot((doc) => {
+            if (doc.exists) {
+                const data = doc.data();
+                participants = data.participants || [];
+                pairedPlayers = new Set(data.pairedPlayers || []);
+                matchups = data.matchups || [];
+                // Update textarea for admin (if logged in)
+                membersTextarea.value = participants.join('\n');
                 renderMatchupLog();
-                resultDiv.innerHTML = "✨ Tournament has been reset. All players can now spin again.";
-                adminFeedback.innerText = "Tournament reset (all pairings cleared).";
                 drawWheel();
+            } else {
+                // Initialize empty tournament
+                tournamentRef.set({
+                    participants: [],
+                    pairedPlayers: [],
+                    matchups: []
+                });
             }
+        });
+    }
+
+    // Save current state to Firestore
+    async function saveToFirestore() {
+        await tournamentRef.set({
+            participants: participants,
+            pairedPlayers: [...pairedPlayers],
+            matchups: matchups
+        });
+    }
+
+    // ---------- Wheel drawing (same as before) ----------
+    function drawWheel() {
+        if (!ctx) return;
+        const count = participants.length;
+        const container = canvas.parentElement;
+        const maxSize = Math.min(350, container.clientWidth);
+        canvas.width = maxSize;
+        canvas.height = maxSize;
+        canvas.style.width = `${maxSize}px`;
+        canvas.style.height = `${maxSize}px`;
+
+        if (count === 0) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#10141f';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#aaa';
+            ctx.font = 'bold 14px "Segoe UI"';
+            ctx.textAlign = 'center';
+            ctx.fillText('NO PLAYERS', canvas.width/2, canvas.height/2);
+            return;
         }
 
-        // ---------- Admin Login ----------
-        let adminLoggedIn = false;
-        adminBtn.addEventListener('click', () => {
-            if (!adminLoggedIn) {
-                const pwd = prompt("Enter admin password:");
-                if (pwd === "guildmaster123") {  // you can change this password
-                    adminLoggedIn = true;
-                    adminPanel.classList.add('show');
-                    adminBtn.textContent = "🔒 Admin Mode ON";
-                    adminFeedback.innerText = "Admin active. You can now add members and build wheel.";
+        const angleStep = (Math.PI * 2) / count;
+        const centerX = canvas.width/2;
+        const centerY = canvas.height/2;
+        const radius = canvas.width/2;
+        const colors = ['#FF5E5E','#FF9F4A','#FFD966','#6BCB77','#4D96FF','#9B6BFF','#FF6EC7','#42C2FF','#FFB347','#66CC99'];
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        for (let i = 0; i < count; i++) {
+            const start = i * angleStep + currentRotation;
+            const end = (i+1) * angleStep + currentRotation;
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.arc(centerX, centerY, radius, start, end);
+            ctx.fillStyle = colors[i % colors.length];
+            ctx.fill();
+            ctx.strokeStyle = '#fff3cf';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(start + angleStep/2);
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            let textRadius = radius * 0.72;
+            let fontSize = Math.max(12, Math.floor(radius/12));
+            ctx.font = `bold ${fontSize}px "Segoe UI"`;
+            let name = participants[i];
+            if (name.length > 12) name = name.slice(0,10)+"..";
+            ctx.fillStyle = '#111';
+            ctx.fillText(name, textRadius, 5);
+            ctx.fillStyle = 'white';
+            ctx.shadowBlur = 2;
+            ctx.fillText(name, textRadius-1, 4);
+            ctx.restore();
+        }
+        // pointer
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius*0.1, 0, 2*Math.PI);
+        ctx.fillStyle = '#FFD966';
+        ctx.fill();
+        ctx.fillStyle = '#bd6b1e';
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY - radius*0.88);
+        ctx.lineTo(centerX-12, centerY - radius*0.7);
+        ctx.lineTo(centerX+12, centerY - radius*0.7);
+        ctx.fill();
+    }
+
+    function getCurrentSegmentName() {
+        if (participants.length === 0) return null;
+        const angleStep = (Math.PI * 2) / participants.length;
+        const pointerAngle = -Math.PI/2;
+        let rawAngle = (pointerAngle - currentRotation) % (2*Math.PI);
+        if (rawAngle < 0) rawAngle += 2*Math.PI;
+        const idx = Math.floor(rawAngle / angleStep) % participants.length;
+        return participants[idx];
+    }
+
+    function spinToOpponent(targetOpponent) {
+        return new Promise((resolve) => {
+            if (spinning) return resolve(false);
+            const targetIdx = participants.indexOf(targetOpponent);
+            if (targetIdx === -1) return resolve(false);
+            const angleStep = (Math.PI * 2) / participants.length;
+            const pointerAngle = -Math.PI/2;
+            const randomOffset = Math.random() * angleStep;
+            const segmentStart = targetIdx * angleStep;
+            const desiredPointerAngle = segmentStart + randomOffset;
+            let finalRotation = (pointerAngle - desiredPointerAngle) % (2*Math.PI);
+            if (finalRotation < 0) finalRotation += 2*Math.PI;
+            const extraSpins = 6 + Math.floor(Math.random() * 8);
+            const targetRotation = finalRotation + (extraSpins * 2 * Math.PI);
+            const startRot = currentRotation;
+            const startTime = performance.now();
+            const duration = 2000;
+            spinning = true;
+            function animate(now) {
+                let elapsed = now - startTime;
+                let t = Math.min(1, elapsed / duration);
+                let easeOut = 1 - Math.pow(1-t, 3);
+                let newRot = startRot + (targetRotation - startRot) * easeOut;
+                currentRotation = newRot % (2*Math.PI);
+                drawWheel();
+                if (t < 1) {
+                    animationId = requestAnimationFrame(animate);
                 } else {
-                    alert("Wrong password!");
+                    currentRotation = finalRotation;
+                    drawWheel();
+                    spinning = false;
+                    cancelAnimationFrame(animationId);
+                    animationId = null;
+                    resolve(true);
                 }
+            }
+            if (animationId) cancelAnimationFrame(animationId);
+            animationId = requestAnimationFrame(animate);
+        });
+    }
+
+    async function performSpin(spinnerName) {
+        if (spinning) { resultDiv.innerHTML = "⏳ Wheel spinning..."; return; }
+        if (participants.length < 2) { resultDiv.innerHTML = "❌ Tournament not ready. Admin must add players."; return; }
+        if (!participants.includes(spinnerName)) { resultDiv.innerHTML = `❗ "${spinnerName}" not in guild list.`; return; }
+        if (pairedPlayers.has(spinnerName)) {
+            const existing = matchups.find(m => m.player1 === spinnerName || m.player2 === spinnerName);
+            const opponent = existing ? (existing.player1 === spinnerName ? existing.player2 : existing.player1) : "unknown";
+            resultDiv.innerHTML = `⚠️ ${spinnerName}, you already fought ${opponent}. One match per player.`;
+            return;
+        }
+        let available = participants.filter(p => p !== spinnerName && !pairedPlayers.has(p));
+        if (available.length === 0) {
+            if (participants.length % 2 === 1 && !pairedPlayers.has(spinnerName)) {
+                // Bye
+                matchups.push({ player1: spinnerName, player2: "BYE (advances)" });
+                pairedPlayers.add(spinnerName);
+                await saveToFirestore();
+                renderMatchupLog();
+                resultDiv.innerHTML = `🎉 ${spinnerName} gets a BYE! Advances. 🎉`;
+                drawWheel();
             } else {
-                adminLoggedIn = false;
-                adminPanel.classList.remove('show');
-                adminBtn.textContent = "🔐 Admin Login";
+                resultDiv.innerHTML = "😵 No available opponents! Tournament full.";
             }
-        });
+            return;
+        }
+        const opponent = available[Math.floor(Math.random() * available.length)];
+        await spinToOpponent(opponent);
+        // Double-check that opponent is still free (might have been taken by another user in the split second)
+        if (pairedPlayers.has(opponent) || pairedPlayers.has(spinnerName)) {
+            resultDiv.innerHTML = `⚠️ Conflict: ${opponent} was just paired. Please spin again.`;
+            return;
+        }
+        matchups.push({ player1: spinnerName, player2: opponent });
+        pairedPlayers.add(spinnerName);
+        pairedPlayers.add(opponent);
+        await saveToFirestore();
+        renderMatchupLog();
+        const wheelName = getCurrentSegmentName();
+        if (wheelName !== opponent) await spinToOpponent(opponent);
+        resultDiv.innerHTML = `🔥 ${spinnerName} 🆚 <span style="color:#ffcc66">${opponent}</span> 🔥<br> Unique match!`;
+        resultDiv.classList.add('glow');
+        setTimeout(() => resultDiv.classList.remove('glow'), 600);
+    }
 
-        buildWheelBtn.addEventListener('click', () => {
-            if (!adminLoggedIn) { alert("Admin only"); return; }
-            rebuildWheelFromAdmin();
-        });
+    function renderMatchupLog() {
+        if (matchups.length === 0) {
+            matchupContainer.innerHTML = '<div class="empty-log">✨ No fights yet. Admin must build wheel, then players spin.</div>';
+            return;
+        }
+        let html = '';
+        for (let m of matchups.slice().reverse()) {
+            html += `<div class="matchup-item">⚔️ ${escapeHtml(m.player1)}  vs  ${escapeHtml(m.player2)}</div>`;
+        }
+        matchupContainer.innerHTML = html;
+    }
 
-        resetTournamentBtn.addEventListener('click', () => {
-            if (!adminLoggedIn) { alert("Only guild leader (admin) can reset tournament."); return; }
-            resetFullTournament();
-        });
+    function escapeHtml(str) { return str.replace(/[&<>]/g, m => m==='&'?'&amp;':m==='<'?'&lt;':'&gt;'); }
 
-        spinBtn.addEventListener('click', async () => {
-            const name = playerNameInput.value.trim();
-            if (name === "") {
-                resultDiv.innerHTML = "❗ Enter your IGN first!";
-                return;
-            }
-            await performSpin(name);
-        });
+    // Admin functions (only write to Firestore)
+    async function rebuildWheel() {
+        const raw = membersTextarea.value;
+        let lines = raw.split(/\r?\n/).map(l=>l.trim()).filter(l=>l!=="");
+        if (lines.length < 2) { adminFeedback.innerText = "❌ Need at least 2 players."; return; }
+        const unique = [...new Set(lines)];
+        participants = unique;
+        membersTextarea.value = participants.join('\n');
+        currentRotation = Math.random() * 2 * Math.PI;
+        drawWheel();
+        // Do NOT clear pairings automatically – but admin can reset separately.
+        await saveToFirestore();
+        adminFeedback.innerText = `✅ Wheel built with ${participants.length} fighters.`;
+    }
 
-        // Resize event to keep canvas crisp
-        window.addEventListener('resize', () => drawWheel());
+    async function resetTournament() {
+        if (!confirm("⚠️ RESET entire tournament? All matchups and spins will be cleared.")) return;
+        pairedPlayers.clear();
+        matchups = [];
+        await saveToFirestore();
+        renderMatchupLog();
+        resultDiv.innerHTML = "✨ Tournament reset. Everyone can spin again.";
+        adminFeedback.innerText = "Tournament reset.";
+        drawWheel();
+    }
 
-        // Initial load
-        loadData();
-    })();
+    // Admin login (simple)
+    let adminLoggedIn = false;
+    adminBtn.addEventListener('click', () => {
+        if (!adminLoggedIn) {
+            let pwd = prompt("Admin password:");
+            if (pwd === "guildmaster123") {
+                adminLoggedIn = true;
+                adminPanel.classList.add('show');
+                adminBtn.textContent = "🔒 Admin Mode ON";
+                adminFeedback.innerText = "Admin active. You can edit participants and reset tournament.";
+            } else alert("Wrong password!");
+        } else {
+            adminLoggedIn = false;
+            adminPanel.classList.remove('show');
+            adminBtn.textContent = "🔐 Admin Login";
+        }
+    });
+    buildWheelBtn.addEventListener('click', () => { if(adminLoggedIn) rebuildWheel(); else alert("Admin only"); });
+    resetTournamentBtn.addEventListener('click', () => { if(adminLoggedIn) resetTournament(); else alert("Admin only"); });
+    spinBtn.addEventListener('click', async () => {
+        let name = playerNameInput.value.trim();
+        if (!name) { resultDiv.innerHTML = "❗ Enter your IGN!"; return; }
+        await performSpin(name);
+    });
+
+    // Start real-time listener
+    subscribeToTournament();
+    window.addEventListener('resize', () => drawWheel());
 </script>
 </body>
 </html>
