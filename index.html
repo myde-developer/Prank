@@ -2,429 +2,344 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Live Free Fire Tournament – Global Spin Wheel</title>
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DLS Premier League Tournament</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
-        body {
-            background: radial-gradient(circle at 20% 30%, #0a0f1e, #020617);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-family: 'Segoe UI', 'Poppins', system-ui, sans-serif;
-            padding: 20px;
-        }
-        .tournament-card {
-            max-width: 1200px;
-            width: 100%;
-            background: rgba(8, 14, 26, 0.85);
-            backdrop-filter: blur(12px);
-            border-radius: 2rem;
-            border: 1px solid rgba(255, 140, 0, 0.5);
-            padding: 1.8rem;
-            box-shadow: 0 25px 45px rgba(0,0,0,0.6);
-        }
-        h1 {
-            font-size: 2rem;
-            text-align: center;
-            background: linear-gradient(135deg, #FFD966, #FF6A00);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-            margin-bottom: 0.25rem;
-        }
-        .tagline {
-            text-align: center;
-            color: #a0b5e0;
-            margin-bottom: 1.8rem;
-            font-size: 0.9rem;
-            border-bottom: 1px dashed #ff8c2e60;
-            display: inline-block;
-            width: auto;
-            margin-left: auto;
-            margin-right: auto;
-            padding-bottom: 6px;
-        }
-        .dashboard { display: flex; flex-wrap: wrap; gap: 2rem; }
-        .wheel-area { flex: 2; min-width: 280px; background: #0c1225cc; border-radius: 2rem; padding: 1.2rem; border: 1px solid #2e3b66; }
-        .log-area { flex: 1.5; min-width: 250px; background: #0a0f1ecc; border-radius: 2rem; padding: 1rem; border: 1px solid #ff9f4a70; }
-        .wheel-wrapper { display: flex; justify-content: center; margin: 0.5rem 0; }
-        canvas { width: 100%; max-width: 350px; height: auto; background: #11161f; border-radius: 50%; box-shadow: 0 15px 30px rgba(0,0,0,0.5), 0 0 0 5px #ffac4a, 0 0 0 10px rgba(0,0,0,0.3); }
-        .spin-panel { text-align: center; margin-top: 1.2rem; }
-        .name-input-group { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin: 15px 0; }
-        .name-input-group input { flex: 2; min-width: 180px; background: #010318; border: 1px solid #ffa24d; border-radius: 60px; padding: 12px 20px; color: white; font-size: 1rem; text-align: center; outline: none; }
-        button { background: linear-gradient(95deg, #1f2a44, #141c30); border: none; border-radius: 60px; padding: 10px 26px; font-weight: bold; color: white; cursor: pointer; transition: 0.2s; }
-        .btn-spin { background: linear-gradient(95deg, #ff8800, #ff4400); font-size: 1.2rem; padding: 12px 32px; box-shadow: 0 5px 12px #ff5500a0; }
-        .btn-spin:hover { transform: scale(1.02); filter: brightness(1.05); }
-        .result-card { background: #000000bb; backdrop-filter: blur(12px); margin-top: 20px; padding: 14px; border-radius: 60px; text-align: center; font-weight: bold; font-size: 1.1rem; color: #ffefbf; border: 1px solid #ffaa55; }
-        .log-header { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; margin-bottom: 12px; }
-        .log-header h3 { color: #ffbc6e; }
-        .matchup-list { max-height: 380px; overflow-y: auto; background: #050a18; border-radius: 1.2rem; padding: 8px; }
-        .matchup-item { background: #10172b; margin: 8px 0; padding: 10px 14px; border-radius: 40px; border-left: 4px solid #ff8c00; color: #e2edff; font-weight: 500; }
-        .empty-log { text-align: center; padding: 28px; color: #6b7ea5; font-style: italic; }
-        .admin-toggle { text-align: right; margin-bottom: 1rem; }
-        .admin-panel { background: #030917ea; border-radius: 1.5rem; padding: 1.2rem; margin-top: 1.5rem; border: 1px solid #ffaa44; display: none; }
-        .admin-panel.show { display: block; }
-        textarea { width: 100%; background: #010318; border: 1px solid #ffaa44; border-radius: 1.2rem; padding: 12px; color: white; font-family: monospace; resize: vertical; }
-        .small-btn { font-size: 0.8rem; padding: 7px 18px; margin-top: 10px; margin-right: 8px; }
-        .warning-text { color: #ffbc8c; font-size: 0.75rem; margin-top: 8px; }
-        footer { text-align: center; font-size: 0.7rem; margin-top: 1.8rem; color: #6c7ea5; }
-        @keyframes pulse { 0% { text-shadow: 0 0 0 #ffaa33; } 50% { text-shadow: 0 0 16px #ffaa33; } 100% { text-shadow: 0 0 0 #ffaa33; } }
-        .glow { animation: pulse 0.5s ease; }
+        /* Custom scrollbar for a cleaner look */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #111827; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
     </style>
 </head>
-<body>
-<div class="tournament-card">
-    <div class="admin-toggle">
-        <button id="adminBtn">🔐 Admin Login</button>
-    </div>
-    <h1>🎯 FREE FIRE · LIVE TOURNAMENT</h1>
-    <div class="tagline">⚡ Synced across all devices | Admin sets names | One spin per player ⚡</div>
+<body class="bg-gray-950 text-gray-100 font-sans min-h-screen pb-12">
 
-    <div class="dashboard">
-        <div class="wheel-area">
-            <div class="wheel-wrapper">
-                <canvas id="wheelCanvas" width="500" height="500"></canvas>
-            </div>
-            <div class="spin-panel">
-                <div class="name-input-group">
-                    <input type="text" id="playerName" placeholder="🔰 Enter your IGN" autocomplete="off">
-                    <button id="spinBtn" class="btn-spin">🎲 SPIN TO FIGHT 🎲</button>
+    <!-- Header Section -->
+    <header class="bg-gradient-to-r from-purple-900 to-indigo-900 py-6 px-4 shadow-lg text-center border-b border-indigo-500/30">
+        <h1 class="text-3xl font-extrabold tracking-wider uppercase text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-200">
+            DLS Premier League
+        </h1>
+        <p class="text-xs text-indigo-200 mt-1 uppercase tracking-widest">Group Tournament Dashboard</p>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4 mt-8 space-y-8">
+        
+        <!-- Setup Section (Hidden after generation) -->
+        <section id="setup-section" class="bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl">
+            <h2 class="text-xl font-bold mb-4 text-indigo-400 flex items-center gap-2">
+                <span>🏆</span> Tournament Setup
+            </h2>
+            <p class="text-sm text-gray-400 mb-4">Enter team/manager names separated by commas to generate your league schedule.</p>
+            <textarea id="manager-names" class="w-full bg-gray-950 border border-gray-800 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500 transition h-24 placeholder-gray-600" placeholder="e.g. Alex, Jordan, Sarah, Chris, Tunde, Elena"></textarea>
+            <button onclick="initializeTournament()" class="w-full mt-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 font-bold py-3 rounded-xl transition shadow-md active:scale-[0.99]">
+                Generate League & Fixtures
+            </button>
+        </section>
+
+        <!-- Main Dashboard (Hidden until initialized) -->
+        <section id="dashboard-section" class="hidden space-y-8">
+            
+            <!-- League Table Card -->
+            <div class="bg-gray-900 rounded-2xl border border-gray-800 shadow-xl overflow-hidden">
+                <div class="p-5 border-b border-gray-800 bg-gray-900/50">
+                    <h2 class="text-xl font-bold text-yellow-400 flex items-center gap-2">
+                        <span>📊</span> Standings
+                    </h2>
                 </div>
-                <div id="resultArea" class="result-card">✨ Waiting for spin ✨</div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-gray-950 text-gray-400 uppercase text-xs tracking-wider border-b border-gray-800">
+                                <th class="py-3 px-4 text-center w-12">Pos</th>
+                                <th class="py-3 px-4">Team / Manager</th>
+                                <th class="py-3 px-3 text-center">MP</th>
+                                <th class="py-3 px-2 text-center text-green-400">W</th>
+                                <th class="py-3 px-2 text-center text-gray-400">D</th>
+                                <th class="py-3 px-2 text-center text-red-400">L</th>
+                                <th class="py-3 px-2 text-center">GF</th>
+                                <th class="py-3 px-2 text-center">GA</th>
+                                <th class="py-3 px-2 text-center">GD</th>
+                                <th class="py-3 px-4 text-center text-indigo-400 font-bold">PTS</th>
+                            </tr>
+                        </thead>
+                        <tbody id="league-table-body">
+                            <!-- Injected by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
-        </div>
-        <div class="log-area">
-            <div class="log-header">
-                <h3>📋 BATTLE LOG</h3>
-                <button id="resetTournamentBtn" class="small-btn" style="background:#3a2626;">🔄 Reset All</button>
+
+            <!-- Fixtures / Results Section -->
+            <div class="bg-gray-900 p-5 rounded-2xl border border-gray-800 shadow-xl">
+                <h2 class="text-xl font-bold text-indigo-400 mb-4 flex items-center gap-2">
+                    <span>⚽</span> Fixtures & Record Results
+                </h2>
+                <div id="fixtures-container" class="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+                    <!-- Injected by JavaScript -->
+                </div>
             </div>
-            <div id="matchupList" class="matchup-list"><div class="empty-log">Loading tournament data...</div></div>
-            <div class="warning-text">🔒 Each player appears once. Admin can reset.</div>
-        </div>
-    </div>
 
-    <div id="adminPanel" class="admin-panel">
-        <h3>🛠️ GUILD LEADER CONTROL</h3>
-        <label>👥 Enter all guild member names (one per line):</label>
-        <textarea id="membersList" rows="5" placeholder="Ruby&#10;Ared&#10;TST&#10;Khalanoyy"></textarea>
-        <button id="buildWheelBtn" class="small-btn">🎨 Build Wheel (Sync to all)</button>
-        <div id="adminFeedback" class="warning-text"></div>
-    </div>
-    <footer>🌍 Live sync via Firebase – all players see the same wheel and matchups instantly.</footer>
-</div>
+            <!-- Danger Zone / Reset Button -->
+            <div class="text-center">
+                <button onclick="resetTournament()" class="text-xs text-red-500 hover:text-red-400 underline transition cursor-pointer">
+                    Reset Tournament & Start Over
+                </button>
+            </div>
+        </section>
+    </main>
 
-<script>
-    // ========== REPLACE WITH YOUR FIREBASE CONFIG ==========
-    const firebaseConfig = {
-    apiKey: "AIzaSyDuUZ6Rej3jeyuPIU-cFwASyfA_lujDWXA",
-    authDomain: "ff-tournament-a1cad.firebaseapp.com",
-    projectId: "ff-tournament-a1cad",
-    storageBucket: "ff-tournament-a1cad.firebasestorage.app",
-    messagingSenderId: "997871905748",
-    appId: "1:997871905748:web:0025a7975618a1cac78441",
-    measurementId: "G-78PNX72RL2"
-  };
-    // =======================================================
+    <script>
+        // --- STATE MANAGEMENT ---
+        let teams = {};
+        let fixtures = [];
 
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+        // Save data to localStorage so it doesn't disappear on refresh
+        function saveToStorage() {
+            localStorage.setItem('dls_teams', JSON.stringify(teams));
+            localStorage.setItem('dls_fixtures', JSON.stringify(fixtures));
+        }
 
-    // DOM elements
-    const canvas = document.getElementById('wheelCanvas');
-    const ctx = canvas.getContext('2d');
-    const spinBtn = document.getElementById('spinBtn');
-    const playerNameInput = document.getElementById('playerName');
-    const resultDiv = document.getElementById('resultArea');
-    const matchupContainer = document.getElementById('matchupList');
-    const adminBtn = document.getElementById('adminBtn');
-    const adminPanel = document.getElementById('adminPanel');
-    const membersTextarea = document.getElementById('membersList');
-    const buildWheelBtn = document.getElementById('buildWheelBtn');
-    const resetTournamentBtn = document.getElementById('resetTournamentBtn');
-    const adminFeedback = document.getElementById('adminFeedback');
-
-    // Global state
-    let participants = [];
-    let currentRotation = 0;
-    let spinning = false;
-    let animationId = null;
-    let pairedPlayers = new Set();
-    let matchups = [];
-
-    // References to Firestore documents
-    const tournamentRef = db.collection('tournament').doc('main');
-
-    // ---------- Real-time sync ----------
-    function subscribeToTournament() {
-        tournamentRef.onSnapshot((doc) => {
-            if (doc.exists) {
-                const data = doc.data();
-                participants = data.participants || [];
-                pairedPlayers = new Set(data.pairedPlayers || []);
-                matchups = data.matchups || [];
-                // Update textarea for admin (if logged in)
-                membersTextarea.value = participants.join('\n');
-                renderMatchupLog();
-                drawWheel();
-            } else {
-                // Initialize empty tournament
-                tournamentRef.set({
-                    participants: [],
-                    pairedPlayers: [],
-                    matchups: []
-                });
+        function loadFromStorage() {
+            const storedTeams = localStorage.getItem('dls_teams');
+            const storedFixtures = localStorage.getItem('dls_fixtures');
+            if (storedTeams && storedFixtures) {
+                teams = JSON.parse(storedTeams);
+                fixtures = JSON.parse(storedFixtures);
+                renderDashboard();
             }
-        });
-    }
-
-    // Save current state to Firestore
-    async function saveToFirestore() {
-        await tournamentRef.set({
-            participants: participants,
-            pairedPlayers: [...pairedPlayers],
-            matchups: matchups
-        });
-    }
-
-    // ---------- Wheel drawing (same as before) ----------
-    function drawWheel() {
-        if (!ctx) return;
-        const count = participants.length;
-        const container = canvas.parentElement;
-        const maxSize = Math.min(350, container.clientWidth);
-        canvas.width = maxSize;
-        canvas.height = maxSize;
-        canvas.style.width = `${maxSize}px`;
-        canvas.style.height = `${maxSize}px`;
-
-        if (count === 0) {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#10141f';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#aaa';
-            ctx.font = 'bold 14px "Segoe UI"';
-            ctx.textAlign = 'center';
-            ctx.fillText('NO PLAYERS', canvas.width/2, canvas.height/2);
-            return;
         }
 
-        const angleStep = (Math.PI * 2) / count;
-        const centerX = canvas.width/2;
-        const centerY = canvas.height/2;
-        const radius = canvas.width/2;
-        const colors = ['#FF5E5E','#FF9F4A','#FFD966','#6BCB77','#4D96FF','#9B6BFF','#FF6EC7','#42C2FF','#FFB347','#66CC99'];
+        // --- TOURNAMENT INITIALIZATION (Round Robin Engine) ---
+        function initializeTournament() {
+            const input = document.getElementById('manager-names').value;
+            let list = input.split(',').map(name => name.trim()).filter(name => name !== "");
 
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        for (let i = 0; i < count; i++) {
-            const start = i * angleStep + currentRotation;
-            const end = (i+1) * angleStep + currentRotation;
-            ctx.beginPath();
-            ctx.moveTo(centerX, centerY);
-            ctx.arc(centerX, centerY, radius, start, end);
-            ctx.fillStyle = colors[i % colors.length];
-            ctx.fill();
-            ctx.strokeStyle = '#fff3cf';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            ctx.save();
-            ctx.translate(centerX, centerY);
-            ctx.rotate(start + angleStep/2);
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            let textRadius = radius * 0.72;
-            let fontSize = Math.max(12, Math.floor(radius/12));
-            ctx.font = `bold ${fontSize}px "Segoe UI"`;
-            let name = participants[i];
-            if (name.length > 12) name = name.slice(0,10)+"..";
-            ctx.fillStyle = '#111';
-            ctx.fillText(name, textRadius, 5);
-            ctx.fillStyle = 'white';
-            ctx.shadowBlur = 2;
-            ctx.fillText(name, textRadius-1, 4);
-            ctx.restore();
-        }
-        // pointer
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, radius*0.1, 0, 2*Math.PI);
-        ctx.fillStyle = '#FFD966';
-        ctx.fill();
-        ctx.fillStyle = '#bd6b1e';
-        ctx.beginPath();
-        ctx.moveTo(centerX, centerY - radius*0.88);
-        ctx.lineTo(centerX-12, centerY - radius*0.7);
-        ctx.lineTo(centerX+12, centerY - radius*0.7);
-        ctx.fill();
-    }
+            if (list.length < 2) {
+                alert("Please enter at least 2 managers!");
+                return;
+            }
 
-    function getCurrentSegmentName() {
-        if (participants.length === 0) return null;
-        const angleStep = (Math.PI * 2) / participants.length;
-        const pointerAngle = -Math.PI/2;
-        let rawAngle = (pointerAngle - currentRotation) % (2*Math.PI);
-        if (rawAngle < 0) rawAngle += 2*Math.PI;
-        const idx = Math.floor(rawAngle / angleStep) % participants.length;
-        return participants[idx];
-    }
+            // If odd number of teams, add a 'BYE' or we just proceed for even logic
+            if (list.length % 2 !== 0) {
+                list.push("BYE"); 
+            }
 
-    function spinToOpponent(targetOpponent) {
-        return new Promise((resolve) => {
-            if (spinning) return resolve(false);
-            const targetIdx = participants.indexOf(targetOpponent);
-            if (targetIdx === -1) return resolve(false);
-            const angleStep = (Math.PI * 2) / participants.length;
-            const pointerAngle = -Math.PI/2;
-            const randomOffset = Math.random() * angleStep;
-            const segmentStart = targetIdx * angleStep;
-            const desiredPointerAngle = segmentStart + randomOffset;
-            let finalRotation = (pointerAngle - desiredPointerAngle) % (2*Math.PI);
-            if (finalRotation < 0) finalRotation += 2*Math.PI;
-            const extraSpins = 6 + Math.floor(Math.random() * 8);
-            const targetRotation = finalRotation + (extraSpins * 2 * Math.PI);
-            const startRot = currentRotation;
-            const startTime = performance.now();
-            const duration = 2000;
-            spinning = true;
-            function animate(now) {
-                let elapsed = now - startTime;
-                let t = Math.min(1, elapsed / duration);
-                let easeOut = 1 - Math.pow(1-t, 3);
-                let newRot = startRot + (targetRotation - startRot) * easeOut;
-                currentRotation = newRot % (2*Math.PI);
-                drawWheel();
-                if (t < 1) {
-                    animationId = requestAnimationFrame(animate);
-                } else {
-                    currentRotation = finalRotation;
-                    drawWheel();
-                    spinning = false;
-                    cancelAnimationFrame(animationId);
-                    animationId = null;
-                    resolve(true);
+            // Initialize teams stats object
+            teams = {};
+            list.forEach(name => {
+                if(name !== "BYE") {
+                    teams[name] = { name, mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0 };
+                }
+            });
+
+            // Generate Fixtures using Berger Tables / Round Robin algorithm
+            fixtures = [];
+            const numTeams = list.length;
+            const rounds = numTeams - 1;
+            const matchesPerRound = numTeams / 2;
+
+            for (let round = 0; round < rounds; round++) {
+                for (let match = 0; match < matchesPerRound; match++) {
+                    const homeIdx = (round + match) % (numTeams - 1);
+                    let awayIdx = (numTeams - 1 - match + round) % (numTeams - 1);
+
+                    if (match === 0) {
+                        awayIdx = numTeams - 1;
+                    }
+
+                    const home = list[homeIdx];
+                    const away = list[awayIdx];
+
+                    // Skip matches involving the dummy "BYE" team
+                    if (home !== "BYE" && away !== "BYE") {
+                        fixtures.push({
+                            id: fixtures.length,
+                            round: round + 1,
+                            home: home,
+                            away: away,
+                            homeScore: null,
+                            awayScore: null,
+                            played: false
+                        });
+                    }
                 }
             }
-            if (animationId) cancelAnimationFrame(animationId);
-            animationId = requestAnimationFrame(animate);
-        });
-    }
 
-    async function performSpin(spinnerName) {
-        if (spinning) { resultDiv.innerHTML = "⏳ Wheel spinning..."; return; }
-        if (participants.length < 2) { resultDiv.innerHTML = "❌ Tournament not ready. Admin must add players."; return; }
-        if (!participants.includes(spinnerName)) { resultDiv.innerHTML = `❗ "${spinnerName}" not in guild list.`; return; }
-        if (pairedPlayers.has(spinnerName)) {
-            const existing = matchups.find(m => m.player1 === spinnerName || m.player2 === spinnerName);
-            const opponent = existing ? (existing.player1 === spinnerName ? existing.player2 : existing.player1) : "unknown";
-            resultDiv.innerHTML = `⚠️ ${spinnerName}, you already fought ${opponent}. One match per player.`;
-            return;
+            renderDashboard();
+            saveToStorage();
         }
-        let available = participants.filter(p => p !== spinnerName && !pairedPlayers.has(p));
-        if (available.length === 0) {
-            if (participants.length % 2 === 1 && !pairedPlayers.has(spinnerName)) {
-                // Bye
-                matchups.push({ player1: spinnerName, player2: "BYE (advances)" });
-                pairedPlayers.add(spinnerName);
-                await saveToFirestore();
-                renderMatchupLog();
-                resultDiv.innerHTML = `🎉 ${spinnerName} gets a BYE! Advances. 🎉`;
-                drawWheel();
-            } else {
-                resultDiv.innerHTML = "😵 No available opponents! Tournament full.";
+
+        // --- CALCULATION LOGIC ---
+        function updateTableCalculations() {
+            // Reset statistics
+            for (let t in teams) {
+                teams[t] = { name: t, mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0 };
             }
-            return;
+
+            // Calculate from completed fixtures
+            fixtures.forEach(f => {
+                if (f.played) {
+                    const h = f.home;
+                    const a = f.away;
+                    const hScore = parseInt(f.homeScore);
+                    const aScore = parseInt(f.awayScore);
+
+                    teams[h].mp++;
+                    teams[a].mp++;
+                    teams[h].gf += hScore;
+                    teams[h].ga += aScore;
+                    teams[a].gf += aScore;
+                    teams[a].ga += hScore;
+
+                    if (hScore > aScore) {
+                        teams[h].w++;
+                        teams[h].pts += 3;
+                        teams[a].l++;
+                    } else if (hScore < aScore) {
+                        teams[a].w++;
+                        teams[a].pts += 3;
+                        teams[h].l++;
+                    } else {
+                        teams[h].d++;
+                        teams[h].pts += 1;
+                        teams[a].d++;
+                        teams[a].pts += 1;
+                    }
+
+                    teams[h].gd = teams[h].gf - teams[h].ga;
+                    teams[a].gd = teams[a].gf - teams[a].ga;
+                }
+            });
         }
-        const opponent = available[Math.floor(Math.random() * available.length)];
-        await spinToOpponent(opponent);
-        // Double-check that opponent is still free (might have been taken by another user in the split second)
-        if (pairedPlayers.has(opponent) || pairedPlayers.has(spinnerName)) {
-            resultDiv.innerHTML = `⚠️ Conflict: ${opponent} was just paired. Please spin again.`;
-            return;
+
+        // --- RENDER SCREEN ---
+        function renderDashboard() {
+            document.getElementById('setup-section').classList.add('hidden');
+            document.getElementById('dashboard-section').classList.remove('hidden');
+
+            updateTableCalculations();
+            renderTable();
+            renderFixtures();
         }
-        matchups.push({ player1: spinnerName, player2: opponent });
-        pairedPlayers.add(spinnerName);
-        pairedPlayers.add(opponent);
-        await saveToFirestore();
-        renderMatchupLog();
-        const wheelName = getCurrentSegmentName();
-        if (wheelName !== opponent) await spinToOpponent(opponent);
-        resultDiv.innerHTML = `🔥 ${spinnerName} 🆚 <span style="color:#ffcc66">${opponent}</span> 🔥<br> Unique match!`;
-        resultDiv.classList.add('glow');
-        setTimeout(() => resultDiv.classList.remove('glow'), 600);
-    }
 
-    function renderMatchupLog() {
-        if (matchups.length === 0) {
-            matchupContainer.innerHTML = '<div class="empty-log">✨ No fights yet. Admin must build wheel, then players spin.</div>';
-            return;
+        function renderTable() {
+            // Convert to array and sort by Points, then Goal Difference, then Goals For
+            let sortedTeams = Object.values(teams).sort((a, b) => {
+                if (b.pts !== a.pts) return b.pts - a.pts;
+                if (b.gd !== a.gd) return b.gd - a.gd;
+                return b.gf - a.gf;
+            });
+
+            const tbody = document.getElementById('league-table-body');
+            tbody.innerHTML = "";
+
+            sortedTeams.forEach((team, index) => {
+                const pos = index + 1;
+                
+                // Styling zones (Top 1 is champion/leader, bottom rows can be colored differently)
+                let rowBg = "hover:bg-gray-800/40 transition border-b border-gray-800/60";
+                let posColor = "text-gray-400 font-medium";
+                
+                if (pos === 1) { rowBg += " bg-amber-500/5"; posColor = "text-yellow-400 font-bold"; }
+                if (pos === 2 || pos === 3) { rowBg += " bg-indigo-500/5"; }
+
+                tbody.innerHTML += `
+                    <tr class="${rowBg}">
+                        <td class="py-3 px-4 text-center ${posColor}">${pos}</td>
+                        <td class="py-3 px-4 font-semibold text-gray-200">${team.name}</td>
+                        <td class="py-3 px-3 text-center text-gray-400">${team.mp}</td>
+                        <td class="py-3 px-2 text-center text-green-400 font-medium">${team.w}</td>
+                        <td class="py-3 px-2 text-center text-gray-400">${team.d}</td>
+                        <td class="py-3 px-2 text-center text-red-400 font-medium">${team.l}</td>
+                        <td class="py-3 px-2 text-center text-gray-400">${team.gf}</td>
+                        <td class="py-3 px-2 text-center text-gray-400">${team.ga}</td>
+                        <td class="py-3 px-2 text-center font-medium ${team.gd >= 0 ? 'text-green-500' : 'text-red-500'}">${team.gd > 0 ? '+' + team.gd : team.gd}</td>
+                        <td class="py-3 px-4 text-center text-indigo-400 font-bold text-base">${team.pts}</td>
+                    </tr>
+                `;
+            });
         }
-        let html = '';
-        for (let m of matchups.slice().reverse()) {
-            html += `<div class="matchup-item">⚔️ ${escapeHtml(m.player1)}  vs  ${escapeHtml(m.player2)}</div>`;
+
+        function renderFixtures() {
+            const container = document.getElementById('fixtures-container');
+            container.innerHTML = "";
+
+            let currentRound = 0;
+
+            fixtures.forEach(f => {
+                // Add Round Headers visually separating gameweeks
+                if (f.round !== currentRound) {
+                    currentRound = f.round;
+                    container.innerHTML += `
+                        <div class="text-xs font-bold text-gray-500 tracking-wider uppercase mt-4 mb-2 border-b border-gray-800 pb-1">
+                            Gameweek ${currentRound}
+                        </div>
+                    `;
+                }
+
+                const isPlayed = f.played;
+                const hVal = isPlayed ? f.homeScore : "";
+                const aVal = isPlayed ? f.awayScore : "";
+
+                container.innerHTML += `
+                    <div class="flex items-center justify-between bg-gray-950 p-3 rounded-xl border border-gray-800/80 gap-4">
+                        <div class="w-2/5 text-right font-medium text-sm text-gray-300 truncate">${f.home}</div>
+                        
+                        <!-- Score Box Inputs -->
+                        <div class="flex items-center gap-1 bg-gray-900 px-2 py-1 rounded-lg border border-gray-800">
+                            <input type="number" id="home-score-${f.id}" value="${hVal}" min="0" placeholder="-" 
+                                class="w-8 text-center bg-transparent font-bold text-indigo-400 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                            <span class="text-gray-600 font-bold text-xs">:</span>
+                            <input type="number" id="away-score-${f.id}" value="${aVal}" min="0" placeholder="-" 
+                                class="w-8 text-center bg-transparent font-bold text-indigo-400 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                        </div>
+
+                        <div class="w-2/5 text-left font-medium text-sm text-gray-300 truncate">${f.away}</div>
+                        
+                        <div>
+                            <button onclick="saveResult(${f.id})" class="px-3 py-1.5 text-xs font-bold uppercase rounded-lg transition tracking-wide ${isPlayed ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm'}">
+                                ${isPlayed ? 'Update' : 'Save'}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
         }
-        matchupContainer.innerHTML = html;
-    }
 
-    function escapeHtml(str) { return str.replace(/[&<>]/g, m => m==='&'?'&amp;':m==='<'?'&lt;':'&gt;'); }
+        // --- INTERACTION ACTIONS ---
+        function saveResult(fixtureId) {
+            const hInput = document.getElementById(`home-score-${fixtureId}`).value;
+            const aInput = document.getElementById(`away-score-${fixtureId}`).value;
 
-    // Admin functions (only write to Firestore)
-    async function rebuildWheel() {
-        const raw = membersTextarea.value;
-        let lines = raw.split(/\r?\n/).map(l=>l.trim()).filter(l=>l!=="");
-        if (lines.length < 2) { adminFeedback.innerText = "❌ Need at least 2 players."; return; }
-        const unique = [...new Set(lines)];
-        participants = unique;
-        membersTextarea.value = participants.join('\n');
-        currentRotation = Math.random() * 2 * Math.PI;
-        drawWheel();
-        // Do NOT clear pairings automatically – but admin can reset separately.
-        await saveToFirestore();
-        adminFeedback.innerText = `✅ Wheel built with ${participants.length} fighters.`;
-    }
+            if (hInput === "" || aInput === "") {
+                alert("Please enter scores for both teams before saving.");
+                return;
+            }
 
-    async function resetTournament() {
-        if (!confirm("⚠️ RESET entire tournament? All matchups and spins will be cleared.")) return;
-        pairedPlayers.clear();
-        matchups = [];
-        await saveToFirestore();
-        renderMatchupLog();
-        resultDiv.innerHTML = "✨ Tournament reset. Everyone can spin again.";
-        adminFeedback.innerText = "Tournament reset.";
-        drawWheel();
-    }
+            const fixture = fixtures.find(f => f.id === fixtureId);
+            fixture.homeScore = parseInt(hInput);
+            fixture.awayScore = parseInt(aInput);
+            fixture.played = true;
 
-    // Admin login (simple)
-    let adminLoggedIn = false;
-    adminBtn.addEventListener('click', () => {
-        if (!adminLoggedIn) {
-            let pwd = prompt("Admin password:");
-            if (pwd === "TeamBot") {
-                adminLoggedIn = true;
-                adminPanel.classList.add('show');
-                adminBtn.textContent = "🔒 Admin Mode ON";
-                adminFeedback.innerText = "Admin active. You can edit participants and reset tournament.";
-            } else alert("Wrong password!");
-        } else {
-            adminLoggedIn = false;
-            adminPanel.classList.remove('show');
-            adminBtn.textContent = "🔐 Admin Login";
+            renderDashboard();
+            saveToStorage();
         }
-    });
-    buildWheelBtn.addEventListener('click', () => { if(adminLoggedIn) rebuildWheel(); else alert("Admin only"); });
-    resetTournamentBtn.addEventListener('click', () => { if(adminLoggedIn) resetTournament(); else alert("Admin only"); });
-    spinBtn.addEventListener('click', async () => {
-        let name = playerNameInput.value.trim();
-        if (!name) { resultDiv.innerHTML = "❗ Enter your IGN!"; return; }
-        await performSpin(name);
-    });
 
-    // Start real-time listener
-    subscribeToTournament();
-    window.addEventListener('resize', () => drawWheel());
-</script>
+        function resetTournament() {
+            if (confirm("Are you sure you want to completely wipe out the data and restart? All results will be lost.")) {
+                localStorage.removeItem('dls_teams');
+                localStorage.removeItem('dls_fixtures');
+                teams = {};
+                fixtures = [];
+                document.getElementById('manager-names').value = "";
+                document.getElementById('dashboard-section').classList.add('hidden');
+                document.getElementById('setup-section').classList.remove('hidden');
+            }
+        }
+
+        // Check for existing tournament data when page loads
+        window.onload = loadFromStorage;
+    </script>
 </body>
 </html>
