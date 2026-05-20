@@ -1,5 +1,5 @@
 /**
- * DLS Premier League - Enhanced Edition (Crisp Logos)
+ * DLS Premier League - Enhanced Edition with Manual Table Editing
  */
 const firebaseConfig = {
     apiKey: "AIzaSyBmy0tmvaYcw9KsQQRH7RLKcXC8EN6WFqY",
@@ -22,6 +22,7 @@ let tournamentPassword = "1234";
 let newsHeadlines = [];
 let temporaryUploadedLogos = {};
 
+// Helper functions
 function showToast(msg, type = "info") {
     const container = document.getElementById("toast-container");
     if (!container) return;
@@ -32,7 +33,6 @@ function showToast(msg, type = "info") {
     setTimeout(() => toast.remove(), 2500);
 }
 
-// Improved team badge with larger, crisp image or gradient fallback
 function getTeamBadgeHtml(teamKey, size = "w-8 h-8") {
     const team = teams[teamKey];
     if (team && team.logoData && team.logoData.trim() !== "") {
@@ -44,7 +44,6 @@ function getTeamBadgeHtml(teamKey, size = "w-8 h-8") {
     return `<div class="${size} rounded-full flex items-center justify-center text-white font-bold shadow-sm" style="background: ${color};">${initial}</div>`;
 }
 
-// Lightbox functions
 window.showLightbox = function(src) {
     const lb = document.getElementById('lightbox');
     const img = document.getElementById('lightbox-img');
@@ -74,6 +73,11 @@ function initRealtimeDatabaseSync() {
                 document.getElementById('setup-section')?.classList.add('hidden');
                 document.getElementById('dashboard-section')?.classList.remove('hidden');
                 document.getElementById('admin-toggle-container')?.classList.remove('hidden');
+                // Ensure all teams have necessary fields (backward compatibility)
+                for (let t in teams) {
+                    if (teams[t].deductedPoints === undefined) teams[t].deductedPoints = 0;
+                    if (!teams[t].formHistory) teams[t].formHistory = [];
+                }
                 updateTableCalculations();
                 renderTable();
                 renderGameweekTabs();
@@ -88,7 +92,7 @@ function initRealtimeDatabaseSync() {
     }, (error) => { showToast("Firebase connection issue", "error"); });
 }
 
-// Admin handlers (unchanged but referenced)
+// Admin handlers
 function handleAdminToggleClick() {
     if (!isAdmin) {
         document.getElementById('admin-password-input').value = "";
@@ -102,8 +106,9 @@ function verifyAdminPassword() {
     if (inputVal === tournamentPassword) { closePasswordModal(); activateAdminMode(); }
     else document.getElementById('password-error').classList.remove('hidden');
 }
-function activateAdminMode() { isAdmin = true; updateAdminUIElements(); showToast("Admin mode ACTIVE", "success"); }
+function activateAdminMode() { isAdmin = true; updateAdminUIElements(); showToast("Admin mode ACTIVE – you can now edit team stats", "success"); }
 function deactivateAdminMode() { isAdmin = false; updateAdminUIElements(); showToast("Admin mode deactivated", "info"); }
+
 function updateAdminUIElements() {
     const btn = document.getElementById('admin-btn');
     const dot = document.getElementById('admin-btn-dot');
@@ -129,7 +134,7 @@ function updateAdminUIElements() {
     renderTable(); renderFixtures();
 }
 
-// Team setup with image preview
+// Team setup (unchanged)
 function generateTeamInputs() {
     const count = parseInt(document.getElementById('team-count').value);
     if (isNaN(count) || count < 2) { alert("Enter 2-20 teams"); return; }
@@ -182,7 +187,10 @@ function initializeTournament() {
     teams = {};
     list.forEach(item => {
         if(item.name !== "BYE") {
-            teams[item.name] = { name: item.name, logoData: item.logoData, mp:0, w:0, d:0, l:0, gf:0, ga:0, gd:0, pts:0, deductedPoints:0, formHistory: [] };
+            teams[item.name] = { 
+                name: item.name, logoData: item.logoData, 
+                mp:0, w:0, d:0, l:0, gf:0, ga:0, gd:0, pts:0, deductedPoints:0, formHistory: [] 
+            };
         }
     });
     fixtures = [];
@@ -204,15 +212,86 @@ function initializeTournament() {
     showToast("Tournament initialized!", "success");
 }
 
-// Deduct & expel
+// Manual edit team stats (NEW)
+let currentEditingTeam = null;
+window.openEditStatsModal = function(teamName) {
+    if (!isAdmin) return;
+    currentEditingTeam = teamName;
+    const team = teams[teamName];
+    document.getElementById('edit-team-name').innerText = teamName;
+    document.getElementById('edit-mp').value = team.mp || 0;
+    document.getElementById('edit-w').value = team.w || 0;
+    document.getElementById('edit-d').value = team.d || 0;
+    document.getElementById('edit-l').value = team.l || 0;
+    document.getElementById('edit-gf').value = team.gf || 0;
+    document.getElementById('edit-ga').value = team.ga || 0;
+    document.getElementById('edit-form').value = (team.formHistory || []).join(',');
+    document.getElementById('edit-stats-modal').classList.remove('hidden');
+};
+window.closeEditStatsModal = function() {
+    document.getElementById('edit-stats-modal').classList.add('hidden');
+    currentEditingTeam = null;
+};
+window.saveEditedStats = function() {
+    if (!currentEditingTeam) return;
+    const team = teams[currentEditingTeam];
+    const mp = parseInt(document.getElementById('edit-mp').value) || 0;
+    const w = parseInt(document.getElementById('edit-w').value) || 0;
+    const d = parseInt(document.getElementById('edit-d').value) || 0;
+    const l = parseInt(document.getElementById('edit-l').value) || 0;
+    const gf = parseInt(document.getElementById('edit-gf').value) || 0;
+    const ga = parseInt(document.getElementById('edit-ga').value) || 0;
+    const formStr = document.getElementById('edit-form').value.trim();
+    let formHistory = [];
+    if (formStr) {
+        formHistory = formStr.split(',').map(s => s.trim().toUpperCase()).filter(s => ['W','D','L'].includes(s));
+    }
+    // Update team object
+    team.mp = mp;
+    team.w = w;
+    team.d = d;
+    team.l = l;
+    team.gf = gf;
+    team.ga = ga;
+    team.gd = gf - ga;
+    team.pts = (w * 3) + d;
+    team.formHistory = formHistory;
+    // If deducted points exist, subtract them from displayed points (but keep original pts for calculations)
+    if (team.deductedPoints) {
+        team.pts = Math.max(0, team.pts - team.deductedPoints);
+    }
+    closeEditStatsModal();
+    saveToStorage();
+    showToast(`${currentEditingTeam} stats updated`, "success");
+    // Re-render table
+    renderTable();
+};
+
+// Sync standings from fixtures (overwrites manual edits with calculated data)
+window.syncStandingsFromFixtures = function() {
+    if (!isAdmin) return;
+    if (confirm("This will recalculate all team stats based on match results. Any manual edits will be lost. Continue?")) {
+        updateTableCalculations(); // this recalculates from fixtures
+        saveToStorage();
+        renderTable();
+        showToast("Standings synced from match fixtures", "info");
+    }
+};
+
+// Deduct points & expel (unchanged)
 window.deductPointsPrompt = function(teamName) {
     if(!isAdmin) return;
     let amount = prompt(`Penalty points for ${teamName}:`, "3");
     if(!amount) return;
     teams[teamName].deductedPoints = (teams[teamName].deductedPoints||0) + parseInt(amount);
+    // Recalculate pts after deduction
+    const team = teams[teamName];
+    const basePts = (team.w * 3) + team.d;
+    team.pts = Math.max(0, basePts - team.deductedPoints);
     newsHeadlines.unshift(`⚠️ ${teamName} deducted ${amount} points (admin)`);
     saveToStorage();
     showToast(`${teamName} penalized ${amount} pts`, "warning");
+    renderTable();
 };
 window.removeTeamFromLeague = function(teamName) {
     if(!isAdmin) return;
@@ -224,10 +303,11 @@ window.removeTeamFromLeague = function(teamName) {
         newsHeadlines.unshift(`🚫 ${teamName} has been expelled from the league`);
         saveToStorage();
         showToast(`${teamName} removed`, "error");
+        renderTable(); renderFixtures();
     }
 };
 
-// Standings calculations (same as before)
+// Standings calculations (unchanged logic)
 function calculateStandingsForRound(upToRound) {
     let temp = {};
     for(let t in teams) temp[t] = { name: t, pts:0, gd:0, gf:0 };
@@ -246,6 +326,7 @@ function calculateStandingsForRound(upToRound) {
 }
 
 function updateTableCalculations() {
+    // Reset stats from teams (preserve logo and deductedPoints)
     for(let t in teams) {
         teams[t] = { ...teams[t], mp:0, w:0, d:0, l:0, gf:0, ga:0, gd:0, pts:0, formHistory: [] };
     }
@@ -262,24 +343,20 @@ function updateTableCalculations() {
         }
     });
     for(let t in teams) {
-        teams[t].pts = Math.max(0, teams[t].pts - (teams[t].deductedPoints||0));
+        if (teams[t].deductedPoints) {
+            teams[t].pts = Math.max(0, teams[t].pts - teams[t].deductedPoints);
+        }
         teams[t].gd = teams[t].gf - teams[t].ga;
     }
 }
 
 function renderTable() {
     let currentSorted = Object.values(teams).sort((a,b)=>b.pts-a.pts || b.gd-a.gd || b.gf-a.gf);
-    let maxRoundPlayed = Math.max(0, ...fixtures.filter(f=>f.played).map(f=>f.round));
-    let prevRankMap = {};
-    if(maxRoundPlayed > 1) {
-        let prev = calculateStandingsForRound(maxRoundPlayed-1);
-        prev.forEach((p,idx)=> prevRankMap[p.name] = idx);
-    }
     const tbody = document.getElementById('league-table-body');
     tbody.innerHTML = "";
     currentSorted.forEach((team, idx) => {
         const pos = idx+1;
-        // Form badges (5 matches)
+        // Form badges
         let recent = team.formHistory.slice(-5);
         while(recent.length < 5) recent.unshift('-');
         let formHtml = `<div class="flex gap-1.5 justify-center">`;
@@ -293,7 +370,15 @@ function renderTable() {
 
         const penaltyBadge = team.deductedPoints > 0 ? `<span class="ml-1 text-[9px] bg-rose-50 text-rose-600 px-1 rounded-full">-${team.deductedPoints}</span>` : "";
         const rowClass = pos === 1 ? "champions-row" : (pos > currentSorted.length-2 ? "relegation-row" : "");
-        const actionBtn = isAdmin ? `<td class="py-3 px-2 text-center"><button onclick="deductPointsPrompt('${team.name}')" class="text-xs bg-amber-50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100">⚖️</button> <button onclick="removeTeamFromLeague('${team.name}')" class="text-xs bg-rose-50 text-rose-600 px-2 py-1 rounded-full hover:bg-rose-100">🗑️</button></td>` : "";
+        
+        let actionButtons = "";
+        if (isAdmin) {
+            actionButtons = `<td class="py-3 px-2 text-center space-x-1">
+                <button onclick="openEditStatsModal('${team.name}')" class="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded-full hover:bg-indigo-100" title="Edit team stats">✏️</button>
+                <button onclick="deductPointsPrompt('${team.name}')" class="text-xs bg-amber-50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100" title="Deduct points">⚖️</button>
+                <button onclick="removeTeamFromLeague('${team.name}')" class="text-xs bg-rose-50 text-rose-600 px-2 py-1 rounded-full hover:bg-rose-100" title="Expel team">🗑️</button>
+            </td>`;
+        }
 
         tbody.innerHTML += `
             <tr class="hover:bg-gray-50 transition ${rowClass}">
@@ -308,7 +393,7 @@ function renderTable() {
                 <td class="py-3 px-2 text-center ${team.gd>=0?'text-emerald-600':'text-rose-500'} font-mono">${team.gd>0?'+'+team.gd:team.gd}</td>
                 <td class="py-3 px-3 text-center font-black text-indigo-600">${team.pts}</td>
                 <td class="py-3 px-4 text-center">${formHtml}</td>
-                ${actionBtn}
+                ${actionButtons}
             </tr>
         `;
     });

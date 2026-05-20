@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>DLS Vawulence Academy  | Tournament Hub</title>
+    <title>DLS Vawulence Academy | Tournament Site</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
@@ -12,6 +12,7 @@
 </head>
 <body class="bg-gradient-to-br from-slate-50 to-gray-100 font-['Inter'] text-gray-800 antialiased">
 
+    <!-- Live News Ticker -->
     <div class="ticker-container bg-white/80 backdrop-blur-sm border-b border-gray-200 text-gray-600 text-xs font-semibold py-3 shadow-sm">
         <div class="ticker-wrapper" id="news-ticker">
             <span class="inline-flex items-center gap-2"><span class="w-1.5 h-1.5 bg-indigo-500 rounded-full"></span> Connecting to secure cloud...</span>
@@ -42,7 +43,35 @@
         </div>
     </div>
 
-    <!-- MODAL: Predictor (unchanged but crest size improved) -->
+    <!-- MODAL: Edit Team Stats (Admin) -->
+    <div id="edit-stats-modal" class="fixed inset-0 z-50 hidden bg-gray-900/50 backdrop-blur-sm items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <div class="flex justify-between items-center border-b border-gray-200 pb-3">
+                <h3 class="font-bold text-gray-800 flex items-center gap-2">✏️ Edit Team Stats</h3>
+                <button onclick="closeEditStatsModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button>
+            </div>
+            <div id="edit-team-name" class="text-lg font-bold text-indigo-600 text-center"></div>
+            <div class="grid grid-cols-2 gap-3">
+                <div><label class="text-xs text-gray-500">MP</label><input type="number" id="edit-mp" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"></div>
+                <div><label class="text-xs text-gray-500">W</label><input type="number" id="edit-w" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"></div>
+                <div><label class="text-xs text-gray-500">D</label><input type="number" id="edit-d" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"></div>
+                <div><label class="text-xs text-gray-500">L</label><input type="number" id="edit-l" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"></div>
+                <div><label class="text-xs text-gray-500">GF</label><input type="number" id="edit-gf" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"></div>
+                <div><label class="text-xs text-gray-500">GA</label><input type="number" id="edit-ga" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"></div>
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Recent Form (e.g., W,L,D,W,W)</label>
+                <input type="text" id="edit-form" placeholder="W,L,D,W,W" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+            </div>
+            <div class="flex gap-3 pt-3">
+                <button onclick="closeEditStatsModal()" class="flex-1 py-2 border border-gray-300 rounded-lg text-sm">Cancel</button>
+                <button onclick="saveEditedStats()" class="flex-1 bg-indigo-600 text-white rounded-lg py-2 text-sm font-bold">Save Changes</button>
+            </div>
+            <p class="text-[10px] text-gray-400 text-center mt-2">Points and GD will be auto‑calculated.</p>
+        </div>
+    </div>
+
+    <!-- MODAL: Predictor (unchanged) -->
     <div id="predictor-modal" class="fixed inset-0 z-50 hidden bg-gray-900/40 backdrop-blur-sm items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-gray-100 overflow-hidden animate-fadeInUp">
             <div class="p-5 border-b border-gray-100 flex justify-between items-center">
@@ -120,32 +149,35 @@
         <!-- Main Dashboard -->
         <section id="dashboard-section" class="hidden space-y-8">
             <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                <div class="px-5 py-4 bg-gray-50/80 border-b border-gray-200 flex justify-between items-center">
+                <div class="px-5 py-4 bg-gray-50/80 border-b border-gray-200 flex justify-between items-center flex-wrap gap-2">
                     <h2 class="font-bold text-gray-700 flex items-center gap-2"><span>🏆</span> League Table</h2>
-                    <button id="export-csv-btn" onclick="exportStandingsToCSV()" class="text-xs bg-white border border-gray-300 rounded-lg px-3 py-1.5 hover:bg-gray-100 transition md:block">📎 Export CSV</button>
+                    <div class="flex gap-2">
+                        <button id="export-csv-btn" onclick="exportStandingsToCSV()" class="text-xs bg-white border border-gray-300 rounded-lg px-3 py-1.5 hover:bg-gray-100 transition">📎 Export CSV</button>
+                        <button id="sync-from-fixtures-btn" onclick="syncStandingsFromFixtures()" class="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg px-3 py-1.5 hover:bg-indigo-100 transition">🔄 Sync from Fixtures</button>
+                    </div>
                 </div>
                 <div class="overflow-x-auto">
-                    <table class="w-full text-sm min-w-[950px]">
-                       <thead class="bg-gray-100 text-gray-500 text-xs font-mono uppercase">
-    <tr>
-        <th class="py-3 px-3 text-center">Pos</th>
-        <th class="py-3 px-4 text-left">Team</th>
-        <th class="py-3 px-2 text-center">MP</th>
-        <th class="py-3 px-2 text-center">W</th>
-        <th class="py-3 px-2 text-center">D</th>
-        <th class="py-3 px-2 text-center">L</th>
-        <th class="py-3 px-2 text-center">GF</th>
-        <th class="py-3 px-2 text-center">GA</th>
-        <th class="py-3 px-2 text-center">GD</th>
-        <th class="py-3 px-3 text-center">PTS</th>
-        <th class="py-3 px-4 text-center">Form</th>
-        <th id="th-admin-actions" class="hidden py-3 px-3 text-center">Actions</th>
-    </tr>
-</thead>
+                    <table class="w-full text-sm min-w-[900px]">
+                        <thead class="bg-gray-100 text-gray-500 text-xs font-mono uppercase">
+                            <tr>
+                                <th class="py-3 px-3 text-center">Pos</th>
+                                <th class="py-3 px-4 text-left">Team</th>
+                                <th class="py-3 px-2 text-center">MP</th>
+                                <th class="py-3 px-2 text-center">W</th>
+                                <th class="py-3 px-2 text-center">D</th>
+                                <th class="py-3 px-2 text-center">L</th>
+                                <th class="py-3 px-2 text-center">GF</th>
+                                <th class="py-3 px-2 text-center">GA</th>
+                                <th class="py-3 px-2 text-center">GD</th>
+                                <th class="py-3 px-3 text-center">PTS</th>
+                                <th class="py-3 px-4 text-center">Form</th>
+                                <th id="th-admin-actions" class="hidden py-3 px-3 text-center">Actions</th>
+                            </tr>
+                        </thead>
                         <tbody id="league-table-body" class="divide-y divide-gray-100"></tbody>
                     </table>
                 </div>
-                <div id="admin-table-hint" class="hidden text-center text-[11px] text-indigo-500 bg-indigo-50 py-2 border-t border-indigo-100">✋ Admin mode: click ⋮ on any team row to deduct points or expel.</div>
+                <div id="admin-table-hint" class="hidden text-center text-[11px] text-indigo-500 bg-indigo-50 py-2 border-t border-indigo-100">✋ Admin mode: click ✏️ to edit team stats directly.</div>
             </div>
 
             <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-4">
