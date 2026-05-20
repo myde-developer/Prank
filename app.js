@@ -1,115 +1,109 @@
 /**
- * DLS Premier League - Main Application Logic Controller
- * Cloud Synced Backend Structure: Firebase Realtime Database
+ * DLS Premier League - Enhanced Edition (Crisp Logos)
  */
-
-// ==========================================
-// PASTE YOUR FIREBASE CONFIGURATION OBJECT HERE
-// ==========================================
 const firebaseConfig = {
     apiKey: "AIzaSyBmy0tmvaYcw9KsQQRH7RLKcXC8EN6WFqY",
     authDomain: "dls-premier-league.firebaseapp.com",
     projectId: "dls-premier-league",
-    storageBucket: "dls-premier-league.appspot.com",
+    storageBucket: "dls-premier-league.firebasestorage.app",
     messagingSenderId: "975087030284",
     appId: "1:975087030284:web:7708718fffd9180c009e29",
     measurementId: "G-Q2C6TKNRHE"
-  };
+};
 
-// Initialize Firebase Core Engine Instance
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 let teams = {};
 let fixtures = [];
-let currentSelectedRound = 1; 
-let isAdmin = false; 
-let tournamentPassword = "1234"; 
+let currentSelectedRound = 1;
+let isAdmin = false;
+let tournamentPassword = "1234";
 let newsHeadlines = [];
 let temporaryUploadedLogos = {};
 
-// Helper: Generates high-fidelity professional text-based badges or renders custom image uploads
-function getTeamBadgeHtml(teamKey) {
+function showToast(msg, type = "info") {
+    const container = document.getElementById("toast-container");
+    if (!container) return;
+    const toast = document.createElement("div");
+    toast.className = "toast";
+    toast.innerText = msg;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 2500);
+}
+
+// Improved team badge with larger, crisp image or gradient fallback
+function getTeamBadgeHtml(teamKey, size = "w-8 h-8") {
     const team = teams[teamKey];
     if (team && team.logoData && team.logoData.trim() !== "") {
-        return `<img src="${team.logoData}" alt="${team.name}" class="w-4 h-4 object-cover inline shrink-0 rounded-full border border-slate-700">`;
+        return `<img src="${team.logoData}" alt="${team.name}" class="team-logo ${size} object-contain rounded-lg border border-gray-200 bg-white cursor-pointer hover:scale-105 transition" onclick="showLightbox('${team.logoData}')">`;
     }
-    const firstLetter = teamKey ? teamKey.slice(0, 2).toUpperCase() : '??';
-    return `<div class="w-5 h-4 flex items-center justify-center rounded bg-[#1e293b] text-[9px] font-mono font-bold text-slate-400 shrink-0 border border-slate-700 uppercase tracking-tighter">${firstLetter}</div>`;
+    const initial = teamKey ? teamKey.charAt(0).toUpperCase() : "?";
+    const colors = ["#6366f1", "#8b5cf6", "#ec4899", "#f43f5e"];
+    const color = colors[Math.abs(teamKey.charCodeAt(0) || 0) % colors.length];
+    return `<div class="${size} rounded-full flex items-center justify-center text-white font-bold shadow-sm" style="background: ${color};">${initial}</div>`;
 }
 
-// Global Sync Module: Writes state array mutations instantly into the Cloud Database Tree
+// Lightbox functions
+window.showLightbox = function(src) {
+    const lb = document.getElementById('lightbox');
+    const img = document.getElementById('lightbox-img');
+    img.src = src;
+    lb.classList.remove('hidden');
+    lb.classList.add('flex');
+};
+window.closeLightbox = function() {
+    const lb = document.getElementById('lightbox');
+    lb.classList.add('hidden');
+    lb.classList.remove('flex');
+};
+
 function saveToStorage() {
-    db.ref('tournament_data').set({
-        teams: teams,
-        fixtures: fixtures,
-        password: tournamentPassword,
-        headlines: newsHeadlines
-    });
+    db.ref('tournament_data').set({ teams, fixtures, password: tournamentPassword, headlines: newsHeadlines });
 }
 
-// REAL-TIME STREAM LISTENERS: Fires instantly for EVERY viewer whenever data transforms in the cloud
 function initRealtimeDatabaseSync() {
     db.ref('tournament_data').on('value', (snapshot) => {
         const data = snapshot.val();
         if (data) {
             if (data.password) tournamentPassword = data.password;
-            
-            if (data.headlines) {
-                newsHeadlines = data.headlines;
-                updateTickerDisplay();
-            }
-            
+            if (data.headlines) { newsHeadlines = data.headlines; updateTickerDisplay(); }
             if (data.teams && data.fixtures) {
                 teams = data.teams;
                 fixtures = data.fixtures;
-                
-                // Keep view anchored to screen context components
-                document.getElementById('setup-section').classList.add('hidden');
-                document.getElementById('dashboard-section').classList.remove('hidden');
-                document.getElementById('admin-toggle-container').classList.remove('hidden');
-                
+                document.getElementById('setup-section')?.classList.add('hidden');
+                document.getElementById('dashboard-section')?.classList.remove('hidden');
+                document.getElementById('admin-toggle-container')?.classList.remove('hidden');
                 updateTableCalculations();
                 renderTable();
                 renderGameweekTabs();
                 renderFixtures();
+                document.title = `DLS | ${Object.keys(teams).length} teams • Live`;
             }
         } else {
-            // Database is totally empty: default fallback cleanly brings up setup wizard
-            document.getElementById('setup-section').classList.remove('hidden');
-            document.getElementById('dashboard-section').classList.add('hidden');
-            document.getElementById('news-ticker').innerHTML = "Notice: Ready for system registry generation.";
+            document.getElementById('setup-section')?.classList.remove('hidden');
+            document.getElementById('dashboard-section')?.classList.add('hidden');
+            document.getElementById('news-ticker').innerHTML = "⚽ Ready to create your league";
         }
-    });
+    }, (error) => { showToast("Firebase connection issue", "error"); });
 }
 
-// Admin Switch Handlers
+// Admin handlers (unchanged but referenced)
 function handleAdminToggleClick() {
     if (!isAdmin) {
         document.getElementById('admin-password-input').value = "";
         document.getElementById('password-error').classList.add('hidden');
         document.getElementById('password-modal').classList.remove('hidden');
-        document.getElementById('admin-password-input').focus();
-    } else {
-        deactivateAdminMode();
-    }
+    } else deactivateAdminMode();
 }
-
 function closePasswordModal() { document.getElementById('password-modal').classList.add('hidden'); }
-
 function verifyAdminPassword() {
     const inputVal = document.getElementById('admin-password-input').value;
-    if (inputVal === tournamentPassword) {
-        closePasswordModal();
-        activateAdminMode();
-    } else {
-        document.getElementById('password-error').classList.remove('hidden');
-    }
+    if (inputVal === tournamentPassword) { closePasswordModal(); activateAdminMode(); }
+    else document.getElementById('password-error').classList.remove('hidden');
 }
-
-function activateAdminMode() { isAdmin = true; updateAdminUIElements(); }
-function deactivateAdminMode() { isAdmin = false; updateAdminUIElements(); }
-
+function activateAdminMode() { isAdmin = true; updateAdminUIElements(); showToast("Admin mode ACTIVE", "success"); }
+function deactivateAdminMode() { isAdmin = false; updateAdminUIElements(); showToast("Admin mode deactivated", "info"); }
 function updateAdminUIElements() {
     const btn = document.getElementById('admin-btn');
     const dot = document.getElementById('admin-btn-dot');
@@ -117,48 +111,41 @@ function updateAdminUIElements() {
     const resetContainer = document.getElementById('admin-reset-container');
     const thActions = document.getElementById('th-admin-actions');
     const hint = document.getElementById('admin-table-hint');
-
     if (isAdmin) {
-        btn.classList.replace('bg-slate-700', 'bg-indigo-600');
-        dot.classList.replace('translate-x-0', 'translate-x-5');
-        statusText.innerText = "⚡ ADMIN SYSTEM ACCESS UNLOCKED";
-        statusText.classList.replace('text-slate-400', 'text-indigo-400');
-        resetContainer.classList.remove('hidden');
-        thActions.classList.remove('hidden');
-        hint.classList.remove('hidden');
+        btn?.classList.replace('bg-gray-300', 'bg-indigo-600');
+        dot?.classList.replace('translate-x-0', 'translate-x-5');
+        if(statusText) { statusText.innerText = "⚡ ADMIN MODE"; statusText.classList.replace('text-gray-600','text-indigo-600'); }
+        if(resetContainer) resetContainer.classList.remove('hidden');
+        if(thActions) thActions.classList.remove('hidden');
+        if(hint) hint.classList.remove('hidden');
     } else {
-        btn.classList.replace('bg-indigo-600', 'bg-slate-700');
-        dot.classList.replace('translate-x-5', 'translate-x-0');
-        statusText.innerText = "🔒 READ ONLY MODE";
-        statusText.classList.replace('text-indigo-400', 'text-slate-400');
-        resetContainer.classList.add('hidden');
-        thActions.classList.add('hidden');
-        hint.classList.add('hidden');
+        btn?.classList.replace('bg-indigo-600', 'bg-gray-300');
+        dot?.classList.replace('translate-x-5', 'translate-x-0');
+        if(statusText) { statusText.innerText = "🔒 READ ONLY"; statusText.classList.replace('text-indigo-600','text-gray-600'); }
+        if(resetContainer) resetContainer.classList.add('hidden');
+        if(thActions) thActions.classList.add('hidden');
+        if(hint) hint.classList.add('hidden');
     }
-    renderTable();
-    renderFixtures();
+    renderTable(); renderFixtures();
 }
 
-// Setup Component Logic Modules
+// Team setup with image preview
 function generateTeamInputs() {
     const count = parseInt(document.getElementById('team-count').value);
-    if (isNaN(count) || count < 2) { alert("Invalid entry count context."); return; }
-
+    if (isNaN(count) || count < 2) { alert("Enter 2-20 teams"); return; }
     const container = document.getElementById('team-inputs-container');
     container.innerHTML = "";
     for (let i = 1; i <= count; i++) {
         container.innerHTML += `
-            <div class="bg-[#070a12] p-3 rounded-lg border border-slate-800 space-y-2">
-                <div class="flex items-center border border-slate-800 bg-[#0f1524]/40 rounded-lg overflow-hidden">
-                    <span class="bg-[#0f1524] text-slate-400 font-mono text-[10px] font-bold px-2.5 py-2 border-r border-slate-800 w-9 text-center">${String(i).padStart(2, '0')}</span>
-                    <input type="text" id="team-input-${i}" placeholder="Club Registration Name" class="w-full bg-transparent px-3 text-xs text-white focus:outline-none placeholder-slate-600">
+            <div class="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="bg-gray-200 text-gray-600 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">${i}</span>
+                    <input type="text" id="team-input-${i}" placeholder="Club name" class="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm">
                 </div>
-                <div class="flex items-center gap-2 border border-dashed border-slate-800 p-1 rounded-lg bg-[#0f1524]/10">
-                    <label class="bg-slate-800 text-[10px] font-bold uppercase tracking-wide py-1 px-2.5 rounded border border-slate-700 cursor-pointer text-slate-300 shrink-0">
-                        Upload Brand Emblem
-                        <input type="file" id="team-file-${i}" accept="image/*" class="hidden" onchange="processImageFile(this, ${i})">
-                    </label>
-                    <span id="file-status-${i}" class="text-[10px] text-slate-500 truncate font-mono">Unset</span>
+                <div class="flex items-center gap-3">
+                    <label class="text-[11px] bg-gray-200 px-2 py-1 rounded cursor-pointer">📁 Upload crest <input type="file" id="team-file-${i}" accept="image/*" class="hidden" onchange="processImageFile(this, ${i})"></label>
+                    <div id="preview-${i}" class="w-8 h-8 rounded bg-gray-100 border border-gray-200 flex items-center justify-center text-[10px] text-gray-400">No img</div>
+                    <span id="file-status-${i}" class="text-[10px] text-gray-400"></span>
                 </div>
             </div>
         `;
@@ -166,340 +153,256 @@ function generateTeamInputs() {
     document.getElementById('step-1').classList.add('hidden');
     document.getElementById('step-2').classList.remove('hidden');
 }
-
-function processImageFile(input, index) {
+window.processImageFile = function(input, index) {
     const file = input.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = e => {
         temporaryUploadedLogos[index] = e.target.result;
-        document.getElementById(`file-status-${index}`).innerText = "System Bound Asset";
+        const previewDiv = document.getElementById(`preview-${index}`);
+        if (previewDiv) {
+            previewDiv.innerHTML = `<img src="${e.target.result}" class="w-full h-full object-cover rounded">`;
+        }
+        document.getElementById(`file-status-${index}`).innerText = "✅ ready";
     };
     reader.readAsDataURL(file);
-}
+};
 
 function initializeTournament() {
     const count = parseInt(document.getElementById('team-count').value);
-    const passField = document.getElementById('tournament-password').value.trim();
-    if(passField !== "") { tournamentPassword = passField; }
-
+    const pass = document.getElementById('tournament-password').value.trim();
+    if(pass) tournamentPassword = pass;
     let list = [];
-    for (let i = 1; i <= count; i++) {
-        const name = document.getElementById(`team-input-${i}`).value.trim();
-        list.push({ name: name !== "" ? name : `Club Asset ${i}`, logoData: temporaryUploadedLogos[i] || "" });
+    for (let i=1; i<=count; i++) {
+        let name = document.getElementById(`team-input-${i}`).value.trim();
+        if(name === "") name = `Team ${i}`;
+        list.push({ name, logoData: temporaryUploadedLogos[i] || "" });
     }
-    if (list.length % 2 !== 0) { list.push({ name: "BYE", logoData: "" }); }
-
+    if (list.length % 2 !== 0) list.push({ name: "BYE", logoData: "" });
     teams = {};
     list.forEach(item => {
         if(item.name !== "BYE") {
-            teams[item.name] = { 
-                name: item.name, logoData: item.logoData, 
-                mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0, deductedPoints: 0, formHistory: [] 
-            };
+            teams[item.name] = { name: item.name, logoData: item.logoData, mp:0, w:0, d:0, l:0, gf:0, ga:0, gd:0, pts:0, deductedPoints:0, formHistory: [] };
         }
     });
-
     fixtures = [];
-    const numTeams = list.length;
-    const rounds = numTeams - 1;
-    for (let round = 0; round < rounds; round++) {
-        for (let match = 0; match < numTeams / 2; match++) {
-            const homeIdx = (round + match) % (numTeams - 1);
-            let awayIdx = (numTeams - 1 - match + round) % (numTeams - 1);
-            if (match === 0) { awayIdx = numTeams - 1; }
+    const n = list.length;
+    const rounds = n-1;
+    for (let r=0; r<rounds; r++) {
+        for (let m=0; m<n/2; m++) {
+            let homeIdx = (r + m) % (n-1);
+            let awayIdx = (n-1 - m + r) % (n-1);
+            if (m===0) awayIdx = n-1;
             if (list[homeIdx].name !== "BYE" && list[awayIdx].name !== "BYE") {
-                fixtures.push({ id: fixtures.length, round: round + 1, home: list[homeIdx].name, away: list[awayIdx].name, homeScore: null, awayScore: null, played: false });
+                fixtures.push({ id: fixtures.length, round: r+1, home: list[homeIdx].name, away: list[awayIdx].name, homeScore: null, awayScore: null, played: false });
             }
         }
     }
-    newsHeadlines = ["Notice: Tournament initialized. Master schedules are locked into cloud data cluster instances."];
-    currentSelectedRound = 1; 
+    newsHeadlines = [`🏁 League created with ${Object.keys(teams).length} teams`];
+    currentSelectedRound = 1;
     saveToStorage();
+    showToast("Tournament initialized!", "success");
 }
 
-// Disciplinary & Governance Rules Controls
-function deductPointsPrompt(teamName) {
-    const amount = prompt(`Operational Action: Quantify deduction points index penalty for ${teamName}:`, "3");
-    if (!amount) return;
-    teams[teamName].deductedPoints = (teams[teamName].deductedPoints || 0) + parseInt(amount);
-    newsHeadlines.unshift(`Governance Alert: ${teamName} has incurred an official administrative points reduction penalty.`);
+// Deduct & expel
+window.deductPointsPrompt = function(teamName) {
+    if(!isAdmin) return;
+    let amount = prompt(`Penalty points for ${teamName}:`, "3");
+    if(!amount) return;
+    teams[teamName].deductedPoints = (teams[teamName].deductedPoints||0) + parseInt(amount);
+    newsHeadlines.unshift(`⚠️ ${teamName} deducted ${amount} points (admin)`);
     saveToStorage();
-}
-
-function removeTeamFromLeague(teamName) {
-    if (confirm(`Operational Warning: Purge ${teamName} from active standings? Unplayed profiles will default to BYE states.`)) {
+    showToast(`${teamName} penalized ${amount} pts`, "warning");
+};
+window.removeTeamFromLeague = function(teamName) {
+    if(!isAdmin) return;
+    if(confirm(`Permanently remove ${teamName}? Their matches will be voided.`)) {
         fixtures.forEach(f => {
-            if (f.home === teamName || f.away === teamName) { f.homeScore = null; f.awayScore = null; f.played = false; }
+            if(f.home === teamName || f.away === teamName) { f.played = false; f.homeScore = null; f.awayScore = null; }
         });
         delete teams[teamName];
-        newsHeadlines.unshift(`Operational Alert: Club registry profile ${teamName} has officially withdrawn from tournament matrices.`);
+        newsHeadlines.unshift(`🚫 ${teamName} has been expelled from the league`);
         saveToStorage();
+        showToast(`${teamName} removed`, "error");
     }
-}
+};
 
-// Analytical Computation Module: Backtrack Round Data to Determine Trajectory (Mod #5)
+// Standings calculations (same as before)
 function calculateStandingsForRound(upToRound) {
-    let tempTeams = {};
-    for (let t in teams) { tempTeams[t] = { name: t, pts: 0, gd: 0, gf: 0 }; }
+    let temp = {};
+    for(let t in teams) temp[t] = { name: t, pts:0, gd:0, gf:0 };
     fixtures.forEach(f => {
-        if (f.played && f.round <= upToRound && tempTeams[f.home] && tempTeams[f.away]) {
-            const hScore = parseInt(f.homeScore); const aScore = parseInt(f.awayScore);
-            tempTeams[f.home].gf += hScore; tempTeams[f.home].gd += (hScore - aScore);
-            tempTeams[f.away].gf += aScore; tempTeams[f.away].gd += (aScore - hScore);
-            if (hScore > aScore) tempTeams[f.home].pts += 3;
-            else if (aScore > hScore) tempTeams[f.away].pts += 3;
-            else { tempTeams[f.home].pts += 1; tempTeams[f.away].pts += 1; }
+        if(f.played && f.round <= upToRound && temp[f.home] && temp[f.away]) {
+            const hS = parseInt(f.homeScore), aS = parseInt(f.awayScore);
+            temp[f.home].gf += hS; temp[f.home].gd += (hS - aS);
+            temp[f.away].gf += aS; temp[f.away].gd += (aS - hS);
+            if(hS > aS) temp[f.home].pts += 3;
+            else if(aS > hS) temp[f.away].pts += 3;
+            else { temp[f.home].pts += 1; temp[f.away].pts += 1; }
         }
     });
-    for (let t in tempTeams) {
-        if(teams[t]) tempTeams[t].pts = Math.max(0, tempTeams[t].pts - (teams[t].deductedPoints || 0));
-    }
-    return Object.values(tempTeams).sort((a,b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
+    for(let t in temp) if(teams[t]) temp[t].pts = Math.max(0, temp[t].pts - (teams[t].deductedPoints||0));
+    return Object.values(temp).sort((a,b)=>b.pts-a.pts || b.gd-a.gd || b.gf-a.gf);
 }
 
 function updateTableCalculations() {
-    for (let t in teams) {
-        teams[t] = { name: t, logoData: teams[t].logoData, mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0, deductedPoints: teams[t].deductedPoints || 0, formHistory: [] };
+    for(let t in teams) {
+        teams[t] = { ...teams[t], mp:0, w:0, d:0, l:0, gf:0, ga:0, gd:0, pts:0, formHistory: [] };
     }
-    fixtures.sort((a,b) => a.round - b.round).forEach(f => {
-        if (f.played && teams[f.home] && teams[f.away]) {
-            const h = f.home; const a = f.away; const hScore = parseInt(f.homeScore); const aScore = parseInt(f.awayScore);
-            teams[h].mp++; teams[a].mp++; teams[h].gf += hScore; teams[h].ga += aScore; teams[a].gf += aScore; teams[a].ga += hScore;
-            if (hScore > aScore) { teams[h].w++; teams[h].pts += 3; teams[a].l++; teams[h].formHistory.push('W'); teams[a].formHistory.push('L'); }
-            else if (hScore < aScore) { teams[a].w++; teams[a].pts += 3; teams[h].l++; teams[h].formHistory.push('L'); teams[a].formHistory.push('W'); }
+    fixtures.sort((a,b)=>a.round-b.round).forEach(f => {
+        if(f.played && teams[f.home] && teams[f.away]) {
+            const h = f.home, a = f.away, hS = parseInt(f.homeScore), aS = parseInt(f.awayScore);
+            teams[h].mp++; teams[a].mp++;
+            teams[h].gf += hS; teams[h].ga += aS; teams[a].gf += aS; teams[a].ga += hS;
+            if(hS > aS) { teams[h].w++; teams[h].pts += 3; teams[a].l++; teams[h].formHistory.push('W'); teams[a].formHistory.push('L'); }
+            else if(hS < aS) { teams[a].w++; teams[a].pts += 3; teams[h].l++; teams[h].formHistory.push('L'); teams[a].formHistory.push('W'); }
             else { teams[h].d++; teams[h].pts += 1; teams[a].d++; teams[a].pts += 1; teams[h].formHistory.push('D'); teams[a].formHistory.push('D'); }
+            if(teams[h].formHistory.length > 10) teams[h].formHistory.shift();
+            if(teams[a].formHistory.length > 10) teams[a].formHistory.shift();
         }
     });
-    for (let t in teams) {
-        teams[t].pts = Math.max(0, teams[t].pts - (teams[t].deductedPoints || 0));
+    for(let t in teams) {
+        teams[t].pts = Math.max(0, teams[t].pts - (teams[t].deductedPoints||0));
         teams[t].gd = teams[t].gf - teams[t].ga;
     }
 }
 
 function renderTable() {
-    let currentSorted = Object.values(teams).sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
-    let currentPlayedMaxRound = 0;
-    fixtures.forEach(f => { if(f.played) currentPlayedMaxRound = Math.max(currentPlayedMaxRound, f.round); });
-    
-    let pastSortedNames = [];
-    if (currentPlayedMaxRound > 1) {
-        pastSortedNames = calculateStandingsForRound(currentPlayedMaxRound - 1).map(x => x.name);
+    let currentSorted = Object.values(teams).sort((a,b)=>b.pts-a.pts || b.gd-a.gd || b.gf-a.gf);
+    let maxRoundPlayed = Math.max(0, ...fixtures.filter(f=>f.played).map(f=>f.round));
+    let prevRankMap = {};
+    if(maxRoundPlayed > 1) {
+        let prev = calculateStandingsForRound(maxRoundPlayed-1);
+        prev.forEach((p,idx)=> prevRankMap[p.name] = idx);
     }
-
     const tbody = document.getElementById('league-table-body');
     tbody.innerHTML = "";
-
-    currentSorted.forEach((team, index) => {
-        const pos = index + 1;
-        let customRowClass = "bg-[#0f1524] hover:bg-[#141c30] transition font-medium text-slate-300";
-        
-        if (pos === 1) customRowClass += " champions-row text-white font-bold";
-        const isRelegationZone = pos > currentSorted.length - 2 && currentSorted.length > 2;
-        if (isRelegationZone) customRowClass += " relegation-row";
-
-        let formHtml = `<div class="flex justify-center gap-1.5 font-mono">`;
-        const recentForm = team.formHistory.slice(-5);
-        while (recentForm.length < 5) { recentForm.unshift('-'); }
-        recentForm.forEach(outcome => {
-            if (outcome === 'W') formHtml += `<span class="w-4 h-4 flex items-center justify-center text-[9px] font-bold rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">W</span>`;
-            else if (outcome === 'L') formHtml += `<span class="w-4 h-4 flex items-center justify-center text-[9px] font-bold rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">L</span>`;
-            else if (outcome === 'D') formHtml += `<span class="w-4 h-4 flex items-center justify-center text-[9px] font-bold rounded bg-slate-800 text-slate-400 border border-slate-700">D</span>`;
-            else formHtml += `<span class="w-4 h-4 flex items-center justify-center text-[9px] rounded bg-slate-950 text-slate-700 border border-slate-900">-</span>`;
+    currentSorted.forEach((team, idx) => {
+        const pos = idx+1;
+        // Form badges (5 matches)
+        let recent = team.formHistory.slice(-5);
+        while(recent.length < 5) recent.unshift('-');
+        let formHtml = `<div class="flex gap-1.5 justify-center">`;
+        recent.forEach(res => {
+            if(res === 'W') formHtml += `<span class="w-5 h-5 bg-emerald-100 text-emerald-700 rounded-full text-[9px] font-bold flex items-center justify-center">W</span>`;
+            else if(res === 'L') formHtml += `<span class="w-5 h-5 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center text-[9px] font-bold">L</span>`;
+            else if(res === 'D') formHtml += `<span class="w-5 h-5 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center text-[9px] font-bold">D</span>`;
+            else formHtml += `<span class="w-5 h-5 bg-gray-100 text-gray-400 rounded-full flex items-center justify-center text-[9px]">-</span>`;
         });
         formHtml += `</div>`;
 
-        let trajectoryHtml = `<span class="text-slate-600 font-mono">-</span>`;
-        if(pastSortedNames.length > 0) {
-            const oldIndex = pastSortedNames.indexOf(team.name);
-            if(oldIndex !== -1) {
-                const delta = oldIndex - index;
-                if (delta > 0) trajectoryHtml = `<span class="text-emerald-400 font-mono font-bold text-[10px] flex items-center justify-center">▲${delta}</span>`;
-                else if (delta < 0) trajectoryHtml = `<span class="text-rose-500 font-mono font-bold text-[10px] flex items-center justify-center">▼${Math.abs(delta)}</span>`;
-            }
-        }
-
-        const penaltyBadge = team.deductedPoints > 0 ? `<span class="text-[9px] font-mono tracking-wide bg-rose-950/40 text-rose-400 px-1.5 py-0.5 rounded border border-rose-900/40 block mt-0.5 w-max">PENALTY RECORD: -${team.deductedPoints} PTS</span>` : "";
-        
-        const actionCellHtml = isAdmin ? `
-            <td class="py-2 px-4 text-center space-x-2 whitespace-nowrap border-l border-slate-800/60 bg-[#121929]/50">
-                <button onclick="deductPointsPrompt('${team.name}')" class="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-[10px] font-bold tracking-wide uppercase py-1 px-2.5 rounded border border-amber-500/20 transition cursor-pointer">Deduct Pts</button>
-                <button onclick="removeTeamFromLeague('${team.name}')" class="bg-rose-500/10 hover:bg-rose-600 text-rose-400 hover:text-white text-[10px] font-bold tracking-wide uppercase py-1 px-2.5 rounded border border-rose-500/20 transition cursor-pointer">Expel</button>
-            </td>
-        ` : "";
+        const penaltyBadge = team.deductedPoints > 0 ? `<span class="ml-1 text-[9px] bg-rose-50 text-rose-600 px-1 rounded-full">-${team.deductedPoints}</span>` : "";
+        const rowClass = pos === 1 ? "champions-row" : (pos > currentSorted.length-2 ? "relegation-row" : "");
+        const actionBtn = isAdmin ? `<td class="py-3 px-2 text-center"><button onclick="deductPointsPrompt('${team.name}')" class="text-xs bg-amber-50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100">⚖️</button> <button onclick="removeTeamFromLeague('${team.name}')" class="text-xs bg-rose-50 text-rose-600 px-2 py-1 rounded-full hover:bg-rose-100">🗑️</button></td>` : "";
 
         tbody.innerHTML += `
-            <tr class="${customRowClass}">
-                <td class="py-3 px-4 text-center font-mono ${pos === 1 ? 'text-indigo-400 font-bold' : 'text-slate-400'} ${isRelegationZone ? 'text-rose-400 font-bold' : ''}">${pos}</td>
-                <td class="py-3 px-2 text-center">${trajectoryHtml}</td>
-                <td class="py-3 px-4 font-semibold text-slate-200 flex items-center gap-2.5">
-                    ${getTeamBadgeHtml(team.name)}
-                    <div>
-                        <span class="${isRelegationZone ? 'text-slate-400' : ''}">${team.name}</span>
-                        ${penaltyBadge}
-                    </div>
-                </td>
-                <td class="py-3 px-3 text-center text-slate-500 font-mono">${team.mp}</td>
-                <td class="py-3 px-2 text-center text-emerald-400 font-mono">${team.w}</td>
-                <td class="py-3 px-2 text-center text-slate-400 font-mono">${team.d}</td>
-                <td class="py-3 px-2 text-center text-rose-400 font-mono">${team.l}</td>
-                <td class="py-3 px-2 text-center text-slate-400 font-mono">${team.gf}</td>
-                <td class="py-3 px-2 text-center text-slate-500 font-mono">${team.ga}</td>
-                <td class="py-3 px-2 text-center font-mono font-bold ${team.gd >= 0 ? 'text-emerald-500' : 'text-rose-500'}">${team.gd > 0 ? '+' + team.gd : team.gd}</td>
-                <td class="py-3 px-4 text-center text-indigo-400 font-mono font-bold text-sm bg-[#121929]/20">${team.pts}</td>
+            <tr class="hover:bg-gray-50 transition ${rowClass}">
+                <td class="py-3 px-3 text-center font-bold ${pos===1?'text-indigo-600':''}">${pos}</td>
+                <td class="py-3 px-4 flex items-center gap-3">${getTeamBadgeHtml(team.name, "w-8 h-8")}<span class="font-semibold">${team.name}</span>${penaltyBadge}</td>
+                <td class="py-3 px-2 text-center">${team.mp}</td>
+                <td class="py-3 px-2 text-center text-emerald-600">${team.w}</td>
+                <td class="py-3 px-2 text-center">${team.d}</td>
+                <td class="py-3 px-2 text-center text-rose-500">${team.l}</td>
+                <td class="py-3 px-2 text-center">${team.gf}</td>
+                <td class="py-3 px-2 text-center">${team.ga}</td>
+                <td class="py-3 px-2 text-center ${team.gd>=0?'text-emerald-600':'text-rose-500'} font-mono">${team.gd>0?'+'+team.gd:team.gd}</td>
+                <td class="py-3 px-3 text-center font-black text-indigo-600">${team.pts}</td>
                 <td class="py-3 px-4 text-center">${formHtml}</td>
-                ${actionCellHtml}
+                ${actionBtn}
             </tr>
         `;
     });
 }
 
 function renderGameweekTabs() {
-    const tabsContainer = document.getElementById('gameweek-tabs');
-    if (!fixtures.length) return;
-    const totalRounds = Math.max(...fixtures.map(f => f.round));
-    tabsContainer.innerHTML = "";
-    for (let r = 1; r <= totalRounds; r++) {
-        const isCurrent = r === currentSelectedRound;
-        tabsContainer.innerHTML += `
-            <button onclick="switchRound(${r})" class="px-3 py-1 text-[10px] font-mono tracking-wider uppercase rounded transition shrink-0 cursor-pointer ${isCurrent ? "bg-indigo-600 text-white font-bold border border-indigo-500" : "text-slate-400 hover:text-slate-200 hover:bg-[#161f32]"}" >
-                GW ${String(r).padStart(2, '0')}
-            </button>
-        `;
+    const container = document.getElementById('gameweek-tabs');
+    if(!fixtures.length) return;
+    const total = Math.max(...fixtures.map(f=>f.round));
+    container.innerHTML = "";
+    for(let r=1; r<=total; r++) {
+        const active = r === currentSelectedRound;
+        container.innerHTML += `<button onclick="switchRound(${r})" class="px-3 py-1 text-[11px] font-mono rounded-full transition ${active ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">GW ${r}</button>`;
     }
 }
-
-function switchRound(roundNumber) { currentSelectedRound = roundNumber; renderGameweekTabs(); renderFixtures(); }
+window.switchRound = function(r) { currentSelectedRound = r; renderGameweekTabs(); renderFixtures(); };
 
 function renderFixtures() {
     const container = document.getElementById('fixtures-container');
     container.innerHTML = "";
-    fixtures.filter(f => f.round === currentSelectedRound).forEach(f => {
-        if (!teams.hasOwnProperty(f.home) || !teams.hasOwnProperty(f.away)) return;
-
-        const isPlayed = f.played;
-        let middleColumnHtml = "";
-        let actionButtonHtml = "";
-
-        if (isAdmin) {
-            middleColumnHtml = `
-                <div class="flex items-center gap-1 bg-[#070a12] px-2 py-1 rounded border border-slate-800">
-                    <input type="number" id="home-score-${f.id}" value="${isPlayed ? f.homeScore : ""}" min="0" placeholder="-" class="w-6 text-center bg-transparent font-mono font-bold text-indigo-400 focus:outline-none">
-                    <span class="text-slate-700 font-bold text-xs">:</span>
-                    <input type="number" id="away-score-${f.id}" value="${isPlayed ? f.awayScore : ""}" min="0" placeholder="-" class="w-6 text-center bg-transparent font-mono font-bold text-indigo-400 focus:outline-none">
-                </div>
-            `;
-            actionButtonHtml = `
-                <button onclick="saveResult(${f.id})" class="text-[10px] tracking-wide uppercase font-bold bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white border border-indigo-500/30 px-2.5 py-1.5 rounded transition cursor-pointer">
-                    Commit
-                </button>
-            `;
+    fixtures.filter(f=>f.round === currentSelectedRound).forEach(f => {
+        if(!teams[f.home] || !teams[f.away]) return;
+        const played = f.played;
+        let midHtml = "", actionHtml = "";
+        if(isAdmin) {
+            midHtml = `<div class="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full"><input type="number" id="home-score-${f.id}" value="${played ? f.homeScore : ''}" placeholder="0" class="w-8 text-center bg-transparent font-mono font-bold text-indigo-600"> : <input type="number" id="away-score-${f.id}" value="${played ? f.awayScore : ''}" placeholder="0" class="w-8 text-center bg-transparent font-mono font-bold text-indigo-600"></div>`;
+            actionHtml = `<button onclick="saveResult(${f.id})" class="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full hover:bg-indigo-100">💾 Save</button>`;
         } else {
-            middleColumnHtml = isPlayed 
-                ? `<div class="bg-[#070a12] border border-slate-800 text-indigo-400 font-mono px-3 py-1 font-bold rounded tracking-wider text-xs min-w-12 text-center">${f.homeScore} - ${f.awayScore}</div>`
-                : `<button onclick="runMatchPrediction(${f.id})" class="bg-[#070a12] hover:bg-indigo-950 hover:text-indigo-400 border border-slate-800 hover:border-indigo-800 text-slate-400 font-bold font-mono text-[10px] px-2 py-1 rounded transition tracking-wide cursor-pointer">ANALYZE</button>`;
+            midHtml = played ? `<div class="bg-gray-100 px-3 py-1 rounded-full font-mono font-bold text-sm">${f.homeScore} - ${f.awayScore}</div>` : `<button onclick="runMatchPrediction(${f.id})" class="text-[11px] bg-gray-100 hover:bg-indigo-50 px-3 py-1 rounded-full">🔍 Analyze</button>`;
         }
-
         container.innerHTML += `
-            <div class="flex items-center justify-between bg-[#070a12]/50 p-3 rounded-lg border border-slate-800/60 gap-4">
-                <div class="w-2/5 flex items-center justify-end gap-2 text-right font-semibold text-xs ${isPlayed && f.homeScore > f.awayScore ? 'text-white font-bold' : 'text-slate-400'} truncate">
-                    <span>${f.home}</span> ${getTeamBadgeHtml(f.home)}
-                </div>
-                ${middleColumnHtml}
-                <div class="w-2/5 flex items-center justify-start gap-2 text-left font-semibold text-xs ${isPlayed && f.awayScore > f.homeScore ? 'text-white font-bold' : 'text-slate-400'} truncate">
-                    ${getTeamBadgeHtml(f.away)} <span>${f.away}</span>
-                </div>
-                ${actionButtonHtml}
+            <div class="flex items-center justify-between bg-gray-50/60 p-3 rounded-xl border border-gray-100 gap-2">
+                <div class="w-2/5 flex items-center justify-end gap-2 text-right font-semibold ${played && f.homeScore > f.awayScore ? 'text-gray-900' : 'text-gray-600'}">${f.home} ${getTeamBadgeHtml(f.home, "w-7 h-7")}</div>
+                ${midHtml}
+                <div class="w-2/5 flex items-center justify-start gap-2 text-left font-semibold ${played && f.awayScore > f.homeScore ? 'text-gray-900' : 'text-gray-600'}">${getTeamBadgeHtml(f.away, "w-7 h-7")} ${f.away}</div>
+                ${actionHtml}
             </div>
         `;
     });
 }
 
-// Analytics Generation Logic: Dynamic Headlines Generator (Mod #4)
-function generateHeadlineNews(home, away, hScore, aScore) {
-    const margin = Math.abs(hScore - aScore);
-    if (hScore === aScore) {
-        return hScore === 0 
-            ? `Tactical Stalemate: ${home} and ${away} settle for structural clean sheets in a scoreless tactical draw.`
-            : `Score Draw: High-line offenses trade equalizers as ${home} vs ${away} concludes locked at ${hScore}-${aScore}.`;
-    }
-    const winner = hScore > aScore ? home : away;
-    const loser = hScore > aScore ? away : home;
-    if (margin >= 4) return `Result Update: ${winner} commands dominant performance metrics, securing a heavy ${Math.max(hScore, aScore)}-${Math.min(hScore, aScore)} win over ${loser}.`;
-    return `Fixture Notice: ${winner} takes critical table margin points following hard-fought win against ${loser}.`;
+function generateHeadlineNews(home,away,hs,as) {
+    if(hs===as) return hs===0 ? `${home} & ${away} share a goalless stalemate` : `${home} ${hs}-${as} draw with ${away}`;
+    const winner = hs>as?home:away;
+    const loser = hs>as?away:home;
+    const margin = Math.abs(hs-as);
+    return margin>=3 ? `${winner} thrash ${loser} ${Math.max(hs,as)}-${Math.min(hs,as)}` : `${winner} edge past ${loser} in tight contest`;
 }
-
 function updateTickerDisplay() {
-    if (newsHeadlines.length === 0) return;
-    document.getElementById('news-ticker').innerHTML = newsHeadlines.slice(0, 5).join(' &nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp; ');
+    const ticker = document.getElementById('news-ticker');
+    if(newsHeadlines.length) ticker.innerHTML = newsHeadlines.slice(0,5).map(h=>`🔹 ${h}`).join(' &nbsp;&nbsp;⚽&nbsp;&nbsp; ');
 }
-
-function saveResult(fixtureId) {
-    const hInput = document.getElementById(`home-score-${fixtureId}`).value;
-    const aInput = document.getElementById(`away-score-${fixtureId}`).value;
-    if (hInput === "" || aInput === "") { alert("Data input fields incomplete."); return; }
-
-    const fixture = fixtures.find(f => f.id === fixtureId);
-    fixture.homeScore = parseInt(hInput);
-    fixture.awayScore = parseInt(aInput);
-    fixture.played = true;
-
-    const headline = generateHeadlineNews(fixture.home, fixture.away, fixture.homeScore, fixture.awayScore);
-    newsHeadlines.unshift(`GW ${fixture.round}: ${headline}`);
-    
+window.saveResult = function(fixtureId) {
+    const hInp = document.getElementById(`home-score-${fixtureId}`).value;
+    const aInp = document.getElementById(`away-score-${fixtureId}`).value;
+    if(hInp === "" || aInp === "") { alert("Enter both scores"); return; }
+    const f = fixtures.find(f=>f.id===fixtureId);
+    f.homeScore = parseInt(hInp); f.awayScore = parseInt(aInp); f.played = true;
+    const headline = generateHeadlineNews(f.home, f.away, f.homeScore, f.awayScore);
+    newsHeadlines.unshift(`GW${f.round}: ${headline}`);
     saveToStorage();
-}
-
-// Predictive Computation Analytics Simulator Module (Mod #2)
-function runMatchPrediction(fixtureId) {
-    const f = fixtures.find(f => f.id === fixtureId);
-    const h = teams[f.home];
-    const a = teams[f.away];
-
-    let homePower = (h.pts * 1.5) + h.gd;
-    let awayPower = (a.pts * 1.5) + a.gd;
-
-    const parseForm = (arr) => {
-        let score = 0;
-        arr.slice(-3).forEach(x => { if(x==='W') score+=3; else if(x==='D') score+=1; });
-        return score;
-    };
-    homePower += parseForm(h.formHistory);
-    awayPower += parseForm(a.formHistory);
-
-    const delta = homePower - awayPower;
-    let drawPct = 25;
-    let homePct = Math.max(15, Math.min(65, 37 + (delta * 1.1)));
-    let awayPct = 100 - homePct - drawPct;
-
-    let simHome = Math.max(0, Math.round((h.gf / (h.mp||1)) + (delta > 0 ? delta * 0.04 : 0)));
-    let simAway = Math.max(0, Math.round((a.gf / (a.mp||1)) + (delta < 0 ? Math.abs(delta) * 0.04 : 0)));
-    if(simHome > 4) simHome = 3; if(simAway > 4) simAway = 3;
-
+    showToast(`Result saved: ${f.home} ${f.homeScore}-${f.awayScore} ${f.away}`, "success");
+};
+window.runMatchPrediction = function(fixtureId) {
+    const f = fixtures.find(f=>f.id===fixtureId);
+    const h = teams[f.home], a = teams[f.away];
+    let homePower = (h.pts*1.5)+h.gd, awayPower = (a.pts*1.5)+a.gd;
+    const formScore = (arr) => arr.slice(-3).reduce((s,x)=>s+(x==='W'?3:x==='D'?1:0),0);
+    homePower += formScore(h.formHistory); awayPower += formScore(a.formHistory);
+    let drawPct = 25, homePct = Math.min(70, Math.max(20, 35+(homePower-awayPower)*0.8));
+    let awayPct = 100-homePct-drawPct;
+    let simHome = Math.min(4, Math.max(0, Math.round((h.gf/(h.mp||1)+ (homePower-awayPower)*0.05))));
+    let simAway = Math.min(4, Math.max(0, Math.round((a.gf/(a.mp||1)+ (awayPower-homePower)*0.05))));
     document.getElementById('pred-home-name').innerText = f.home;
     document.getElementById('pred-away-name').innerText = f.away;
-    document.getElementById('pred-home-logo').innerHTML = getTeamBadgeHtml(f.home);
-    document.getElementById('pred-away-logo').innerHTML = getTeamBadgeHtml(f.away);
-    
+    document.getElementById('pred-home-logo').innerHTML = getTeamBadgeHtml(f.home, "w-10 h-10");
+    document.getElementById('pred-away-logo').innerHTML = getTeamBadgeHtml(f.away, "w-10 h-10");
     document.getElementById('pred-home-pct').innerText = `${Math.round(homePct)}%`;
-    document.getElementById('pred-draw-pct').innerText = `${Math.round(drawPct)}%`;
     document.getElementById('pred-away-pct').innerText = `${Math.round(awayPct)}%`;
+    document.getElementById('pred-draw-pct').innerText = `${Math.round(drawPct)}%`;
     document.getElementById('pred-simulated-score').innerText = `${simHome} - ${simAway}`;
-
     document.getElementById('predictor-modal').classList.remove('hidden');
-}
+};
+window.closePredictorModal = () => document.getElementById('predictor-modal').classList.add('hidden');
+window.resetTournament = () => { if(confirm("Wipe ALL data?")) db.ref('tournament_data').remove().then(()=>location.reload()); };
+window.exportStandingsToCSV = function() {
+    let csv = "Pos,Team,MP,W,D,L,GF,GA,GD,PTS\n";
+    const sorted = Object.values(teams).sort((a,b)=>b.pts-a.pts || b.gd-a.gd || b.gf-a.gf);
+    sorted.forEach((t,i)=> csv += `${i+1},${t.name},${t.mp},${t.w},${t.d},${t.l},${t.gf},${t.ga},${t.gd},${t.pts}\n`);
+    const blob = new Blob([csv], {type:"text/csv"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = "dls_standings.csv"; a.click();
+    URL.revokeObjectURL(a.href);
+    showToast("CSV exported", "info");
+};
 
-function closePredictorModal() { document.getElementById('predictor-modal').classList.add('hidden'); }
-
-function resetTournament() {
-    if (confirm("Critical Request: Perform complete database purge reset sequence?")) {
-        db.ref('tournament_data').remove().then(() => {
-            location.reload();
-        });
-    }
-}
-
-// Initial Hook: Fire up the live database websocket listeners
-document.addEventListener("DOMContentLoaded", function() {
-    initRealtimeDatabaseSync();
-});
+window.onload = initRealtimeDatabaseSync;
