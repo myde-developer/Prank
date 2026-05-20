@@ -1,0 +1,58 @@
+/* Ticker Architecture - Scrolling News Ribbon styling */
+.ticker-container {
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.ticker-wrapper {
+    display: inline-block;
+    padding-left: 100%;
+    animation: tickerLoop 30s linear infinite;
+}
+
+.ticker-wrapper:hover {
+    animation-play-state: paused;
+}
+
+@keyframes tickerLoop {
+    0% { transform: translate3d(0, 0, 0); }
+    100% { transform: translate3d(-100%, 0, 0); }
+}
+
+/* Chrome/Safari Custom Scrollbar elements configuration overrides */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #070a12;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #1e293b;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #334155;
+}
+
+/* Row-level utility classes styling for custom states */
+.relegation-row {
+    background-color: rgba(239, 68, 68, 0.02) !important;
+}
+
+.champions-row {
+    background-color: rgba(99, 102, 241, 0.02) !important;
+}
+
+/* Input Fields Number Spinner Stripper utility */
+input[type=number]::-webkit-inner-spin-button, 
+input[type=number]::-webkit-outer-spin-button { 
+    -webkit-appearance: none; 
+    margin: 0; 
+}
+input[type=number] {
+    -moz-appearance: textfield;
+}
