@@ -7,7 +7,6 @@
     <!-- Tailwind CSS for styling -->
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style>
-        /* Custom scrollbar for a cleaner look */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #111827; }
         ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
@@ -16,28 +15,54 @@
 <body class="bg-gray-950 text-gray-100 font-sans min-h-screen pb-12">
 
     <!-- Header Section -->
-    <header class="bg-gradient-to-r from-purple-900 to-indigo-900 py-6 px-4 shadow-lg text-center border-b border-indigo-500/30">
-        <h1 class="text-3xl font-extrabold tracking-wider uppercase text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-200">
-            DLS Premier League
-        </h1>
-        <p class="text-xs text-indigo-200 mt-1 uppercase tracking-widest">Group Tournament Dashboard</p>
+    <header class="bg-gradient-to-r from-purple-900 to-indigo-900 py-6 px-4 shadow-lg border-b border-indigo-500/30 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div class="text-center sm:text-left">
+            <h1 class="text-3xl font-extrabold tracking-wider uppercase text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-200">
+                DLS Premier League
+            </h1>
+            <p class="text-xs text-indigo-200 mt-1 uppercase tracking-widest">Official Tournament Dashboard</p>
+        </div>
+        
+        <!-- NEW: Admin Lock/Unlock Switch -->
+        <div id="admin-toggle-container" class="hidden flex items-center gap-3 bg-gray-900/80 px-4 py-2 rounded-xl border border-gray-800">
+            <span class="text-xs font-semibold tracking-wider uppercase text-gray-400" id="admin-status-text">🔒 View Only</span>
+            <button onclick="toggleAdminMode()" id="admin-btn" class="bg-gray-700 relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none">
+                <span id="admin-btn-dot" class="translate-x-0 pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+            </button>
+        </div>
     </header>
 
     <main class="max-w-4xl mx-auto px-4 mt-8 space-y-8">
         
-        <!-- Setup Section (Hidden after generation) -->
-        <section id="setup-section" class="bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl">
-            <h2 class="text-xl font-bold mb-4 text-indigo-400 flex items-center gap-2">
+        <!-- Setup Section -->
+        <section id="setup-section" class="bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl space-y-6">
+            <h2 class="text-xl font-bold text-indigo-400 flex items-center gap-2">
                 <span>🏆</span> Tournament Setup
             </h2>
-            <p class="text-sm text-gray-400 mb-4">Enter team/manager names separated by commas to generate your league schedule.</p>
-            <textarea id="manager-names" class="w-full bg-gray-950 border border-gray-800 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500 transition h-24 placeholder-gray-600" placeholder="e.g. Alex, Jordan, Sarah, Chris, Tunde, Elena"></textarea>
-            <button onclick="initializeTournament()" class="w-full mt-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 font-bold py-3 rounded-xl transition shadow-md active:scale-[0.99]">
-                Generate League & Fixtures
-            </button>
+            
+            <!-- Step 1: Number of Teams -->
+            <div id="step-1" class="space-y-3">
+                <label class="block text-sm font-medium text-gray-300">How many teams are competing?</label>
+                <div class="flex gap-3">
+                    <input type="number" id="team-count" min="2" max="20" placeholder="e.g. 8" 
+                        class="bg-gray-950 border border-gray-800 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500 transition w-32">
+                    <button onclick="generateTeamInputs()" class="bg-indigo-600 hover:bg-indigo-500 font-bold px-6 rounded-xl transition shadow-md cursor-pointer">
+                        Next
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 2: Numbered Team Names -->
+            <div id="step-2" class="hidden space-y-4">
+                <label class="block text-sm font-medium text-gray-300">Enter Team Names:</label>
+                <div id="team-inputs-container" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+                <button onclick="initializeTournament()" class="w-full mt-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 font-bold py-3 rounded-xl transition shadow-md active:scale-[0.99] cursor-pointer">
+                    Generate League & Fixtures
+                </button>
+            </div>
         </section>
 
-        <!-- Main Dashboard (Hidden until initialized) -->
+        <!-- Main Dashboard -->
         <section id="dashboard-section" class="hidden space-y-8">
             
             <!-- League Table Card -->
@@ -52,7 +77,7 @@
                         <thead>
                             <tr class="bg-gray-950 text-gray-400 uppercase text-xs tracking-wider border-b border-gray-800">
                                 <th class="py-3 px-4 text-center w-12">Pos</th>
-                                <th class="py-3 px-4">Team / Manager</th>
+                                <th class="py-3 px-4">Team</th>
                                 <th class="py-3 px-3 text-center">MP</th>
                                 <th class="py-3 px-2 text-center text-green-400">W</th>
                                 <th class="py-3 px-2 text-center text-gray-400">D</th>
@@ -63,25 +88,31 @@
                                 <th class="py-3 px-4 text-center text-indigo-400 font-bold">PTS</th>
                             </tr>
                         </thead>
-                        <tbody id="league-table-body">
-                            <!-- Injected by JavaScript -->
-                        </tbody>
+                        <tbody id="league-table-body"></tbody>
                     </table>
                 </div>
             </div>
 
             <!-- Fixtures / Results Section -->
-            <div class="bg-gray-900 p-5 rounded-2xl border border-gray-800 shadow-xl">
-                <h2 class="text-xl font-bold text-indigo-400 mb-4 flex items-center gap-2">
-                    <span>⚽</span> Fixtures & Record Results
-                </h2>
-                <div id="fixtures-container" class="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+            <div class="bg-gray-900 p-5 rounded-2xl border border-gray-800 shadow-xl space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-800 pb-4">
+                    <h2 class="text-xl font-bold text-indigo-400 flex items-center gap-2">
+                        <span>⚽</span> Fixtures & Results
+                    </h2>
+                    
+                    <!-- NEW: Gameweek Filter Tabs Container -->
+                    <div id="gameweek-tabs" class="flex gap-1 overflow-x-auto py-1 max-w-full sm:max-w-md border border-gray-800 p-1 rounded-xl bg-gray-950">
+                        <!-- Tabs injected by JS -->
+                    </div>
+                </div>
+
+                <div id="fixtures-container" class="space-y-3">
                     <!-- Injected by JavaScript -->
                 </div>
             </div>
 
             <!-- Danger Zone / Reset Button -->
-            <div class="text-center">
+            <div id="admin-reset-container" class="text-center hidden">
                 <button onclick="resetTournament()" class="text-xs text-red-500 hover:text-red-400 underline transition cursor-pointer">
                     Reset Tournament & Start Over
                 </button>
@@ -90,11 +121,11 @@
     </main>
 
     <script>
-        // --- STATE MANAGEMENT ---
         let teams = {};
         let fixtures = [];
+        let currentSelectedRound = 1; // Tracks which gameweek tab is active
+        let isAdmin = false; // Tracks security mode
 
-        // Save data to localStorage so it doesn't disappear on refresh
         function saveToStorage() {
             localStorage.setItem('dls_teams', JSON.stringify(teams));
             localStorage.setItem('dls_fixtures', JSON.stringify(fixtures));
@@ -110,22 +141,66 @@
             }
         }
 
-        // --- TOURNAMENT INITIALIZATION (Round Robin Engine) ---
-        function initializeTournament() {
-            const input = document.getElementById('manager-names').value;
-            let list = input.split(',').map(name => name.trim()).filter(name => name !== "");
+        // --- NEW: ADMIN TOGGLE LOGIC ---
+        function toggleAdminMode() {
+            isAdmin = !isAdmin;
+            const btn = document.getElementById('admin-btn');
+            const dot = document.getElementById('admin-btn-dot');
+            const statusText = document.getElementById('admin-status-text');
+            const resetContainer = document.getElementById('admin-reset-container');
 
-            if (list.length < 2) {
-                alert("Please enter at least 2 managers!");
+             if (isAdmin) {
+                btn.classList.replace('bg-gray-700', 'bg-green-600');
+                dot.classList.replace('translate-x-0', 'translate-x-5');
+                statusText.innerText = "⚡ Admin Mode";
+                statusText.classList.replace('text-gray-400', 'text-green-400');
+                resetContainer.classList.remove('hidden');
+            } else {
+                btn.classList.replace('bg-green-600', 'bg-gray-700');
+                dot.classList.replace('translate-x-5', 'translate-x-0');
+                statusText.innerText = "🔒 View Only";
+                statusText.classList.replace('text-green-400', 'text-gray-400');
+                resetContainer.classList.add('hidden');
+            }
+            
+            // Re-render fixtures to hide/show save buttons and inputs
+            renderFixtures();
+        }
+
+        function generateTeamInputs() {
+            const count = parseInt(document.getElementById('team-count').value);
+            if (isNaN(count) || count < 2) {
+                alert("Please enter a valid number of teams (minimum 2).");
                 return;
             }
 
-            // If odd number of teams, add a 'BYE' or we just proceed for even logic
-            if (list.length % 2 !== 0) {
-                list.push("BYE"); 
+            const container = document.getElementById('team-inputs-container');
+            container.innerHTML = "";
+
+            for (let i = 1; i <= count; i++) {
+                container.innerHTML += `
+                    <div class="flex items-center bg-gray-950 border border-gray-800 rounded-xl overflow-hidden focus-within:border-indigo-500 transition">
+                        <span class="bg-gray-900 text-gray-500 text-xs font-bold px-3 py-3 border-r border-gray-800 w-10 text-center">${i}</span>
+                        <input type="text" id="team-input-${i}" placeholder="Team Name" class="w-full bg-transparent p-2 text-sm text-gray-200 focus:outline-none placeholder-gray-600">
+                    </div>
+                `;
             }
 
-            // Initialize teams stats object
+            document.getElementById('step-1').classList.add('hidden');
+            document.getElementById('step-2').classList.remove('hidden');
+        }
+
+        function initializeTournament() {
+            const count = parseInt(document.getElementById('team-count').value);
+            let list = [];
+
+            for (let i = 1; i <= count; i++) {
+                const name = document.getElementById(`team-input-${i}`).value.trim();
+                list.push(name !== "" ? name : `Team ${i}`);
+            }
+
+            if (list.length % 2 !== 0) { list.push("BYE"); }
+
             teams = {};
             list.forEach(name => {
                 if(name !== "BYE") {
@@ -133,7 +208,6 @@
                 }
             });
 
-            // Generate Fixtures using Berger Tables / Round Robin algorithm
             fixtures = [];
             const numTeams = list.length;
             const rounds = numTeams - 1;
@@ -143,88 +217,64 @@
                 for (let match = 0; match < matchesPerRound; match++) {
                     const homeIdx = (round + match) % (numTeams - 1);
                     let awayIdx = (numTeams - 1 - match + round) % (numTeams - 1);
-
-                    if (match === 0) {
-                        awayIdx = numTeams - 1;
-                    }
+                    if (match === 0) { awayIdx = numTeams - 1; }
 
                     const home = list[homeIdx];
                     const away = list[awayIdx];
 
-                    // Skip matches involving the dummy "BYE" team
                     if (home !== "BYE" && away !== "BYE") {
                         fixtures.push({
-                            id: fixtures.length,
-                            round: round + 1,
-                            home: home,
-                            away: away,
-                            homeScore: null,
-                            awayScore: null,
-                            played: false
+                            id: fixtures.length, round: round + 1, home, away,
+                            homeScore: null, awayScore: null, played: false
                         });
                     }
                 }
             }
 
+            currentSelectedRound = 1; 
             renderDashboard();
             saveToStorage();
         }
 
-        // --- CALCULATION LOGIC ---
         function updateTableCalculations() {
-            // Reset statistics
             for (let t in teams) {
                 teams[t] = { name: t, mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0 };
             }
 
-            // Calculate from completed fixtures
             fixtures.forEach(f => {
                 if (f.played) {
-                    const h = f.home;
-                    const a = f.away;
-                    const hScore = parseInt(f.homeScore);
-                    const aScore = parseInt(f.awayScore);
+                    const h = f.home; const a = f.away;
+                    const hScore = parseInt(f.homeScore); const aScore = parseInt(f.awayScore);
 
-                    teams[h].mp++;
-                    teams[a].mp++;
-                    teams[h].gf += hScore;
-                    teams[h].ga += aScore;
-                    teams[a].gf += aScore;
-                    teams[a].ga += hScore;
+                    teams[h].mp++; teams[a].mp++;
+                    teams[h].gf += hScore; teams[h].ga += aScore;
+                    teams[a].gf += aScore; teams[a].ga += hScore;
 
                     if (hScore > aScore) {
-                        teams[h].w++;
-                        teams[h].pts += 3;
-                        teams[a].l++;
+                        teams[h].w++; teams[h].pts += 3; teams[a].l++;
                     } else if (hScore < aScore) {
-                        teams[a].w++;
-                        teams[a].pts += 3;
-                        teams[h].l++;
+                        teams[a].w++; teams[a].pts += 3; teams[h].l++;
                     } else {
-                        teams[h].d++;
-                        teams[h].pts += 1;
-                        teams[a].d++;
-                        teams[a].pts += 1;
+                        teams[h].d++; teams[h].pts += 1;
+                        teams[a].d++; teams[a].pts += 1;
                     }
-
                     teams[h].gd = teams[h].gf - teams[h].ga;
                     teams[a].gd = teams[a].gf - teams[a].ga;
                 }
             });
         }
 
-        // --- RENDER SCREEN ---
         function renderDashboard() {
             document.getElementById('setup-section').classList.add('hidden');
             document.getElementById('dashboard-section').classList.remove('hidden');
-
+            document.getElementById('admin-toggle-container').classList.remove('hidden');
             updateTableCalculations();
             renderTable();
+            renderGameweekTabs();
             renderFixtures();
         }
 
         function renderTable() {
-            // Convert to array and sort by Points, then Goal Difference, then Goals For
             let sortedTeams = Object.values(teams).sort((a, b) => {
                 if (b.pts !== a.pts) return b.pts - a.pts;
                 if (b.gd !== a.gd) return b.gd - a.gd;
@@ -236,8 +286,6 @@
 
             sortedTeams.forEach((team, index) => {
                 const pos = index + 1;
-                
-                // Styling zones (Top 1 is champion/leader, bottom rows can be colored differently)
                 let rowBg = "hover:bg-gray-800/40 transition border-b border-gray-800/60";
                 let posColor = "text-gray-400 font-medium";
                 
@@ -261,32 +309,51 @@
             });
         }
 
+        // --- NEW: RENDER GAMEWEEK FILTER TABS ---
+        function renderGameweekTabs() {
+            const tabsContainer = document.getElementById('gameweek-tabs');
+            if (!fixtures.length) return;
+            
+            const totalRounds = Math.max(...fixtures.map(f => f.round));
+            tabsContainer.innerHTML = "";
+
+            for (let r = 1; r <= totalRounds; r++) {
+                const isActive = r === currentSelectedRound;
+                const activeClass = isActive ? "bg-indigo-600 text-white font-bold" : "text-gray-400 hover:text-gray-200 hover:bg-gray-900";
+                
+                tabsContainer.innerHTML += `
+                    <button onclick="switchRound(${r})" class="px-3 py-1.5 text-xs rounded-lg transition shrink-0 cursor-pointer ${activeClass}">
+                        GW ${r}
+                    </button>
+                `;
+            }
+        }
+
+        function switchRound(roundNumber) {
+            currentSelectedRound = roundNumber;
+            renderGameweekTabs();
+            renderFixtures();
+        }
+
+        // --- UPDATED: RENDER FIXTURES WITH ADMIN PRIVILEGES ---
         function renderFixtures() {
             const container = document.getElementById('fixtures-container');
             container.innerHTML = "";
 
-            let currentRound = 0;
+            // Filter fixtures to ONLY show matches matching the selected Gameweek tab
+            const filteredFixtures = fixtures.filter(f => f.round === currentSelectedRound);
 
-            fixtures.forEach(f => {
-                // Add Round Headers visually separating gameweeks
-                if (f.round !== currentRound) {
-                    currentRound = f.round;
-                    container.innerHTML += `
-                        <div class="text-xs font-bold text-gray-500 tracking-wider uppercase mt-4 mb-2 border-b border-gray-800 pb-1">
-                            Gameweek ${currentRound}
-                        </div>
-                    `;
-                }
-
+            filteredFixtures.forEach(f => {
                 const isPlayed = f.played;
                 const hVal = isPlayed ? f.homeScore : "";
                 const aVal = isPlayed ? f.awayScore : "";
 
-                container.innerHTML += `
-                    <div class="flex items-center justify-between bg-gray-950 p-3 rounded-xl border border-gray-800/80 gap-4">
-                        <div class="w-2/5 text-right font-medium text-sm text-gray-300 truncate">${f.home}</div>
-                        
-                        <!-- Score Box Inputs -->
+                let scoreDisplayHtml = "";
+                let actionButtonHtml = "";
+
+                if (isAdmin) {
+                    // Admin gets interactive inputs and a save button
+                    scoreDisplayHtml = `
                         <div class="flex items-center gap-1 bg-gray-900 px-2 py-1 rounded-lg border border-gray-800">
                             <input type="number" id="home-score-${f.id}" value="${hVal}" min="0" placeholder="-" 
                                 class="w-8 text-center bg-transparent font-bold text-indigo-400 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
@@ -294,26 +361,38 @@
                             <input type="number" id="away-score-${f.id}" value="${aVal}" min="0" placeholder="-" 
                                 class="w-8 text-center bg-transparent font-bold text-indigo-400 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
                         </div>
-
-                        <div class="w-2/5 text-left font-medium text-sm text-gray-300 truncate">${f.away}</div>
-                        
+                    `;
+                    actionButtonHtml = `
                         <div>
                             <button onclick="saveResult(${f.id})" class="px-3 py-1.5 text-xs font-bold uppercase rounded-lg transition tracking-wide ${isPlayed ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm'}">
                                 ${isPlayed ? 'Update' : 'Save'}
                             </button>
                         </div>
+                    `;
+                } else {
+                    // Regular users just see a clean static scoreboard score badge
+                    scoreDisplayHtml = isPlayed 
+                        ? `<div class="bg-indigo-950/80 border border-indigo-500/30 text-indigo-400 px-3 py-1 font-black rounded-lg tracking-widest text-sm min-w-14 text-center">${hVal} - ${aVal}</div>`
+                        : `<div class="bg-gray-900 border border-gray-800 text-gray-500 px-3 py-1 font-medium rounded-lg text-xs min-w-14 text-center tracking-wider uppercase">VS</div>`;
+                }
+
+                container.innerHTML += `
+                    <div class="flex items-center justify-between bg-gray-950 p-3 rounded-xl border border-gray-800/80 gap-4">
+                        <div class="w-2/5 text-right font-medium text-sm ${isPlayed && f.homeScore > f.awayScore ? 'text-yellow-400 font-bold' : 'text-gray-300'} truncate">${f.home}</div>
+                        ${scoreDisplayHtml}
+                        <div class="w-2/5 text-left font-medium text-sm ${isPlayed && f.awayScore > f.homeScore ? 'text-yellow-400 font-bold' : 'text-gray-300'} truncate">${f.away}</div>
+                        ${actionButtonHtml}
                     </div>
                 `;
             });
         }
 
-        // --- INTERACTION ACTIONS ---
         function saveResult(fixtureId) {
             const hInput = document.getElementById(`home-score-${fixtureId}`).value;
             const aInput = document.getElementById(`away-score-${fixtureId}`).value;
 
             if (hInput === "" || aInput === "") {
-                alert("Please enter scores for both teams before saving.");
+                alert("Please enter scores for both teams.");
                 return;
             }
 
@@ -327,18 +406,19 @@
         }
 
         function resetTournament() {
-            if (confirm("Are you sure you want to completely wipe out the data and restart? All results will be lost.")) {
+            if (confirm("Are you sure you want to completely wipe out the data and restart?")) {
                 localStorage.removeItem('dls_teams');
                 localStorage.removeItem('dls_fixtures');
-                teams = {};
-                fixtures = [];
-                document.getElementById('manager-names').value = "";
+                teams = {}; fixtures = []; isAdmin = false;
+                document.getElementById('team-count').value = "";
                 document.getElementById('dashboard-section').classList.add('hidden');
                 document.getElementById('setup-section').classList.remove('hidden');
+                document.getElementById('step-2').classList.add('hidden');
+                document.getElementById('step-1').classList.remove('hidden');
+                document.getElementById('admin-toggle-container').classList.add('hidden');
             }
         }
 
-        // Check for existing tournament data when page loads
         window.onload = loadFromStorage;
     </script>
 </body>
