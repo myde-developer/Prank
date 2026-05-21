@@ -1,16 +1,14 @@
 // ============================================================
-// SECTION 1: FIREBASE CONFIGURATION & GLOBAL VARIABLES
+// 1. FIREBASE CONFIGURATION & GLOBAL VARIABLES
 // ============================================================
-
 const firebaseConfig = {
-  apiKey: "AIzaSyBmy0tmvaYcw9KsQQRH7RLKcXC8EN6WFqY",
-  authDomain: "dls-premier-league.firebaseapp.com",
-  databaseURL: "https://dls-premier-league-default-rtdb.firebaseio.com",
-  projectId: "dls-premier-league",
-  storageBucket: "dls-premier-league.firebasestorage.app",
-  messagingSenderId: "975087030284",
-  appId: "1:975087030284:web:7708718fffd9180c009e29",
-  measurementId: "G-Q2C6TKNRHE"
+    apiKey: "AIzaSyBmy0tmvaYcw9KsQQRH7RLKcXC8EN6WFqY",
+    authDomain: "dls-premier-league.firebaseapp.com",
+    projectId: "dls-premier-league",
+    storageBucket: "dls-premier-league.firebasestorage.app",
+    messagingSenderId: "975087030284",
+    appId: "1:975087030284:web:7708718fffd9180c009e29",
+    measurementId: "G-Q2C6TKNRHE"
 };
 
 firebase.initializeApp(firebaseConfig);
@@ -21,7 +19,6 @@ let fixtures = [];
 let currentSelectedRound = 1;
 let isAdmin = false;
 let tournamentPassword = "1234";
-let temporaryTeamNames = [];
 
 // Ticker rotating facts
 let tickerInterval = null;
@@ -29,9 +26,8 @@ let currentTickerFactIndex = 0;
 let tickerFacts = [];
 
 // ============================================================
-// SECTION 2: HELPER FUNCTIONS
+// 2. HELPER FUNCTIONS
 // ============================================================
-
 function showToast(msg) {
     const container = document.getElementById("toast-container");
     if (!container) return;
@@ -47,27 +43,23 @@ function saveToStorage() {
 }
 
 // ============================================================
-// SECTION 3: FIREBASE REAL-TIME SYNC & INITIAL LOAD
+// 3. FIREBASE REAL-TIME SYNC
 // ============================================================
-
 function initRealtimeDatabaseSync() {
     db.ref('tournament_data').on('value', (snapshot) => {
         const data = snapshot.val();
-        if (data) {
-            if (data.password) tournamentPassword = data.password;
-            if (data.teams && data.fixtures) {
-                teams = data.teams;
-                fixtures = data.fixtures;
-                document.getElementById('setup-section')?.classList.add('hidden');
-                document.getElementById('dashboard-section')?.classList.remove('hidden');
-                document.getElementById('admin-toggle-container')?.classList.remove('hidden');
-                updateTableCalculations();
-                renderTable();
-                renderGameweekTabs();
-                renderFixtures();
-                generateTickerFacts();
-                document.title = `DLS | ${Object.keys(teams).length} teams • Live`;
-            }
+        if (data && data.teams && data.fixtures) {
+            teams = data.teams;
+            fixtures = data.fixtures;
+            document.getElementById('setup-section')?.classList.add('hidden');
+            document.getElementById('dashboard-section')?.classList.remove('hidden');
+            document.getElementById('admin-toggle-container')?.classList.remove('hidden');
+            updateTableCalculations();
+            renderTable();
+            renderGameweekTabs();
+            renderFixtures();
+            generateTickerFacts();
+            document.title = `DLS | ${Object.keys(teams).length} teams • Live`;
         } else {
             document.getElementById('setup-section')?.classList.remove('hidden');
             document.getElementById('dashboard-section')?.classList.add('hidden');
@@ -77,38 +69,22 @@ function initRealtimeDatabaseSync() {
     }, (error) => { showToast("Firebase connection issue"); });
 }
 
-
 // ============================================================
-// SECTION 4: ROTATING TICKER FACTS (SLIDING CAROUSEL)
+// 4. ROTATING TICKER FACTS (SLIDING CAROUSEL)
 // ============================================================
-
-let tickerInterval = null;
-let currentTickerFactIndex = 0;
-let tickerFacts = [];
-
 function updateTickerFacts() {
     if (!tickerFacts.length) return;
     const tickerEl = document.getElementById('news-ticker');
     if (!tickerEl) return;
-    
-    // Add slide-out class
     tickerEl.classList.add('slide-out');
-    
     setTimeout(() => {
-        // After animation, change text
         currentTickerFactIndex = (currentTickerFactIndex + 1) % tickerFacts.length;
         const fact = tickerFacts[currentTickerFactIndex];
         tickerEl.innerHTML = `<span class="inline-flex items-center gap-2"><span class="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span> ${fact}</span>`;
-        
-        // Remove slide-out and add slide-in
         tickerEl.classList.remove('slide-out');
         tickerEl.classList.add('slide-in');
-        
-        // Remove slide-in after animation ends to reset
-        setTimeout(() => {
-            tickerEl.classList.remove('slide-in');
-        }, 500);
-    }, 500); // matches CSS transition duration
+        setTimeout(() => tickerEl.classList.remove('slide-in'), 500);
+    }, 500);
 }
 
 function generateTickerFacts() {
@@ -117,17 +93,15 @@ function generateTickerFacts() {
     const totalMatches = fixtures.length;
     
     let leader = null;
-    if (Object.keys(teams).length) {
+    if (totalTeams) {
         const sorted = Object.values(teams).sort((a,b) => b.pts - a.pts || b.gd - a.gd);
         if (sorted.length) leader = sorted[0];
     }
-    
     let topScorer = null;
-    if (Object.keys(teams).length) {
+    if (totalTeams) {
         const sortedGF = Object.values(teams).sort((a,b) => b.gf - a.gf);
         if (sortedGF.length) topScorer = sortedGF[0];
     }
-    
     let biggestWin = null;
     fixtures.forEach(f => {
         if (f.played && f.homeScore !== null && f.awayScore !== null) {
@@ -151,20 +125,16 @@ function generateTickerFacts() {
     
     if (tickerFacts.length) {
         const tickerEl = document.getElementById('news-ticker');
-        if (tickerEl) {
-            tickerEl.innerHTML = `<span class="inline-flex items-center gap-2"><span class="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span> ${tickerFacts[0]}</span>`;
-        }
+        if (tickerEl) tickerEl.innerHTML = `<span class="inline-flex items-center gap-2"><span class="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span> ${tickerFacts[0]}</span>`;
         currentTickerFactIndex = 0;
         if (tickerInterval) clearInterval(tickerInterval);
-        // Change interval here to control how long each fact stays (e.g., 6000 = 6 seconds)
         tickerInterval = setInterval(updateTickerFacts, 6000);
     }
 }
 
 // ============================================================
-// SECTION 5: ADMIN MODE TOGGLE & UI
+// 5. ADMIN MODE TOGGLE & UI
 // ============================================================
-
 function handleAdminToggleClick() {
     if (!isAdmin) {
         document.getElementById('admin-password-input').value = "";
@@ -172,33 +142,14 @@ function handleAdminToggleClick() {
         document.getElementById('password-modal').classList.remove('hidden');
     } else deactivateAdminMode();
 }
-
-function closePasswordModal() { 
-    document.getElementById('password-modal').classList.add('hidden'); 
-}
-
+function closePasswordModal() { document.getElementById('password-modal').classList.add('hidden'); }
 function verifyAdminPassword() {
     const inputVal = document.getElementById('admin-password-input').value;
-    if (inputVal === tournamentPassword) { 
-        closePasswordModal(); 
-        activateAdminMode(); 
-    } else {
-        document.getElementById('password-error').classList.remove('hidden');
-    }
+    if (inputVal === tournamentPassword) { closePasswordModal(); activateAdminMode(); }
+    else document.getElementById('password-error').classList.remove('hidden');
 }
-
-function activateAdminMode() { 
-    isAdmin = true; 
-    updateAdminUIElements(); 
-    showToast("Admin mode ACTIVE"); 
-}
-
-function deactivateAdminMode() { 
-    isAdmin = false; 
-    updateAdminUIElements(); 
-    showToast("Admin mode deactivated"); 
-}
-
+function activateAdminMode() { isAdmin = true; updateAdminUIElements(); showToast("Admin mode ACTIVE"); }
+function deactivateAdminMode() { isAdmin = false; updateAdminUIElements(); showToast("Admin mode deactivated"); }
 function updateAdminUIElements() {
     const btn = document.getElementById('admin-btn');
     const dot = document.getElementById('admin-btn-dot');
@@ -206,24 +157,17 @@ function updateAdminUIElements() {
     const resetContainer = document.getElementById('admin-reset-container');
     const thActions = document.getElementById('th-admin-actions');
     const hint = document.getElementById('admin-table-hint');
-    
     if (isAdmin) {
         btn?.classList.replace('bg-gray-300', 'bg-indigo-600');
         dot?.classList.replace('translate-x-0', 'translate-x-5');
-        if(statusText) { 
-            statusText.innerText = "⚡ ADMIN MODE"; 
-            statusText.classList.replace('text-gray-600','text-indigo-600'); 
-        }
+        if(statusText) { statusText.innerText = "⚡ ADMIN MODE"; statusText.classList.replace('text-gray-600','text-indigo-600'); }
         if(resetContainer) resetContainer.classList.remove('hidden');
         if(thActions) thActions.classList.remove('hidden');
         if(hint) hint.classList.remove('hidden');
     } else {
         btn?.classList.replace('bg-indigo-600', 'bg-gray-300');
         dot?.classList.replace('translate-x-5', 'translate-x-0');
-        if(statusText) { 
-            statusText.innerText = "🔒 READ ONLY"; 
-            statusText.classList.replace('text-indigo-600','text-gray-600'); 
-        }
+        if(statusText) { statusText.innerText = "🔒 READ ONLY"; statusText.classList.replace('text-indigo-600','text-gray-600'); }
         if(resetContainer) resetContainer.classList.add('hidden');
         if(thActions) thActions.classList.add('hidden');
         if(hint) hint.classList.add('hidden');
@@ -234,15 +178,11 @@ function updateAdminUIElements() {
 }
 
 // ============================================================
-// SECTION 6: LEAGUE SETUP (NO CRESTS)
+// 6. LEAGUE SETUP (NO CRESTS)
 // ============================================================
-
 function generateTeamInputs() {
     const count = parseInt(document.getElementById('team-count').value);
-    if (isNaN(count) || count < 2) { 
-        alert("Enter 2-20 teams"); 
-        return; 
-    }
+    if (isNaN(count) || count < 2) { alert("Enter 2-20 teams"); return; }
     const container = document.getElementById('team-inputs-container');
     container.innerHTML = "";
     for (let i = 1; i <= count; i++) {
@@ -263,7 +203,6 @@ function initializeTournament() {
     const count = parseInt(document.getElementById('team-count').value);
     const pass = document.getElementById('tournament-password').value.trim();
     if(pass) tournamentPassword = pass;
-    
     let list = [];
     for (let i=1; i<=count; i++) {
         let name = document.getElementById(`team-input-${i}`).value.trim();
@@ -271,7 +210,6 @@ function initializeTournament() {
         list.push({ name });
     }
     if (list.length % 2 !== 0) list.push({ name: "BYE" });
-    
     teams = {};
     list.forEach(item => {
         if(item.name !== "BYE") {
@@ -283,7 +221,6 @@ function initializeTournament() {
             };
         }
     });
-    
     fixtures = [];
     const n = list.length;
     const rounds = n-1;
@@ -312,37 +249,29 @@ function initializeTournament() {
 }
 
 // ============================================================
-// SECTION 7: FIXTURE MANAGEMENT (SHUFFLE, SWAP, ASSIGN TEAM)
+// 7. FIXTURE MANAGEMENT (SHUFFLE, SWAP, ASSIGN TEAM)
 // ============================================================
-
 function shuffleRound(roundNumber) {
     if (!isAdmin) return;
     const roundFixtures = fixtures.filter(f => f.round === roundNumber);
     if (roundFixtures.length === 0) return;
-    
     const teamsInRound = [];
     roundFixtures.forEach(f => {
         if (f.home !== 'BYE') teamsInRound.push(f.home);
         if (f.away !== 'BYE') teamsInRound.push(f.away);
     });
     const uniqueTeams = [...new Set(teamsInRound)];
-    
     for (let i = uniqueTeams.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [uniqueTeams[i], uniqueTeams[j]] = [uniqueTeams[j], uniqueTeams[i]];
     }
-    
     const newPairs = [];
     for (let i = 0; i < uniqueTeams.length; i += 2) {
         if (i + 1 < uniqueTeams.length) {
-            if (Math.random() < 0.5) {
-                newPairs.push({ home: uniqueTeams[i], away: uniqueTeams[i+1] });
-            } else {
-                newPairs.push({ home: uniqueTeams[i+1], away: uniqueTeams[i] });
-            }
+            if (Math.random() < 0.5) newPairs.push({ home: uniqueTeams[i], away: uniqueTeams[i+1] });
+            else newPairs.push({ home: uniqueTeams[i+1], away: uniqueTeams[i] });
         }
     }
-    
     roundFixtures.forEach((fixture, idx) => {
         if (idx < newPairs.length) {
             fixture.home = newPairs[idx].home;
@@ -353,7 +282,6 @@ function shuffleRound(roundNumber) {
             fixture.comment = null;
         }
     });
-    
     saveToStorage();
     showToast(`Round ${roundNumber} shuffled!`);
     renderGameweekTabs();
@@ -386,14 +314,12 @@ window.editFixtureTeamName = function(fixtureId, side) {
     if (!isAdmin) return;
     const fixture = fixtures.find(f => f.id === fixtureId);
     const currentTeam = side === 'home' ? fixture.home : fixture.away;
-    
     const dropdown = document.getElementById('team-select-dropdown');
     dropdown.innerHTML = '';
     const cancelOption = document.createElement('option');
     cancelOption.value = '';
     cancelOption.textContent = '— Cancel / No change —';
     dropdown.appendChild(cancelOption);
-    
     const otherSide = side === 'home' ? fixture.away : fixture.home;
     const teamNames = Object.keys(teams).sort();
     teamNames.forEach(name => {
@@ -404,59 +330,39 @@ window.editFixtureTeamName = function(fixtureId, side) {
         if (name === currentTeam) option.selected = true;
         dropdown.appendChild(option);
     });
-    
     const byeOption = document.createElement('option');
     byeOption.value = 'BYE_REMOVE';
     byeOption.textContent = '— Remove team from this fixture (set to BYE) —';
     dropdown.appendChild(byeOption);
-    
     pendingAssignFixtureId = fixtureId;
     pendingAssignSide = side;
     document.getElementById('team-select-modal').classList.remove('hidden');
     document.getElementById('team-select-modal').classList.add('flex');
 };
-
 window.closeTeamSelectModal = function() {
     document.getElementById('team-select-modal').classList.add('hidden');
     document.getElementById('team-select-modal').classList.remove('flex');
     pendingAssignFixtureId = null;
     pendingAssignSide = null;
 };
-
 window.confirmTeamSelection = function() {
     if (pendingAssignFixtureId === null) return;
     const selectedValue = document.getElementById('team-select-dropdown').value;
-    if (selectedValue === '') { 
-        closeTeamSelectModal(); 
-        return; 
-    }
-    
+    if (selectedValue === '') { closeTeamSelectModal(); return; }
     const fixture = fixtures.find(f => f.id === pendingAssignFixtureId);
     const side = pendingAssignSide;
-    
     if (selectedValue === 'BYE_REMOVE') {
         if (side === 'home') fixture.home = 'BYE';
         else fixture.away = 'BYE';
-        fixture.homeScore = null;
-        fixture.awayScore = null;
-        fixture.played = false;
-        fixture.comment = null;
+        fixture.homeScore = null; fixture.awayScore = null; fixture.played = false; fixture.comment = null;
         saveToStorage();
         showToast(`Removed team from ${side === 'home' ? 'home' : 'away'} side. Set to BYE.`);
-        renderFixtures();
-        renderTable();
-        generateTickerFacts();
-        closeTeamSelectModal();
+        renderFixtures(); renderTable(); generateTickerFacts(); closeTeamSelectModal();
         return;
     }
-    
     const newTeam = selectedValue;
     const oldTeam = side === 'home' ? fixture.home : fixture.away;
-    if (newTeam === oldTeam) { 
-        closeTeamSelectModal(); 
-        return; 
-    }
-    
+    if (newTeam === oldTeam) { closeTeamSelectModal(); return; }
     const round = fixture.round;
     const otherFixtures = fixtures.filter(f => f.round === round && f.id !== fixture.id);
     const isUsedElsewhere = otherFixtures.some(f => f.home === newTeam || f.away === newTeam);
@@ -465,25 +371,17 @@ window.confirmTeamSelection = function() {
         closeTeamSelectModal();
         return;
     }
-    
     if (side === 'home') fixture.home = newTeam;
     else fixture.away = newTeam;
-    fixture.homeScore = null;
-    fixture.awayScore = null;
-    fixture.played = false;
-    fixture.comment = null;
+    fixture.homeScore = null; fixture.awayScore = null; fixture.played = false; fixture.comment = null;
     saveToStorage();
     showToast(`Assigned ${newTeam} to ${side === 'home' ? 'home' : 'away'} side.`);
-    renderFixtures();
-    renderTable();
-    generateTickerFacts();
-    closeTeamSelectModal();
+    renderFixtures(); renderTable(); generateTickerFacts(); closeTeamSelectModal();
 };
 
 // ============================================================
-// SECTION 8: STANDINGS CALCULATIONS
+// 8. STANDINGS CALCULATIONS
 // ============================================================
-
 function calculateStandingsForRound(upToRound) {
     let temp = {};
     for(let t in teams) temp[t] = { name: t, pts:0, gd:0, gf:0 };
@@ -522,10 +420,10 @@ function updateTableCalculations() {
         teams[t].gd = teams[t].gf - teams[t].ga;
     }
 }
-// ============================================================
-// SECTION 9: RENDER LEAGUE TABLE (CLICKABLE ROWS)
-// ============================================================
 
+// ============================================================
+// 9. RENDER LEAGUE TABLE
+// ============================================================
 function renderTable() {
     let currentSorted = Object.values(teams).sort((a,b)=>b.pts-a.pts || b.gd-a.gd || b.gf-a.gf);
     let maxRoundPlayed = Math.max(0, ...fixtures.filter(f=>f.played).map(f=>f.round));
@@ -569,9 +467,8 @@ function renderTable() {
 }
 
 // ============================================================
-// SECTION 10: RENDER GAMEWEEK TABS & FIXTURES
+// 10. RENDER GAMEWEEK TABS & FIXTURES (VERTICAL)
 // ============================================================
-
 function renderGameweekTabs() {
     const container = document.getElementById('gameweek-tabs');
     if(!fixtures.length) return;
@@ -593,12 +490,7 @@ function renderGameweekTabs() {
         container.appendChild(shuffleBtn);
     }
 }
-
-window.switchRound = function(r) { 
-    currentSelectedRound = r; 
-    renderGameweekTabs(); 
-    renderFixtures(); 
-};
+window.switchRound = function(r) { currentSelectedRound = r; renderGameweekTabs(); renderFixtures(); };
 
 function renderFixtures() {
     const container = document.getElementById('fixtures-container');
@@ -624,10 +516,10 @@ function renderFixtures() {
             const homeNameHtml = `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition" onclick="editFixtureTeamName(${f.id}, 'home')">${f.home}</span>`;
             const awayNameHtml = `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition" onclick="editFixtureTeamName(${f.id}, 'away')">${f.away}</span>`;
             container.innerHTML += `
-                <div class="flex items-center justify-between bg-gray-50/60 p-3 rounded-xl border border-gray-100 gap-2 min-w-[340px]">
-                    <div class="w-2/5 flex items-center justify-end gap-2 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900' : 'text-gray-600'}">${homeNameHtml}</div>
+                <div class="flex items-center justify-between bg-gray-50/60 p-3 rounded-xl border border-gray-100 gap-2 w-full">
+                    <div class="flex-1 flex items-center justify-end gap-2 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900' : 'text-gray-600'}">${homeNameHtml}</div>
                     ${midHtml}
-                    <div class="w-2/5 flex items-center justify-start gap-2 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900' : 'text-gray-600'}">${awayNameHtml}</div>
+                    <div class="flex-1 flex items-center justify-start gap-2 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900' : 'text-gray-600'}">${awayNameHtml}</div>
                     ${actionHtml}
                 </div>
             `;
@@ -635,10 +527,10 @@ function renderFixtures() {
             midHtml = played ? `<div class="bg-gray-100 px-3 py-1 rounded-full font-mono font-bold text-sm">${f.homeScore} - ${f.awayScore}</div>` : `<button onclick="runMatchPrediction(${f.id})" class="text-[11px] bg-gray-100 hover:bg-indigo-50 px-3 py-1 rounded-full">🔍 Analyze</button>`;
             actionHtml = `<button onclick="showMatchComment(${f.id})" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full">💬</button>`;
             container.innerHTML += `
-                <div class="flex items-center justify-between bg-gray-50/60 p-3 rounded-xl border border-gray-100 gap-2 min-w-[340px]">
-                    <div class="w-2/5 flex items-center justify-end gap-2 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900' : 'text-gray-600'}">${f.home}</div>
+                <div class="flex items-center justify-between bg-gray-50/60 p-3 rounded-xl border border-gray-100 gap-2 w-full">
+                    <div class="flex-1 flex items-center justify-end gap-2 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900' : 'text-gray-600'}">${f.home}</div>
                     ${midHtml}
-                    <div class="w-2/5 flex items-center justify-start gap-2 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900' : 'text-gray-600'}">${f.away}</div>
+                    <div class="flex-1 flex items-center justify-start gap-2 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900' : 'text-gray-600'}">${f.away}</div>
                     ${actionHtml}
                 </div>
             `;
@@ -647,9 +539,8 @@ function renderFixtures() {
 }
 
 // ============================================================
-// SECTION 11: MATCH COMMENTS (VIEWER & EDITOR)
+// 11. MATCH COMMENTS (VIEWER & EDITOR)
 // ============================================================
-
 let currentViewerFixtureId = null;
 
 window.showMatchComment = function(fixtureId) {
@@ -662,21 +553,16 @@ window.showMatchComment = function(fixtureId) {
     const commentText = fixture.comment || (fixture.played ? 'No comment added.' : 'Match not played yet.');
     document.getElementById('viewer-comment').innerText = commentText;
     const editBtn = document.getElementById('viewer-edit-btn');
-    if (isAdmin && fixture.played) {
-        editBtn.classList.remove('hidden');
-    } else {
-        editBtn.classList.add('hidden');
-    }
+    if (isAdmin && fixture.played) editBtn.classList.remove('hidden');
+    else editBtn.classList.add('hidden');
     document.getElementById('comment-viewer-modal').classList.remove('hidden');
     document.getElementById('comment-viewer-modal').classList.add('flex');
 };
-
 window.closeCommentViewer = function() {
     document.getElementById('comment-viewer-modal').classList.add('hidden');
     document.getElementById('comment-viewer-modal').classList.remove('flex');
     currentViewerFixtureId = null;
 };
-
 window.editViewerComment = function() {
     if (!isAdmin) return;
     if (currentViewerFixtureId === null) return;
@@ -691,7 +577,6 @@ window.editViewerComment = function() {
     document.getElementById('comment-modal').classList.add('flex');
     closeCommentViewer();
 };
-
 function generateMatchComment(homeName, awayName, homeScore, awayScore) {
     const margin = Math.abs(homeScore - awayScore);
     const winner = homeScore > awayScore ? homeName : awayName;
@@ -711,21 +596,13 @@ function generateMatchComment(homeName, awayName, homeScore, awayScore) {
     comment += ` ${winner} showed ${flavour[Math.floor(Math.random()*flavour.length)]}.`;
     return comment;
 }
-
 let pendingFixtureId = null, pendingHomeScore = null, pendingAwayScore = null;
-
 window.saveResult = function(fixtureId) {
     const homeScore = document.getElementById(`home-score-${fixtureId}`).value;
     const awayScore = document.getElementById(`away-score-${fixtureId}`).value;
-    if (homeScore === "" || awayScore === "") {
-        alert("Enter both scores");
-        return;
-    }
+    if (homeScore === "" || awayScore === "") { alert("Enter both scores"); return; }
     const fixture = fixtures.find(f => f.id === fixtureId);
-    if (fixture.home === 'BYE' || fixture.away === 'BYE') {
-        alert("Cannot save a match with BYE team. Please assign a real team first.");
-        return;
-    }
+    if (fixture.home === 'BYE' || fixture.away === 'BYE') { alert("Cannot save a match with BYE team. Assign a real team first."); return; }
     const draft = generateMatchComment(fixture.home, fixture.away, parseInt(homeScore), parseInt(awayScore));
     pendingFixtureId = fixtureId;
     pendingHomeScore = parseInt(homeScore);
@@ -735,20 +612,15 @@ window.saveResult = function(fixtureId) {
     document.getElementById('comment-modal').classList.remove('hidden');
     document.getElementById('comment-modal').classList.add('flex');
 };
-
 window.closeCommentModal = function(save = false) {
     document.getElementById('comment-modal').classList.add('hidden');
     document.getElementById('comment-modal').classList.remove('flex');
     if (!save) pendingFixtureId = null;
 };
-
 window.confirmComment = function() {
     if (pendingFixtureId === null) return;
     const finalComment = document.getElementById('comment-text').value.trim();
-    if (finalComment === "") {
-        alert("Comment cannot be empty");
-        return;
-    }
+    if (finalComment === "") { alert("Comment cannot be empty"); return; }
     const fixture = fixtures.find(f => f.id === pendingFixtureId);
     fixture.homeScore = pendingHomeScore;
     fixture.awayScore = pendingAwayScore;
@@ -763,15 +635,11 @@ window.confirmComment = function() {
 };
 
 // ============================================================
-// SECTION 12: ADMIN ACTIONS & INITIALISATION
+// 12. ADMIN ACTIONS & INITIALISATION
 // ============================================================
-
 window.runMatchPrediction = function(fixtureId) {
     const f = fixtures.find(f=>f.id===fixtureId);
-    if (f.home === 'BYE' || f.away === 'BYE') {
-        alert("Cannot predict with BYE team.");
-        return;
-    }
+    if (f.home === 'BYE' || f.away === 'BYE') { alert("Cannot predict with BYE team."); return; }
     const h = teams[f.home], a = teams[f.away];
     let homePower = (h.pts*1.5)+h.gd, awayPower = (a.pts*1.5)+a.gd;
     const formScore = (arr) => arr.slice(-3).reduce((s,x)=>s+(x==='W'?3:x==='D'?1:0),0);
@@ -788,7 +656,6 @@ window.runMatchPrediction = function(fixtureId) {
     document.getElementById('pred-simulated-score').innerText = `${simHome} - ${simAway}`;
     document.getElementById('predictor-modal').classList.remove('hidden');
 };
-
 window.closePredictorModal = () => document.getElementById('predictor-modal').classList.add('hidden');
 
 window.deductPointsPrompt = function(teamName) {
@@ -800,7 +667,6 @@ window.deductPointsPrompt = function(teamName) {
     showToast(`${teamName} penalized ${amount} pts`);
     renderTable();
 };
-
 window.removeTeamFromLeague = function(teamName) {
     if(!isAdmin) return;
     if(confirm(`Permanently remove ${teamName}?`)) {
@@ -815,7 +681,6 @@ window.removeTeamFromLeague = function(teamName) {
         renderFixtures();
     }
 };
-
 window.showTeamDetails = function(teamName) {
     const team = teams[teamName];
     if (!team) return;
@@ -850,19 +715,9 @@ window.showTeamDetails = function(teamName) {
     document.getElementById('team-modal').classList.remove('hidden');
     document.getElementById('team-modal').classList.add('flex');
 };
-
 window.closeTeamModal = function() {
     document.getElementById('team-modal').classList.add('hidden');
     document.getElementById('team-modal').classList.remove('flex');
 };
-
-window.resetTournament = () => { 
-    if(confirm("Wipe ALL data?")) db.ref('tournament_data').remove().then(()=>location.reload()); 
-};
-
-// ============================================================
-// START APPLICATION
-// ============================================================
-window.onload = () => {
-    initRealtimeDatabaseSync();
-};
+window.resetTournament = () => { if(confirm("Wipe ALL data?")) db.ref('tournament_data').remove().then(()=>location.reload()); };
+window.onload = () => { initRealtimeDatabaseSync(); };
