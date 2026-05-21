@@ -125,6 +125,25 @@
         </div>
     </div>
 
+<!-- Change Master Password Modal (admin only) -->
+<div id="change-password-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full border border-gray-200 overflow-hidden animate-fadeInUp">
+        <div class="p-5 border-b border-gray-200 flex justify-between items-center">
+            <h3 class="font-bold text-gray-800">🔐 Change Master Password</h3>
+            <button onclick="closeChangePasswordModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button>
+        </div>
+        <div class="p-5 space-y-3">
+            <input type="password" id="new-password" placeholder="New password" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-center font-mono text-sm focus:ring-2 focus:ring-indigo-300 outline-none">
+            <input type="password" id="confirm-password" placeholder="Confirm new password" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-center font-mono text-sm focus:ring-2 focus:ring-indigo-300 outline-none">
+            <p id="password-match-error" class="hidden text-red-500 text-xs text-center">Passwords do not match</p>
+        </div>
+        <div class="p-4 bg-gray-50 flex gap-3 justify-end rounded-b-2xl">
+            <button onclick="closeChangePasswordModal()" class="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 transition">Cancel</button>
+            <button onclick="updateMasterPassword()" class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition">Update</button>
+        </div>
+    </div>
+</div>
+
     <main class="max-w-6xl mx-auto px-4 py-8 space-y-10">
         <!-- Setup Wizard (no crest upload) -->
         <section id="setup-section" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-6">
@@ -179,9 +198,10 @@
                 <div id="fixtures-container" class="flex flex-col gap-3"></div>
             </div>
 
-            <div id="admin-reset-container" class="text-center hidden pt-4">
-                <button onclick="resetTournament()" class="text-xs text-rose-500 hover:text-rose-700 underline decoration-dotted">⚠️ Wipe entire league data (irreversible)</button>
-            </div>
+         <div id="admin-reset-container" class="text-center hidden pt-4 space-x-3">
+    <button onclick="openChangePasswordModal()" class="text-xs text-indigo-600 hover:text-indigo-800 underline decoration-dotted">🔑 Change Master Password</button>
+    <button onclick="resetTournament()" class="text-xs text-rose-500 hover:text-rose-700 underline decoration-dotted">⚠️ Wipe entire league data (irreversible)</button>
+</div>
         </section>
     </main>
 

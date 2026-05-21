@@ -179,6 +179,40 @@ function updateAdminUIElements() {
 }
 
 // ============================================================
+// CHANGE MASTER PASSWORD (ADMIN ONLY)
+// ============================================================
+function openChangePasswordModal() {
+    if (!isAdmin) return;
+    document.getElementById('new-password').value = '';
+    document.getElementById('confirm-password').value = '';
+    document.getElementById('password-match-error').classList.add('hidden');
+    document.getElementById('change-password-modal').classList.remove('hidden');
+    document.getElementById('change-password-modal').classList.add('flex');
+}
+
+function closeChangePasswordModal() {
+    document.getElementById('change-password-modal').classList.add('hidden');
+    document.getElementById('change-password-modal').classList.remove('flex');
+}
+
+function updateMasterPassword() {
+    const newPass = document.getElementById('new-password').value.trim();
+    const confirmPass = document.getElementById('confirm-password').value.trim();
+    if (newPass === '') {
+        showToast('Password cannot be empty');
+        return;
+    }
+    if (newPass !== confirmPass) {
+        document.getElementById('password-match-error').classList.remove('hidden');
+        return;
+    }
+    tournamentPassword = newPass;
+    saveToStorage();
+    showToast('Master password updated successfully!');
+    closeChangePasswordModal();
+}
+
+// ============================================================
 // 6. LEAGUE SETUP (NO CRESTS)
 // ============================================================
 function generateTeamInputs() {
