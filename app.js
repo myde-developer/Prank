@@ -76,17 +76,38 @@ function initRealtimeDatabaseSync() {
     }, (error) => { showToast("Firebase connection issue"); });
 }
 
+
 // ============================================================
-// SECTION 4: ROTATING TICKER FACTS (SPECTACULAR)
+// SECTION 4: ROTATING TICKER FACTS (SLIDING CAROUSEL)
 // ============================================================
+
+let tickerInterval = null;
+let currentTickerFactIndex = 0;
+let tickerFacts = [];
 
 function updateTickerFacts() {
     if (!tickerFacts.length) return;
     const tickerEl = document.getElementById('news-ticker');
     if (!tickerEl) return;
-    currentTickerFactIndex = (currentTickerFactIndex + 1) % tickerFacts.length;
-    const fact = tickerFacts[currentTickerFactIndex];
-    tickerEl.innerHTML = `<span class="inline-flex items-center gap-2"><span class="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span> ${fact}</span>`;
+    
+    // Add slide-out class
+    tickerEl.classList.add('slide-out');
+    
+    setTimeout(() => {
+        // After animation, change text
+        currentTickerFactIndex = (currentTickerFactIndex + 1) % tickerFacts.length;
+        const fact = tickerFacts[currentTickerFactIndex];
+        tickerEl.innerHTML = `<span class="inline-flex items-center gap-2"><span class="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span> ${fact}</span>`;
+        
+        // Remove slide-out and add slide-in
+        tickerEl.classList.remove('slide-out');
+        tickerEl.classList.add('slide-in');
+        
+        // Remove slide-in after animation ends to reset
+        setTimeout(() => {
+            tickerEl.classList.remove('slide-in');
+        }, 500);
+    }, 500); // matches CSS transition duration
 }
 
 function generateTickerFacts() {
@@ -134,7 +155,8 @@ function generateTickerFacts() {
         }
         currentTickerFactIndex = 0;
         if (tickerInterval) clearInterval(tickerInterval);
-        tickerInterval = setInterval(updateTickerFacts, 8000);
+        // Change interval here to control how long each fact stays (e.g., 6000 = 6 seconds)
+        tickerInterval = setInterval(updateTickerFacts, 6000);
     }
 }
 
