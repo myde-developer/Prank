@@ -1,5 +1,5 @@
 /**
- * DLS Premier League - Final Version with Dropdown Team Selection
+ * DLS Premier League - Final with Round Shuffle + Per-Fixture Swap
  */
 const firebaseConfig = {
     apiKey: "AIzaSyBmy0tmvaYcw9KsQQRH7RLKcXC8EN6WFqY",
@@ -22,7 +22,6 @@ let tournamentPassword = "1234";
 let newsHeadlines = [];
 let temporaryUploadedLogos = {};
 
-// Toast
 function showToast(msg) {
     const container = document.getElementById("toast-container");
     if (!container) return;
@@ -33,7 +32,6 @@ function showToast(msg) {
     setTimeout(() => toast.remove(), 2500);
 }
 
-// Resize image
 function resizeImage(file, maxSize = 128) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -67,7 +65,6 @@ function resizeImage(file, maxSize = 128) {
     });
 }
 
-// Team badge – admin can click crest to upload new logo
 function getTeamBadgeHtml(teamKey, size = "w-14 h-14") {
     const team = teams[teamKey];
     if (team && team.logoData && team.logoData.trim() !== "") {
@@ -240,7 +237,9 @@ function updateAdminUIElements() {
         if(thActions) thActions.classList.add('hidden');
         if(hint) hint.classList.add('hidden');
     }
-    renderTable(); renderFixtures();
+    renderTable();
+    renderGameweekTabs();
+    renderFixtures();
 }
 
 function generateTeamInputs() {
@@ -326,7 +325,68 @@ function initializeTournament() {
     showToast("Tournament initialized!");
 }
 
-// Global rename function (used by dropdown)
+// ========== SHUFFLE ROUND (global for the round) ==========
+function shuffleRound(roundNumber) {
+    if (!isAdmin) return;
+    const roundFixtures = fixtures.filter(f => f.round === roundNumber);
+    if (roundFixtures.length === 0) return;
+    
+    const teamsInRound = [];
+    roundFixtures.forEach(f => {
+        teamsInRound.push(f.home, f.away);
+    });
+    const uniqueTeams = [...new Set(teamsInRound)];
+    
+    for (let i = uniqueTeams.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [uniqueTeams[i], uniqueTeams[j]] = [uniqueTeams[j], uniqueTeams[i]];
+    }
+    
+    const newPairs = [];
+    for (let i = 0; i < uniqueTeams.length; i += 2) {
+        if (i + 1 < uniqueTeams.length) {
+            if (Math.random() < 0.5) {
+                newPairs.push({ home: uniqueTeams[i], away: uniqueTeams[i+1] });
+            } else {
+                newPairs.push({ home: uniqueTeams[i+1], away: uniqueTeams[i] });
+            }
+        }
+    }
+    
+    roundFixtures.forEach((fixture, idx) => {
+        if (idx < newPairs.length) {
+            fixture.home = newPairs[idx].home;
+            fixture.away = newPairs[idx].away;
+            fixture.homeScore = null;
+            fixture.awayScore = null;
+            fixture.played = false;
+        }
+    });
+    
+    saveToStorage();
+    showToast(`Round ${roundNumber} shuffled!`);
+    renderGameweekTabs();
+    renderFixtures();
+    renderTable();
+}
+
+// ========== PER-FIXTURE SWAP ==========
+function swapFixture(fixtureId) {
+    if (!isAdmin) return;
+    const fixture = fixtures.find(f => f.id === fixtureId);
+    const temp = fixture.home;
+    fixture.home = fixture.away;
+    fixture.away = temp;
+    fixture.homeScore = null;
+    fixture.awayScore = null;
+    fixture.played = false;
+    saveToStorage();
+    showToast(`Swapped ${fixture.home} vs ${fixture.away}`);
+    renderFixtures();   // just re-render current round
+    renderTable();      // table may be affected if scores existed? but we reset scores, safe to refresh
+}
+
+// ========== GLOBAL RENAME (via dropdown) ==========
 function renameTeamGlobally(oldName, newName) {
     if (!newName || newName === oldName) return false;
     if (teams[newName]) {
@@ -347,7 +407,6 @@ function renameTeamGlobally(oldName, newName) {
     return true;
 }
 
-// Dropdown-based rename instead of prompt
 let pendingRenameFixtureId = null;
 let pendingRenameSide = null;
 let pendingOldName = null;
@@ -359,6 +418,11 @@ window.editFixtureTeamName = function(fixtureId, side) {
     
     const dropdown = document.getElementById('team-select-dropdown');
     dropdown.innerHTML = '';
+    const cancelOption = document.createElement('option');
+    cancelOption.value = '';
+    cancelOption.textContent = '— Cancel / No change —';
+    dropdown.appendChild(cancelOption);
+    
     const teamNames = Object.keys(teams).sort();
     teamNames.forEach(name => {
         const option = document.createElement('option');
@@ -371,7 +435,6 @@ window.editFixtureTeamName = function(fixtureId, side) {
     pendingRenameFixtureId = fixtureId;
     pendingRenameSide = side;
     pendingOldName = oldName;
-    
     document.getElementById('team-select-modal').classList.remove('hidden');
     document.getElementById('team-select-modal').classList.add('flex');
 };
@@ -386,15 +449,22 @@ window.closeTeamSelectModal = function() {
 
 window.confirmTeamSelection = function() {
     if (pendingRenameFixtureId === null) return;
-    const newName = document.getElementById('team-select-dropdown').value;
-    if (newName === pendingOldName) {
+    const selectedValue = document.getElementById('team-select-dropdown').value;
+    if (selectedValue === '') {
         closeTeamSelectModal();
         return;
     }
-    renameTeamGlobally(pendingOldName, newName);
+    const newName = selectedValue;
+    const oldName = pendingOldName;
+    if (newName === oldName) {
+        closeTeamSelectModal();
+        return;
+    }
+    renameTeamGlobally(oldName, newName);
     closeTeamSelectModal();
 };
 
+// ========== STANDINGS ==========
 function calculateStandingsForRound(upToRound) {
     let temp = {};
     for(let t in teams) temp[t] = { name: t, pts:0, gd:0, gf:0 };
@@ -482,7 +552,18 @@ function renderGameweekTabs() {
     container.innerHTML = "";
     for(let r=1; r<=total; r++) {
         const active = r === currentSelectedRound;
-        container.innerHTML += `<button onclick="switchRound(${r})" class="px-3 py-1 text-[11px] font-mono rounded-full transition ${active ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">GW ${r}</button>`;
+        const btn = document.createElement('button');
+        btn.className = `px-3 py-1 text-[11px] font-mono rounded-full transition shrink-0 ${active ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
+        btn.innerText = `GW ${r}`;
+        btn.onclick = () => switchRound(r);
+        container.appendChild(btn);
+    }
+    if (isAdmin) {
+        const shuffleBtn = document.createElement('button');
+        shuffleBtn.className = 'px-3 py-1 text-[11px] font-mono rounded-full bg-amber-100 text-amber-700 hover:bg-amber-200 transition ml-2 shrink-0';
+        shuffleBtn.innerText = '🔄 Shuffle Round';
+        shuffleBtn.onclick = () => shuffleRound(currentSelectedRound);
+        container.appendChild(shuffleBtn);
     }
 }
 window.switchRound = function(r) { currentSelectedRound = r; renderGameweekTabs(); renderFixtures(); };
@@ -502,7 +583,12 @@ function renderFixtures() {
                     <input type="number" id="away-score-${f.id}" value="${played ? f.awayScore : ''}" placeholder="0" class="w-8 text-center bg-transparent font-mono font-bold text-indigo-600">
                 </div>
             `;
-            actionHtml = `<button onclick="saveResult(${f.id})" class="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full hover:bg-indigo-100">💾 Save</button>`;
+            actionHtml = `
+                <div class="flex gap-1">
+                    <button onclick="swapFixture(${f.id})" class="text-[10px] font-bold bg-amber-50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100">🔄 Swap</button>
+                    <button onclick="saveResult(${f.id})" class="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full hover:bg-indigo-100">💾 Save</button>
+                </div>
+            `;
             const homeNameHtml = `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition" onclick="editFixtureTeamName(${f.id}, 'home')">${f.home}</span>`;
             const awayNameHtml = `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition" onclick="editFixtureTeamName(${f.id}, 'away')">${f.away}</span>`;
             container.innerHTML += `
