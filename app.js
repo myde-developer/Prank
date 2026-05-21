@@ -502,37 +502,57 @@ function renderFixtures() {
         if (isAdmin) {
             midHtml = `
                 <div class="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">
-                    <input type="number" id="home-score-${f.id}" value="${played ? f.homeScore : ''}" placeholder="0" class="w-8 text-center bg-transparent font-mono font-bold text-indigo-600">
+                    <input type="number" id="home-score-${f.id}" value="${played ? f.homeScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm">
                     <span class="text-gray-400">:</span>
-                    <input type="number" id="away-score-${f.id}" value="${played ? f.awayScore : ''}" placeholder="0" class="w-8 text-center bg-transparent font-mono font-bold text-indigo-600">
+                    <input type="number" id="away-score-${f.id}" value="${played ? f.awayScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm">
                 </div>
             `;
             actionHtml = `
-                <div class="flex gap-1">
+                <div class="flex flex-wrap gap-1 justify-end">
                     <button onclick="swapFixture(${f.id})" class="text-[10px] font-bold bg-amber-50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100">🔄 Swap</button>
                     <button onclick="saveResult(${f.id})" class="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full hover:bg-indigo-100">💾 Save</button>
                     <button onclick="showMatchComment(${f.id})" class="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-full hover:bg-gray-200">💬</button>
                 </div>
             `;
-            const homeNameHtml = `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition" onclick="editFixtureTeamName(${f.id}, 'home')">${f.home}</span>`;
-            const awayNameHtml = `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition" onclick="editFixtureTeamName(${f.id}, 'away')">${f.away}</span>`;
+            const homeNameHtml = `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'home')">${f.home}</span>`;
+            const awayNameHtml = `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'away')">${f.away}</span>`;
             container.innerHTML += `
-                <div class="flex items-center justify-between bg-gray-50/60 p-3 rounded-xl border border-gray-100 gap-2 w-full">
-                    <div class="flex-1 flex items-center justify-end gap-2 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900' : 'text-gray-600'}">${homeNameHtml}</div>
-                    ${midHtml}
-                    <div class="flex-1 flex items-center justify-start gap-2 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900' : 'text-gray-600'}">${awayNameHtml}</div>
-                    ${actionHtml}
+                <div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div class="flex-1 flex items-center justify-center gap-2 text-center ${played && f.homeScore > f.awayScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">
+                            ${homeNameHtml}
+                        </div>
+                        <div class="flex items-center justify-center">
+                            ${midHtml}
+                        </div>
+                        <div class="flex-1 flex items-center justify-center gap-2 text-center ${played && f.awayScore > f.homeScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">
+                            ${awayNameHtml}
+                        </div>
+                    </div>
+                    <div class="mt-2 flex justify-center">
+                        ${actionHtml}
+                    </div>
                 </div>
             `;
         } else {
             midHtml = played ? `<div class="bg-gray-100 px-3 py-1 rounded-full font-mono font-bold text-sm">${f.homeScore} - ${f.awayScore}</div>` : `<button onclick="runMatchPrediction(${f.id})" class="text-[11px] bg-gray-100 hover:bg-indigo-50 px-3 py-1 rounded-full">🔍 Analyze</button>`;
             actionHtml = `<button onclick="showMatchComment(${f.id})" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full">💬</button>`;
             container.innerHTML += `
-                <div class="flex items-center justify-between bg-gray-50/60 p-3 rounded-xl border border-gray-100 gap-2 w-full">
-                    <div class="flex-1 flex items-center justify-end gap-2 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900' : 'text-gray-600'}">${f.home}</div>
-                    ${midHtml}
-                    <div class="flex-1 flex items-center justify-start gap-2 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900' : 'text-gray-600'}">${f.away}</div>
-                    ${actionHtml}
+                <div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div class="flex-1 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">
+                            ${f.home}
+                        </div>
+                        <div class="flex justify-center">
+                            ${midHtml}
+                        </div>
+                        <div class="flex-1 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">
+                            ${f.away}
+                        </div>
+                    </div>
+                    <div class="mt-2 flex justify-center">
+                        ${actionHtml}
+                    </div>
                 </div>
             `;
         }
