@@ -16,7 +16,7 @@
     100% { transform: translate3d(-100%, 0, 0); }
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar (light) */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
@@ -32,7 +32,7 @@
     border-left: 3px solid #f87171;
 }
 
-/* Crisp images and hover effect */
+/* Crisp images */
 .team-logo {
     image-rendering: crisp-edges;
     image-rendering: -webkit-optimize-contrast;
@@ -51,9 +51,9 @@
 .toast {
     background: #1e293b;
     color: white;
-    padding: 0.6rem 1.2rem;
+    padding: 0.5rem 1rem;
     border-radius: 999px;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     font-weight: 500;
     box-shadow: 0 5px 15px rgba(0,0,0,0.1);
     animation: fadeInUp 0.2s ease;
