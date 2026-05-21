@@ -12,8 +12,8 @@
 </head>
 <body class="bg-gradient-to-br from-slate-50 to-gray-100 font-['Inter'] text-gray-800 antialiased">
 
-    <!-- Spectacular Ticker with Rotating Facts -->
-    <div class="ticker-container bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-indigo-200 text-indigo-800 text-xs font-semibold py-3 shadow-md">
+    <!-- Spectacular Ticker with Sliding Carousel -->
+    <div class="ticker-container bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-indigo-200 text-indigo-800 text-xs font-semibold shadow-md">
         <div class="ticker-wrapper" id="news-ticker">
             <span class="inline-flex items-center gap-2">
                 <span class="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span>
@@ -69,7 +69,7 @@
         </div>
     </div>
 
-    <!-- AI Predictor Modal -->
+    <!-- AI Predictor Modal (no crests) -->
     <div id="predictor-modal" class="fixed inset-0 z-50 hidden bg-gray-900/40 backdrop-blur-sm items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-gray-100 overflow-hidden animate-fadeInUp">
             <div class="p-5 border-b border-gray-100 flex justify-between items-center">
@@ -106,7 +106,7 @@
         </div>
     </div>
 
-    <!-- Team Selection Modal -->
+    <!-- Team Selection Modal (for admin fixture rename) -->
     <div id="team-select-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full border border-gray-200 overflow-hidden animate-fadeInUp">
             <div class="p-5 border-b border-gray-200 flex justify-between items-center"><h3 class="font-bold text-gray-800">Select Team</h3><button onclick="closeTeamSelectModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button></div>
@@ -135,20 +135,21 @@
 
         <!-- Main Dashboard -->
         <section id="dashboard-section" class="hidden space-y-8">
+            <!-- League Table -->
             <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                 <div class="px-5 py-4 bg-gray-50/80 border-b border-gray-200 flex justify-between items-center"><h2 class="font-bold text-gray-700 flex items-center gap-2"><span>🏆</span> League Table</h2><div></div></div>
-                <div class="overflow-x-auto"><table class="w-full text-sm min-w-[750px]"><thead class="bg-gray-100 text-gray-500 text-xs font-mono uppercase"><tr><th class="py-3 px-3 text-center">Pos</th><th class="py-3 px-4 text-left">Team</th><th class="py-3 px-2 text-center">MP</th><th class="py-3 px-2 text-center">W</th><th class="py-3 px-2 text-center">D</th><th class="py-3 px-2 text-center">L</th><th class="py-3 px-2 text-center">GF</th><th class="py-3 px-2 text-center">GA</th><th class="py-3 px-2 text-center">GD</th><th class="py-3 px-3 text-center">PTS</th><th class="py-3 px-4 text-center">Form</th><th id="th-admin-actions" class="hidden py-3 px-3 text-center">Actions</th></tr></thead><tbody id="league-table-body" class="divide-y divide-gray-100"></tbody></table></div>
+                <div class="overflow-x-auto"><table class="w-full text-sm min-w-[750px]"><thead class="bg-gray-100 text-gray-500 text-xs font-mono uppercase"><tr><th class="py-3 px-3 text-center">Pos</th><th class="py-3 px-4 text-left">Team</th><th class="py-3 px-2 text-center">MP</th><th class="py-3 px-2 text-center">W</th><th class="py-3 px-2 text-center">D</th><th class="py-3 px-2 text-center">L</th><th class="py-3 px-2 text-center">GF</th><th class="py-3 px-2 text-center">GA</th><th class="py-3 px-2 text-center">GD</th><th class="py-3 px-3 text-center">PTS</th><th class="py-3 px-4 text-center">Form</th><th id="th-admin-actions" class="hidden py-3 px-3 text-center">Actions</th></tr></thead><tbody id="league-table-body" class="divide-y divide-gray-100"></tbody>}</div>
                 <div id="admin-table-hint" class="hidden text-center text-[11px] text-indigo-500 bg-indigo-50 py-2 border-t border-indigo-100">✋ Admin: click team name in fixture to assign | 💬 for match commentary</div>
             </div>
 
-<!-- Match Schedule – vertical layout (one per line) -->
-<div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-4">
-    <div class="flex flex-wrap justify-between items-center gap-3">
-        <h2 class="font-bold text-gray-700">📅 Match Schedule</h2>
-        <div id="gameweek-tabs" class="flex gap-1 overflow-x-auto pb-1"></div>
-    </div>
-    <div id="fixtures-container" class="flex flex-col gap-3"></div>
-</div>
+            <!-- Match Schedule – VERTICAL (one per line) -->
+            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-4">
+                <div class="flex flex-wrap justify-between items-center gap-3">
+                    <h2 class="font-bold text-gray-700">📅 Match Schedule</h2>
+                    <div id="gameweek-tabs" class="flex gap-1 overflow-x-auto pb-1"></div>
+                </div>
+                <div id="fixtures-container" class="flex flex-col gap-3"></div>
+            </div>
 
             <div id="admin-reset-container" class="text-center hidden pt-4"><button onclick="resetTournament()" class="text-xs text-rose-500 hover:text-rose-700 underline decoration-dotted">⚠️ Wipe entire league data (irreversible)</button></div>
         </section>
