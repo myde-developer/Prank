@@ -25,6 +25,9 @@ let tickerInterval = null;
 let currentTickerFactIndex = 0;
 let tickerFacts = [];
 
+// Prediction modal state
+let currentPredictionFixtureId = null;
+
 // ============================================================
 // 2. HELPER FUNCTIONS
 // ============================================================
@@ -113,8 +116,7 @@ function generateTickerFacts() {
     });
     
     tickerFacts = [
-        `🏆 Welcome to DLS Vawulence Academy Tournament Site!`,
-        `Stay updated with stats, matchups and more.`,
+        `🏆 Welcome to DLS Vawulence Academy Tournament Site! Stay updated with stats, matchups and more.`,
         `⚽ ${totalTeams} teams competing for the title.`,
         `📊 ${totalMatchesPlayed} of ${totalMatches} matches played so far.`,
         leader ? `👑 Current leader: ${leader.name} with ${leader.pts} points.` : null,
@@ -239,7 +241,11 @@ function initializeTournament() {
                     homeScore: null, 
                     awayScore: null, 
                     played: false,
-                    comment: null
+                    comment: null,
+                    predictions: {
+                        outcome: { home:0, draw:0, away:0 },
+                        scores: {}
+                    }
                 });
             }
         }
@@ -281,6 +287,7 @@ function shuffleRound(roundNumber) {
             fixture.awayScore = null;
             fixture.played = false;
             fixture.comment = null;
+            fixture.predictions = { outcome: { home:0, draw:0, away:0 }, scores: {} };
         }
     });
     saveToStorage();
@@ -301,6 +308,7 @@ function swapFixture(fixtureId) {
     fixture.awayScore = null;
     fixture.played = false;
     fixture.comment = null;
+    fixture.predictions = { outcome: { home:0, draw:0, away:0 }, scores: {} };
     saveToStorage();
     showToast(`Swapped ${fixture.home} vs ${fixture.away}`);
     renderFixtures();
@@ -356,6 +364,7 @@ window.confirmTeamSelection = function() {
         if (side === 'home') fixture.home = 'BYE';
         else fixture.away = 'BYE';
         fixture.homeScore = null; fixture.awayScore = null; fixture.played = false; fixture.comment = null;
+        fixture.predictions = { outcome: { home:0, draw:0, away:0 }, scores: {} };
         saveToStorage();
         showToast(`Removed team from ${side === 'home' ? 'home' : 'away'} side. Set to BYE.`);
         renderFixtures(); renderTable(); generateTickerFacts(); closeTeamSelectModal();
@@ -375,6 +384,7 @@ window.confirmTeamSelection = function() {
     if (side === 'home') fixture.home = newTeam;
     else fixture.away = newTeam;
     fixture.homeScore = null; fixture.awayScore = null; fixture.played = false; fixture.comment = null;
+    fixture.predictions = { outcome: { home:0, draw:0, away:0 }, scores: {} };
     saveToStorage();
     showToast(`Assigned ${newTeam} to ${side === 'home' ? 'home' : 'away'} side.`);
     renderFixtures(); renderTable(); generateTickerFacts(); closeTeamSelectModal();
@@ -461,7 +471,7 @@ function renderTable() {
                 <td class="py-3 px-3 text-center font-black text-indigo-600">${team.pts}</td>
                 <td class="py-3 px-4 text-center">${formHtml}</td>
                 ${actionBtn}
-            </tr>
+            </table>
         `;
     });
     generateTickerFacts();
@@ -519,40 +529,55 @@ function renderFixtures() {
             container.innerHTML += `
                 <div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div class="flex-1 flex items-center justify-center gap-2 text-center ${played && f.homeScore > f.awayScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">
-                            ${homeNameHtml}
-                        </div>
-                        <div class="flex items-center justify-center">
-                            ${midHtml}
-                        </div>
-                        <div class="flex-1 flex items-center justify-center gap-2 text-center ${played && f.awayScore > f.homeScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">
-                            ${awayNameHtml}
-                        </div>
+                        <div class="flex-1 flex items-center justify-center gap-2 text-center ${played && f.homeScore > f.awayScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${homeNameHtml}</div>
+                        <div class="flex items-center justify-center">${midHtml}</div>
+                        <div class="flex-1 flex items-center justify-center gap-2 text-center ${played && f.awayScore > f.homeScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${awayNameHtml}</div>
                     </div>
-                    <div class="mt-2 flex justify-center">
-                        ${actionHtml}
-                    </div>
+                    <div class="mt-2 flex justify-center">${actionHtml}</div>
                 </div>
             `;
         } else {
-            midHtml = played ? `<div class="bg-gray-100 px-3 py-1 rounded-full font-mono font-bold text-sm">${f.homeScore} - ${f.awayScore}</div>` : `<button onclick="runMatchPrediction(${f.id})" class="text-[11px] bg-gray-100 hover:bg-indigo-50 px-3 py-1 rounded-full">🔍 Analyze</button>`;
+            // Show prediction stats and predict button
+            const pred = f.predictions || { outcome: { home:0, draw:0, away:0 }, scores: {} };
+            const outcomeStats = pred.outcome;
+            const totalOutcome = outcomeStats.home + outcomeStats.draw + outcomeStats.away;
+            let outcomeHtml = '';
+            if (totalOutcome > 0) {
+                outcomeHtml = `<div class="text-[10px] text-gray-500 mt-1 flex justify-center gap-3">
+                                    🏠 ${outcomeStats.home} &nbsp;|&nbsp; 🤝 ${outcomeStats.draw} &nbsp;|&nbsp; 🚌 ${outcomeStats.away}
+                                </div>`;
+            } else {
+                outcomeHtml = `<div class="text-[10px] text-gray-400 mt-1">No outcome predictions yet</div>`;
+            }
+            
+            // Scoreline predictions (show top 3 most predicted scores)
+            const scores = pred.scores;
+            let scoreHtml = '';
+            const scoreEntries = Object.entries(scores).sort((a,b) => b[1] - a[1]).slice(0,3);
+            if (scoreEntries.length) {
+                scoreHtml = `<div class="text-[10px] text-gray-500 mt-1 flex flex-wrap justify-center gap-2">` +
+                    scoreEntries.map(([score, count]) => `<span class="bg-gray-100 px-1.5 py-0.5 rounded">${score}: ${count}</span>`).join('') +
+                    `</div>`;
+            } else {
+                scoreHtml = `<div class="text-[10px] text-gray-400 mt-1">No score predictions yet</div>`;
+            }
+            
+            midHtml = played ? `<div class="bg-gray-100 px-3 py-1 rounded-full font-mono font-bold text-sm">${f.homeScore} - ${f.awayScore}</div>` : 
+                                `<button onclick="openPredictionModal(${f.id})" class="text-[11px] bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-3 py-1 rounded-full">🎯 Predict</button>`;
             actionHtml = `<button onclick="showMatchComment(${f.id})" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full">💬</button>`;
+            
             container.innerHTML += `
                 <div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div class="flex-1 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">
-                            ${f.home}
-                        </div>
-                        <div class="flex justify-center">
+                        <div class="flex-1 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${f.home}</div>
+                        <div class="flex flex-col items-center">
                             ${midHtml}
+                            ${outcomeHtml}
+                            ${scoreHtml}
                         </div>
-                        <div class="flex-1 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">
-                            ${f.away}
-                        </div>
+                        <div class="flex-1 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${f.away}</div>
                     </div>
-                    <div class="mt-2 flex justify-center">
-                        ${actionHtml}
-                    </div>
+                    <div class="mt-2 flex justify-center">${actionHtml}</div>
                 </div>
             `;
         }
@@ -560,7 +585,94 @@ function renderFixtures() {
 }
 
 // ============================================================
-// 11. MATCH COMMENTS (VIEWER & EDITOR)
+// 11. VIEWER PREDICTION SYSTEM
+// ============================================================
+window.openPredictionModal = function(fixtureId) {
+    const fixture = fixtures.find(f => f.id === fixtureId);
+    if (!fixture) return;
+    currentPredictionFixtureId = fixtureId;
+    document.getElementById('prediction-match-name').innerHTML = `${fixture.home} vs ${fixture.away}`;
+    document.getElementById('pred-home-score').value = '';
+    document.getElementById('pred-away-score').value = '';
+    document.getElementById('prediction-modal').classList.remove('hidden');
+    document.getElementById('prediction-modal').classList.add('flex');
+};
+
+window.closePredictionModal = function() {
+    document.getElementById('prediction-modal').classList.add('hidden');
+    document.getElementById('prediction-modal').classList.remove('flex');
+    currentPredictionFixtureId = null;
+};
+
+function getViewerId() {
+    let id = localStorage.getItem('viewerId');
+    if (!id) {
+        id = 'user_' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('viewerId', id);
+    }
+    return id;
+}
+
+window.submitOutcomePrediction = function(outcome) {
+    if (currentPredictionFixtureId === null) return;
+    const fixture = fixtures.find(f => f.id === currentPredictionFixtureId);
+    if (!fixture) return;
+    const viewerId = getViewerId();
+    // Initialize per-user predictions if not exist
+    if (!fixture.userPredictions) fixture.userPredictions = {};
+    if (!fixture.userPredictions[viewerId]) fixture.userPredictions[viewerId] = {};
+    // Remove old outcome vote if exists
+    const oldOutcome = fixture.userPredictions[viewerId].outcome;
+    if (oldOutcome) {
+        fixture.predictions.outcome[oldOutcome]--;
+    }
+    // Set new outcome
+    fixture.userPredictions[viewerId].outcome = outcome;
+    if (!fixture.predictions.outcome[outcome]) fixture.predictions.outcome[outcome] = 0;
+    fixture.predictions.outcome[outcome]++;
+    saveToStorage();
+    showToast(`Outcome predicted: ${outcome === 'home' ? 'Home Win' : outcome === 'draw' ? 'Draw' : 'Away Win'}`);
+    closePredictionModal();
+    renderFixtures();
+};
+
+window.submitScorePrediction = function() {
+    if (currentPredictionFixtureId === null) return;
+    const homeScore = document.getElementById('pred-home-score').value;
+    const awayScore = document.getElementById('pred-away-score').value;
+    if (homeScore === '' || awayScore === '') {
+        showToast('Please enter both scores');
+        return;
+    }
+    const h = parseInt(homeScore);
+    const a = parseInt(awayScore);
+    if (isNaN(h) || isNaN(a) || h < 0 || a < 0) {
+        showToast('Please enter valid scores (0 or more)');
+        return;
+    }
+    const scoreKey = `${h}-${a}`;
+    const fixture = fixtures.find(f => f.id === currentPredictionFixtureId);
+    if (!fixture) return;
+    const viewerId = getViewerId();
+    if (!fixture.userPredictions) fixture.userPredictions = {};
+    if (!fixture.userPredictions[viewerId]) fixture.userPredictions[viewerId] = {};
+    // Remove old score prediction if exists
+    const oldScore = fixture.userPredictions[viewerId].score;
+    if (oldScore) {
+        fixture.predictions.scores[oldScore] = (fixture.predictions.scores[oldScore] || 0) - 1;
+        if (fixture.predictions.scores[oldScore] <= 0) delete fixture.predictions.scores[oldScore];
+    }
+    // Store new score
+    fixture.userPredictions[viewerId].score = scoreKey;
+    fixture.predictions.scores[scoreKey] = (fixture.predictions.scores[scoreKey] || 0) + 1;
+    saveToStorage();
+    showToast(`Score predicted: ${scoreKey}`);
+    closePredictionModal();
+    renderFixtures();
+};
+
+// ============================================================
+// 12. MATCH COMMENTS (VIEWER & EDITOR)
 // ============================================================
 let currentViewerFixtureId = null;
 
@@ -656,29 +768,8 @@ window.confirmComment = function() {
 };
 
 // ============================================================
-// 12. ADMIN ACTIONS & INITIALISATION
+// 13. ADMIN ACTIONS & INITIALISATION
 // ============================================================
-window.runMatchPrediction = function(fixtureId) {
-    const f = fixtures.find(f=>f.id===fixtureId);
-    if (f.home === 'BYE' || f.away === 'BYE') { alert("Cannot predict with BYE team."); return; }
-    const h = teams[f.home], a = teams[f.away];
-    let homePower = (h.pts*1.5)+h.gd, awayPower = (a.pts*1.5)+a.gd;
-    const formScore = (arr) => arr.slice(-3).reduce((s,x)=>s+(x==='W'?3:x==='D'?1:0),0);
-    homePower += formScore(h.formHistory); awayPower += formScore(a.formHistory);
-    let drawPct = 25, homePct = Math.min(70, Math.max(20, 35+(homePower-awayPower)*0.8));
-    let awayPct = 100-homePct-drawPct;
-    let simHome = Math.min(4, Math.max(0, Math.round((h.gf/(h.mp||1)+ (homePower-awayPower)*0.05))));
-    let simAway = Math.min(4, Math.max(0, Math.round((a.gf/(a.mp||1)+ (awayPower-homePower)*0.05))));
-    document.getElementById('pred-home-name').innerText = f.home;
-    document.getElementById('pred-away-name').innerText = f.away;
-    document.getElementById('pred-home-pct').innerText = `${Math.round(homePct)}%`;
-    document.getElementById('pred-away-pct').innerText = `${Math.round(awayPct)}%`;
-    document.getElementById('pred-draw-pct').innerText = `${Math.round(drawPct)}%`;
-    document.getElementById('pred-simulated-score').innerText = `${simHome} - ${simAway}`;
-    document.getElementById('predictor-modal').classList.remove('hidden');
-};
-window.closePredictorModal = () => document.getElementById('predictor-modal').classList.add('hidden');
-
 window.deductPointsPrompt = function(teamName) {
     if(!isAdmin) return;
     let amount = prompt(`Penalty points for ${teamName}:`, "3");
@@ -692,7 +783,7 @@ window.removeTeamFromLeague = function(teamName) {
     if(!isAdmin) return;
     if(confirm(`Permanently remove ${teamName}?`)) {
         fixtures.forEach(f => {
-            if(f.home === teamName || f.away === teamName) { f.played = false; f.homeScore = null; f.awayScore = null; f.comment = null; }
+            if(f.home === teamName || f.away === teamName) { f.played = false; f.homeScore = null; f.awayScore = null; f.comment = null; f.predictions = { outcome: { home:0, draw:0, away:0 }, scores: {} }; f.userPredictions = {}; }
         });
         delete teams[teamName];
         saveToStorage();
