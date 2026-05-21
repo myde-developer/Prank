@@ -11,11 +11,15 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body class="bg-gradient-to-br from-slate-50 to-gray-100 font-['Inter'] text-gray-800 antialiased">
-
-    <!-- Live News Ticker (rotating messages, scrolling) -->
-    <div class="ticker-container bg-white/80 backdrop-blur-sm border-b border-gray-200 text-gray-600 text-xs font-semibold py-2.5 shadow-sm">
-        <div class="ticker-wrapper" id="news-ticker"></div>
+<!-- Spectacular Live News Ticker -->
+<div class="ticker-container bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-indigo-200 text-indigo-800 text-xs font-semibold py-3 shadow-md">
+    <div class="ticker-wrapper" id="news-ticker">
+        <span class="inline-flex items-center gap-2">
+            <span class="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span>
+            Welcome to DLS Vawulence Academy Tournament Site. Stay updated with the Tournament stats, matchups and more!
+        </span>
     </div>
+</div>
 
     <!-- Header -->
     <header class="sticky top-0 z-40 bg-white/70 backdrop-blur-md border-b border-gray-200/80 shadow-xs px-4 py-2.5 flex flex-wrap justify-between items-center gap-2">
@@ -63,6 +67,28 @@
             <div class="p-3 bg-gray-50 text-right rounded-b-2xl"><button onclick="closeTeamModal()" class="px-4 py-1.5 text-xs font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition">Close</button></div>
         </div>
     </div>
+
+<!-- Match Comment Viewer Modal -->
+<div id="comment-viewer-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-gray-200 overflow-hidden animate-fadeInUp">
+        <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+            <h3 class="font-bold text-gray-800">📝 Match Details</h3>
+            <button onclick="closeCommentViewer()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+        </div>
+        <div class="p-4 space-y-3">
+            <p class="text-sm font-semibold" id="viewer-match-name"></p>
+            <p class="text-xs text-gray-500">Score: <span id="viewer-score"></span></p>
+            <div class="bg-gray-50 p-3 rounded-xl">
+                <p class="text-xs font-medium text-gray-700 mb-1">Commentary:</p>
+                <p id="viewer-comment" class="text-sm text-gray-800 italic"></p>
+            </div>
+        </div>
+        <div class="p-3 bg-gray-50 flex gap-2 justify-end rounded-b-2xl">
+            <button onclick="closeCommentViewer()" class="px-3 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-100 transition">Close</button>
+            <button id="viewer-edit-btn" onclick="editViewerComment()" class="hidden px-3 py-1.5 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition">Edit Comment</button>
+        </div>
+    </div>
+</div>
 
     <div id="predictor-modal" class="fixed inset-0 z-50 hidden bg-gray-900/40 backdrop-blur-sm items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-gray-100 overflow-hidden animate-fadeInUp">

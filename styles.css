@@ -1,26 +1,31 @@
-/* Ticker animation (scrolling + glow) */
+/* Spectacular ticker with glow and smooth animation */
 .ticker-container {
     overflow: hidden;
     white-space: nowrap;
+    position: relative;
+    box-shadow: 0 2px 10px rgba(99, 102, 241, 0.2);
 }
 .ticker-wrapper {
     display: inline-block;
     padding-left: 100%;
-    animation: tickerLoop 35s linear infinite, textGlow 3s ease-in-out infinite;
+    animation: tickerScroll 25s linear infinite;
+    font-weight: 600;
+    letter-spacing: 0.02em;
 }
 .ticker-wrapper:hover {
     animation-play-state: paused;
 }
-@keyframes tickerLoop {
+@keyframes tickerScroll {
     0% { transform: translate3d(0, 0, 0); }
     100% { transform: translate3d(-100%, 0, 0); }
 }
-@keyframes textGlow {
-    0% { text-shadow: 0 0 0px rgba(99,102,241,0); }
-    50% { text-shadow: 0 0 3px rgba(99,102,241,0.4); }
-    100% { text-shadow: 0 0 0px rgba(99,102,241,0); }
+@keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.2); }
 }
-
+.animate-pulse {
+    animation: pulse 1.5s infinite;
+}
 /* Custom scrollbar (light) */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
