@@ -18,7 +18,7 @@ let teams = {};
 let fixtures = [];
 let currentSelectedRound = 1;
 let isAdmin = false;
-let tournamentPassword = "1234";
+let tournamentPassword = "";
 
 // Ticker rotating facts
 let tickerInterval = null;
@@ -42,18 +42,23 @@ function saveToStorage() {
     db.ref('tournament_data').set({ teams, fixtures, password: tournamentPassword });
 }
 
+
 // ============================================================
-// 3. FIREBASE REAL-TIME SYNC
+// 3. Database Initialization 
 // ============================================================
 function initRealtimeDatabaseSync() {
     db.ref('tournament_data').on('value', (snapshot) => {
         const data = snapshot.val();
         if (data && data.teams && data.fixtures) {
+            // ✅ Fetch password from database (this is the source of truth)
+            if (data.password) tournamentPassword = data.password;
             teams = data.teams;
             fixtures = data.fixtures;
+            
             document.getElementById('setup-section')?.classList.add('hidden');
             document.getElementById('dashboard-section')?.classList.remove('hidden');
             document.getElementById('admin-toggle-container')?.classList.remove('hidden');
+            
             updateTableCalculations();
             renderTable();
             renderGameweekTabs();
@@ -61,12 +66,17 @@ function initRealtimeDatabaseSync() {
             generateTickerFacts();
             document.title = `DLS | ${Object.keys(teams).length} teams • Live`;
         } else {
+            // No data in Firebase → show setup wizard
+            // For first-time setup, set a temporary default password (only for the wizard)
+            tournamentPassword = "1234";
             document.getElementById('setup-section')?.classList.remove('hidden');
             document.getElementById('dashboard-section')?.classList.add('hidden');
             const tickerEl = document.getElementById('news-ticker');
             if (tickerEl) tickerEl.innerHTML = "⚽ Ready to create your league";
         }
-    }, (error) => { showToast("Firebase connection issue"); });
+    }, (error) => { 
+        showToast("Firebase connection issue"); 
+    });
 }
 
 // ============================================================
@@ -210,6 +220,41 @@ function updateMasterPassword() {
     saveToStorage();
     showToast('Master password updated successfully!');
     closeChangePasswordModal();
+}
+
+// ============================================================
+// PENALTY ADJUSTMENT (CLEAR ONLY)
+// ============================================================
+let currentPenaltyTeam = null;
+
+function openPenaltyModal(teamName) {
+    if (!isAdmin) return;
+    currentPenaltyTeam = teamName;
+    document.getElementById('penalty-team-name').innerText = teamName;
+    document.getElementById('penalty-modal').classList.remove('hidden');
+    document.getElementById('penalty-modal').classList.add('flex');
+}
+
+function closePenaltyModal() {
+    document.getElementById('penalty-modal').classList.add('hidden');
+    document.getElementById('penalty-modal').classList.remove('flex');
+    currentPenaltyTeam = null;
+}
+
+function clearPenaltyPoints() {
+    if (!currentPenaltyTeam) return;
+    const team = teams[currentPenaltyTeam];
+    if (!team) return;
+    if (team.deductedPoints === 0) {
+        showToast(`${currentPenaltyTeam} has no penalty points to clear.`);
+        closePenaltyModal();
+        return;
+    }
+    team.deductedPoints = 0;
+    saveToStorage();
+    showToast(`Penalty points cleared for ${currentPenaltyTeam}`);
+    renderTable();
+    closePenaltyModal();
 }
 
 // ============================================================
@@ -483,7 +528,7 @@ function renderTable() {
         formHtml += `</div>`;
         const penaltyBadge = team.deductedPoints > 0 ? `<span class="ml-1 text-[9px] bg-rose-50 text-rose-600 px-1 rounded-full">-${team.deductedPoints}</span>` : "";
         const rowClass = pos === 1 ? "champions-row" : (pos > currentSorted.length-2 ? "relegation-row" : "");
-        const actionBtn = isAdmin ? `<td class="py-3 px-2 text-center"><button onclick="event.stopPropagation(); deductPointsPrompt('${team.name}')" class="text-xs bg-amber-50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100">⚖️</button> <button onclick="event.stopPropagation(); removeTeamFromLeague('${team.name}')" class="text-xs bg-rose-50 text-rose-600 px-2 py-1 rounded-full hover:bg-rose-100">🗑️</button></td>` : "";
+        const actionBtn = isAdmin ? `<td class="py-3 px-2 text-center"><button onclick="event.stopPropagation(); openPenaltyModal('${team.name}')" class="text-xs bg-amber-50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100">⚖️</button> <button onclick="event.stopPropagation(); removeTeamFromLeague('${team.name}')" class="text-xs bg-rose-50 text-rose-600 px-2 py-1 rounded-full hover:bg-rose-100">🗑️</button></td>` : "";
         tbody.innerHTML += `
             <tr class="hover:bg-gray-50 transition ${rowClass}" onclick="showTeamDetails('${team.name}')">
                 <td class="py-3 px-3 text-center font-bold ${pos===1?'text-indigo-600':''}">${pos}</td>
