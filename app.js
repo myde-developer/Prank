@@ -1,5 +1,5 @@
 /**
- * DLS Premier League - Click fixture team name to rename globally
+ * DLS Premier League - Final Version with Dropdown Team Selection
  */
 const firebaseConfig = {
     apiKey: "AIzaSyBmy0tmvaYcw9KsQQRH7RLKcXC8EN6WFqY",
@@ -22,6 +22,7 @@ let tournamentPassword = "1234";
 let newsHeadlines = [];
 let temporaryUploadedLogos = {};
 
+// Toast
 function showToast(msg) {
     const container = document.getElementById("toast-container");
     if (!container) return;
@@ -32,6 +33,7 @@ function showToast(msg) {
     setTimeout(() => toast.remove(), 2500);
 }
 
+// Resize image
 function resizeImage(file, maxSize = 128) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -65,6 +67,7 @@ function resizeImage(file, maxSize = 128) {
     });
 }
 
+// Team badge – admin can click crest to upload new logo
 function getTeamBadgeHtml(teamKey, size = "w-14 h-14") {
     const team = teams[teamKey];
     if (team && team.logoData && team.logoData.trim() !== "") {
@@ -323,7 +326,7 @@ function initializeTournament() {
     showToast("Tournament initialized!");
 }
 
-// GLOBAL RENAME: click on fixture team name to rename that team everywhere
+// Global rename function (used by dropdown)
 function renameTeamGlobally(oldName, newName) {
     if (!newName || newName === oldName) return false;
     if (teams[newName]) {
@@ -344,14 +347,52 @@ function renameTeamGlobally(oldName, newName) {
     return true;
 }
 
+// Dropdown-based rename instead of prompt
+let pendingRenameFixtureId = null;
+let pendingRenameSide = null;
+let pendingOldName = null;
+
 window.editFixtureTeamName = function(fixtureId, side) {
     if (!isAdmin) return;
     const fixture = fixtures.find(f => f.id === fixtureId);
     const oldName = side === 'home' ? fixture.home : fixture.away;
-    const newName = prompt(`Rename team "${oldName}" globally (this will update the table and all fixtures):`, oldName);
-    if (newName && newName !== oldName) {
-        renameTeamGlobally(oldName, newName);
+    
+    const dropdown = document.getElementById('team-select-dropdown');
+    dropdown.innerHTML = '';
+    const teamNames = Object.keys(teams).sort();
+    teamNames.forEach(name => {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        if (name === oldName) option.selected = true;
+        dropdown.appendChild(option);
+    });
+    
+    pendingRenameFixtureId = fixtureId;
+    pendingRenameSide = side;
+    pendingOldName = oldName;
+    
+    document.getElementById('team-select-modal').classList.remove('hidden');
+    document.getElementById('team-select-modal').classList.add('flex');
+};
+
+window.closeTeamSelectModal = function() {
+    document.getElementById('team-select-modal').classList.add('hidden');
+    document.getElementById('team-select-modal').classList.remove('flex');
+    pendingRenameFixtureId = null;
+    pendingRenameSide = null;
+    pendingOldName = null;
+};
+
+window.confirmTeamSelection = function() {
+    if (pendingRenameFixtureId === null) return;
+    const newName = document.getElementById('team-select-dropdown').value;
+    if (newName === pendingOldName) {
+        closeTeamSelectModal();
+        return;
     }
+    renameTeamGlobally(pendingOldName, newName);
+    closeTeamSelectModal();
 };
 
 function calculateStandingsForRound(upToRound) {
@@ -462,7 +503,6 @@ function renderFixtures() {
                 </div>
             `;
             actionHtml = `<button onclick="saveResult(${f.id})" class="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full hover:bg-indigo-100">💾 Save</button>`;
-            // Fixture team names are clickable for global rename
             const homeNameHtml = `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition" onclick="editFixtureTeamName(${f.id}, 'home')">${f.home}</span>`;
             const awayNameHtml = `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition" onclick="editFixtureTeamName(${f.id}, 'away')">${f.away}</span>`;
             container.innerHTML += `
