@@ -1,8 +1,7 @@
-/* Spectacular ticker with glow and smooth animation */
+/* Ticker animation with glow */
 .ticker-container {
     overflow: hidden;
     white-space: nowrap;
-    position: relative;
     box-shadow: 0 2px 10px rgba(99, 102, 241, 0.2);
 }
 .ticker-wrapper {
@@ -26,7 +25,8 @@
 .animate-pulse {
     animation: pulse 1.5s infinite;
 }
-/* Custom scrollbar (light) */
+
+/* Custom scrollbar */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
@@ -51,14 +51,13 @@
 .toast {
     background: #1e293b;
     color: white;
-    padding: 0.5rem 1rem;
+    padding: 0.6rem 1.2rem;
     border-radius: 999px;
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     font-weight: 500;
     box-shadow: 0 5px 15px rgba(0,0,0,0.1);
     animation: fadeInUp 0.2s ease;
 }
-
 /* Clickable table row */
 #league-table-body tr {
     cursor: pointer;
