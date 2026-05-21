@@ -3,13 +3,14 @@
 // ============================================================
 
 const firebaseConfig = {
-    apiKey: "AIzaSyBmy0tmvaYcw9KsQQRH7RLKcXC8EN6WFqY",
-    authDomain: "dls-premier-league.firebaseapp.com",
-    projectId: "dls-premier-league",
-    storageBucket: "dls-premier-league.firebasestorage.app",
-    messagingSenderId: "975087030284",
-    appId: "1:975087030284:web:7708718fffd9180c009e29",
-    measurementId: "G-Q2C6TKNRHE"
+  apiKey: "AIzaSyBmy0tmvaYcw9KsQQRH7RLKcXC8EN6WFqY",
+  authDomain: "dls-premier-league.firebaseapp.com",
+  databaseURL: "https://dls-premier-league-default-rtdb.firebaseio.com",
+  projectId: "dls-premier-league",
+  storageBucket: "dls-premier-league.firebasestorage.app",
+  messagingSenderId: "975087030284",
+  appId: "1:975087030284:web:7708718fffd9180c009e29",
+  measurementId: "G-Q2C6TKNRHE"
 };
 
 firebase.initializeApp(firebaseConfig);
