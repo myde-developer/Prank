@@ -16,11 +16,15 @@
     100% { transform: translate3d(-100%, 0, 0); }
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar - light/dark adaptive */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+.dark ::-webkit-scrollbar-track { background: #1e293b; }
+.dark ::-webkit-scrollbar-thumb { background: #475569; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #64748b; }
 
 /* Table row styling */
 .champions-row {
@@ -31,15 +35,23 @@
     background: linear-gradient(90deg, rgba(239,68,68,0.04) 0%, rgba(239,68,68,0) 95%);
     border-left: 3px solid #f87171;
 }
-/* Crisp image rendering for logos */
+.dark .champions-row {
+    background: linear-gradient(90deg, rgba(255,215,0,0.1) 0%, rgba(255,215,0,0) 95%);
+}
+.dark .relegation-row {
+    background: linear-gradient(90deg, rgba(239,68,68,0.1) 0%, rgba(239,68,68,0) 95%);
+}
+
+/* Crisp images and hover effect */
 .team-logo {
     image-rendering: crisp-edges;
     image-rendering: -webkit-optimize-contrast;
+    transition: transform 0.1s ease;
 }
-/* Form badge */
-.form-badge {
-    transition: all 0.1s ease;
+.team-logo:hover {
+    transform: scale(1.05);
 }
+
 /* Toast animation */
 @keyframes fadeInUp {
     from { opacity: 0; transform: translateY(10px); }
@@ -55,4 +67,14 @@
     font-weight: 500;
     box-shadow: 0 5px 15px rgba(0,0,0,0.1);
     animation: fadeInUp 0.2s ease;
+}
+.dark .toast {
+    background: #0f172a;
+    border: 1px solid #334155;
+}
+
+/* Clickable table row */
+#league-table-body tr {
+    cursor: pointer;
+    transition: background 0.1s ease;
 }

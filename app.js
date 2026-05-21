@@ -1,5 +1,6 @@
 /**
- * DLS Premier League - Enhanced Edition with Manual Table Editing
+ * DLS Premier League - Final Edition
+ * Large, visible team crests everywhere
  */
 const firebaseConfig = {
     apiKey: "AIzaSyBmy0tmvaYcw9KsQQRH7RLKcXC8EN6WFqY",
@@ -22,7 +23,32 @@ let tournamentPassword = "1234";
 let newsHeadlines = [];
 let temporaryUploadedLogos = {};
 
-// Helper functions
+// Theme handling
+function initTheme() {
+    const saved = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const isDark = saved === 'dark' || (saved === null && prefersDark);
+    if (isDark) {
+        document.body.classList.add('dark');
+        document.getElementById('theme-icon').innerText = '🌙';
+    } else {
+        document.body.classList.remove('dark');
+        document.getElementById('theme-icon').innerText = '☀️';
+    }
+}
+function toggleTheme() {
+    if (document.body.classList.contains('dark')) {
+        document.body.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+        document.getElementById('theme-icon').innerText = '☀️';
+    } else {
+        document.body.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+        document.getElementById('theme-icon').innerText = '🌙';
+    }
+}
+
+// Toast
 function showToast(msg, type = "info") {
     const container = document.getElementById("toast-container");
     if (!container) return;
@@ -33,17 +59,19 @@ function showToast(msg, type = "info") {
     setTimeout(() => toast.remove(), 2500);
 }
 
-function getTeamBadgeHtml(teamKey, size = "w-8 h-8") {
+// Team badge with large size (48px default)
+function getTeamBadgeHtml(teamKey, size = "w-12 h-12") {
     const team = teams[teamKey];
     if (team && team.logoData && team.logoData.trim() !== "") {
-        return `<img src="${team.logoData}" alt="${team.name}" class="team-logo ${size} object-contain rounded-lg border border-gray-200 bg-white cursor-pointer hover:scale-105 transition" onclick="showLightbox('${team.logoData}')">`;
+        return `<img src="${team.logoData}" alt="${team.name}" class="team-logo ${size} rounded-full object-cover border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm cursor-pointer hover:scale-105 transition" onclick="showLightbox('${team.logoData}')">`;
     }
     const initial = teamKey ? teamKey.charAt(0).toUpperCase() : "?";
     const colors = ["#6366f1", "#8b5cf6", "#ec4899", "#f43f5e"];
     const color = colors[Math.abs(teamKey.charCodeAt(0) || 0) % colors.length];
-    return `<div class="${size} rounded-full flex items-center justify-center text-white font-bold shadow-sm" style="background: ${color};">${initial}</div>`;
+    return `<div class="${size} rounded-full flex items-center justify-center text-white font-bold text-base shadow-sm" style="background: ${color};">${initial}</div>`;
 }
 
+// Lightbox
 window.showLightbox = function(src) {
     const lb = document.getElementById('lightbox');
     const img = document.getElementById('lightbox-img');
@@ -57,6 +85,51 @@ window.closeLightbox = function() {
     lb.classList.remove('flex');
 };
 
+// Team details modal
+window.showTeamDetails = function(teamName) {
+    const team = teams[teamName];
+    if (!team) return;
+    document.getElementById('team-modal-name').innerText = team.name;
+    document.getElementById('team-modal-badge').innerHTML = getTeamBadgeHtml(teamName, "w-16 h-16");
+    document.getElementById('modal-mp').innerText = team.mp;
+    document.getElementById('modal-pts').innerText = team.pts;
+    document.getElementById('modal-w').innerText = team.w;
+    document.getElementById('modal-d').innerText = team.d;
+    document.getElementById('modal-l').innerText = team.l;
+    document.getElementById('modal-gf').innerText = team.gf;
+    document.getElementById('modal-ga').innerText = team.ga;
+    const gd = team.gd;
+    document.getElementById('modal-gd').innerHTML = `<span class="${gd>=0?'text-emerald-600 dark:text-emerald-400':'text-rose-500'}">${gd>0?'+'+gd:gd}</span>`;
+    document.getElementById('modal-penalty').innerText = team.deductedPoints ? `-${team.deductedPoints}` : 'None';
+    
+    const formContainer = document.getElementById('modal-form');
+    let recent = team.formHistory.slice(-5);
+    while(recent.length < 5) recent.unshift('-');
+    formContainer.innerHTML = recent.map(res => {
+        if(res === 'W') return `<span class="w-7 h-7 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400 rounded-full text-xs font-bold flex items-center justify-center">W</span>`;
+        if(res === 'L') return `<span class="w-7 h-7 bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-400 rounded-full text-xs font-bold flex items-center justify-center">L</span>`;
+        if(res === 'D') return `<span class="w-7 h-7 bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400 rounded-full text-xs font-bold flex items-center justify-center">D</span>`;
+        return `<span class="w-7 h-7 bg-gray-100 dark:bg-gray-800 text-gray-400 rounded-full text-xs flex items-center justify-center">-</span>`;
+    }).join('');
+    
+    const ptsPerGame = (team.pts / (team.mp || 1)).toFixed(1);
+    let summary = '';
+    if (ptsPerGame >= 2.3) summary = '🔥 Incredible form – title contenders!';
+    else if (ptsPerGame >= 1.8) summary = '👍 Solid season, pushing for European spots.';
+    else if (ptsPerGame >= 1.2) summary = '⚖️ Mid‑table consistency.';
+    else summary = '⚠️ Needs improvement to avoid relegation.';
+    if (team.deductedPoints > 0) summary += ` (Includes -${team.deductedPoints} point penalty)`;
+    document.getElementById('modal-summary').innerText = summary;
+    
+    document.getElementById('team-modal').classList.remove('hidden');
+    document.getElementById('team-modal').classList.add('flex');
+};
+window.closeTeamModal = function() {
+    document.getElementById('team-modal').classList.add('hidden');
+    document.getElementById('team-modal').classList.remove('flex');
+};
+
+// Firebase sync
 function saveToStorage() {
     db.ref('tournament_data').set({ teams, fixtures, password: tournamentPassword, headlines: newsHeadlines });
 }
@@ -73,11 +146,6 @@ function initRealtimeDatabaseSync() {
                 document.getElementById('setup-section')?.classList.add('hidden');
                 document.getElementById('dashboard-section')?.classList.remove('hidden');
                 document.getElementById('admin-toggle-container')?.classList.remove('hidden');
-                // Ensure all teams have necessary fields (backward compatibility)
-                for (let t in teams) {
-                    if (teams[t].deductedPoints === undefined) teams[t].deductedPoints = 0;
-                    if (!teams[t].formHistory) teams[t].formHistory = [];
-                }
                 updateTableCalculations();
                 renderTable();
                 renderGameweekTabs();
@@ -106,9 +174,8 @@ function verifyAdminPassword() {
     if (inputVal === tournamentPassword) { closePasswordModal(); activateAdminMode(); }
     else document.getElementById('password-error').classList.remove('hidden');
 }
-function activateAdminMode() { isAdmin = true; updateAdminUIElements(); showToast("Admin mode ACTIVE – you can now edit team stats", "success"); }
+function activateAdminMode() { isAdmin = true; updateAdminUIElements(); showToast("Admin mode ACTIVE", "success"); }
 function deactivateAdminMode() { isAdmin = false; updateAdminUIElements(); showToast("Admin mode deactivated", "info"); }
-
 function updateAdminUIElements() {
     const btn = document.getElementById('admin-btn');
     const dot = document.getElementById('admin-btn-dot');
@@ -134,7 +201,7 @@ function updateAdminUIElements() {
     renderTable(); renderFixtures();
 }
 
-// Team setup (unchanged)
+// Team setup
 function generateTeamInputs() {
     const count = parseInt(document.getElementById('team-count').value);
     if (isNaN(count) || count < 2) { alert("Enter 2-20 teams"); return; }
@@ -142,14 +209,14 @@ function generateTeamInputs() {
     container.innerHTML = "";
     for (let i = 1; i <= count; i++) {
         container.innerHTML += `
-            <div class="bg-gray-50 p-3 rounded-xl border border-gray-200">
+            <div class="bg-gray-50 dark:bg-gray-900 p-3 rounded-xl border border-gray-200 dark:border-gray-700">
                 <div class="flex items-center gap-2 mb-2">
-                    <span class="bg-gray-200 text-gray-600 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">${i}</span>
-                    <input type="text" id="team-input-${i}" placeholder="Club name" class="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm">
+                    <span class="bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">${i}</span>
+                    <input type="text" id="team-input-${i}" placeholder="Club name" class="flex-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm">
                 </div>
                 <div class="flex items-center gap-3">
-                    <label class="text-[11px] bg-gray-200 px-2 py-1 rounded cursor-pointer">📁 Upload crest <input type="file" id="team-file-${i}" accept="image/*" class="hidden" onchange="processImageFile(this, ${i})"></label>
-                    <div id="preview-${i}" class="w-8 h-8 rounded bg-gray-100 border border-gray-200 flex items-center justify-center text-[10px] text-gray-400">No img</div>
+                    <label class="text-[11px] bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded cursor-pointer">📁 Upload crest <input type="file" id="team-file-${i}" accept="image/*" class="hidden" onchange="processImageFile(this, ${i})"></label>
+                    <div id="preview-${i}" class="w-8 h-8 rounded bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center text-[10px] text-gray-400">No img</div>
                     <span id="file-status-${i}" class="text-[10px] text-gray-400"></span>
                 </div>
             </div>
@@ -165,9 +232,7 @@ window.processImageFile = function(input, index) {
     reader.onload = e => {
         temporaryUploadedLogos[index] = e.target.result;
         const previewDiv = document.getElementById(`preview-${index}`);
-        if (previewDiv) {
-            previewDiv.innerHTML = `<img src="${e.target.result}" class="w-full h-full object-cover rounded">`;
-        }
+        if (previewDiv) previewDiv.innerHTML = `<img src="${e.target.result}" class="w-full h-full object-cover rounded">`;
         document.getElementById(`file-status-${index}`).innerText = "✅ ready";
     };
     reader.readAsDataURL(file);
@@ -187,10 +252,7 @@ function initializeTournament() {
     teams = {};
     list.forEach(item => {
         if(item.name !== "BYE") {
-            teams[item.name] = { 
-                name: item.name, logoData: item.logoData, 
-                mp:0, w:0, d:0, l:0, gf:0, ga:0, gd:0, pts:0, deductedPoints:0, formHistory: [] 
-            };
+            teams[item.name] = { name: item.name, logoData: item.logoData, mp:0, w:0, d:0, l:0, gf:0, ga:0, gd:0, pts:0, deductedPoints:0, formHistory: [] };
         }
     });
     fixtures = [];
@@ -212,102 +274,35 @@ function initializeTournament() {
     showToast("Tournament initialized!", "success");
 }
 
-// Manual edit team stats (NEW)
-let currentEditingTeam = null;
-window.openEditStatsModal = function(teamName) {
-    if (!isAdmin) return;
-    currentEditingTeam = teamName;
-    const team = teams[teamName];
-    document.getElementById('edit-team-name').innerText = teamName;
-    document.getElementById('edit-mp').value = team.mp || 0;
-    document.getElementById('edit-w').value = team.w || 0;
-    document.getElementById('edit-d').value = team.d || 0;
-    document.getElementById('edit-l').value = team.l || 0;
-    document.getElementById('edit-gf').value = team.gf || 0;
-    document.getElementById('edit-ga').value = team.ga || 0;
-    document.getElementById('edit-form').value = (team.formHistory || []).join(',');
-    document.getElementById('edit-stats-modal').classList.remove('hidden');
-};
-window.closeEditStatsModal = function() {
-    document.getElementById('edit-stats-modal').classList.add('hidden');
-    currentEditingTeam = null;
-};
-window.saveEditedStats = function() {
-    if (!currentEditingTeam) return;
-    const team = teams[currentEditingTeam];
-    const mp = parseInt(document.getElementById('edit-mp').value) || 0;
-    const w = parseInt(document.getElementById('edit-w').value) || 0;
-    const d = parseInt(document.getElementById('edit-d').value) || 0;
-    const l = parseInt(document.getElementById('edit-l').value) || 0;
-    const gf = parseInt(document.getElementById('edit-gf').value) || 0;
-    const ga = parseInt(document.getElementById('edit-ga').value) || 0;
-    const formStr = document.getElementById('edit-form').value.trim();
-    let formHistory = [];
-    if (formStr) {
-        formHistory = formStr.split(',').map(s => s.trim().toUpperCase()).filter(s => ['W','D','L'].includes(s));
+// Team rename
+function renameTeamInLeague(oldName, newName) {
+    if (oldName === newName) return true;
+    if (teams[newName]) {
+        showToast(`Team "${newName}" already exists!`, "error");
+        return false;
     }
-    // Update team object
-    team.mp = mp;
-    team.w = w;
-    team.d = d;
-    team.l = l;
-    team.gf = gf;
-    team.ga = ga;
-    team.gd = gf - ga;
-    team.pts = (w * 3) + d;
-    team.formHistory = formHistory;
-    // If deducted points exist, subtract them from displayed points (but keep original pts for calculations)
-    if (team.deductedPoints) {
-        team.pts = Math.max(0, team.pts - team.deductedPoints);
-    }
-    closeEditStatsModal();
+    teams[newName] = { ...teams[oldName], name: newName };
+    delete teams[oldName];
+    fixtures.forEach(f => {
+        if (f.home === oldName) f.home = newName;
+        if (f.away === oldName) f.away = newName;
+    });
+    newsHeadlines.unshift(`✏️ Admin renamed "${oldName}" → "${newName}"`);
     saveToStorage();
-    showToast(`${currentEditingTeam} stats updated`, "success");
-    // Re-render table
+    showToast(`Team renamed to "${newName}"`, "success");
+    return true;
+}
+window.editTeamName = function(oldName) {
+    if (!isAdmin) return;
+    const newName = prompt(`Edit team name (currently "${oldName}"):`, oldName);
+    if (!newName || newName === oldName) return;
+    renameTeamInLeague(oldName, newName);
+    renderGameweekTabs();
+    renderFixtures();
     renderTable();
 };
 
-// Sync standings from fixtures (overwrites manual edits with calculated data)
-window.syncStandingsFromFixtures = function() {
-    if (!isAdmin) return;
-    if (confirm("This will recalculate all team stats based on match results. Any manual edits will be lost. Continue?")) {
-        updateTableCalculations(); // this recalculates from fixtures
-        saveToStorage();
-        renderTable();
-        showToast("Standings synced from match fixtures", "info");
-    }
-};
-
-// Deduct points & expel (unchanged)
-window.deductPointsPrompt = function(teamName) {
-    if(!isAdmin) return;
-    let amount = prompt(`Penalty points for ${teamName}:`, "3");
-    if(!amount) return;
-    teams[teamName].deductedPoints = (teams[teamName].deductedPoints||0) + parseInt(amount);
-    // Recalculate pts after deduction
-    const team = teams[teamName];
-    const basePts = (team.w * 3) + team.d;
-    team.pts = Math.max(0, basePts - team.deductedPoints);
-    newsHeadlines.unshift(`⚠️ ${teamName} deducted ${amount} points (admin)`);
-    saveToStorage();
-    showToast(`${teamName} penalized ${amount} pts`, "warning");
-    renderTable();
-};
-window.removeTeamFromLeague = function(teamName) {
-    if(!isAdmin) return;
-    if(confirm(`Permanently remove ${teamName}? Their matches will be voided.`)) {
-        fixtures.forEach(f => {
-            if(f.home === teamName || f.away === teamName) { f.played = false; f.homeScore = null; f.awayScore = null; }
-        });
-        delete teams[teamName];
-        newsHeadlines.unshift(`🚫 ${teamName} has been expelled from the league`);
-        saveToStorage();
-        showToast(`${teamName} removed`, "error");
-        renderTable(); renderFixtures();
-    }
-};
-
-// Standings calculations (unchanged logic)
+// Standings calculations
 function calculateStandingsForRound(upToRound) {
     let temp = {};
     for(let t in teams) temp[t] = { name: t, pts:0, gd:0, gf:0 };
@@ -326,7 +321,6 @@ function calculateStandingsForRound(upToRound) {
 }
 
 function updateTableCalculations() {
-    // Reset stats from teams (preserve logo and deductedPoints)
     for(let t in teams) {
         teams[t] = { ...teams[t], mp:0, w:0, d:0, l:0, gf:0, ga:0, gd:0, pts:0, formHistory: [] };
     }
@@ -343,62 +337,54 @@ function updateTableCalculations() {
         }
     });
     for(let t in teams) {
-        if (teams[t].deductedPoints) {
-            teams[t].pts = Math.max(0, teams[t].pts - teams[t].deductedPoints);
-        }
+        teams[t].pts = Math.max(0, teams[t].pts - (teams[t].deductedPoints||0));
         teams[t].gd = teams[t].gf - teams[t].ga;
     }
 }
 
+// Render table with large crests (48px)
 function renderTable() {
     let currentSorted = Object.values(teams).sort((a,b)=>b.pts-a.pts || b.gd-a.gd || b.gf-a.gf);
+    let maxRoundPlayed = Math.max(0, ...fixtures.filter(f=>f.played).map(f=>f.round));
+    let prevRankMap = {};
+    if(maxRoundPlayed > 1) {
+        let prev = calculateStandingsForRound(maxRoundPlayed-1);
+        prev.forEach((p,idx)=> prevRankMap[p.name] = idx);
+    }
     const tbody = document.getElementById('league-table-body');
     tbody.innerHTML = "";
     currentSorted.forEach((team, idx) => {
         const pos = idx+1;
-        // Form badges
         let recent = team.formHistory.slice(-5);
         while(recent.length < 5) recent.unshift('-');
         let formHtml = `<div class="flex gap-1.5 justify-center">`;
         recent.forEach(res => {
-            if(res === 'W') formHtml += `<span class="w-5 h-5 bg-emerald-100 text-emerald-700 rounded-full text-[9px] font-bold flex items-center justify-center">W</span>`;
-            else if(res === 'L') formHtml += `<span class="w-5 h-5 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center text-[9px] font-bold">L</span>`;
-            else if(res === 'D') formHtml += `<span class="w-5 h-5 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center text-[9px] font-bold">D</span>`;
-            else formHtml += `<span class="w-5 h-5 bg-gray-100 text-gray-400 rounded-full flex items-center justify-center text-[9px]">-</span>`;
+            if(res === 'W') formHtml += `<span class="w-5 h-5 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400 rounded-full text-[9px] font-bold flex items-center justify-center">W</span>`;
+            else if(res === 'L') formHtml += `<span class="w-5 h-5 bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-400 rounded-full flex items-center justify-center text-[9px] font-bold">L</span>`;
+            else if(res === 'D') formHtml += `<span class="w-5 h-5 bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400 rounded-full flex items-center justify-center text-[9px] font-bold">D</span>`;
+            else formHtml += `<span class="w-5 h-5 bg-gray-100 dark:bg-gray-800 text-gray-400 rounded-full flex items-center justify-center text-[9px]">-</span>`;
         });
         formHtml += `</div>`;
-
-        const penaltyBadge = team.deductedPoints > 0 ? `<span class="ml-1 text-[9px] bg-rose-50 text-rose-600 px-1 rounded-full">-${team.deductedPoints}</span>` : "";
+        const penaltyBadge = team.deductedPoints > 0 ? `<span class="ml-1 text-[9px] bg-rose-50 dark:bg-rose-950/50 text-rose-600 px-1 rounded-full">-${team.deductedPoints}</span>` : "";
         const rowClass = pos === 1 ? "champions-row" : (pos > currentSorted.length-2 ? "relegation-row" : "");
-        
-        let actionButtons = "";
-        if (isAdmin) {
-            actionButtons = `<td class="py-3 px-2 text-center space-x-1">
-                <button onclick="openEditStatsModal('${team.name}')" class="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded-full hover:bg-indigo-100" title="Edit team stats">✏️</button>
-                <button onclick="deductPointsPrompt('${team.name}')" class="text-xs bg-amber-50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100" title="Deduct points">⚖️</button>
-                <button onclick="removeTeamFromLeague('${team.name}')" class="text-xs bg-rose-50 text-rose-600 px-2 py-1 rounded-full hover:bg-rose-100" title="Expel team">🗑️</button>
-            </td>`;
-        }
-
+        const actionBtn = isAdmin ? `<td class="py-3 px-2 text-center"><button onclick="event.stopPropagation(); deductPointsPrompt('${team.name}')" class="text-xs bg-amber-50 dark:bg-amber-950/50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100">⚖️</button> <button onclick="event.stopPropagation(); removeTeamFromLeague('${team.name}')" class="text-xs bg-rose-50 dark:bg-rose-950/50 text-rose-600 px-2 py-1 rounded-full hover:bg-rose-100">🗑️</button></td>` : "";
         tbody.innerHTML += `
-            <tr class="hover:bg-gray-50 transition ${rowClass}">
-                <td class="py-3 px-3 text-center font-bold ${pos===1?'text-indigo-600':''}">${pos}</td>
-                <td class="py-3 px-4 flex items-center gap-3">${getTeamBadgeHtml(team.name, "w-8 h-8")}<span class="font-semibold">${team.name}</span>${penaltyBadge}</td>
-                <td class="py-3 px-2 text-center">${team.mp}</td>
-                <td class="py-3 px-2 text-center text-emerald-600">${team.w}</td>
-                <td class="py-3 px-2 text-center">${team.d}</td>
-                <td class="py-3 px-2 text-center text-rose-500">${team.l}</td>
-                <td class="py-3 px-2 text-center">${team.gf}</td>
-                <td class="py-3 px-2 text-center">${team.ga}</td>
-                <td class="py-3 px-2 text-center ${team.gd>=0?'text-emerald-600':'text-rose-500'} font-mono">${team.gd>0?'+'+team.gd:team.gd}</td>
-                <td class="py-3 px-3 text-center font-black text-indigo-600">${team.pts}</td>
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition ${rowClass}" onclick="showTeamDetails('${team.name}')">
+                <td class="py-3 px-3 text-center font-bold ${pos===1?'text-indigo-600 dark:text-indigo-400':''}">${pos}</td>
+                <td class="py-3 px-4 flex items-center gap-4">${getTeamBadgeHtml(team.name, "w-12 h-12")}<span class="font-semibold text-base">${team.name}</span>${penaltyBadge}</td>
+                <td class="py-3 px-2 text-center">${team.mp}</td><td class="py-3 px-2 text-center text-emerald-600 dark:text-emerald-400">${team.w}</td>
+                <td class="py-3 px-2 text-center">${team.d}</td><td class="py-3 px-2 text-center text-rose-500 dark:text-rose-400">${team.l}</td>
+                <td class="py-3 px-2 text-center">${team.gf}</td><td class="py-3 px-2 text-center">${team.ga}</td>
+                <td class="py-3 px-2 text-center ${team.gd>=0?'text-emerald-600 dark:text-emerald-400':'text-rose-500 dark:text-rose-400'} font-mono">${team.gd>0?'+'+team.gd:team.gd}</td>
+                <td class="py-3 px-3 text-center font-black text-indigo-600 dark:text-indigo-400">${team.pts}</td>
                 <td class="py-3 px-4 text-center">${formHtml}</td>
-                ${actionButtons}
+                ${actionBtn}
             </tr>
         `;
     });
 }
 
+// Render round tabs
 function renderGameweekTabs() {
     const container = document.getElementById('gameweek-tabs');
     if(!fixtures.length) return;
@@ -406,57 +392,130 @@ function renderGameweekTabs() {
     container.innerHTML = "";
     for(let r=1; r<=total; r++) {
         const active = r === currentSelectedRound;
-        container.innerHTML += `<button onclick="switchRound(${r})" class="px-3 py-1 text-[11px] font-mono rounded-full transition ${active ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">GW ${r}</button>`;
+        container.innerHTML += `<button onclick="switchRound(${r})" class="px-3 py-1 text-[11px] font-mono rounded-full transition ${active ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}">GW ${r}</button>`;
     }
 }
 window.switchRound = function(r) { currentSelectedRound = r; renderGameweekTabs(); renderFixtures(); };
 
+// Render fixtures with large crests (40px)
 function renderFixtures() {
     const container = document.getElementById('fixtures-container');
     container.innerHTML = "";
-    fixtures.filter(f=>f.round === currentSelectedRound).forEach(f => {
-        if(!teams[f.home] || !teams[f.away]) return;
+    fixtures.filter(f => f.round === currentSelectedRound).forEach(f => {
+        if (!teams[f.home] || !teams[f.away]) return;
         const played = f.played;
         let midHtml = "", actionHtml = "";
-        if(isAdmin) {
-            midHtml = `<div class="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full"><input type="number" id="home-score-${f.id}" value="${played ? f.homeScore : ''}" placeholder="0" class="w-8 text-center bg-transparent font-mono font-bold text-indigo-600"> : <input type="number" id="away-score-${f.id}" value="${played ? f.awayScore : ''}" placeholder="0" class="w-8 text-center bg-transparent font-mono font-bold text-indigo-600"></div>`;
-            actionHtml = `<button onclick="saveResult(${f.id})" class="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full hover:bg-indigo-100">💾 Save</button>`;
+        if (isAdmin) {
+            midHtml = `
+                <div class="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-full">
+                    <input type="number" id="home-score-${f.id}" value="${played ? f.homeScore : ''}" placeholder="0" class="w-8 text-center bg-transparent font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                    <span class="text-gray-400">:</span>
+                    <input type="number" id="away-score-${f.id}" value="${played ? f.awayScore : ''}" placeholder="0" class="w-8 text-center bg-transparent font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                </div>
+            `;
+            actionHtml = `<button onclick="saveResult(${f.id})" class="text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded-full hover:bg-indigo-100 dark:hover:bg-indigo-900">💾 Save</button>`;
+            const homeNameHtml = `<span class="font-semibold cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition" onclick="editTeamName('${f.home}')">${f.home}</span>`;
+            const awayNameHtml = `<span class="font-semibold cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition" onclick="editTeamName('${f.away}')">${f.away}</span>`;
+            container.innerHTML += `
+                <div class="flex items-center justify-between bg-gray-50/60 dark:bg-gray-900/50 p-3 rounded-xl border border-gray-100 dark:border-gray-800 gap-2">
+                    <div class="w-2/5 flex items-center justify-end gap-2 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400'}">
+                        ${homeNameHtml} ${getTeamBadgeHtml(f.home, "w-10 h-10")}
+                    </div>
+                    ${midHtml}
+                    <div class="w-2/5 flex items-center justify-start gap-2 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400'}">
+                        ${getTeamBadgeHtml(f.away, "w-10 h-10")} ${awayNameHtml}
+                    </div>
+                    ${actionHtml}
+                </div>
+            `;
         } else {
-            midHtml = played ? `<div class="bg-gray-100 px-3 py-1 rounded-full font-mono font-bold text-sm">${f.homeScore} - ${f.awayScore}</div>` : `<button onclick="runMatchPrediction(${f.id})" class="text-[11px] bg-gray-100 hover:bg-indigo-50 px-3 py-1 rounded-full">🔍 Analyze</button>`;
+            midHtml = played ? `<div class="bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full font-mono font-bold text-sm">${f.homeScore} - ${f.awayScore}</div>` : `<button onclick="runMatchPrediction(${f.id})" class="text-[11px] bg-gray-100 dark:bg-gray-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 px-3 py-1 rounded-full">🔍 Analyze</button>`;
+            container.innerHTML += `
+                <div class="flex items-center justify-between bg-gray-50/60 dark:bg-gray-900/50 p-3 rounded-xl border border-gray-100 dark:border-gray-800 gap-2">
+                    <div class="w-2/5 flex items-center justify-end gap-2 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400'}">
+                        ${f.home} ${getTeamBadgeHtml(f.home, "w-10 h-10")}
+                    </div>
+                    ${midHtml}
+                    <div class="w-2/5 flex items-center justify-start gap-2 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400'}">
+                        ${getTeamBadgeHtml(f.away, "w-10 h-10")} ${f.away}
+                    </div>
+                </div>
+            `;
         }
-        container.innerHTML += `
-            <div class="flex items-center justify-between bg-gray-50/60 p-3 rounded-xl border border-gray-100 gap-2">
-                <div class="w-2/5 flex items-center justify-end gap-2 text-right font-semibold ${played && f.homeScore > f.awayScore ? 'text-gray-900' : 'text-gray-600'}">${f.home} ${getTeamBadgeHtml(f.home, "w-7 h-7")}</div>
-                ${midHtml}
-                <div class="w-2/5 flex items-center justify-start gap-2 text-left font-semibold ${played && f.awayScore > f.homeScore ? 'text-gray-900' : 'text-gray-600'}">${getTeamBadgeHtml(f.away, "w-7 h-7")} ${f.away}</div>
-                ${actionHtml}
-            </div>
-        `;
     });
 }
 
-function generateHeadlineNews(home,away,hs,as) {
-    if(hs===as) return hs===0 ? `${home} & ${away} share a goalless stalemate` : `${home} ${hs}-${as} draw with ${away}`;
-    const winner = hs>as?home:away;
-    const loser = hs>as?away:home;
-    const margin = Math.abs(hs-as);
-    return margin>=3 ? `${winner} thrash ${loser} ${Math.max(hs,as)}-${Math.min(hs,as)}` : `${winner} edge past ${loser} in tight contest`;
+// Match comment generation
+function generateMatchComment(home, away, homeScore, awayScore) {
+    const margin = Math.abs(homeScore - awayScore);
+    const winner = homeScore > awayScore ? home : away;
+    const loser = homeScore > awayScore ? away : home;
+    let comment = "";
+    if (homeScore === awayScore) {
+        if (homeScore === 0) comment = `🤝 Goalless stalemate between ${home} and ${away}. Neither side could break the deadlock.`;
+        else comment = `⚖️ ${home} ${homeScore}-${awayScore} ${away} – honours shared in an entertaining draw.`;
+    } else if (margin >= 3) {
+        comment = `🔥 ${winner} destroyed ${loser} ${Math.max(homeScore,awayScore)}-${Math.min(homeScore,awayScore)} in a dominant display!`;
+    } else if (margin === 2) {
+        comment = `📈 ${winner} secured a comfortable win over ${loser}.`;
+    } else {
+        comment = `⚡ Narrow victory! ${winner} edged past ${loser} in a tight contest.`;
+    }
+    const flavour = ["dominated possession", "clinical finishing", "strong defensive display", "counter-attacking masterclass"];
+    comment += ` ${winner} showed ${flavour[Math.floor(Math.random()*flavour.length)]}.`;
+    return comment;
 }
-function updateTickerDisplay() {
-    const ticker = document.getElementById('news-ticker');
-    if(newsHeadlines.length) ticker.innerHTML = newsHeadlines.slice(0,5).map(h=>`🔹 ${h}`).join(' &nbsp;&nbsp;⚽&nbsp;&nbsp; ');
-}
+
+// Save result with comment editor
+let pendingFixtureId = null;
+let pendingHomeScore = null;
+let pendingAwayScore = null;
+let pendingDraftComment = null;
+
 window.saveResult = function(fixtureId) {
-    const hInp = document.getElementById(`home-score-${fixtureId}`).value;
-    const aInp = document.getElementById(`away-score-${fixtureId}`).value;
-    if(hInp === "" || aInp === "") { alert("Enter both scores"); return; }
-    const f = fixtures.find(f=>f.id===fixtureId);
-    f.homeScore = parseInt(hInp); f.awayScore = parseInt(aInp); f.played = true;
-    const headline = generateHeadlineNews(f.home, f.away, f.homeScore, f.awayScore);
-    newsHeadlines.unshift(`GW${f.round}: ${headline}`);
-    saveToStorage();
-    showToast(`Result saved: ${f.home} ${f.homeScore}-${f.awayScore} ${f.away}`, "success");
+    const homeScore = document.getElementById(`home-score-${fixtureId}`).value;
+    const awayScore = document.getElementById(`away-score-${fixtureId}`).value;
+    if (homeScore === "" || awayScore === "") {
+        alert("Enter both scores");
+        return;
+    }
+    const fixture = fixtures.find(f => f.id === fixtureId);
+    const draft = generateMatchComment(fixture.home, fixture.away, parseInt(homeScore), parseInt(awayScore));
+    pendingFixtureId = fixtureId;
+    pendingHomeScore = parseInt(homeScore);
+    pendingAwayScore = parseInt(awayScore);
+    pendingDraftComment = draft;
+    document.getElementById('comment-match-name').innerText = `${fixture.home} vs ${fixture.away}`;
+    document.getElementById('comment-text').value = draft;
+    document.getElementById('comment-modal').classList.remove('hidden');
+    document.getElementById('comment-modal').classList.add('flex');
 };
+
+window.closeCommentModal = function(save = false) {
+    document.getElementById('comment-modal').classList.add('hidden');
+    document.getElementById('comment-modal').classList.remove('flex');
+    if (!save) pendingFixtureId = null;
+};
+
+window.confirmComment = function() {
+    if (pendingFixtureId === null) return;
+    const finalComment = document.getElementById('comment-text').value.trim();
+    if (finalComment === "") {
+        alert("Comment cannot be empty");
+        return;
+    }
+    const fixture = fixtures.find(f => f.id === pendingFixtureId);
+    fixture.homeScore = pendingHomeScore;
+    fixture.awayScore = pendingAwayScore;
+    fixture.played = true;
+    newsHeadlines.unshift(`🎙️ GW${fixture.round}: ${finalComment}`);
+    saveToStorage();
+    showToast(`Result saved: ${fixture.home} ${pendingHomeScore}-${pendingAwayScore} ${fixture.away}`, "success");
+    closeCommentModal(true);
+    pendingFixtureId = null;
+};
+
+// Predictor with large crests (56px)
 window.runMatchPrediction = function(fixtureId) {
     const f = fixtures.find(f=>f.id===fixtureId);
     const h = teams[f.home], a = teams[f.away];
@@ -469,8 +528,8 @@ window.runMatchPrediction = function(fixtureId) {
     let simAway = Math.min(4, Math.max(0, Math.round((a.gf/(a.mp||1)+ (awayPower-homePower)*0.05))));
     document.getElementById('pred-home-name').innerText = f.home;
     document.getElementById('pred-away-name').innerText = f.away;
-    document.getElementById('pred-home-logo').innerHTML = getTeamBadgeHtml(f.home, "w-10 h-10");
-    document.getElementById('pred-away-logo').innerHTML = getTeamBadgeHtml(f.away, "w-10 h-10");
+    document.getElementById('pred-home-logo').innerHTML = getTeamBadgeHtml(f.home, "w-14 h-14");
+    document.getElementById('pred-away-logo').innerHTML = getTeamBadgeHtml(f.away, "w-14 h-14");
     document.getElementById('pred-home-pct').innerText = `${Math.round(homePct)}%`;
     document.getElementById('pred-away-pct').innerText = `${Math.round(awayPct)}%`;
     document.getElementById('pred-draw-pct').innerText = `${Math.round(drawPct)}%`;
@@ -478,16 +537,40 @@ window.runMatchPrediction = function(fixtureId) {
     document.getElementById('predictor-modal').classList.remove('hidden');
 };
 window.closePredictorModal = () => document.getElementById('predictor-modal').classList.add('hidden');
-window.resetTournament = () => { if(confirm("Wipe ALL data?")) db.ref('tournament_data').remove().then(()=>location.reload()); };
-window.exportStandingsToCSV = function() {
-    let csv = "Pos,Team,MP,W,D,L,GF,GA,GD,PTS\n";
-    const sorted = Object.values(teams).sort((a,b)=>b.pts-a.pts || b.gd-a.gd || b.gf-a.gf);
-    sorted.forEach((t,i)=> csv += `${i+1},${t.name},${t.mp},${t.w},${t.d},${t.l},${t.gf},${t.ga},${t.gd},${t.pts}\n`);
-    const blob = new Blob([csv], {type:"text/csv"});
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob); a.download = "dls_standings.csv"; a.click();
-    URL.revokeObjectURL(a.href);
-    showToast("CSV exported", "info");
+
+// Deduct / Expel
+window.deductPointsPrompt = function(teamName) {
+    if(!isAdmin) return;
+    let amount = prompt(`Penalty points for ${teamName}:`, "3");
+    if(!amount) return;
+    teams[teamName].deductedPoints = (teams[teamName].deductedPoints||0) + parseInt(amount);
+    newsHeadlines.unshift(`⚠️ ${teamName} deducted ${amount} points (admin)`);
+    saveToStorage();
+    showToast(`${teamName} penalized ${amount} pts`, "warning");
+};
+window.removeTeamFromLeague = function(teamName) {
+    if(!isAdmin) return;
+    if(confirm(`Permanently remove ${teamName}? Their matches will be voided.`)) {
+        fixtures.forEach(f => {
+            if(f.home === teamName || f.away === teamName) { f.played = false; f.homeScore = null; f.awayScore = null; }
+        });
+        delete teams[teamName];
+        newsHeadlines.unshift(`🚫 ${teamName} has been expelled from the league`);
+        saveToStorage();
+        showToast(`${teamName} removed`, "error");
+    }
 };
 
-window.onload = initRealtimeDatabaseSync;
+// Ticker and reset
+function updateTickerDisplay() {
+    const ticker = document.getElementById('news-ticker');
+    if(newsHeadlines.length) ticker.innerHTML = newsHeadlines.slice(0,5).map(h=>`🔹 ${h}`).join(' &nbsp;&nbsp;⚽&nbsp;&nbsp; ');
+}
+window.resetTournament = () => { if(confirm("Wipe ALL data?")) db.ref('tournament_data').remove().then(()=>location.reload()); };
+
+// Initialisation
+window.onload = () => {
+    initTheme();
+    document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+    initRealtimeDatabaseSync();
+};
