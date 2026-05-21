@@ -113,7 +113,8 @@ function generateTickerFacts() {
     });
     
     tickerFacts = [
-        `🏆 Welcome to DLS Vawulence Academy Tournament Site! Stay updated with stats, matchups and more.`,
+        `🏆 Welcome to DLS Vawulence Academy Tournament Site!`,
+        `Stay updated with stats, matchups and more.`,
         `⚽ ${totalTeams} teams competing for the title.`,
         `📊 ${totalMatchesPlayed} of ${totalMatches} matches played so far.`,
         leader ? `👑 Current leader: ${leader.name} with ${leader.pts} points.` : null,
@@ -422,7 +423,7 @@ function updateTableCalculations() {
 }
 
 // ============================================================
-// 9. RENDER LEAGUE TABLE
+// 9. RENDER LEAGUE TABLE (NO CRESTS)
 // ============================================================
 function renderTable() {
     let currentSorted = Object.values(teams).sort((a,b)=>b.pts-a.pts || b.gd-a.gd || b.gf-a.gf);
@@ -467,7 +468,7 @@ function renderTable() {
 }
 
 // ============================================================
-// 10. RENDER GAMEWEEK TABS & FIXTURES (VERTICAL)
+// 10. RENDER GAMEWEEK TABS & FIXTURES (VERTICAL LAYOUT)
 // ============================================================
 function renderGameweekTabs() {
     const container = document.getElementById('gameweek-tabs');
