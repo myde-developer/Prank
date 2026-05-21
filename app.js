@@ -1,5 +1,5 @@
 /**
- * DLS Premier League - Light Theme + Admin Crest Upload
+ * DLS Premier League - Admin actions hidden from news ticker
  */
 const firebaseConfig = {
     apiKey: "AIzaSyBmy0tmvaYcw9KsQQRH7RLKcXC8EN6WFqY",
@@ -33,7 +33,7 @@ function showToast(msg, type = "info") {
     setTimeout(() => toast.remove(), 2500);
 }
 
-// Resize image before saving (max 128x128)
+// Resize image (max 128x128)
 function resizeImage(file, maxSize = 128) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -58,8 +58,7 @@ function resizeImage(file, maxSize = 128) {
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
-                const resizedDataUrl = canvas.toDataURL('image/png');
-                resolve(resizedDataUrl);
+                resolve(canvas.toDataURL('image/png'));
             };
             img.onerror = reject;
             img.src = e.target.result;
@@ -81,7 +80,6 @@ function getTeamBadgeHtml(teamKey, size = "w-14 h-14") {
     return getFallbackBadge(teamKey, size);
 }
 
-// Fallback badge (colored initial)
 function getFallbackBadge(teamKey, size) {
     const initial = teamKey ? teamKey.charAt(0).toUpperCase() : "?";
     const colors = ["#6366f1", "#8b5cf6", "#ec4899", "#f43f5e"];
@@ -93,7 +91,7 @@ function getFallbackBadge(teamKey, size) {
 }
 window.getFallbackBadge = getFallbackBadge;
 
-// Admin upload crest for any team
+// Admin upload crest for any team (no news headline)
 window.uploadTeamCrest = async function(teamName) {
     if (!isAdmin) return;
     const input = document.createElement('input');
@@ -110,7 +108,6 @@ window.uploadTeamCrest = async function(teamName) {
             showToast(`Crest updated for ${teamName}`, "success");
             renderTable();
             renderFixtures();
-            // Also update modal if open
             const modal = document.getElementById('team-modal');
             if (!modal.classList.contains('hidden') && document.getElementById('team-modal-name').innerText === teamName) {
                 document.getElementById('team-modal-badge').innerHTML = getTeamBadgeHtml(teamName, "w-20 h-20");
@@ -253,7 +250,7 @@ function updateAdminUIElements() {
     renderTable(); renderFixtures();
 }
 
-// Team setup with image resizing
+// Team setup
 function generateTeamInputs() {
     const count = parseInt(document.getElementById('team-count').value);
     if (isNaN(count) || count < 2) { alert("Enter 2-20 teams"); return; }
@@ -320,7 +317,17 @@ function initializeTournament() {
             let awayIdx = (n-1 - m + r) % (n-1);
             if (m===0) awayIdx = n-1;
             if (list[homeIdx].name !== "BYE" && list[awayIdx].name !== "BYE") {
-                fixtures.push({ id: fixtures.length, round: r+1, home: list[homeIdx].name, away: list[awayIdx].name, homeScore: null, awayScore: null, played: false });
+                fixtures.push({ 
+                    id: fixtures.length, 
+                    round: r+1, 
+                    home: list[homeIdx].name, 
+                    away: list[awayIdx].name, 
+                    homeScore: null, 
+                    awayScore: null, 
+                    played: false,
+                    homeDisplayName: null,
+                    awayDisplayName: null
+                });
             }
         }
     }
@@ -330,33 +337,23 @@ function initializeTournament() {
     showToast("Tournament initialized!", "success");
 }
 
-// Team rename
-function renameTeamInLeague(oldName, newName) {
-    if (oldName === newName) return true;
-    if (teams[newName]) {
-        showToast(`Team "${newName}" already exists!`, "error");
-        return false;
-    }
-    teams[newName] = { ...teams[oldName], name: newName };
-    delete teams[oldName];
-    fixtures.forEach(f => {
-        if (f.home === oldName) f.home = newName;
-        if (f.away === oldName) f.away = newName;
-    });
-    newsHeadlines.unshift(`✏️ Admin renamed "${oldName}" → "${newName}"`);
-    saveToStorage();
-    showToast(`Team renamed to "${newName}"`, "success");
-    return true;
-}
-window.editTeamName = function(oldName) {
+// Edit fixture team name locally (no global rename, no news headline)
+function editFixtureTeamName(fixtureId, side) {
     if (!isAdmin) return;
-    const newName = prompt(`Edit team name (currently "${oldName}"):`, oldName);
-    if (!newName || newName === oldName) return;
-    renameTeamInLeague(oldName, newName);
-    renderGameweekTabs();
+    const fixture = fixtures.find(f => f.id === fixtureId);
+    const currentDisplay = side === 'home' ? (fixture.homeDisplayName || fixture.home) : (fixture.awayDisplayName || fixture.away);
+    const newName = prompt(`Enter display name for ${side === 'home' ? 'home' : 'away'} team (leave empty to reset):`, currentDisplay);
+    if (newName === null) return;
+    if (newName.trim() === "") {
+        if (side === 'home') fixture.homeDisplayName = null;
+        else fixture.awayDisplayName = null;
+    } else {
+        if (side === 'home') fixture.homeDisplayName = newName.trim();
+        else fixture.awayDisplayName = newName.trim();
+    }
+    saveToStorage();
     renderFixtures();
-    renderTable();
-};
+}
 
 // Standings calculations
 function calculateStandingsForRound(upToRound) {
@@ -458,6 +455,8 @@ function renderFixtures() {
         if (!teams[f.home] || !teams[f.away]) return;
         const played = f.played;
         let midHtml = "", actionHtml = "";
+        const homeDisplay = f.homeDisplayName || f.home;
+        const awayDisplay = f.awayDisplayName || f.away;
         if (isAdmin) {
             midHtml = `
                 <div class="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">
@@ -467,8 +466,8 @@ function renderFixtures() {
                 </div>
             `;
             actionHtml = `<button onclick="saveResult(${f.id})" class="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full hover:bg-indigo-100">💾 Save</button>`;
-            const homeNameHtml = `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition" onclick="editTeamName('${f.home}')">${f.home}</span>`;
-            const awayNameHtml = `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition" onclick="editTeamName('${f.away}')">${f.away}</span>`;
+            const homeNameHtml = `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition" onclick="editFixtureTeamName(${f.id}, 'home')">${homeDisplay}</span>`;
+            const awayNameHtml = `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition" onclick="editFixtureTeamName(${f.id}, 'away')">${awayDisplay}</span>`;
             container.innerHTML += `
                 <div class="flex items-center justify-between bg-gray-50/60 p-3 rounded-xl border border-gray-100 gap-2">
                     <div class="w-2/5 flex items-center justify-end gap-3 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900' : 'text-gray-600'}">
@@ -486,11 +485,11 @@ function renderFixtures() {
             container.innerHTML += `
                 <div class="flex items-center justify-between bg-gray-50/60 p-3 rounded-xl border border-gray-100 gap-2">
                     <div class="w-2/5 flex items-center justify-end gap-3 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900' : 'text-gray-600'}">
-                        ${f.home} ${getTeamBadgeHtml(f.home, "w-10 h-10")}
+                        ${homeDisplay} ${getTeamBadgeHtml(f.home, "w-10 h-10")}
                     </div>
                     ${midHtml}
                     <div class="w-2/5 flex items-center justify-start gap-3 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900' : 'text-gray-600'}">
-                        ${getTeamBadgeHtml(f.away, "w-10 h-10")} ${f.away}
+                        ${getTeamBadgeHtml(f.away, "w-10 h-10")} ${awayDisplay}
                     </div>
                 </div>
             `;
@@ -498,6 +497,7 @@ function renderFixtures() {
     });
 }
 
+// Match comment generation (only this adds to ticker)
 function generateMatchComment(home, away, homeScore, awayScore) {
     const margin = Math.abs(homeScore - awayScore);
     const winner = homeScore > awayScore ? home : away;
@@ -518,6 +518,7 @@ function generateMatchComment(home, away, homeScore, awayScore) {
     return comment;
 }
 
+// Save result (adds only match comment to newsHeadlines)
 let pendingFixtureId = null;
 let pendingHomeScore = null;
 let pendingAwayScore = null;
@@ -562,6 +563,7 @@ window.confirmComment = function() {
     pendingFixtureId = null;
 };
 
+// Predictor
 window.runMatchPrediction = function(fixtureId) {
     const f = fixtures.find(f=>f.id===fixtureId);
     const h = teams[f.home], a = teams[f.away];
@@ -584,14 +586,16 @@ window.runMatchPrediction = function(fixtureId) {
 };
 window.closePredictorModal = () => document.getElementById('predictor-modal').classList.add('hidden');
 
+// Deduct / Expel – no news headlines
 window.deductPointsPrompt = function(teamName) {
     if(!isAdmin) return;
     let amount = prompt(`Penalty points for ${teamName}:`, "3");
     if(!amount) return;
     teams[teamName].deductedPoints = (teams[teamName].deductedPoints||0) + parseInt(amount);
-    newsHeadlines.unshift(`⚠️ ${teamName} deducted ${amount} points (admin)`);
+    // No news headline added
     saveToStorage();
     showToast(`${teamName} penalized ${amount} pts`, "warning");
+    renderTable(); // refresh UI
 };
 window.removeTeamFromLeague = function(teamName) {
     if(!isAdmin) return;
@@ -600,11 +604,18 @@ window.removeTeamFromLeague = function(teamName) {
             if(f.home === teamName || f.away === teamName) { f.played = false; f.homeScore = null; f.awayScore = null; }
         });
         delete teams[teamName];
-        newsHeadlines.unshift(`🚫 ${teamName} has been expelled from the league`);
+        // No news headline added
         saveToStorage();
         showToast(`${teamName} removed`, "error");
+        renderTable();
+        renderGameweekTabs();
+        renderFixtures();
     }
 };
+
+// No admin rename headlines (removed from renameTeamInLeague)
+// The renameTeamInLeague function is no longer used globally; fixture name edits are local.
+// If you had a global rename function, it's removed. Only fixture display name editing remains.
 
 function updateTickerDisplay() {
     const ticker = document.getElementById('news-ticker');
