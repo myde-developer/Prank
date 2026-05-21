@@ -1,5 +1,5 @@
 /**
- * DLS Premier League - Final with Round Shuffle + Per-Fixture Swap
+ * DLS Premier League - Final with Remove-to-BYE option in dropdown
  */
 const firebaseConfig = {
     apiKey: "AIzaSyBmy0tmvaYcw9KsQQRH7RLKcXC8EN6WFqY",
@@ -325,7 +325,7 @@ function initializeTournament() {
     showToast("Tournament initialized!");
 }
 
-// ========== SHUFFLE ROUND (global for the round) ==========
+// ========== SHUFFLE ROUND ==========
 function shuffleRound(roundNumber) {
     if (!isAdmin) return;
     const roundFixtures = fixtures.filter(f => f.round === roundNumber);
@@ -382,11 +382,11 @@ function swapFixture(fixtureId) {
     fixture.played = false;
     saveToStorage();
     showToast(`Swapped ${fixture.home} vs ${fixture.away}`);
-    renderFixtures();   // just re-render current round
-    renderTable();      // table may be affected if scores existed? but we reset scores, safe to refresh
+    renderFixtures();
+    renderTable();
 }
 
-// ========== GLOBAL RENAME (via dropdown) ==========
+// ========== GLOBAL RENAME (without BYE) ==========
 function renameTeamGlobally(oldName, newName) {
     if (!newName || newName === oldName) return false;
     if (teams[newName]) {
@@ -407,6 +407,7 @@ function renameTeamGlobally(oldName, newName) {
     return true;
 }
 
+// ========== DROPDOWN WITH REMOVE-TO-BYE ==========
 let pendingRenameFixtureId = null;
 let pendingRenameSide = null;
 let pendingOldName = null;
@@ -418,6 +419,7 @@ window.editFixtureTeamName = function(fixtureId, side) {
     
     const dropdown = document.getElementById('team-select-dropdown');
     dropdown.innerHTML = '';
+    
     const cancelOption = document.createElement('option');
     cancelOption.value = '';
     cancelOption.textContent = '— Cancel / No change —';
@@ -432,9 +434,15 @@ window.editFixtureTeamName = function(fixtureId, side) {
         dropdown.appendChild(option);
     });
     
+    const byeOption = document.createElement('option');
+    byeOption.value = 'BYE_REMOVE';
+    byeOption.textContent = '— Remove team from this fixture (set to BYE) —';
+    dropdown.appendChild(byeOption);
+    
     pendingRenameFixtureId = fixtureId;
     pendingRenameSide = side;
     pendingOldName = oldName;
+    
     document.getElementById('team-select-modal').classList.remove('hidden');
     document.getElementById('team-select-modal').classList.add('flex');
 };
@@ -450,21 +458,50 @@ window.closeTeamSelectModal = function() {
 window.confirmTeamSelection = function() {
     if (pendingRenameFixtureId === null) return;
     const selectedValue = document.getElementById('team-select-dropdown').value;
+    
     if (selectedValue === '') {
         closeTeamSelectModal();
         return;
     }
-    const newName = selectedValue;
+    
+    const fixture = fixtures.find(f => f.id === pendingRenameFixtureId);
+    const side = pendingRenameSide;
     const oldName = pendingOldName;
+    
+    if (selectedValue === 'BYE_REMOVE') {
+        if (side === 'home') {
+            fixture.home = 'BYE';
+        } else {
+            fixture.away = 'BYE';
+        }
+        fixture.homeScore = null;
+        fixture.awayScore = null;
+        fixture.played = false;
+        saveToStorage();
+        showToast(`Removed team from ${side === 'home' ? 'home' : 'away'} side. Set to BYE.`);
+        renderFixtures();
+        renderTable();
+        closeTeamSelectModal();
+        return;
+    }
+    
+    const newName = selectedValue;
     if (newName === oldName) {
         closeTeamSelectModal();
         return;
     }
+    
+    if (teams[newName]) {
+        showToast(`Team "${newName}" already exists! Use Cancel or Remove option.`);
+        closeTeamSelectModal();
+        return;
+    }
+    
     renameTeamGlobally(oldName, newName);
     closeTeamSelectModal();
 };
 
-// ========== STANDINGS ==========
+// ========== STANDINGS CALCULATIONS ==========
 function calculateStandingsForRound(upToRound) {
     let temp = {};
     for(let t in teams) temp[t] = { name: t, pts:0, gd:0, gf:0 };
@@ -572,7 +609,8 @@ function renderFixtures() {
     const container = document.getElementById('fixtures-container');
     container.innerHTML = "";
     fixtures.filter(f => f.round === currentSelectedRound).forEach(f => {
-        if (!teams[f.home] || !teams[f.away]) return;
+        if (!teams[f.home] && f.home !== 'BYE') return; // if team missing and not BYE, skip (should not happen)
+        if (!teams[f.away] && f.away !== 'BYE') return;
         const played = f.played;
         let midHtml = "", actionHtml = "";
         if (isAdmin) {
@@ -650,6 +688,10 @@ window.saveResult = function(fixtureId) {
         return;
     }
     const fixture = fixtures.find(f => f.id === fixtureId);
+    if (fixture.home === 'BYE' || fixture.away === 'BYE') {
+        alert("Cannot save a match with BYE team. Please assign a real team first.");
+        return;
+    }
     const homeName = fixture.home, awayName = fixture.away;
     const draft = generateMatchComment(homeName, awayName, parseInt(homeScore), parseInt(awayScore));
     pendingFixtureId = fixtureId;
