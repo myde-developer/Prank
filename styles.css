@@ -26,14 +26,6 @@
     background: linear-gradient(90deg, rgba(239,68,68,0.04) 0%, rgba(239,68,68,0) 95%);
     border-left: 3px solid #f87171;
 }
-.team-logo {
-    image-rendering: crisp-edges;
-    image-rendering: -webkit-optimize-contrast;
-    transition: transform 0.1s ease;
-}
-.team-logo:hover {
-    transform: scale(1.05);
-}
 @keyframes fadeInUp {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
