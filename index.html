@@ -141,10 +141,13 @@
                 <div id="admin-table-hint" class="hidden text-center text-[11px] text-indigo-500 bg-indigo-50 py-2 border-t border-indigo-100">✋ Admin: click team name in fixture to assign | 💬 for match commentary</div>
             </div>
 
-            <!-- Match Schedule – horizontally scrollable -->
+            <!-- Match Schedule --!>
             <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-4">
-                <div class="flex flex-wrap justify-between items-center gap-3"><h2 class="font-bold text-gray-700">📅 Match Schedule</h2><div id="gameweek-tabs" class="flex gap-1 overflow-x-auto pb-1"></div></div>
-                <div class="overflow-x-auto"><div id="fixtures-container" class="flex gap-4 pb-2" style="min-width: min-content;"></div></div>
+                <div class="flex flex-wrap justify-between items-center gap-3">
+                    <h2 class="font-bold text-gray-700">📅 Match Schedule</h2>
+                    <div id="gameweek-tabs" class="flex gap-1 overflow-x-auto pb-1"></div>
+                </div>
+                <div id="fixtures-container" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
             </div>
 
             <div id="admin-reset-container" class="text-center hidden pt-4"><button onclick="resetTournament()" class="text-xs text-rose-500 hover:text-rose-700 underline decoration-dotted">⚠️ Wipe entire league data (irreversible)</button></div>
