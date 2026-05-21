@@ -1,5 +1,5 @@
 /**
- * DLS Premier League - Final with Remove-to-BYE option in dropdown
+ * DLS Premier League - Fixture team assignment (local, no global rename)
  */
 const firebaseConfig = {
     apiKey: "AIzaSyBmy0tmvaYcw9KsQQRH7RLKcXC8EN6WFqY",
@@ -66,6 +66,9 @@ function resizeImage(file, maxSize = 128) {
 }
 
 function getTeamBadgeHtml(teamKey, size = "w-14 h-14") {
+    if (teamKey === 'BYE') {
+        return `<div class="${size} rounded-full flex items-center justify-center bg-gray-200 text-gray-500 text-xs font-bold">BYE</div>`;
+    }
     const team = teams[teamKey];
     if (team && team.logoData && team.logoData.trim() !== "") {
         const clickHandler = isAdmin ? `onclick="event.stopPropagation(); uploadTeamCrest('${teamKey}')"` : `onclick="event.stopPropagation(); showLightbox('${team.logoData}')"`;
@@ -333,7 +336,8 @@ function shuffleRound(roundNumber) {
     
     const teamsInRound = [];
     roundFixtures.forEach(f => {
-        teamsInRound.push(f.home, f.away);
+        if (f.home !== 'BYE') teamsInRound.push(f.home);
+        if (f.away !== 'BYE') teamsInRound.push(f.away);
     });
     const uniqueTeams = [...new Set(teamsInRound)];
     
@@ -386,62 +390,44 @@ function swapFixture(fixtureId) {
     renderTable();
 }
 
-// ========== GLOBAL RENAME (without BYE) ==========
-function renameTeamGlobally(oldName, newName) {
-    if (!newName || newName === oldName) return false;
-    if (teams[newName]) {
-        showToast(`Team "${newName}" already exists!`);
-        return false;
-    }
-    teams[newName] = { ...teams[oldName], name: newName };
-    delete teams[oldName];
-    fixtures.forEach(f => {
-        if (f.home === oldName) f.home = newName;
-        if (f.away === oldName) f.away = newName;
-    });
-    saveToStorage();
-    showToast(`Team renamed to "${newName}"`);
-    renderTable();
-    renderGameweekTabs();
-    renderFixtures();
-    return true;
-}
-
-// ========== DROPDOWN WITH REMOVE-TO-BYE ==========
-let pendingRenameFixtureId = null;
-let pendingRenameSide = null;
-let pendingOldName = null;
+// ========== FIXTURE TEAM ASSIGNMENT (local, no global rename) ==========
+let pendingAssignFixtureId = null;
+let pendingAssignSide = null;
 
 window.editFixtureTeamName = function(fixtureId, side) {
     if (!isAdmin) return;
     const fixture = fixtures.find(f => f.id === fixtureId);
-    const oldName = side === 'home' ? fixture.home : fixture.away;
+    const currentTeam = side === 'home' ? fixture.home : fixture.away;
     
     const dropdown = document.getElementById('team-select-dropdown');
     dropdown.innerHTML = '';
     
+    // Cancel option
     const cancelOption = document.createElement('option');
     cancelOption.value = '';
     cancelOption.textContent = '— Cancel / No change —';
     dropdown.appendChild(cancelOption);
     
+    // All real teams (excluding the other side of this fixture to avoid same team vs itself)
+    const otherSide = side === 'home' ? fixture.away : fixture.home;
     const teamNames = Object.keys(teams).sort();
     teamNames.forEach(name => {
+        if (name === otherSide) return; // can't pick the same team that is already on the other side
         const option = document.createElement('option');
         option.value = name;
         option.textContent = name;
-        if (name === oldName) option.selected = true;
+        if (name === currentTeam) option.selected = true;
         dropdown.appendChild(option);
     });
     
+    // Remove option (set to BYE)
     const byeOption = document.createElement('option');
     byeOption.value = 'BYE_REMOVE';
     byeOption.textContent = '— Remove team from this fixture (set to BYE) —';
     dropdown.appendChild(byeOption);
     
-    pendingRenameFixtureId = fixtureId;
-    pendingRenameSide = side;
-    pendingOldName = oldName;
+    pendingAssignFixtureId = fixtureId;
+    pendingAssignSide = side;
     
     document.getElementById('team-select-modal').classList.remove('hidden');
     document.getElementById('team-select-modal').classList.add('flex');
@@ -450,13 +436,12 @@ window.editFixtureTeamName = function(fixtureId, side) {
 window.closeTeamSelectModal = function() {
     document.getElementById('team-select-modal').classList.add('hidden');
     document.getElementById('team-select-modal').classList.remove('flex');
-    pendingRenameFixtureId = null;
-    pendingRenameSide = null;
-    pendingOldName = null;
+    pendingAssignFixtureId = null;
+    pendingAssignSide = null;
 };
 
 window.confirmTeamSelection = function() {
-    if (pendingRenameFixtureId === null) return;
+    if (pendingAssignFixtureId === null) return;
     const selectedValue = document.getElementById('team-select-dropdown').value;
     
     if (selectedValue === '') {
@@ -464,11 +449,11 @@ window.confirmTeamSelection = function() {
         return;
     }
     
-    const fixture = fixtures.find(f => f.id === pendingRenameFixtureId);
-    const side = pendingRenameSide;
-    const oldName = pendingOldName;
+    const fixture = fixtures.find(f => f.id === pendingAssignFixtureId);
+    const side = pendingAssignSide;
     
     if (selectedValue === 'BYE_REMOVE') {
+        // Set to BYE
         if (side === 'home') {
             fixture.home = 'BYE';
         } else {
@@ -485,19 +470,38 @@ window.confirmTeamSelection = function() {
         return;
     }
     
-    const newName = selectedValue;
-    if (newName === oldName) {
+    // Assign selected team to this fixture side
+    const newTeam = selectedValue;
+    const oldTeam = side === 'home' ? fixture.home : fixture.away;
+    if (newTeam === oldTeam) {
         closeTeamSelectModal();
         return;
     }
     
-    if (teams[newName]) {
-        showToast(`Team "${newName}" already exists! Use Cancel or Remove option.`);
+    // Check if this team is already used in another fixture in the same round
+    const round = fixture.round;
+    const otherFixtures = fixtures.filter(f => f.round === round && f.id !== fixture.id);
+    const isUsedElsewhere = otherFixtures.some(f => f.home === newTeam || f.away === newTeam);
+    if (isUsedElsewhere) {
+        showToast(`Team "${newTeam}" already has a fixture in this round! Remove that team first or shuffle.`);
         closeTeamSelectModal();
         return;
     }
     
-    renameTeamGlobally(oldName, newName);
+    // Assign
+    if (side === 'home') {
+        fixture.home = newTeam;
+    } else {
+        fixture.away = newTeam;
+    }
+    // Reset scores because lineup changed
+    fixture.homeScore = null;
+    fixture.awayScore = null;
+    fixture.played = false;
+    saveToStorage();
+    showToast(`Assigned ${newTeam} to ${side === 'home' ? 'home' : 'away'} side.`);
+    renderFixtures();
+    renderTable();
     closeTeamSelectModal();
 };
 
@@ -609,8 +613,7 @@ function renderFixtures() {
     const container = document.getElementById('fixtures-container');
     container.innerHTML = "";
     fixtures.filter(f => f.round === currentSelectedRound).forEach(f => {
-        if (!teams[f.home] && f.home !== 'BYE') return; // if team missing and not BYE, skip (should not happen)
-        if (!teams[f.away] && f.away !== 'BYE') return;
+        // Skip if both sides are BYE? Show anyway.
         const played = f.played;
         let midHtml = "", actionHtml = "";
         if (isAdmin) {
@@ -727,6 +730,10 @@ window.confirmComment = function() {
 
 window.runMatchPrediction = function(fixtureId) {
     const f = fixtures.find(f=>f.id===fixtureId);
+    if (f.home === 'BYE' || f.away === 'BYE') {
+        alert("Cannot predict with BYE team.");
+        return;
+    }
     const h = teams[f.home], a = teams[f.away];
     let homePower = (h.pts*1.5)+h.gd, awayPower = (a.pts*1.5)+a.gd;
     const formScore = (arr) => arr.slice(-3).reduce((s,x)=>s+(x==='W'?3:x==='D'?1:0),0);
