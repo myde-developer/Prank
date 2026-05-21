@@ -1,5 +1,10 @@
 /**
- * DLS Premier League - No crests, only text, spectacular ticker, per-fixture comments
+ * DLS Premier League - Final Version
+ * - No crests, only team names
+ * - Local fixture assignment (no global rename) with duplicate check
+ * - Match comments saved per fixture, viewed via 💬 button (not in ticker)
+ * - Rotating ticker messages with scroll animation
+ * - Grid fixtures, horizontally scrollable table
  */
 const firebaseConfig = {
     apiKey: "AIzaSyBmy0tmvaYcw9KsQQRH7RLKcXC8EN6WFqY",
@@ -21,10 +26,6 @@ let isAdmin = false;
 let tournamentPassword = "1234";
 let temporaryTeamNames = [];
 
-let tickerInterval = null;
-let currentTickerFactIndex = 0;
-let tickerFacts = [];
-
 function showToast(msg) {
     const container = document.getElementById("toast-container");
     if (!container) return;
@@ -35,6 +36,26 @@ function showToast(msg) {
     setTimeout(() => toast.remove(), 2500);
 }
 
+// ========== ROTATING TICKER (no match comments) ==========
+const tickerMessages = [
+    " • Welcome to DLS Vawulence Academy Tournament Site. Stay updated with the stats, matchups and more!",
+    " • League table updates in real‑time. Click any row for team details.",
+    " • Click the 💬 button on any played match to see the commentary."
+];
+let tickerIndex = 0;
+function rotateTickerMessage() {
+    const ticker = document.getElementById('news-ticker');
+    if (ticker) {
+        const currentMsg = tickerMessages[tickerIndex];
+        ticker.innerHTML = `<span class="inline-flex items-center gap-2"><span class="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></span> ${currentMsg} <span class="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></span></span>`;
+        tickerIndex = (tickerIndex + 1) % tickerMessages.length;
+    }
+}
+setInterval(rotateTickerMessage, 8000);
+// Keep old function for compatibility (does nothing)
+function updateTickerDisplay() {}
+
+// ========== FIREBASE SYNC ==========
 function saveToStorage() {
     db.ref('tournament_data').set({ teams, fixtures, password: tournamentPassword });
 }
@@ -59,11 +80,11 @@ function initRealtimeDatabaseSync() {
         } else {
             document.getElementById('setup-section')?.classList.remove('hidden');
             document.getElementById('dashboard-section')?.classList.add('hidden');
-            document.getElementById('news-ticker').innerHTML = "⚽ Ready to create your league";
         }
     }, (error) => { showToast("Firebase connection issue"); });
 }
 
+// ========== ADMIN HANDLERS ==========
 function handleAdminToggleClick() {
     if (!isAdmin) {
         document.getElementById('admin-password-input').value = "";
@@ -101,11 +122,10 @@ function updateAdminUIElements() {
         if(thActions) thActions.classList.add('hidden');
         if(hint) hint.classList.add('hidden');
     }
-    renderTable();
-    renderGameweekTabs();
-    renderFixtures();
+    renderTable(); renderGameweekTabs(); renderFixtures();
 }
 
+// ========== SETUP WIZARD ==========
 function generateTeamInputs() {
     const count = parseInt(document.getElementById('team-count').value);
     if (isNaN(count) || count < 2) { alert("Enter 2-20 teams"); return; }
@@ -160,7 +180,7 @@ function initializeTournament() {
                     homeScore: null, 
                     awayScore: null, 
                     played: false,
-                    comment: null
+                    comment: null   // store match comment separately
                 });
             }
         }
@@ -168,66 +188,6 @@ function initializeTournament() {
     currentSelectedRound = 1;
     saveToStorage();
     showToast("Tournament initialized!");
-    generateTickerFacts();
-}
-
-// ========== SPECTACULAR TICKER ==========
-function updateTickerFacts() {
-    if (!tickerFacts.length) return;
-    const tickerEl = document.getElementById('news-ticker');
-    if (!tickerEl) return;
-    currentTickerFactIndex = (currentTickerFactIndex + 1) % tickerFacts.length;
-    const fact = tickerFacts[currentTickerFactIndex];
-    tickerEl.innerHTML = `<span class="inline-flex items-center gap-2"><span class="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span> ${fact}</span>`;
-}
-
-function generateTickerFacts() {
-    const totalTeams = Object.keys(teams).length;
-    const totalMatchesPlayed = fixtures.filter(f => f.played).length;
-    const totalMatches = fixtures.length;
-    
-    let leader = null;
-    if (Object.keys(teams).length) {
-        const sorted = Object.values(teams).sort((a,b) => b.pts - a.pts || b.gd - a.gd);
-        if (sorted.length) leader = sorted[0];
-    }
-    
-    let topScorer = null;
-    if (Object.keys(teams).length) {
-        const sortedGF = Object.values(teams).sort((a,b) => b.gf - a.gf);
-        if (sortedGF.length) topScorer = sortedGF[0];
-    }
-    
-    let biggestWin = null;
-    fixtures.forEach(f => {
-        if (f.played && f.homeScore !== null && f.awayScore !== null) {
-            const total = f.homeScore + f.awayScore;
-            if (!biggestWin || total > biggestWin.total) {
-                biggestWin = { home: f.home, away: f.away, homeScore: f.homeScore, awayScore: f.awayScore, total };
-            }
-        }
-    });
-    
-    tickerFacts = [
-        `🏆 Welcome to DLS Vawulence Academy Tournament Site! Stay updated with stats, matchups and more.`,
-        `⚽ ${totalTeams} teams competing for the title.`,
-        `📊 ${totalMatchesPlayed} of ${totalMatches} matches played so far.`,
-        leader ? `👑 Current leader: ${leader.name} with ${leader.pts} points.` : null,
-        topScorer ? `🔥 Most goals scored: ${topScorer.name} (${topScorer.gf} goals).` : null,
-        biggestWin ? `🎯 Biggest win: ${biggestWin.home} ${biggestWin.homeScore} - ${biggestWin.awayScore} ${biggestWin.away}` : null,
-        `🔄 Use admin mode to edit fixtures, shuffle rounds, or assign teams.`,
-        `💬 Click the 💬 icon on any fixture to read or edit match commentary.`
-    ].filter(f => f !== null);
-    
-    if (tickerFacts.length) {
-        const tickerEl = document.getElementById('news-ticker');
-        if (tickerEl) {
-            tickerEl.innerHTML = `<span class="inline-flex items-center gap-2"><span class="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span> ${tickerFacts[0]}</span>`;
-        }
-        currentTickerFactIndex = 0;
-        if (tickerInterval) clearInterval(tickerInterval);
-        tickerInterval = setInterval(updateTickerFacts, 8000);
-    }
 }
 
 // ========== SHUFFLE ROUND ==========
@@ -235,30 +195,23 @@ function shuffleRound(roundNumber) {
     if (!isAdmin) return;
     const roundFixtures = fixtures.filter(f => f.round === roundNumber);
     if (roundFixtures.length === 0) return;
-    
     const teamsInRound = [];
     roundFixtures.forEach(f => {
         if (f.home !== 'BYE') teamsInRound.push(f.home);
         if (f.away !== 'BYE') teamsInRound.push(f.away);
     });
     const uniqueTeams = [...new Set(teamsInRound)];
-    
     for (let i = uniqueTeams.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [uniqueTeams[i], uniqueTeams[j]] = [uniqueTeams[j], uniqueTeams[i]];
     }
-    
     const newPairs = [];
     for (let i = 0; i < uniqueTeams.length; i += 2) {
         if (i + 1 < uniqueTeams.length) {
-            if (Math.random() < 0.5) {
-                newPairs.push({ home: uniqueTeams[i], away: uniqueTeams[i+1] });
-            } else {
-                newPairs.push({ home: uniqueTeams[i+1], away: uniqueTeams[i] });
-            }
+            if (Math.random() < 0.5) newPairs.push({ home: uniqueTeams[i], away: uniqueTeams[i+1] });
+            else newPairs.push({ home: uniqueTeams[i+1], away: uniqueTeams[i] });
         }
     }
-    
     roundFixtures.forEach((fixture, idx) => {
         if (idx < newPairs.length) {
             fixture.home = newPairs[idx].home;
@@ -269,7 +222,6 @@ function shuffleRound(roundNumber) {
             fixture.comment = null;
         }
     });
-    
     saveToStorage();
     showToast(`Round ${roundNumber} shuffled!`);
     renderGameweekTabs();
@@ -277,7 +229,6 @@ function shuffleRound(roundNumber) {
     renderTable();
 }
 
-// ========== PER-FIXTURE SWAP ==========
 function swapFixture(fixtureId) {
     if (!isAdmin) return;
     const fixture = fixtures.find(f => f.id === fixtureId);
@@ -294,7 +245,7 @@ function swapFixture(fixtureId) {
     renderTable();
 }
 
-// ========== FIXTURE TEAM ASSIGNMENT ==========
+// ========== FIXTURE TEAM ASSIGNMENT (local, no global rename) ==========
 let pendingAssignFixtureId = null;
 let pendingAssignSide = null;
 
@@ -302,15 +253,12 @@ window.editFixtureTeamName = function(fixtureId, side) {
     if (!isAdmin) return;
     const fixture = fixtures.find(f => f.id === fixtureId);
     const currentTeam = side === 'home' ? fixture.home : fixture.away;
-    
     const dropdown = document.getElementById('team-select-dropdown');
     dropdown.innerHTML = '';
-    
     const cancelOption = document.createElement('option');
     cancelOption.value = '';
     cancelOption.textContent = '— Cancel / No change —';
     dropdown.appendChild(cancelOption);
-    
     const otherSide = side === 'home' ? fixture.away : fixture.home;
     const teamNames = Object.keys(teams).sort();
     teamNames.forEach(name => {
@@ -321,63 +269,40 @@ window.editFixtureTeamName = function(fixtureId, side) {
         if (name === currentTeam) option.selected = true;
         dropdown.appendChild(option);
     });
-    
     const byeOption = document.createElement('option');
     byeOption.value = 'BYE_REMOVE';
     byeOption.textContent = '— Remove team from this fixture (set to BYE) —';
     dropdown.appendChild(byeOption);
-    
     pendingAssignFixtureId = fixtureId;
     pendingAssignSide = side;
-    
     document.getElementById('team-select-modal').classList.remove('hidden');
     document.getElementById('team-select-modal').classList.add('flex');
 };
-
 window.closeTeamSelectModal = function() {
     document.getElementById('team-select-modal').classList.add('hidden');
     document.getElementById('team-select-modal').classList.remove('flex');
     pendingAssignFixtureId = null;
     pendingAssignSide = null;
 };
-
 window.confirmTeamSelection = function() {
     if (pendingAssignFixtureId === null) return;
     const selectedValue = document.getElementById('team-select-dropdown').value;
-    
-    if (selectedValue === '') {
-        closeTeamSelectModal();
-        return;
-    }
-    
+    if (selectedValue === '') { closeTeamSelectModal(); return; }
     const fixture = fixtures.find(f => f.id === pendingAssignFixtureId);
     const side = pendingAssignSide;
-    
     if (selectedValue === 'BYE_REMOVE') {
-        if (side === 'home') {
-            fixture.home = 'BYE';
-        } else {
-            fixture.away = 'BYE';
-        }
-        fixture.homeScore = null;
-        fixture.awayScore = null;
-        fixture.played = false;
-        fixture.comment = null;
+        if (side === 'home') fixture.home = 'BYE';
+        else fixture.away = 'BYE';
+        fixture.homeScore = null; fixture.awayScore = null; fixture.played = false; fixture.comment = null;
         saveToStorage();
         showToast(`Removed team from ${side === 'home' ? 'home' : 'away'} side. Set to BYE.`);
-        renderFixtures();
-        renderTable();
-        closeTeamSelectModal();
+        renderFixtures(); renderTable(); closeTeamSelectModal();
         return;
     }
-    
     const newTeam = selectedValue;
     const oldTeam = side === 'home' ? fixture.home : fixture.away;
-    if (newTeam === oldTeam) {
-        closeTeamSelectModal();
-        return;
-    }
-    
+    if (newTeam === oldTeam) { closeTeamSelectModal(); return; }
+    // Check if team already used in another fixture this round
     const round = fixture.round;
     const otherFixtures = fixtures.filter(f => f.round === round && f.id !== fixture.id);
     const isUsedElsewhere = otherFixtures.some(f => f.home === newTeam || f.away === newTeam);
@@ -386,21 +311,90 @@ window.confirmTeamSelection = function() {
         closeTeamSelectModal();
         return;
     }
-    
-    if (side === 'home') {
-        fixture.home = newTeam;
-    } else {
-        fixture.away = newTeam;
-    }
-    fixture.homeScore = null;
-    fixture.awayScore = null;
-    fixture.played = false;
-    fixture.comment = null;
+    if (side === 'home') fixture.home = newTeam;
+    else fixture.away = newTeam;
+    fixture.homeScore = null; fixture.awayScore = null; fixture.played = false; fixture.comment = null;
     saveToStorage();
     showToast(`Assigned ${newTeam} to ${side === 'home' ? 'home' : 'away'} side.`);
-    renderFixtures();
+    renderFixtures(); renderTable(); closeTeamSelectModal();
+};
+
+// ========== MATCH COMMENT (store & display) ==========
+function generateMatchComment(homeName, awayName, homeScore, awayScore) {
+    const margin = Math.abs(homeScore - awayScore);
+    const winner = homeScore > awayScore ? homeName : awayName;
+    const loser = homeScore > awayScore ? awayName : homeName;
+    let comment = "";
+    if (homeScore === awayScore) {
+        if (homeScore === 0) comment = `🤝 Goalless stalemate between ${homeName} and ${awayName}.`;
+        else comment = `⚖️ ${homeName} ${homeScore}-${awayScore} ${awayName} – honours shared.`;
+    } else if (margin >= 3) {
+        comment = `🔥 ${winner} destroyed ${loser} ${Math.max(homeScore,awayScore)}-${Math.min(homeScore,awayScore)}!`;
+    } else if (margin === 2) {
+        comment = `📈 ${winner} secured a comfortable win over ${loser}.`;
+    } else {
+        comment = `⚡ Narrow victory! ${winner} edged past ${loser}.`;
+    }
+    const flavour = ["dominated possession", "clinical finishing", "strong defensive display", "counter-attacking masterclass"];
+    comment += ` ${winner} showed ${flavour[Math.floor(Math.random()*flavour.length)]}.`;
+    return comment;
+}
+
+// Show comment for a specific fixture (via 💬 button)
+window.showMatchComment = function(fixtureId) {
+    const fixture = fixtures.find(f => f.id === fixtureId);
+    if (!fixture || !fixture.played) {
+        showToast("No comment available for unplayed match.");
+        return;
+    }
+    let comment = fixture.comment;
+    if (!comment) {
+        comment = generateMatchComment(fixture.home, fixture.away, fixture.homeScore, fixture.awayScore);
+        // optional: save generated comment to fixture for next time
+        fixture.comment = comment;
+        saveToStorage();
+    }
+    alert(`📝 Match Commentary:\n\n${comment}`);
+};
+
+// Save result with comment editor (admin only)
+let pendingFixtureId = null, pendingHomeScore = null, pendingAwayScore = null;
+
+window.saveResult = function(fixtureId) {
+    const homeScore = document.getElementById(`home-score-${fixtureId}`).value;
+    const awayScore = document.getElementById(`away-score-${fixtureId}`).value;
+    if (homeScore === "" || awayScore === "") { alert("Enter both scores"); return; }
+    const fixture = fixtures.find(f => f.id === fixtureId);
+    if (fixture.home === 'BYE' || fixture.away === 'BYE') { alert("Cannot save a match with BYE team. Assign a real team first."); return; }
+    const draft = generateMatchComment(fixture.home, fixture.away, parseInt(homeScore), parseInt(awayScore));
+    pendingFixtureId = fixtureId;
+    pendingHomeScore = parseInt(homeScore);
+    pendingAwayScore = parseInt(awayScore);
+    document.getElementById('comment-match-name').innerText = `${fixture.home} vs ${fixture.away}`;
+    document.getElementById('comment-text').value = draft;
+    document.getElementById('comment-modal').classList.remove('hidden');
+    document.getElementById('comment-modal').classList.add('flex');
+};
+window.closeCommentModal = function(save = false) {
+    document.getElementById('comment-modal').classList.add('hidden');
+    document.getElementById('comment-modal').classList.remove('flex');
+    if (!save) pendingFixtureId = null;
+};
+window.confirmComment = function() {
+    if (pendingFixtureId === null) return;
+    const finalComment = document.getElementById('comment-text').value.trim();
+    if (finalComment === "") { alert("Comment cannot be empty"); return; }
+    const fixture = fixtures.find(f => f.id === pendingFixtureId);
+    fixture.homeScore = pendingHomeScore;
+    fixture.awayScore = pendingAwayScore;
+    fixture.played = true;
+    fixture.comment = finalComment;
+    saveToStorage();
+    showToast(`Result saved: ${fixture.home} ${pendingHomeScore}-${pendingAwayScore} ${fixture.away}`);
+    closeCommentModal(true);
+    pendingFixtureId = null;
     renderTable();
-    closeTeamSelectModal();
+    renderFixtures();
 };
 
 // ========== STANDINGS CALCULATIONS ==========
@@ -457,7 +451,7 @@ function renderTable() {
         const pos = idx+1;
         let recent = team.formHistory.slice(-5);
         while(recent.length < 5) recent.unshift('-');
-        let formHtml = `<div class="flex gap-1.5 justify-center">`;
+        let formHtml = `<div class="flex gap-1 justify-center">`;
         recent.forEach(res => {
             if(res === 'W') formHtml += `<span class="w-5 h-5 bg-emerald-100 text-emerald-700 rounded-full text-[9px] font-bold flex items-center justify-center">W</span>`;
             else if(res === 'L') formHtml += `<span class="w-5 h-5 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center text-[9px] font-bold">L</span>`;
@@ -467,22 +461,21 @@ function renderTable() {
         formHtml += `</div>`;
         const penaltyBadge = team.deductedPoints > 0 ? `<span class="ml-1 text-[9px] bg-rose-50 text-rose-600 px-1 rounded-full">-${team.deductedPoints}</span>` : "";
         const rowClass = pos === 1 ? "champions-row" : (pos > currentSorted.length-2 ? "relegation-row" : "");
-        const actionBtn = isAdmin ? `<td class="py-3 px-2 text-center"><button onclick="event.stopPropagation(); deductPointsPrompt('${team.name}')" class="text-xs bg-amber-50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100">⚖️</button> <button onclick="event.stopPropagation(); removeTeamFromLeague('${team.name}')" class="text-xs bg-rose-50 text-rose-600 px-2 py-1 rounded-full hover:bg-rose-100">🗑️</button></td>` : "";
+        const actionBtn = isAdmin ? `<td class="py-2 px-2 text-center"><button onclick="event.stopPropagation(); deductPointsPrompt('${team.name}')" class="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-full hover:bg-amber-100">⚖️</button> <button onclick="event.stopPropagation(); removeTeamFromLeague('${team.name}')" class="text-[9px] bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded-full hover:bg-rose-100">🗑️</button></td>` : "";
         tbody.innerHTML += `
             <tr class="hover:bg-gray-50 transition ${rowClass}" onclick="showTeamDetails('${team.name}')">
-                <td class="py-3 px-3 text-center font-bold ${pos===1?'text-indigo-600':''}">${pos}</td>
-                <td class="py-3 px-4"><span class="font-semibold text-base">${team.name}</span>${penaltyBadge}</td>
-                <td class="py-3 px-2 text-center">${team.mp}</td><td class="py-3 px-2 text-center text-emerald-600">${team.w}</td>
-                <td class="py-3 px-2 text-center">${team.d}</td><td class="py-3 px-2 text-center text-rose-500">${team.l}</td>
-                <td class="py-3 px-2 text-center">${team.gf}</td><td class="py-3 px-2 text-center">${team.ga}</td>
-                <td class="py-3 px-2 text-center ${team.gd>=0?'text-emerald-600':'text-rose-500'} font-mono">${team.gd>0?'+'+team.gd:team.gd}</td>
-                <td class="py-3 px-3 text-center font-black text-indigo-600">${team.pts}</td>
-                <td class="py-3 px-4 text-center">${formHtml}</td>
+                <td class="py-2 px-2 text-center font-bold ${pos===1?'text-indigo-600':''}">${pos}</td>
+                <td class="py-2 px-3"><span class="font-semibold text-sm">${team.name}</span>${penaltyBadge}</td>
+                <td class="py-2 px-2 text-center">${team.mp}</td><td class="py-2 px-2 text-center text-emerald-600">${team.w}</td>
+                <td class="py-2 px-2 text-center">${team.d}</td><td class="py-2 px-2 text-center text-rose-500">${team.l}</td>
+                <td class="py-2 px-2 text-center">${team.gf}</td><td class="py-2 px-2 text-center">${team.ga}</td>
+                <td class="py-2 px-2 text-center ${team.gd>=0?'text-emerald-600':'text-rose-500'} font-mono">${team.gd>0?'+'+team.gd:team.gd}</td>
+                <td class="py-2 px-2 text-center font-black text-indigo-600">${team.pts}</td>
+                <td class="py-2 px-2 text-center">${formHtml}</td>
                 ${actionBtn}
             </tr>
         `;
     });
-    generateTickerFacts();
 }
 
 function renderGameweekTabs() {
@@ -493,14 +486,14 @@ function renderGameweekTabs() {
     for(let r=1; r<=total; r++) {
         const active = r === currentSelectedRound;
         const btn = document.createElement('button');
-        btn.className = `px-3 py-1 text-[11px] font-mono rounded-full transition shrink-0 ${active ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
+        btn.className = `px-2 py-0.5 text-[10px] font-mono rounded-full transition shrink-0 ${active ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
         btn.innerText = `GW ${r}`;
         btn.onclick = () => switchRound(r);
         container.appendChild(btn);
     }
     if (isAdmin) {
         const shuffleBtn = document.createElement('button');
-        shuffleBtn.className = 'px-3 py-1 text-[11px] font-mono rounded-full bg-amber-100 text-amber-700 hover:bg-amber-200 transition ml-2 shrink-0';
+        shuffleBtn.className = 'px-2 py-0.5 text-[10px] font-mono rounded-full bg-amber-100 text-amber-700 hover:bg-amber-200 transition ml-1 shrink-0';
         shuffleBtn.innerText = '🔄 Shuffle Round';
         shuffleBtn.onclick = () => shuffleRound(currentSelectedRound);
         container.appendChild(shuffleBtn);
@@ -512,171 +505,50 @@ function renderFixtures() {
     const container = document.getElementById('fixtures-container');
     container.innerHTML = "";
     fixtures.filter(f => f.round === currentSelectedRound).forEach(f => {
+        if ((f.home !== 'BYE' && !teams[f.home]) || (f.away !== 'BYE' && !teams[f.away])) return;
         const played = f.played;
         let midHtml = "", actionHtml = "";
         if (isAdmin) {
             midHtml = `
                 <div class="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">
-                    <input type="number" id="home-score-${f.id}" value="${played ? f.homeScore : ''}" placeholder="0" class="w-8 text-center bg-transparent font-mono font-bold text-indigo-600">
+                    <input type="number" id="home-score-${f.id}" value="${played ? f.homeScore : ''}" placeholder="0" class="w-7 text-center bg-transparent font-mono font-bold text-indigo-600 text-xs">
                     <span class="text-gray-400">:</span>
-                    <input type="number" id="away-score-${f.id}" value="${played ? f.awayScore : ''}" placeholder="0" class="w-8 text-center bg-transparent font-mono font-bold text-indigo-600">
+                    <input type="number" id="away-score-${f.id}" value="${played ? f.awayScore : ''}" placeholder="0" class="w-7 text-center bg-transparent font-mono font-bold text-indigo-600 text-xs">
                 </div>
             `;
             actionHtml = `
                 <div class="flex gap-1">
-                    <button onclick="swapFixture(${f.id})" class="text-[10px] font-bold bg-amber-50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100">🔄 Swap</button>
-                    <button onclick="saveResult(${f.id})" class="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full hover:bg-indigo-100">💾 Save</button>
-                    <button onclick="showMatchComment(${f.id})" class="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-full hover:bg-gray-200">💬</button>
+                    <button onclick="swapFixture(${f.id})" class="text-[9px] font-bold bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-full hover:bg-amber-100">🔄 Swap</button>
+                    <button onclick="saveResult(${f.id})" class="text-[9px] font-bold bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded-full hover:bg-indigo-100">💾 Save</button>
+                    <button onclick="showMatchComment(${f.id})" class="text-[9px] font-bold bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full hover:bg-gray-200">💬</button>
                 </div>
             `;
-            const homeNameHtml = `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition" onclick="editFixtureTeamName(${f.id}, 'home')">${f.home}</span>`;
-            const awayNameHtml = `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition" onclick="editFixtureTeamName(${f.id}, 'away')">${f.away}</span>`;
+            const homeNameHtml = `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'home')">${f.home}</span>`;
+            const awayNameHtml = `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'away')">${f.away}</span>`;
             container.innerHTML += `
-                <div class="flex items-center justify-between bg-gray-50/60 p-3 rounded-xl border border-gray-100 gap-2">
-                    <div class="w-2/5 flex items-center justify-end gap-3 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900' : 'text-gray-600'}">
-                        ${homeNameHtml}
-                    </div>
+                <div class="flex items-center justify-between bg-gray-50/60 p-2 rounded-xl border border-gray-100 gap-2">
+                    <div class="w-2/5 flex items-center justify-end gap-1 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${homeNameHtml}</div>
                     ${midHtml}
-                    <div class="w-2/5 flex items-center justify-start gap-3 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900' : 'text-gray-600'}">
-                        ${awayNameHtml}
-                    </div>
+                    <div class="w-2/5 flex items-center justify-start gap-1 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${awayNameHtml}</div>
                     ${actionHtml}
                 </div>
             `;
         } else {
-            midHtml = played ? `<div class="bg-gray-100 px-3 py-1 rounded-full font-mono font-bold text-sm">${f.homeScore} - ${f.awayScore}</div>` : `<button onclick="runMatchPrediction(${f.id})" class="text-[11px] bg-gray-100 hover:bg-indigo-50 px-3 py-1 rounded-full">🔍 Analyze</button>`;
-            actionHtml = `<button onclick="showMatchComment(${f.id})" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full">💬</button>`;
+            midHtml = played ? `<div class="bg-gray-100 px-2 py-0.5 rounded-full font-mono font-bold text-xs">${f.homeScore} - ${f.awayScore}</div>` : `<div class="flex gap-1"><button onclick="runMatchPrediction(${f.id})" class="text-[10px] bg-gray-100 hover:bg-indigo-50 px-2 py-0.5 rounded-full">🔍 Analyze</button><button onclick="showMatchComment(${f.id})" class="text-[10px] bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded-full">💬</button></div>`;
             container.innerHTML += `
-                <div class="flex items-center justify-between bg-gray-50/60 p-3 rounded-xl border border-gray-100 gap-2">
-                    <div class="w-2/5 flex items-center justify-end gap-3 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900' : 'text-gray-600'}">
-                        ${f.home}
-                    </div>
+                <div class="flex items-center justify-between bg-gray-50/60 p-2 rounded-xl border border-gray-100 gap-2">
+                    <div class="w-2/5 flex items-center justify-end gap-1 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${f.home}</div>
                     ${midHtml}
-                    <div class="w-2/5 flex items-center justify-start gap-3 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900' : 'text-gray-600'}">
-                        ${f.away}
-                    </div>
-                    ${actionHtml}
+                    <div class="w-2/5 flex items-center justify-start gap-1 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${f.away}</div>
                 </div>
             `;
         }
     });
 }
 
-function generateMatchComment(homeName, awayName, homeScore, awayScore) {
-    const margin = Math.abs(homeScore - awayScore);
-    const winner = homeScore > awayScore ? homeName : awayName;
-    const loser = homeScore > awayScore ? awayName : homeName;
-    let comment = "";
-    if (homeScore === awayScore) {
-        if (homeScore === 0) comment = `🤝 Goalless stalemate between ${homeName} and ${awayName}.`;
-        else comment = `⚖️ ${homeName} ${homeScore}-${awayScore} ${awayName} – honours shared.`;
-    } else if (margin >= 3) {
-        comment = `🔥 ${winner} destroyed ${loser} ${Math.max(homeScore,awayScore)}-${Math.min(homeScore,awayScore)}!`;
-    } else if (margin === 2) {
-        comment = `📈 ${winner} secured a comfortable win over ${loser}.`;
-    } else {
-        comment = `⚡ Narrow victory! ${winner} edged past ${loser}.`;
-    }
-    const flavour = ["dominated possession", "clinical finishing", "strong defensive display", "counter-attacking masterclass"];
-    comment += ` ${winner} showed ${flavour[Math.floor(Math.random()*flavour.length)]}.`;
-    return comment;
-}
-
-let pendingFixtureId = null, pendingHomeScore = null, pendingAwayScore = null;
-
-window.saveResult = function(fixtureId) {
-    const homeScore = document.getElementById(`home-score-${fixtureId}`).value;
-    const awayScore = document.getElementById(`away-score-${fixtureId}`).value;
-    if (homeScore === "" || awayScore === "") {
-        alert("Enter both scores");
-        return;
-    }
-    const fixture = fixtures.find(f => f.id === fixtureId);
-    if (fixture.home === 'BYE' || fixture.away === 'BYE') {
-        alert("Cannot save a match with BYE team. Please assign a real team first.");
-        return;
-    }
-    const homeName = fixture.home, awayName = fixture.away;
-    const draft = generateMatchComment(homeName, awayName, parseInt(homeScore), parseInt(awayScore));
-    pendingFixtureId = fixtureId;
-    pendingHomeScore = parseInt(homeScore);
-    pendingAwayScore = parseInt(awayScore);
-    document.getElementById('comment-match-name').innerText = `${homeName} vs ${awayName}`;
-    document.getElementById('comment-text').value = draft;
-    document.getElementById('comment-modal').classList.remove('hidden');
-    document.getElementById('comment-modal').classList.add('flex');
-};
-window.closeCommentModal = function(save = false) {
-    document.getElementById('comment-modal').classList.add('hidden');
-    document.getElementById('comment-modal').classList.remove('flex');
-    if (!save) pendingFixtureId = null;
-};
-window.confirmComment = function() {
-    if (pendingFixtureId === null) return;
-    const finalComment = document.getElementById('comment-text').value.trim();
-    if (finalComment === "") {
-        alert("Comment cannot be empty");
-        return;
-    }
-    const fixture = fixtures.find(f => f.id === pendingFixtureId);
-    fixture.homeScore = pendingHomeScore;
-    fixture.awayScore = pendingAwayScore;
-    fixture.played = true;
-    fixture.comment = finalComment;
-    saveToStorage();
-    showToast(`Result saved: ${fixture.home} ${pendingHomeScore}-${pendingAwayScore} ${fixture.away}`);
-    closeCommentModal(true);
-    pendingFixtureId = null;
-    generateTickerFacts();
-};
-
-// ========== MATCH COMMENT VIEWER ==========
-let currentViewerFixtureId = null;
-
-window.showMatchComment = function(fixtureId) {
-    const fixture = fixtures.find(f => f.id === fixtureId);
-    if (!fixture) return;
-    currentViewerFixtureId = fixtureId;
-    document.getElementById('viewer-match-name').innerHTML = `${fixture.home} vs ${fixture.away}`;
-    const scoreText = fixture.played ? `${fixture.homeScore} - ${fixture.awayScore}` : 'Not played yet';
-    document.getElementById('viewer-score').innerText = scoreText;
-    const commentText = fixture.comment || (fixture.played ? 'No comment added.' : 'Match not played yet.');
-    document.getElementById('viewer-comment').innerText = commentText;
-    const editBtn = document.getElementById('viewer-edit-btn');
-    if (isAdmin && fixture.played) {
-        editBtn.classList.remove('hidden');
-    } else {
-        editBtn.classList.add('hidden');
-    }
-    document.getElementById('comment-viewer-modal').classList.remove('hidden');
-    document.getElementById('comment-viewer-modal').classList.add('flex');
-};
-window.closeCommentViewer = function() {
-    document.getElementById('comment-viewer-modal').classList.add('hidden');
-    document.getElementById('comment-viewer-modal').classList.remove('flex');
-    currentViewerFixtureId = null;
-};
-window.editViewerComment = function() {
-    if (!isAdmin) return;
-    if (currentViewerFixtureId === null) return;
-    const fixture = fixtures.find(f => f.id === currentViewerFixtureId);
-    if (!fixture.played) return;
-    pendingFixtureId = currentViewerFixtureId;
-    pendingHomeScore = fixture.homeScore;
-    pendingAwayScore = fixture.awayScore;
-    document.getElementById('comment-match-name').innerText = `${fixture.home} vs ${fixture.away}`;
-    document.getElementById('comment-text').value = fixture.comment || '';
-    document.getElementById('comment-modal').classList.remove('hidden');
-    document.getElementById('comment-modal').classList.add('flex');
-    closeCommentViewer();
-};
-
 window.runMatchPrediction = function(fixtureId) {
     const f = fixtures.find(f=>f.id===fixtureId);
-    if (f.home === 'BYE' || f.away === 'BYE') {
-        alert("Cannot predict with BYE team.");
-        return;
-    }
+    if (f.home === 'BYE' || f.away === 'BYE') { alert("Cannot predict with BYE team."); return; }
     const h = teams[f.home], a = teams[f.away];
     let homePower = (h.pts*1.5)+h.gd, awayPower = (a.pts*1.5)+a.gd;
     const formScore = (arr) => arr.slice(-3).reduce((s,x)=>s+(x==='W'?3:x==='D'?1:0),0);
@@ -713,11 +585,11 @@ window.removeTeamFromLeague = function(teamName) {
         delete teams[teamName];
         saveToStorage();
         showToast(`${teamName} removed`);
-        renderTable();
-        renderGameweekTabs();
-        renderFixtures();
+        renderTable(); renderGameweekTabs(); renderFixtures();
     }
 };
+
+window.resetTournament = () => { if(confirm("Wipe ALL data?")) db.ref('tournament_data').remove().then(()=>location.reload()); };
 
 window.showTeamDetails = function(teamName) {
     const team = teams[teamName];
@@ -758,8 +630,7 @@ window.closeTeamModal = function() {
     document.getElementById('team-modal').classList.remove('flex');
 };
 
-window.resetTournament = () => { if(confirm("Wipe ALL data?")) db.ref('tournament_data').remove().then(()=>location.reload()); };
-
 window.onload = () => {
+    rotateTickerMessage(); // initial display
     initRealtimeDatabaseSync();
 };
