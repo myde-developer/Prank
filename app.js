@@ -25,9 +25,6 @@ let tickerInterval = null;
 let currentTickerFactIndex = 0;
 let tickerFacts = [];
 
-// Track index for current active simulation fixture modal
-let activePredictorFixtureId = null;
-
 // ============================================================
 // 2. HELPER FUNCTIONS
 // ============================================================
@@ -45,6 +42,7 @@ function saveToStorage() {
     db.ref('tournament_data').set({ teams, fixtures, password: tournamentPassword });
 }
 
+
 // ============================================================
 // 3. Database Initialization 
 // ============================================================
@@ -52,6 +50,7 @@ function initRealtimeDatabaseSync() {
     db.ref('tournament_data').on('value', (snapshot) => {
         const data = snapshot.val();
         if (data && data.teams && data.fixtures) {
+            // ✅ Fetch password from database (this is the source of truth)
             if (data.password) tournamentPassword = data.password;
             teams = data.teams;
             fixtures = data.fixtures;
@@ -67,6 +66,8 @@ function initRealtimeDatabaseSync() {
             generateTickerFacts();
             document.title = `DLS | ${Object.keys(teams).length} teams • Live`;
         } else {
+            // No data in Firebase → show setup wizard
+            // For first-time setup, set a temporary default password (only for the wizard)
             tournamentPassword = "1234";
             document.getElementById('setup-section')?.classList.remove('hidden');
             document.getElementById('dashboard-section')?.classList.add('hidden');
@@ -392,6 +393,7 @@ let pendingAssignSide = null;
 window.editFixtureTeamName = function(fixtureId, side) {
     if (!isAdmin) return;
     const fixture = fixtures.find(f => f.id === fixtureId);
+    const currentTeam = side === 'home' ? fixture.home : fixture.away;
     const dropdown = document.getElementById('team-select-dropdown');
     dropdown.innerHTML = '';
     const cancelOption = document.createElement('option');
@@ -612,7 +614,7 @@ function renderFixtures() {
                 </div>
             `;
         } else {
-            midHtml = played ? `<div class="bg-gray-100 px-3 py-1 rounded-full font-mono font-bold text-sm cursor-pointer hover:bg-indigo-50" onclick="runMatchPrediction(${f.id})">${f.homeScore} - ${f.awayScore}</div>` : `<button onclick="runMatchPrediction(${f.id})" class="text-[11px] bg-gray-100 hover:bg-indigo-50 px-3 py-1 rounded-full">🔮 Predict</button>`;
+            midHtml = played ? `<div class="bg-gray-100 px-3 py-1 rounded-full font-mono font-bold text-sm">${f.homeScore} - ${f.awayScore}</div>` : `<button onclick="runMatchPrediction(${f.id})" class="text-[11px] bg-gray-100 hover:bg-indigo-50 px-3 py-1 rounded-full">🔍 Predict</button>`;
             actionHtml = `<button onclick="showMatchComment(${f.id})" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full">💬</button>`;
             container.innerHTML += `
                 <div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full">
@@ -733,130 +735,120 @@ window.confirmComment = function() {
 };
 
 // ============================================================
-// 12. USER INTERACTIVE PREDICTOR MODAL LOGIC
+// 12. CROWD-SOURCED PUBLIC MATCH PREDICTOR ENGINE
 // ============================================================
+let currentPredictingFixtureId = null;
+let databaseVotesRef = null;
+
 window.runMatchPrediction = function(fixtureId) {
     const f = fixtures.find(f => f.id === fixtureId);
-    if (!f) return;
-    if (f.home === 'BYE' || f.away === 'BYE') { alert("Cannot simulate a match with a BYE team."); return; }
+    if (!f || f.home === 'BYE' || f.away === 'BYE') { 
+        alert("Cannot cast predictions for a match featuring a BYE team assignment."); 
+        return; 
+    }
     
-    activePredictorFixtureId = fixtureId;
-
-    // Set headers
+    currentPredictingFixtureId = fixtureId;
+    
+    // Bind Team Names into structural modal targets
     document.getElementById('pred-home-name').innerText = f.home;
     document.getElementById('pred-away-name').innerText = f.away;
     
-    // Reset any layout values from previous inputs
-    document.getElementById('pred-home-score').value = f.played ? f.homeScore : '';
-    document.getElementById('pred-away-score').value = f.played ? f.awayScore : '';
-    document.getElementById('pred-table-container').classList.add('hidden');
-    document.getElementById('pred-table-body').innerHTML = '';
+    // Clear legacy input artifacts
+    document.getElementById('viewer-pred-home-score').value = "";
+    document.getElementById('viewer-pred-away-score').value = "";
     
-    // Open modal
+    // Synchronize Realtime Event Stream for Crowd Outcomes from path
+    if (databaseVotesRef) databaseVotesRef.off();
+    
+    databaseVotesRef = db.ref(`crowd_predictions/${fixtureId}`);
+    databaseVotesRef.on('value', (snapshot) => {
+        const crowdData = snapshot.val() || {};
+        const outcomes = crowdData.outcomes || { home: 0, draw: 0, away: 0 };
+        const total = (outcomes.home || 0) + (outcomes.draw || 0) + (outcomes.away || 0);
+        
+        if (total > 0) {
+            document.getElementById('pred-home-pct').innerText = `${Math.round(((outcomes.home || 0) / total) * 100)}%`;
+            document.getElementById('pred-draw-pct').innerText = `${Math.round(((outcomes.draw || 0) / total) * 100)}%`;
+            document.getElementById('pred-away-pct').innerText = `${Math.round(((outcomes.away || 0) / total) * 100)}%`;
+        } else {
+            document.getElementById('pred-home-pct').innerText = "0%";
+            document.getElementById('pred-draw-pct').innerText = "0%";
+            document.getElementById('pred-away-pct').innerText = "0%";
+        }
+    });
+
+    // Provide localized evaluation context mapping via browser localStorage token lookup filtering
+    const userVote = localStorage.getItem(`voted_outcome_${fixtureId}`);
+    const flagHint = document.getElementById('vote-status-hint');
+    if (userVote) {
+        flagHint.innerText = `✅ Your response is locked in: ${userVote.toUpperCase()}`;
+        flagHint.className = "text-[10px] text-emerald-600 text-center mt-2 font-bold";
+    } else {
+        flagHint.innerText = "Click home, draw, or away to register your vote instantly.";
+        flagHint.className = "text-[10px] text-gray-400 text-center mt-2 italic";
+    }
+    
     document.getElementById('predictor-modal').classList.remove('hidden');
     document.getElementById('predictor-modal').classList.add('flex');
 };
 
 window.closePredictorModal = () => {
+    if (databaseVotesRef) {
+        databaseVotesRef.off();
+        databaseVotesRef = null;
+    }
+    currentPredictingFixtureId = null;
     document.getElementById('predictor-modal').classList.add('hidden');
     document.getElementById('predictor-modal').classList.remove('flex');
-    activePredictorFixtureId = null;
 };
 
-window.calculatePredictedTable = function() {
-    if (activePredictorFixtureId === null) return;
+window.submitCrowdVote = function(outcome) {
+    if (!currentPredictingFixtureId) return;
     
-    const homeInput = document.getElementById('pred-home-score').value;
-    const awayInput = document.getElementById('pred-away-score').value;
-    
-    if (homeInput === "" || awayInput === "") {
-        alert("Please enter values for both home and away score inputs.");
+    if (localStorage.getItem(`voted_outcome_${currentPredictingFixtureId}`)) {
+        showToast("You have already submitted an outcome prediction for this match!");
         return;
     }
     
-    const simHomeScore = parseInt(homeInput);
-    const simAwayScore = parseInt(awayInput);
+    // Execute write as a transaction block to maintain counter integrity
+    db.ref(`crowd_predictions/${currentPredictingFixtureId}/outcomes/${outcome}`)
+      .transaction((currentCount) => {
+          return (currentCount || 0) + 1;
+      }, (error, committed) => {
+          if (committed) {
+              localStorage.setItem(`voted_outcome_${currentPredictingFixtureId}`, outcome);
+              showToast(`Vote recorded for ${outcome.toUpperCase()}!`);
+              document.getElementById('vote-status-hint').innerText = `✅ Your response is locked in: ${outcome.toUpperCase()}`;
+              document.getElementById('vote-status-hint').className = "text-[10px] text-emerald-600 text-center mt-2 font-bold";
+          } else {
+              showToast("Network connection rejected transmission.");
+          }
+      });
+};
+
+window.submitScorePrediction = function() {
+    if (!currentPredictingFixtureId) return;
     
-    // 1. Deep clone current official state variables to maintain data safety
-    let simulatedTeams = {};
-    for (let t in teams) {
-        simulatedTeams[t] = { 
-            name: teams[t].name, 
-            mp: teams[t].mp, 
-            w: teams[t].w, 
-            d: teams[t].d, 
-            l: teams[t].l, 
-            gf: teams[t].gf, 
-            ga: teams[t].ga, 
-            gd: teams[t].gd, 
-            pts: teams[t].pts,
-            deductedPoints: teams[t].deductedPoints || 0
-        };
+    const homeScoreVal = document.getElementById('viewer-pred-home-score').value;
+    const awayScoreVal = document.getElementById('viewer-pred-away-score').value;
+    
+    if (homeScoreVal === "" || awayScoreVal === "") {
+        alert("Please specify scoreline targets for both teams before submission.");
+        return;
     }
     
-    const f = fixtures.find(f => f.id === activePredictorFixtureId);
-    const h = f.home;
-    const a = f.away;
+    const formattedPrediction = `${parseInt(homeScoreVal)} - ${parseInt(awayScoreVal)}`;
     
-    // 2. Reverse previous outcome points if match was already officially tracked
-    if (f.played) {
-        const oldH = parseInt(f.homeScore);
-        const oldA = parseInt(f.awayScore);
-        
-        simulatedTeams[h].mp--; simulatedTeams[a].mp--;
-        simulatedTeams[h].gf -= oldH; simulatedTeams[h].ga -= oldA;
-        simulatedTeams[a].gf -= oldA; simulatedTeams[a].ga -= oldH;
-        
-        if (oldH > oldA) { simulatedTeams[h].w--; simulatedTeams[a].l--; simulatedTeams[h].pts -= 3; }
-        else if (oldA > oldH) { simulatedTeams[a].w--; simulatedTeams[h].l--; simulatedTeams[a].pts -= 3; }
-        else { simulatedTeams[h].d--; simulatedTeams[a].d--; simulatedTeams[h].pts -= 1; simulatedTeams[a].pts -= 1; }
-    }
-    
-    // 3. Inject hypothetical input data points 
-    simulatedTeams[h].mp++; simulatedTeams[a].mp++;
-    simulatedTeams[h].gf += simHomeScore; simulatedTeams[h].ga += simAwayScore;
-    simulatedTeams[a].gf += simAwayScore; simulatedTeams[a].ga += simHomeScore;
-    
-    if (simHomeScore > simAwayScore) {
-        simulatedTeams[h].w++; simulatedTeams[a].l++;
-        simulatedTeams[h].pts += 3;
-    } else if (simAwayScore > simHomeScore) {
-        simulatedTeams[a].w++; simulatedTeams[b] ? simulatedTeams[a].l++ : simulatedTeams[a].l++; // safety check mapping
-        simulatedTeams[a].pts += 3;
-    } else {
-        simulatedTeams[h].d++; simulatedTeams[a].d++;
-        simulatedTeams[h].pts += 1; simulatedTeams[a].pts += 1;
-    }
-    
-    // Recalculate goal differences cleanly across variables
-    for (let t in simulatedTeams) {
-        simulatedTeams[t].gd = simulatedTeams[t].gf - simulatedTeams[t].ga;
-    }
-    
-    // 4. Sort using your specific rules configuration (PTS -> GD -> GF)
-    let sortedSim = Object.values(simulatedTeams).sort((x, y) => y.pts - x.pts || y.gd - x.gd || y.gf - x.gf);
-    
-    // 5. Paint preview components inside sub table markup
-    const tbody = document.getElementById('pred-table-body');
-    tbody.innerHTML = "";
-    
-    sortedSim.forEach((team, idx) => {
-        const isTarget = (team.name === h || team.name === a);
-        const highlightClass = isTarget ? "bg-indigo-50/80 font-bold text-gray-900" : "text-gray-600";
-        
-        tbody.innerHTML += `
-            <tr class="${highlightClass}">
-                <td class="py-2 px-3 text-center font-black ${idx === 0 ? 'text-indigo-600' : ''}">${idx + 1}</td>
-                <td class="py-2 px-3 truncate max-w-[120px]">${team.name} ${isTarget ? '⚡' : ''}</td>
-                <td class="py-2 px-2 text-center">${team.mp}</td>
-                <td class="py-2 px-2 text-center font-mono ${team.gd >= 0 ? 'text-emerald-600' : 'text-rose-500'}">${team.gd > 0 ? '+' + team.gd : team.gd}</td>
-                <td class="py-2 px-3 text-center text-indigo-600 font-extrabold">${team.pts}</td>
-            </tr>
-        `;
+    db.ref(`crowd_predictions/${currentPredictingFixtureId}/scores`).push({
+        prediction: formattedPrediction,
+        timestamp: firebase.database.ServerValue.TIMESTAMP
+    }).then(() => {
+        showToast(`Scoreline prediction ${formattedPrediction} submitted successfully!`);
+        document.getElementById('viewer-pred-home-score').value = "";
+        document.getElementById('viewer-pred-away-score').value = "";
+    }).catch(() => {
+        showToast("Failed to save scoreline prediction.");
     });
-    
-    // Unhide preview block smooth layout window
-    document.getElementById('pred-table-container').classList.remove('hidden');
 };
 
 window.deductPointsPrompt = function(teamName) {

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>DLS Vawulence Academy | Tournament Hub</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght=14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <link rel="stylesheet" href="styles.css">
@@ -66,47 +66,44 @@
         </div>
     </div>
 
-    <div id="predictor-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-gray-200 overflow-hidden animate-fadeInUp">
-            <div class="p-5 border-b border-gray-200 flex justify-between items-center">
+    <div id="predictor-modal" class="fixed inset-0 z-50 hidden bg-gray-900/40 backdrop-blur-sm items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-gray-100 overflow-hidden animate-fadeInUp">
+            <div class="p-5 border-b border-gray-100 flex justify-between items-center">
                 <div>
-                    <h3 class="font-bold text-lg text-gray-800">🔮 Live Match Predictor</h3>
-                    <p class="text-xs text-gray-500">Test a scoreline to see its impact on live tournament standings</p>
+                    <h3 class="font-bold text-lg">🔮 Viewer Prediction Hub</h3>
+                    <p class="text-xs text-gray-500">Cast your vote and check live community expectations</p>
                 </div>
                 <button onclick="closePredictorModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button>
             </div>
-            <div class="p-5 space-y-5">
-                <div class="flex items-center justify-between gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
-                    <div class="flex-1 text-right font-bold text-sm text-gray-700 truncate" id="pred-home-name">Home Team</div>
-                    <div class="flex items-center gap-2">
-                        <input type="number" id="pred-home-score" min="0" placeholder="0" class="w-12 h-10 text-center bg-white border border-gray-200 rounded-xl font-mono font-bold text-lg text-indigo-600 focus:ring-2 focus:ring-indigo-300 outline-none">
-                        <span class="text-gray-400 font-bold">:</span>
-                        <input type="number" id="pred-away-score" min="0" placeholder="0" class="w-12 h-10 text-center bg-white border border-gray-200 rounded-xl font-mono font-bold text-lg text-indigo-600 focus:ring-2 focus:ring-indigo-300 outline-none">
+            
+            <div class="p-5 space-y-6">
+                <div>
+                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 text-center">Who will win? (Click to vote)</p>
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        <button id="btn-pred-home" onclick="submitCrowdVote('home')" class="p-3 bg-gray-50 border border-gray-200 rounded-xl hover:bg-indigo-50 hover:border-indigo-300 transition group flex flex-col justify-between h-24">
+                            <p id="pred-home-name" class="font-bold text-gray-800 text-xs w-full truncate"></p>
+                            <div class="text-xl font-black text-indigo-600 mt-1 w-full text-center" id="pred-home-pct">0%</div>
+                        </button>
+                        <button id="btn-pred-draw" onclick="submitCrowdVote('draw')" class="p-3 bg-gray-50 border border-gray-200 rounded-xl hover:bg-indigo-50 hover:border-indigo-300 transition group flex flex-col justify-between h-24">
+                            <p class="font-bold text-gray-500 text-xs w-full text-center">DRAW</p>
+                            <div class="text-xl font-black text-gray-700 mt-1 w-full text-center" id="pred-draw-pct">0%</div>
+                        </button>
+                        <button id="btn-pred-away" onclick="submitCrowdVote('away')" class="p-3 bg-gray-50 border border-gray-200 rounded-xl hover:bg-indigo-50 hover:border-indigo-300 transition group flex flex-col justify-between h-24">
+                            <p id="pred-away-name" class="font-bold text-gray-800 text-xs w-full truncate"></p>
+                            <div class="text-xl font-black text-indigo-600 mt-1 w-full text-center" id="pred-away-pct">0%</div>
+                        </button>
                     </div>
-                    <div class="flex-1 text-left font-bold text-sm text-gray-700 truncate" id="pred-away-name">Away Team</div>
+                    <p id="vote-status-hint" class="text-[10px] text-gray-400 text-center mt-2 italic">Click home, draw, or away to register your vote instantly.</p>
                 </div>
 
-                <button onclick="calculatePredictedTable()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl text-sm transition shadow-xs">
-                    📊 Calculate Standings Impact
-                </button>
-
-                <div id="pred-table-container" class="hidden space-y-2">
-                    <span class="text-[11px] font-mono font-bold text-indigo-700 uppercase tracking-wider block">📋 Simulated Standings Impact</span>
-                    <div class="overflow-x-auto border border-gray-100 rounded-xl max-h-60 overflow-y-auto">
-                        <table class="w-full text-xs text-left">
-                            <thead class="bg-gray-50 text-gray-500 font-mono uppercase text-[10px] sticky top-0">
-                                <tr>
-                                    <th class="py-2 px-3 text-center">Pos</th>
-                                    <th class="py-2 px-3">Team</th>
-                                    <th class="py-2 px-2 text-center">MP</th>
-                                    <th class="py-2 px-2 text-center">GD</th>
-                                    <th class="py-2 px-3 text-center">PTS</th>
-                                </tr>
-                            </thead>
-                            <tbody id="pred-table-body" class="divide-y divide-gray-100">
-                                </tbody>
-                        </table>
+                <div class="border-t border-gray-100 pt-4">
+                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 text-center">Predict the Exact Scoreline</p>
+                    <div class="flex items-center justify-center gap-3">
+                        <input type="number" id="viewer-pred-home-score" min="0" placeholder="0" class="w-12 h-10 text-center bg-gray-50 border border-gray-200 rounded-xl font-mono font-bold text-lg outline-none focus:ring-2 focus:ring-indigo-300">
+                        <span class="text-gray-400 font-bold">:</span>
+                        <input type="number" id="viewer-pred-away-score" min="0" placeholder="0" class="w-12 h-10 text-center bg-gray-50 border border-gray-200 rounded-xl font-mono font-bold text-lg outline-none focus:ring-2 focus:ring-indigo-300">
                     </div>
+                    <button onclick="submitScorePrediction()" class="w-full mt-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl text-xs shadow-xs transition">Submit Predicted Scoreline</button>
                 </div>
             </div>
             <div class="p-4 bg-gray-50 text-right rounded-b-2xl">
@@ -148,39 +145,39 @@
         </div>
     </div>
 
-    <div id="change-password-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full border border-gray-200 overflow-hidden animate-fadeInUp">
-            <div class="p-5 border-b border-gray-200 flex justify-between items-center">
-                <h3 class="font-bold text-gray-800">🔐 Change Master Password</h3>
-                <button onclick="closeChangePasswordModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button>
-            </div>
-            <div class="p-5 space-y-3">
-                <input type="password" id="new-password" placeholder="New password" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-center font-mono text-sm focus:ring-2 focus:ring-indigo-300 outline-none">
-                <input type="password" id="confirm-password" placeholder="Confirm new password" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-center font-mono text-sm focus:ring-2 focus:ring-indigo-300 outline-none">
-                <p id="password-match-error" class="hidden text-red-500 text-xs text-center">Passwords do not match</p>
-            </div>
-            <div class="p-4 bg-gray-50 flex gap-3 justify-end rounded-b-2xl">
-                <button onclick="closeChangePasswordModal()" class="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 transition">Cancel</button>
-                <button onclick="updateMasterPassword()" class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition">Update</button>
-            </div>
+<div id="change-password-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full border border-gray-200 overflow-hidden animate-fadeInUp">
+        <div class="p-5 border-b border-gray-200 flex justify-between items-center">
+            <h3 class="font-bold text-gray-800">🔐 Change Master Password</h3>
+            <button onclick="closeChangePasswordModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button>
+        </div>
+        <div class="p-5 space-y-3">
+            <input type="password" id="new-password" placeholder="New password" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-center font-mono text-sm focus:ring-2 focus:ring-indigo-300 outline-none">
+            <input type="password" id="confirm-password" placeholder="Confirm new password" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-center font-mono text-sm focus:ring-2 focus:ring-indigo-300 outline-none">
+            <p id="password-match-error" class="hidden text-red-500 text-xs text-center">Passwords do not match</p>
+        </div>
+        <div class="p-4 bg-gray-50 flex gap-3 justify-end rounded-b-2xl">
+            <button onclick="closeChangePasswordModal()" class="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 transition">Cancel</button>
+            <button onclick="updateMasterPassword()" class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition">Update</button>
         </div>
     </div>
+</div>
 
 <div id="penalty-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full border border-gray-200 overflow-hidden animate-fadeInUp">
-            <div class="p-5 border-b border-gray-200 flex justify-between items-center">
-                <h3 class="font-bold text-gray-800">⚖️ Clear Penalty Points</h3>
-                <button onclick="closePenaltyModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button>
-            </div>
-            <div class="p-5 text-center">
-                <p class="text-sm text-gray-600 mb-4" id="penalty-team-name"></p>
-                <button onclick="clearPenaltyPoints()" class="w-full bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold py-2 px-4 rounded-full transition">Clear Penalty Points</button>
-            </div>
-            <div class="p-4 bg-gray-50 text-right rounded-b-2xl">
-                <button onclick="closePenaltyModal()" class="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 transition">Cancel</button>
-            </div>
+    <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full border border-gray-200 overflow-hidden animate-fadeInUp">
+        <div class="p-5 border-b border-gray-200 flex justify-between items-center">
+            <h3 class="font-bold text-gray-800">⚖️ Clear Penalty Points</h3>
+            <button onclick="closePenaltyModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button>
+        </div>
+        <div class="p-5 text-center">
+            <p class="text-sm text-gray-600 mb-4" id="penalty-team-name"></p>
+            <button onclick="clearPenaltyPoints()" class="w-full bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold py-2 px-4 rounded-full transition">Clear Penalty Points</button>
+        </div>
+        <div class="p-4 bg-gray-50 text-right rounded-b-2xl">
+            <button onclick="closePenaltyModal()" class="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 transition">Cancel</button>
         </div>
     </div>
+</div>
 
     <main class="max-w-6xl mx-auto px-4 py-8 space-y-10">
         <section id="setup-section" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-6">
@@ -232,10 +229,10 @@
                 <div id="fixtures-container" class="flex flex-col gap-3"></div>
             </div>
 
-            <div id="admin-reset-container" class="text-center hidden pt-4 space-x-3">
-                <button onclick="openChangePasswordModal()" class="text-xs text-indigo-600 hover:text-indigo-800 underline decoration-dotted">🔑 Change Master Password</button>
-                <button onclick="resetTournament()" class="text-xs text-rose-500 hover:text-rose-700 underline decoration-dotted">⚠️ Wipe entire league data (irreversible)</button>
-            </div>
+         <div id="admin-reset-container" class="text-center hidden pt-4 space-x-3">
+    <button onclick="openChangePasswordModal()" class="text-xs text-indigo-600 hover:text-indigo-800 underline decoration-dotted">🔑 Change Master Password</button>
+    <button onclick="resetTournament()" class="text-xs text-rose-500 hover:text-rose-700 underline decoration-dotted">⚠️ Wipe entire league data (irreversible)</button>
+</div>
         </section>
     </main>
 
