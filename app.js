@@ -42,7 +42,6 @@ function saveToStorage() {
     db.ref('tournament_data').set({ teams, fixtures, password: tournamentPassword });
 }
 
-
 // ============================================================
 // 3. Database Initialization 
 // ============================================================
@@ -50,7 +49,6 @@ function initRealtimeDatabaseSync() {
     db.ref('tournament_data').on('value', (snapshot) => {
         const data = snapshot.val();
         if (data && data.teams && data.fixtures) {
-            // ✅ Fetch password from database (this is the source of truth)
             if (data.password) tournamentPassword = data.password;
             teams = data.teams;
             fixtures = data.fixtures;
@@ -66,8 +64,6 @@ function initRealtimeDatabaseSync() {
             generateTickerFacts();
             document.title = `DLS | ${Object.keys(teams).length} teams • Live`;
         } else {
-            // No data in Firebase → show setup wizard
-            // For first-time setup, set a temporary default password (only for the wizard)
             tournamentPassword = "1234";
             document.getElementById('setup-section')?.classList.remove('hidden');
             document.getElementById('dashboard-section')?.classList.add('hidden');
@@ -188,9 +184,6 @@ function updateAdminUIElements() {
     renderFixtures();
 }
 
-// ============================================================
-// CHANGE MASTER PASSWORD (ADMIN ONLY)
-// ============================================================
 function openChangePasswordModal() {
     if (!isAdmin) return;
     document.getElementById('new-password').value = '';
@@ -199,34 +192,22 @@ function openChangePasswordModal() {
     document.getElementById('change-password-modal').classList.remove('hidden');
     document.getElementById('change-password-modal').classList.add('flex');
 }
-
 function closeChangePasswordModal() {
     document.getElementById('change-password-modal').classList.add('hidden');
     document.getElementById('change-password-modal').classList.remove('flex');
 }
-
 function updateMasterPassword() {
     const newPass = document.getElementById('new-password').value.trim();
     const confirmPass = document.getElementById('confirm-password').value.trim();
-    if (newPass === '') {
-        showToast('Password cannot be empty');
-        return;
-    }
-    if (newPass !== confirmPass) {
-        document.getElementById('password-match-error').classList.remove('hidden');
-        return;
-    }
+    if (newPass === '') { showToast('Password cannot be empty'); return; }
+    if (newPass !== confirmPass) { document.getElementById('password-match-error').classList.remove('hidden'); return; }
     tournamentPassword = newPass;
     saveToStorage();
     showToast('Master password updated successfully!');
     closeChangePasswordModal();
 }
 
-// ============================================================
-// PENALTY ADJUSTMENT (CLEAR ONLY)
-// ============================================================
 let currentPenaltyTeam = null;
-
 function openPenaltyModal(teamName) {
     if (!isAdmin) return;
     currentPenaltyTeam = teamName;
@@ -234,22 +215,16 @@ function openPenaltyModal(teamName) {
     document.getElementById('penalty-modal').classList.remove('hidden');
     document.getElementById('penalty-modal').classList.add('flex');
 }
-
 function closePenaltyModal() {
     document.getElementById('penalty-modal').classList.add('hidden');
     document.getElementById('penalty-modal').classList.remove('flex');
     currentPenaltyTeam = null;
 }
-
 function clearPenaltyPoints() {
     if (!currentPenaltyTeam) return;
     const team = teams[currentPenaltyTeam];
     if (!team) return;
-    if (team.deductedPoints === 0) {
-        showToast(`${currentPenaltyTeam} has no penalty points to clear.`);
-        closePenaltyModal();
-        return;
-    }
+    if (team.deductedPoints === 0) { showToast(`${currentPenaltyTeam} has no penalty points.`); closePenaltyModal(); return; }
     team.deductedPoints = 0;
     saveToStorage();
     showToast(`Penalty points cleared for ${currentPenaltyTeam}`);
@@ -258,7 +233,7 @@ function clearPenaltyPoints() {
 }
 
 // ============================================================
-// 6. LEAGUE SETUP (NO CRESTS)
+// 6. LEAGUE SETUP
 // ============================================================
 function generateTeamInputs() {
     const count = parseInt(document.getElementById('team-count').value);
@@ -329,7 +304,7 @@ function initializeTournament() {
 }
 
 // ============================================================
-// 7. FIXTURE MANAGEMENT (SHUFFLE, SWAP, ASSIGN TEAM)
+// 7. FIXTURE MANAGEMENT
 // ============================================================
 function shuffleRound(roundNumber) {
     if (!isAdmin) return;
@@ -367,7 +342,6 @@ function shuffleRound(roundNumber) {
     renderGameweekTabs();
     renderFixtures();
     renderTable();
-    generateTickerFacts();
 }
 
 function swapFixture(fixtureId) {
@@ -384,7 +358,6 @@ function swapFixture(fixtureId) {
     showToast(`Swapped ${fixture.home} vs ${fixture.away}`);
     renderFixtures();
     renderTable();
-    generateTickerFacts();
 }
 
 let pendingAssignFixtureId = null;
@@ -410,10 +383,6 @@ window.editFixtureTeamName = function(fixtureId, side) {
         if (name === currentTeam) option.selected = true;
         dropdown.appendChild(option);
     });
-    const byeOption = document.createElement('option');
-    byeOption.value = 'BYE_REMOVE';
-    byeOption.textContent = '— Remove team from this fixture (set to BYE) —';
-    dropdown.appendChild(byeOption);
     pendingAssignFixtureId = fixtureId;
     pendingAssignSide = side;
     document.getElementById('team-select-modal').classList.remove('hidden');
@@ -431,15 +400,6 @@ window.confirmTeamSelection = function() {
     if (selectedValue === '') { closeTeamSelectModal(); return; }
     const fixture = fixtures.find(f => f.id === pendingAssignFixtureId);
     const side = pendingAssignSide;
-    if (selectedValue === 'BYE_REMOVE') {
-        if (side === 'home') fixture.home = 'BYE';
-        else fixture.away = 'BYE';
-        fixture.homeScore = null; fixture.awayScore = null; fixture.played = false; fixture.comment = null;
-        saveToStorage();
-        showToast(`Removed team from ${side === 'home' ? 'home' : 'away'} side. Set to BYE.`);
-        renderFixtures(); renderTable(); generateTickerFacts(); closeTeamSelectModal();
-        return;
-    }
     const newTeam = selectedValue;
     const oldTeam = side === 'home' ? fixture.home : fixture.away;
     if (newTeam === oldTeam) { closeTeamSelectModal(); return; }
@@ -447,7 +407,7 @@ window.confirmTeamSelection = function() {
     const otherFixtures = fixtures.filter(f => f.round === round && f.id !== fixture.id);
     const isUsedElsewhere = otherFixtures.some(f => f.home === newTeam || f.away === newTeam);
     if (isUsedElsewhere) {
-        showToast(`Team "${newTeam}" already has a fixture in this round! Remove that team first or shuffle.`);
+        showToast(`Team "${newTeam}" already has a fixture in this round!`);
         closeTeamSelectModal();
         return;
     }
@@ -456,7 +416,7 @@ window.confirmTeamSelection = function() {
     fixture.homeScore = null; fixture.awayScore = null; fixture.played = false; fixture.comment = null;
     saveToStorage();
     showToast(`Assigned ${newTeam} to ${side === 'home' ? 'home' : 'away'} side.`);
-    renderFixtures(); renderTable(); generateTickerFacts(); closeTeamSelectModal();
+    renderFixtures(); renderTable(); closeTeamSelectModal();
 };
 
 // ============================================================
@@ -502,16 +462,10 @@ function updateTableCalculations() {
 }
 
 // ============================================================
-// 9. RENDER LEAGUE TABLE (NO CRESTS)
+// 9. RENDER LEAGUE TABLE
 // ============================================================
 function renderTable() {
     let currentSorted = Object.values(teams).sort((a,b)=>b.pts-a.pts || b.gd-a.gd || b.gf-a.gf);
-    let maxRoundPlayed = Math.max(0, ...fixtures.filter(f=>f.played).map(f=>f.round));
-    let prevRankMap = {};
-    if(maxRoundPlayed > 1) {
-        let prev = calculateStandingsForRound(maxRoundPlayed-1);
-        prev.forEach((p,idx)=> prevRankMap[p.name] = idx);
-    }
     const tbody = document.getElementById('league-table-body');
     tbody.innerHTML = "";
     currentSorted.forEach((team, idx) => {
@@ -543,11 +497,10 @@ function renderTable() {
             </tr>
         `;
     });
-    generateTickerFacts();
 }
 
 // ============================================================
-// 10. RENDER GAMEWEEK TABS & FIXTURES (VERTICAL LAYOUT)
+// 10. RENDER GAMEWEEK TABS & FIXTURES
 // ============================================================
 function renderGameweekTabs() {
     const container = document.getElementById('gameweek-tabs');
@@ -586,10 +539,15 @@ function renderFixtures() {
                     <input type="number" id="away-score-${f.id}" value="${played ? f.awayScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm">
                 </div>
             `;
+            
+            // FEATURE 6: Admin Rollback/Undo UI Button Addition
+            const undoButtonHtml = played ? `<button onclick="undoMatchResult(${f.id})" class="text-[10px] font-bold bg-rose-50 text-rose-700 px-2 py-1 rounded-full hover:bg-rose-100">🔄 Undo</button>` : '';
+            
             actionHtml = `
                 <div class="flex flex-wrap gap-1 justify-end">
                     <button onclick="swapFixture(${f.id})" class="text-[10px] font-bold bg-amber-50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100">🔄 Swap</button>
                     <button onclick="saveResult(${f.id})" class="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full hover:bg-indigo-100">💾 Save</button>
+                    ${undoButtonHtml}
                     <button onclick="showMatchComment(${f.id})" class="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-full hover:bg-gray-200">💬</button>
                 </div>
             `;
@@ -614,8 +572,8 @@ function renderFixtures() {
                 </div>
             `;
         } else {
-            midHtml = played ? `<div class="bg-gray-100 px-3 py-1 rounded-full font-mono font-bold text-sm">${f.homeScore} - ${f.awayScore}</div>` : `<button onclick="runMatchPrediction(${f.id})" class="text-[11px] bg-gray-100 hover:bg-indigo-50 px-3 py-1 rounded-full">🔍 Predict</button>`;
-            actionHtml = `<button onclick="showMatchComment(${f.id})" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full">💬</button>`;
+            midHtml = played ? `<div class="bg-gray-100 px-3 py-1 rounded-full font-mono font-bold text-sm">${f.homeScore} - ${f.awayScore}</div>` : `<button onclick="runMatchPrediction(${f.id})" class="text-[11px] bg-gray-100 hover:bg-indigo-50 px-3 py-1 rounded-full">🔮 Predict</button>`;
+            actionHtml = `<button onclick="showMatchComment(${f.id})" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full">💬 Banter Room</button>`;
             container.innerHTML += `
                 <div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -639,44 +597,91 @@ function renderFixtures() {
 }
 
 // ============================================================
-// 11. MATCH COMMENTS (VIEWER & EDITOR)
+// 11. MATCH DETAILS & FEATURE 4: LIVE BANTER CHAT SYSTEM
 // ============================================================
 let currentViewerFixtureId = null;
+let databaseBanterRef = null;
 
 window.showMatchComment = function(fixtureId) {
     const fixture = fixtures.find(f => f.id === fixtureId);
     if (!fixture) return;
     currentViewerFixtureId = fixtureId;
+    
     document.getElementById('viewer-match-name').innerHTML = `${fixture.home} vs ${fixture.away}`;
     const scoreText = fixture.played ? `${fixture.homeScore} - ${fixture.awayScore}` : 'Not played yet';
     document.getElementById('viewer-score').innerText = scoreText;
     const commentText = fixture.comment || (fixture.played ? 'No comment added.' : 'Match not played yet.');
     document.getElementById('viewer-comment').innerText = commentText;
+    
     const editBtn = document.getElementById('viewer-edit-btn');
     if (isAdmin && fixture.played) editBtn.classList.remove('hidden');
     else editBtn.classList.add('hidden');
+    
+    // Wire up automated message listeners for Banter stream path
+    if (databaseBanterRef) databaseBanterRef.off();
+    
+    const messagesBox = document.getElementById('banter-messages-box');
+    messagesBox.innerHTML = `<p class="text-gray-400 italic text-center pt-4 animate-pulse">Entering chat room...</p>`;
+    
+    databaseBanterRef = db.ref(`match_banter_chats/${fixtureId}`).limitToLast(30);
+    databaseBanterRef.on('value', (snapshot) => {
+        messagesBox.innerHTML = "";
+        const data = snapshot.val();
+        if (!data) {
+            messagesBox.innerHTML = `<p class="text-gray-400 italic text-center pt-4">No banter yet. Start the vawulence! 🔥</p>`;
+            return;
+        }
+        
+        Object.values(data).forEach(msg => {
+            const timeStr = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
+            messagesBox.innerHTML += `
+                <div class="bg-white p-2 rounded-lg border border-slate-100 shadow-2xs">
+                    <div class="flex justify-between items-center mb-0.5">
+                        <span class="font-extrabold text-indigo-600 text-[11px]">${escapeHTML(msg.user)}</span>
+                        <span class="text-[9px] text-gray-400 font-mono">${timeStr}</span>
+                    </div>
+                    <p class="text-gray-700 text-xs break-words">${escapeHTML(msg.text)}</p>
+                </div>
+            `;
+        });
+        // Auto Scroll viewport container to floor
+        messagesBox.scrollTop = messagesBox.scrollHeight;
+    });
+    
     document.getElementById('comment-viewer-modal').classList.remove('hidden');
     document.getElementById('comment-viewer-modal').classList.add('flex');
 };
+
 window.closeCommentViewer = function() {
+    if (databaseBanterRef) { databaseBanterRef.off(); databaseBanterRef = null; }
     document.getElementById('comment-viewer-modal').classList.add('hidden');
     document.getElementById('comment-viewer-modal').classList.remove('flex');
     currentViewerFixtureId = null;
 };
-window.editViewerComment = function() {
-    if (!isAdmin) return;
+
+window.submitBanterMessage = function() {
     if (currentViewerFixtureId === null) return;
-    const fixture = fixtures.find(f => f.id === currentViewerFixtureId);
-    if (!fixture.played) return;
-    pendingFixtureId = currentViewerFixtureId;
-    pendingHomeScore = fixture.homeScore;
-    pendingAwayScore = fixture.awayScore;
-    document.getElementById('comment-match-name').innerText = `${fixture.home} vs ${fixture.away}`;
-    document.getElementById('comment-text').value = fixture.comment || '';
-    document.getElementById('comment-modal').classList.remove('hidden');
-    document.getElementById('comment-modal').classList.add('flex');
-    closeCommentViewer();
+    let usernameInput = document.getElementById('banter-input-username').value.trim();
+    const messageInput = document.getElementById('banter-input-text').value.trim();
+    
+    if (messageInput === "") return;
+    if (usernameInput === "") usernameInput = "Anonymous";
+    
+    db.ref(`match_banter_chats/${currentViewerFixtureId}`).push({
+        user: usernameInput,
+        text: messageInput,
+        timestamp: firebase.database.ServerValue.TIMESTAMP
+    }).then(() => {
+        document.getElementById('banter-input-text').value = "";
+    }).catch(() => {
+        showToast("Banter blocked by networking fault.");
+    });
 };
+
+function escapeHTML(str) {
+    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+}
+
 function generateMatchComment(homeName, awayName, homeScore, awayScore) {
     const margin = Math.abs(homeScore - awayScore);
     const winner = homeScore > awayScore ? homeName : awayName;
@@ -692,17 +697,15 @@ function generateMatchComment(homeName, awayName, homeScore, awayScore) {
     } else {
         comment = `⚡ Narrow victory! ${winner} edged past ${loser}.`;
     }
-    const flavour = ["dominated possession", "clinical finishing", "strong defensive display", "counter-attacking masterclass"];
-    comment += ` ${winner} showed ${flavour[Math.floor(Math.random()*flavour.length)]}.`;
     return comment;
 }
+
 let pendingFixtureId = null, pendingHomeScore = null, pendingAwayScore = null;
 window.saveResult = function(fixtureId) {
     const homeScore = document.getElementById(`home-score-${fixtureId}`).value;
     const awayScore = document.getElementById(`away-score-${fixtureId}`).value;
     if (homeScore === "" || awayScore === "") { alert("Enter both scores"); return; }
     const fixture = fixtures.find(f => f.id === fixtureId);
-    if (fixture.home === 'BYE' || fixture.away === 'BYE') { alert("Cannot save a match with BYE team. Assign a real team first."); return; }
     const draft = generateMatchComment(fixture.home, fixture.away, parseInt(homeScore), parseInt(awayScore));
     pendingFixtureId = fixtureId;
     pendingHomeScore = parseInt(homeScore);
@@ -727,37 +730,97 @@ window.confirmComment = function() {
     fixture.played = true;
     fixture.comment = finalComment;
     saveToStorage();
-    showToast(`Result saved: ${fixture.home} ${pendingHomeScore}-${pendingAwayScore} ${fixture.away}`);
     closeCommentModal(true);
     pendingFixtureId = null;
-    renderTable();
-    renderFixtures();
+};
+
+window.editViewerComment = function() {
+    if (!isAdmin || currentViewerFixtureId === null) return;
+    const fixture = fixtures.find(f => f.id === currentViewerFixtureId);
+    if (!fixture.played) return;
+    pendingFixtureId = currentViewerFixtureId;
+    pendingHomeScore = fixture.homeScore;
+    pendingAwayScore = fixture.awayScore;
+    document.getElementById('comment-match-name').innerText = `${fixture.home} vs ${fixture.away}`;
+    document.getElementById('comment-text').value = fixture.comment || '';
+    document.getElementById('comment-modal').classList.remove('hidden');
+    document.getElementById('comment-modal').classList.add('flex');
+    closeCommentViewer();
 };
 
 // ============================================================
-// 12. CROWD-SOURCED PUBLIC MATCH PREDICTOR ENGINE
+// FEATURE 6: ADMIN MATCH ROLLBACK (UNDO ACTION) RENDER
+// ============================================================
+window.undoMatchResult = function(fixtureId) {
+    if (!isAdmin) return;
+    const fixture = fixtures.find(f => f.id === fixtureId);
+    if (!fixture || !fixture.played) return;
+    
+    if (confirm(`Are you sure you want to undo the result for ${fixture.home} vs ${fixture.away}? This will recalculate table standings instantly.`)) {
+        fixture.played = false;
+        fixture.homeScore = null;
+        fixture.awayScore = null;
+        fixture.comment = null;
+        
+        saveToStorage();
+        showToast("Match status rolled back to unplayed.");
+    }
+};
+
+// ============================================================
+// 12. CROWD-SOURCED PUBLIC MATCH PREDICTOR ENGINE & FEATURE 5
 // ============================================================
 let currentPredictingFixtureId = null;
 let databaseVotesRef = null;
 
 window.runMatchPrediction = function(fixtureId) {
     const f = fixtures.find(f => f.id === fixtureId);
-    if (!f || f.home === 'BYE' || f.away === 'BYE') { 
-        alert("Cannot cast predictions for a match featuring a BYE team assignment."); 
-        return; 
-    }
+    if (!f || f.home === 'BYE' || f.away === 'BYE') { return; }
     
     currentPredictingFixtureId = fixtureId;
-    
-    // Bind Team Names into structural modal targets
     document.getElementById('pred-home-name').innerText = f.home;
     document.getElementById('pred-away-name').innerText = f.away;
     
-    // Clear legacy input artifacts
     document.getElementById('viewer-pred-home-score').value = "";
     document.getElementById('viewer-pred-away-score').value = "";
     
-    // Synchronize Realtime Event Stream for Crowd Outcomes from path
+    // FEATURE 5: Realtime Insight Generation Framework
+    const insightsList = document.getElementById('predictor-insights-list');
+    insightsList.innerHTML = "";
+    
+    const hTeam = teams[f.home];
+    const aTeam = teams[f.away];
+    
+    if (hTeam && aTeam) {
+        // Insight 1: Point differential overview
+        const ptDiff = Math.abs(hTeam.pts - aTeam.pts);
+        if (ptDiff > 6) {
+            const high = hTeam.pts > aTeam.pts ? f.home : f.away;
+            insightsList.innerHTML += `<li>📊 <b>${high}</b> sits comfortably dominant over their opponent by a massive ${ptDiff} points margin.</li>`;
+        } else {
+            insightsList.innerHTML += `<li>⚖️ Tight matchup! Barely ${ptDiff} points separate these clubs on the table standings.</li>`;
+        }
+        
+        // Insight 2: Historical scoring tendencies
+        if (hTeam.gf / (hTeam.mp || 1) >= 2.0) {
+            insightsList.innerHTML += `<li>🔥 <b>${f.home}</b> is lethal upfront, averaging ${ (hTeam.gf / (hTeam.mp || 1)).toFixed(1) } goals a game!</li>`;
+        }
+        if (aTeam.ga / (aTeam.mp || 1) >= 2.0) {
+            insightsList.innerHTML += `<li>⚠️ Defensive worries: <b>${f.away}</b> leaks at least 2 goals per match on average.</li>`;
+        }
+        
+        // Insight 3: Dynamic streak weights
+        const hForm = hTeam.formHistory.slice(-3).join('');
+        const aForm = aTeam.formHistory.slice(-3).join('');
+        if (hForm === 'WWW') insightsList.innerHTML += `<li>👑 <b>${f.home}</b> enters on a blazing 3-match winning streak!</li>`;
+        if (aForm === 'LLL') insightsList.innerHTML += `<li>📉 Crisis mode: <b>${f.away}</b> has lost 3 straight games in a row.</li>`;
+    }
+    
+    if (insightsList.innerHTML === "") {
+        insightsList.innerHTML = `<li>🏃 Both teams looking to make an impact in this gameweek encounter. No advanced streaks active.</li>`;
+    }
+    
+    // Realtime voting calculations path sync
     if (databaseVotesRef) databaseVotesRef.off();
     
     databaseVotesRef = db.ref(`crowd_predictions/${fixtureId}`);
@@ -777,7 +840,6 @@ window.runMatchPrediction = function(fixtureId) {
         }
     });
 
-    // Provide localized evaluation context mapping via browser localStorage token lookup filtering
     const userVote = localStorage.getItem(`voted_outcome_${fixtureId}`);
     const flagHint = document.getElementById('vote-status-hint');
     if (userVote) {
@@ -793,10 +855,7 @@ window.runMatchPrediction = function(fixtureId) {
 };
 
 window.closePredictorModal = () => {
-    if (databaseVotesRef) {
-        databaseVotesRef.off();
-        databaseVotesRef = null;
-    }
+    if (databaseVotesRef) { databaseVotesRef.off(); databaseVotesRef = null; }
     currentPredictingFixtureId = null;
     document.getElementById('predictor-modal').classList.add('hidden');
     document.getElementById('predictor-modal').classList.remove('flex');
@@ -805,78 +864,94 @@ window.closePredictorModal = () => {
 window.submitCrowdVote = function(outcome) {
     if (!currentPredictingFixtureId) return;
     
-    if (localStorage.getItem(`voted_outcome_${currentPredictingFixtureId}`)) {
-        showToast("You have already submitted an outcome prediction for this match!");
+    // Get their previous vote for this match from their browser memory
+    const previousVote = localStorage.getItem(`voted_outcome_${currentPredictingFixtureId}`);
+    
+    // Case 1: If they click the exact same option they already voted for, do nothing
+    if (previousVote === outcome) {
+        showToast(`You have already voted for a ${outcome.toUpperCase()}!`);
         return;
     }
     
-    // Execute write as a transaction block to maintain counter integrity
-    db.ref(`crowd_predictions/${currentPredictingFixtureId}/outcomes/${outcome}`)
-      .transaction((currentCount) => {
-          return (currentCount || 0) + 1;
-      }, (error, committed) => {
-          if (committed) {
-              localStorage.setItem(`voted_outcome_${currentPredictingFixtureId}`, outcome);
-              showToast(`Vote recorded for ${outcome.toUpperCase()}!`);
-              document.getElementById('vote-status-hint').innerText = `✅ Your response is locked in: ${outcome.toUpperCase()}`;
-              document.getElementById('vote-status-hint').className = "text-[10px] text-emerald-600 text-center mt-2 font-bold";
-          } else {
-              showToast("Network connection rejected transmission.");
-          }
-      });
+    // Case 2: Changing an existing vote (e.g., changing from 'home' to 'draw')
+    if (previousVote) {
+        // Run a transaction that decrements the old vote and increments the new vote simultaneously
+        db.ref(`crowd_predictions/${currentPredictingFixtureId}/outcomes`).transaction((currentOutcomes) => {
+            if (!currentOutcomes) currentOutcomes = { home: 0, draw: 0, away: 0 };
+            
+            // Subtract one from the old choice safely (ensuring it doesn't drop below 0)
+            if (currentOutcomes[previousVote] > 0) {
+                currentOutcomes[previousVote]--;
+            }
+            // Add one to the new choice
+            currentOutcomes[outcome] = (currentOutcomes[outcome] || 0) + 1;
+            
+            return currentOutcomes;
+        }, (error, committed) => {
+            if (committed) {
+                localStorage.setItem(`voted_outcome_${currentPredictingFixtureId}`, outcome);
+                showToast(`Prediction updated to ${outcome.toUpperCase()}!`);
+                
+                // Update the UI visual helper hint text
+                const flagHint = document.getElementById('vote-status-hint');
+                if (flagHint) {
+                    flagHint.innerText = `✅ Your response is updated: ${outcome.toUpperCase()}`;
+                    flagHint.className = "text-[10px] text-emerald-600 text-center mt-2 font-bold";
+                }
+            } else {
+                showToast("Failed to update vote. Try again.");
+            }
+        });
+    } 
+    // Case 3: First time voting on this fixture
+    else {
+        db.ref(`crowd_predictions/${currentPredictingFixtureId}/outcomes/${outcome}`)
+          .transaction((currentCount) => { 
+              return (currentCount || 0) + 1; 
+          }, 
+          (error, committed) => {
+              if (committed) {
+                  localStorage.setItem(`voted_outcome_${currentPredictingFixtureId}`, outcome);
+                  showToast(`Vote recorded for ${outcome.toUpperCase()}!`);
+                  
+                  const flagHint = document.getElementById('vote-status-hint');
+                  if (flagHint) {
+                      flagHint.innerText = `✅ Your response is locked in: ${outcome.toUpperCase()}`;
+                      flagHint.className = "text-[10px] text-emerald-600 text-center mt-2 font-bold";
+                  }
+              }
+          });
+    }
 };
+
 
 window.submitScorePrediction = function() {
     if (!currentPredictingFixtureId) return;
-    
     const homeScoreVal = document.getElementById('viewer-pred-home-score').value;
     const awayScoreVal = document.getElementById('viewer-pred-away-score').value;
-    
-    if (homeScoreVal === "" || awayScoreVal === "") {
-        alert("Please specify scoreline targets for both teams before submission.");
-        return;
-    }
+    if (homeScoreVal === "" || awayScoreVal === "") { alert("Specify score targets before submission."); return; }
     
     const formattedPrediction = `${parseInt(homeScoreVal)} - ${parseInt(awayScoreVal)}`;
-    
     db.ref(`crowd_predictions/${currentPredictingFixtureId}/scores`).push({
         prediction: formattedPrediction,
         timestamp: firebase.database.ServerValue.TIMESTAMP
     }).then(() => {
-        showToast(`Scoreline prediction ${formattedPrediction} submitted successfully!`);
+        showToast(`Scoreline prediction ${formattedPrediction} submitted!`);
         document.getElementById('viewer-pred-home-score').value = "";
         document.getElementById('viewer-pred-away-score').value = "";
-    }).catch(() => {
-        showToast("Failed to save scoreline prediction.");
     });
 };
 
-window.deductPointsPrompt = function(teamName) {
-    if(!isAdmin) return;
-    let amount = prompt(`Penalty points for ${teamName}:`, "3");
-    if(!amount) return;
-    teams[teamName].deductedPoints = (teams[teamName].deductedPoints||0) + parseInt(amount);
-    saveToStorage();
-    showToast(`${teamName} penalized ${amount} pts`);
-    renderTable();
-};
 window.removeTeamFromLeague = function(teamName) {
     if(!isAdmin) return;
     if(confirm(`Permanently remove ${teamName}?`)) {
-        fixtures.forEach(f => {
-            if(f.home === teamName || f.away === teamName) { f.played = false; f.homeScore = null; f.awayScore = null; f.comment = null; }
-        });
-        delete teams[teamName];
-        saveToStorage();
-        showToast(`${teamName} removed`);
-        renderTable();
-        renderGameweekTabs();
-        renderFixtures();
+        fixtures.forEach(f => { if(f.home === teamName || f.away === teamName) { f.played = false; f.homeScore = null; f.awayScore = null; f.comment = null; } });
+        delete teams[teamName]; saveToStorage(); renderTable(); renderGameweekTabs(); renderFixtures();
     }
 };
+
 window.showTeamDetails = function(teamName) {
-    const team = teams[teamName];
-    if (!team) return;
+    const team = teams[teamName]; if (!team) return;
     document.getElementById('team-modal-name').innerText = team.name;
     document.getElementById('modal-mp').innerText = team.mp;
     document.getElementById('modal-pts').innerText = team.pts;
@@ -888,6 +963,7 @@ window.showTeamDetails = function(teamName) {
     const gd = team.gd;
     document.getElementById('modal-gd').innerHTML = `<span class="${gd>=0?'text-emerald-600':'text-rose-500'}">${gd>0?'+'+gd:gd}</span>`;
     document.getElementById('modal-penalty').innerText = team.deductedPoints ? `-${team.deductedPoints}` : 'None';
+    
     const formContainer = document.getElementById('modal-form');
     let recent = team.formHistory.slice(-5);
     while(recent.length < 5) recent.unshift('-');
@@ -897,20 +973,21 @@ window.showTeamDetails = function(teamName) {
         if(res === 'D') return `<span class="w-6 h-6 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold flex items-center justify-center">D</span>`;
         return `<span class="w-6 h-6 bg-gray-100 text-gray-400 rounded-full text-[10px] flex items-center justify-center">-</span>`;
     }).join('');
+    
     const ptsPerGame = (team.pts / (team.mp || 1)).toFixed(1);
-    let summary = '';
-    if (ptsPerGame >= 2.3) summary = '🔥 Incredible form – title contenders!';
-    else if (ptsPerGame >= 1.8) summary = '👍 Solid season.';
-    else if (ptsPerGame >= 1.2) summary = '⚖️ Mid‑table consistency.';
-    else summary = '⚠️ Needs improvement to avoid relegation.';
-    if (team.deductedPoints > 0) summary += ` (Includes -${team.deductedPoints} point penalty)`;
+    let summary = ptsPerGame >= 2.3 ? '🔥 Title contenders!' : (ptsPerGame >= 1.8 ? '👍 Solid season.' : (ptsPerGame >= 1.2 ? '⚖️ Mid‑table consistency.' : '⚠️ Risk Zone.'));
     document.getElementById('modal-summary').innerText = summary;
     document.getElementById('team-modal').classList.remove('hidden');
     document.getElementById('team-modal').classList.add('flex');
 };
-window.closeTeamModal = function() {
-    document.getElementById('team-modal').classList.add('hidden');
-    document.getElementById('team-modal').classList.remove('flex');
+
+window.openPenaltyModal = function(teamName) {
+    if (!isAdmin) return; currentPenaltyTeam = teamName;
+    document.getElementById('penalty-team-name').innerText = teamName;
+    document.getElementById('penalty-modal').classList.remove('hidden');
+    document.getElementById('penalty-modal').classList.add('flex');
 };
+
+window.closeTeamModal = function() { document.getElementById('team-modal').classList.add('hidden'); document.getElementById('team-modal').classList.remove('flex'); };
 window.resetTournament = () => { if(confirm("Wipe ALL data?")) db.ref('tournament_data').remove().then(()=>location.reload()); };
 window.onload = () => { initRealtimeDatabaseSync(); };

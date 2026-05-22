@@ -76,7 +76,13 @@
                 <button onclick="closePredictorModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button>
             </div>
             
-            <div class="p-5 space-y-6">
+            <div class="p-5 space-y-5 max-h-[75vh] overflow-y-auto">
+                <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900">
+                    <span class="font-bold uppercase tracking-wide text-[10px] text-amber-700 block mb-1">📈 Match Insights & Form Guide</span>
+                    <ul id="predictor-insights-list" class="space-y-1 list-disc list-inside text-gray-700 font-medium">
+                        </ul>
+                </div>
+
                 <div>
                     <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 text-center">Who will win? (Click to vote)</p>
                     <div class="grid grid-cols-3 gap-2 text-center">
@@ -96,14 +102,14 @@
                     <p id="vote-status-hint" class="text-[10px] text-gray-400 text-center mt-2 italic">Click home, draw, or away to register your vote instantly.</p>
                 </div>
 
-                <div class="border-t border-gray-100 pt-4">
-                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 text-center">Predict the Exact Scoreline</p>
+                <div class="border-t border-gray-100 pt-3">
+                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 text-center">Predict the Exact Scoreline</p>
                     <div class="flex items-center justify-center gap-3">
                         <input type="number" id="viewer-pred-home-score" min="0" placeholder="0" class="w-12 h-10 text-center bg-gray-50 border border-gray-200 rounded-xl font-mono font-bold text-lg outline-none focus:ring-2 focus:ring-indigo-300">
                         <span class="text-gray-400 font-bold">:</span>
                         <input type="number" id="viewer-pred-away-score" min="0" placeholder="0" class="w-12 h-10 text-center bg-gray-50 border border-gray-200 rounded-xl font-mono font-bold text-lg outline-none focus:ring-2 focus:ring-indigo-300">
                     </div>
-                    <button onclick="submitScorePrediction()" class="w-full mt-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl text-xs shadow-xs transition">Submit Predicted Scoreline</button>
+                    <button onclick="submitScorePrediction()" class="w-full mt-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl text-xs shadow-xs transition">Submit Predicted Scoreline</button>
                 </div>
             </div>
             <div class="p-4 bg-gray-50 text-right rounded-b-2xl">
@@ -121,10 +127,41 @@
     </div>
 
     <div id="comment-viewer-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-gray-200 overflow-hidden animate-fadeInUp">
-            <div class="p-5 border-b border-gray-200 flex justify-between items-center"><h3 class="font-bold text-gray-800">📝 Match Details</h3><button onclick="closeCommentViewer()" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button></div>
-            <div class="p-5 space-y-3"><p class="text-sm font-semibold" id="viewer-match-name"></p><p class="text-xs text-gray-500">Score: <span id="viewer-score"></span></p><div class="bg-gray-50 p-3 rounded-xl"><p class="text-xs font-medium text-gray-700 mb-1">Commentary:</p><p id="viewer-comment" class="text-sm text-gray-800 italic"></p></div></div>
-            <div class="p-4 bg-gray-50 flex gap-3 justify-end rounded-b-2xl"><button onclick="closeCommentViewer()" class="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 transition">Close</button><button id="viewer-edit-btn" onclick="editViewerComment()" class="hidden px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition">Edit Comment</button></div>
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-gray-200 overflow-hidden animate-fadeInUp flex flex-col max-h-[85vh]">
+            <div class="p-5 border-b border-gray-200 flex justify-between items-center shrink-0">
+                <h3 class="font-bold text-gray-800">📝 Match Details & Banter</h3>
+                <button onclick="closeCommentViewer()" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button>
+            </div>
+            
+            <div class="p-5 space-y-4 overflow-y-auto flex-1">
+                <div>
+                    <p class="text-sm font-semibold" id="viewer-match-name"></p>
+                    <p class="text-xs text-gray-500 mt-0.5">Score: <span id="viewer-score"></span></p>
+                </div>
+                
+                <div class="bg-gray-50 p-3 rounded-xl">
+                    <p class="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Official Commentary:</p>
+                    <p id="viewer-comment" class="text-sm text-gray-800 italic"></p>
+                </div>
+                
+                <div class="border-t border-gray-100 pt-3">
+                    <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1">🔊 Viewer Banter Room <span class="bg-rose-500 text-white text-[9px] px-1.5 py-0.5 rounded-full animate-pulse">Live</span></p>
+                    
+                    <div id="banter-messages-box" class="h-44 border border-gray-100 bg-slate-50/50 rounded-xl p-3 overflow-y-auto space-y-2 text-xs font-medium">
+                        </div>
+                    
+                    <div class="mt-2 flex gap-2">
+                        <input type="text" id="banter-input-username" placeholder="Name" class="w-20 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-semibold outline-none focus:ring-1 focus:ring-indigo-300">
+                        <input type="text" id="banter-input-text" placeholder="Drop your banter here..." onkeypress="if(event.key==='Enter') submitBanterMessage()" class="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-300">
+                        <button onclick="submitBanterMessage()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition">Send</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-4 bg-gray-50 flex gap-3 justify-end rounded-b-2xl shrink-0">
+                <button onclick="closeCommentViewer()" class="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 transition">Close</button>
+                <button id="viewer-edit-btn" onclick="editViewerComment()" class="hidden px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition">Edit Comment</button>
+            </div>
         </div>
     </div>
 
@@ -145,39 +182,39 @@
         </div>
     </div>
 
-<div id="change-password-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full border border-gray-200 overflow-hidden animate-fadeInUp">
-        <div class="p-5 border-b border-gray-200 flex justify-between items-center">
-            <h3 class="font-bold text-gray-800">🔐 Change Master Password</h3>
-            <button onclick="closeChangePasswordModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button>
-        </div>
-        <div class="p-5 space-y-3">
-            <input type="password" id="new-password" placeholder="New password" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-center font-mono text-sm focus:ring-2 focus:ring-indigo-300 outline-none">
-            <input type="password" id="confirm-password" placeholder="Confirm new password" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-center font-mono text-sm focus:ring-2 focus:ring-indigo-300 outline-none">
-            <p id="password-match-error" class="hidden text-red-500 text-xs text-center">Passwords do not match</p>
-        </div>
-        <div class="p-4 bg-gray-50 flex gap-3 justify-end rounded-b-2xl">
-            <button onclick="closeChangePasswordModal()" class="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 transition">Cancel</button>
-            <button onclick="updateMasterPassword()" class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition">Update</button>
+    <div id="change-password-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full border border-gray-200 overflow-hidden animate-fadeInUp">
+            <div class="p-5 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="font-bold text-gray-800">🔐 Change Master Password</h3>
+                <button onclick="closeChangePasswordModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button>
+            </div>
+            <div class="p-5 space-y-3">
+                <input type="password" id="new-password" placeholder="New password" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-center font-mono text-sm focus:ring-2 focus:ring-indigo-300 outline-none">
+                <input type="password" id="confirm-password" placeholder="Confirm new password" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-center font-mono text-sm focus:ring-2 focus:ring-indigo-300 outline-none">
+                <p id="password-match-error" class="hidden text-red-500 text-xs text-center">Passwords do not match</p>
+            </div>
+            <div class="p-4 bg-gray-50 flex gap-3 justify-end rounded-b-2xl">
+                <button onclick="closeChangePasswordModal()" class="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 transition">Cancel</button>
+                <button onclick="updateMasterPassword()" class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition">Update</button>
+            </div>
         </div>
     </div>
-</div>
 
 <div id="penalty-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full border border-gray-200 overflow-hidden animate-fadeInUp">
-        <div class="p-5 border-b border-gray-200 flex justify-between items-center">
-            <h3 class="font-bold text-gray-800">⚖️ Clear Penalty Points</h3>
-            <button onclick="closePenaltyModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button>
-        </div>
-        <div class="p-5 text-center">
-            <p class="text-sm text-gray-600 mb-4" id="penalty-team-name"></p>
-            <button onclick="clearPenaltyPoints()" class="w-full bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold py-2 px-4 rounded-full transition">Clear Penalty Points</button>
-        </div>
-        <div class="p-4 bg-gray-50 text-right rounded-b-2xl">
-            <button onclick="closePenaltyModal()" class="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 transition">Cancel</button>
+        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full border border-gray-200 overflow-hidden animate-fadeInUp">
+            <div class="p-5 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="font-bold text-gray-800">⚖️ Clear Penalty Points</h3>
+                <button onclick="closePenaltyModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button>
+            </div>
+            <div class="p-5 text-center">
+                <p class="text-sm text-gray-600 mb-4" id="penalty-team-name"></p>
+                <button onclick="clearPenaltyPoints()" class="w-full bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold py-2 px-4 rounded-full transition">Clear Penalty Points</button>
+            </div>
+            <div class="p-4 bg-gray-50 text-right rounded-b-2xl">
+                <button onclick="closePenaltyModal()" class="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 transition">Cancel</button>
+            </div>
         </div>
     </div>
-</div>
 
     <main class="max-w-6xl mx-auto px-4 py-8 space-y-10">
         <section id="setup-section" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-6">
@@ -203,7 +240,6 @@
             <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                 <div class="px-5 py-4 bg-gray-50/80 border-b border-gray-200 flex justify-between items-center">
                     <h2 class="font-bold text-gray-700 flex items-center gap-2"><span>🏆</span> League Table</h2>
-                    <div></div>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm min-w-[750px]">
@@ -229,10 +265,10 @@
                 <div id="fixtures-container" class="flex flex-col gap-3"></div>
             </div>
 
-         <div id="admin-reset-container" class="text-center hidden pt-4 space-x-3">
-    <button onclick="openChangePasswordModal()" class="text-xs text-indigo-600 hover:text-indigo-800 underline decoration-dotted">🔑 Change Master Password</button>
-    <button onclick="resetTournament()" class="text-xs text-rose-500 hover:text-rose-700 underline decoration-dotted">⚠️ Wipe entire league data (irreversible)</button>
-</div>
+            <div id="admin-reset-container" class="text-center hidden pt-4 space-x-3">
+                <button onclick="openChangePasswordModal()" class="text-xs text-indigo-600 hover:text-indigo-800 underline decoration-dotted">🔑 Change Master Password</button>
+                <button onclick="resetTournament()" class="text-xs text-rose-500 hover:text-rose-700 underline decoration-dotted">⚠️ Wipe entire league data (irreversible)</button>
+            </div>
         </section>
     </main>
 
