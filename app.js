@@ -25,6 +25,9 @@ let tickerInterval = null;
 let currentTickerFactIndex = 0;
 let tickerFacts = [];
 
+// Track index for current active simulation fixture modal
+let activePredictorFixtureId = null;
+
 // ============================================================
 // 2. HELPER FUNCTIONS
 // ============================================================
@@ -42,7 +45,6 @@ function saveToStorage() {
     db.ref('tournament_data').set({ teams, fixtures, password: tournamentPassword });
 }
 
-
 // ============================================================
 // 3. Database Initialization 
 // ============================================================
@@ -50,7 +52,6 @@ function initRealtimeDatabaseSync() {
     db.ref('tournament_data').on('value', (snapshot) => {
         const data = snapshot.val();
         if (data && data.teams && data.fixtures) {
-            // ✅ Fetch password from database (this is the source of truth)
             if (data.password) tournamentPassword = data.password;
             teams = data.teams;
             fixtures = data.fixtures;
@@ -66,8 +67,6 @@ function initRealtimeDatabaseSync() {
             generateTickerFacts();
             document.title = `DLS | ${Object.keys(teams).length} teams • Live`;
         } else {
-            // No data in Firebase → show setup wizard
-            // For first-time setup, set a temporary default password (only for the wizard)
             tournamentPassword = "1234";
             document.getElementById('setup-section')?.classList.remove('hidden');
             document.getElementById('dashboard-section')?.classList.add('hidden');
@@ -393,7 +392,6 @@ let pendingAssignSide = null;
 window.editFixtureTeamName = function(fixtureId, side) {
     if (!isAdmin) return;
     const fixture = fixtures.find(f => f.id === fixtureId);
-    const currentTeam = side === 'home' ? fixture.home : fixture.away;
     const dropdown = document.getElementById('team-select-dropdown');
     dropdown.innerHTML = '';
     const cancelOption = document.createElement('option');
@@ -614,7 +612,7 @@ function renderFixtures() {
                 </div>
             `;
         } else {
-            midHtml = played ? `<div class="bg-gray-100 px-3 py-1 rounded-full font-mono font-bold text-sm">${f.homeScore} - ${f.awayScore}</div>` : `<button onclick="runMatchPrediction(${f.id})" class="text-[11px] bg-gray-100 hover:bg-indigo-50 px-3 py-1 rounded-full">🔍 Analyze</button>`;
+            midHtml = played ? `<div class="bg-gray-100 px-3 py-1 rounded-full font-mono font-bold text-sm cursor-pointer hover:bg-indigo-50" onclick="runMatchPrediction(${f.id})">${f.homeScore} - ${f.awayScore}</div>` : `<button onclick="runMatchPrediction(${f.id})" class="text-[11px] bg-gray-100 hover:bg-indigo-50 px-3 py-1 rounded-full">🔮 Predict</button>`;
             actionHtml = `<button onclick="showMatchComment(${f.id})" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full">💬</button>`;
             container.innerHTML += `
                 <div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full">
@@ -735,28 +733,131 @@ window.confirmComment = function() {
 };
 
 // ============================================================
-// 12. ADMIN ACTIONS & INITIALISATION
+// 12. USER INTERACTIVE PREDICTOR MODAL LOGIC
 // ============================================================
 window.runMatchPrediction = function(fixtureId) {
-    const f = fixtures.find(f=>f.id===fixtureId);
-    if (f.home === 'BYE' || f.away === 'BYE') { alert("Cannot predict with BYE team."); return; }
-    const h = teams[f.home], a = teams[f.away];
-    let homePower = (h.pts*1.5)+h.gd, awayPower = (a.pts*1.5)+a.gd;
-    const formScore = (arr) => arr.slice(-3).reduce((s,x)=>s+(x==='W'?3:x==='D'?1:0),0);
-    homePower += formScore(h.formHistory); awayPower += formScore(a.formHistory);
-    let drawPct = 25, homePct = Math.min(70, Math.max(20, 35+(homePower-awayPower)*0.8));
-    let awayPct = 100-homePct-drawPct;
-    let simHome = Math.min(4, Math.max(0, Math.round((h.gf/(h.mp||1)+ (homePower-awayPower)*0.05))));
-    let simAway = Math.min(4, Math.max(0, Math.round((a.gf/(a.mp||1)+ (awayPower-homePower)*0.05))));
+    const f = fixtures.find(f => f.id === fixtureId);
+    if (!f) return;
+    if (f.home === 'BYE' || f.away === 'BYE') { alert("Cannot simulate a match with a BYE team."); return; }
+    
+    activePredictorFixtureId = fixtureId;
+
+    // Set headers
     document.getElementById('pred-home-name').innerText = f.home;
     document.getElementById('pred-away-name').innerText = f.away;
-    document.getElementById('pred-home-pct').innerText = `${Math.round(homePct)}%`;
-    document.getElementById('pred-away-pct').innerText = `${Math.round(awayPct)}%`;
-    document.getElementById('pred-draw-pct').innerText = `${Math.round(drawPct)}%`;
-    document.getElementById('pred-simulated-score').innerText = `${simHome} - ${simAway}`;
+    
+    // Reset any layout values from previous inputs
+    document.getElementById('pred-home-score').value = f.played ? f.homeScore : '';
+    document.getElementById('pred-away-score').value = f.played ? f.awayScore : '';
+    document.getElementById('pred-table-container').classList.add('hidden');
+    document.getElementById('pred-table-body').innerHTML = '';
+    
+    // Open modal
     document.getElementById('predictor-modal').classList.remove('hidden');
+    document.getElementById('predictor-modal').classList.add('flex');
 };
-window.closePredictorModal = () => document.getElementById('predictor-modal').classList.add('hidden');
+
+window.closePredictorModal = () => {
+    document.getElementById('predictor-modal').classList.add('hidden');
+    document.getElementById('predictor-modal').classList.remove('flex');
+    activePredictorFixtureId = null;
+};
+
+window.calculatePredictedTable = function() {
+    if (activePredictorFixtureId === null) return;
+    
+    const homeInput = document.getElementById('pred-home-score').value;
+    const awayInput = document.getElementById('pred-away-score').value;
+    
+    if (homeInput === "" || awayInput === "") {
+        alert("Please enter values for both home and away score inputs.");
+        return;
+    }
+    
+    const simHomeScore = parseInt(homeInput);
+    const simAwayScore = parseInt(awayInput);
+    
+    // 1. Deep clone current official state variables to maintain data safety
+    let simulatedTeams = {};
+    for (let t in teams) {
+        simulatedTeams[t] = { 
+            name: teams[t].name, 
+            mp: teams[t].mp, 
+            w: teams[t].w, 
+            d: teams[t].d, 
+            l: teams[t].l, 
+            gf: teams[t].gf, 
+            ga: teams[t].ga, 
+            gd: teams[t].gd, 
+            pts: teams[t].pts,
+            deductedPoints: teams[t].deductedPoints || 0
+        };
+    }
+    
+    const f = fixtures.find(f => f.id === activePredictorFixtureId);
+    const h = f.home;
+    const a = f.away;
+    
+    // 2. Reverse previous outcome points if match was already officially tracked
+    if (f.played) {
+        const oldH = parseInt(f.homeScore);
+        const oldA = parseInt(f.awayScore);
+        
+        simulatedTeams[h].mp--; simulatedTeams[a].mp--;
+        simulatedTeams[h].gf -= oldH; simulatedTeams[h].ga -= oldA;
+        simulatedTeams[a].gf -= oldA; simulatedTeams[a].ga -= oldH;
+        
+        if (oldH > oldA) { simulatedTeams[h].w--; simulatedTeams[a].l--; simulatedTeams[h].pts -= 3; }
+        else if (oldA > oldH) { simulatedTeams[a].w--; simulatedTeams[h].l--; simulatedTeams[a].pts -= 3; }
+        else { simulatedTeams[h].d--; simulatedTeams[a].d--; simulatedTeams[h].pts -= 1; simulatedTeams[a].pts -= 1; }
+    }
+    
+    // 3. Inject hypothetical input data points 
+    simulatedTeams[h].mp++; simulatedTeams[a].mp++;
+    simulatedTeams[h].gf += simHomeScore; simulatedTeams[h].ga += simAwayScore;
+    simulatedTeams[a].gf += simAwayScore; simulatedTeams[a].ga += simHomeScore;
+    
+    if (simHomeScore > simAwayScore) {
+        simulatedTeams[h].w++; simulatedTeams[a].l++;
+        simulatedTeams[h].pts += 3;
+    } else if (simAwayScore > simHomeScore) {
+        simulatedTeams[a].w++; simulatedTeams[b] ? simulatedTeams[a].l++ : simulatedTeams[a].l++; // safety check mapping
+        simulatedTeams[a].pts += 3;
+    } else {
+        simulatedTeams[h].d++; simulatedTeams[a].d++;
+        simulatedTeams[h].pts += 1; simulatedTeams[a].pts += 1;
+    }
+    
+    // Recalculate goal differences cleanly across variables
+    for (let t in simulatedTeams) {
+        simulatedTeams[t].gd = simulatedTeams[t].gf - simulatedTeams[t].ga;
+    }
+    
+    // 4. Sort using your specific rules configuration (PTS -> GD -> GF)
+    let sortedSim = Object.values(simulatedTeams).sort((x, y) => y.pts - x.pts || y.gd - x.gd || y.gf - x.gf);
+    
+    // 5. Paint preview components inside sub table markup
+    const tbody = document.getElementById('pred-table-body');
+    tbody.innerHTML = "";
+    
+    sortedSim.forEach((team, idx) => {
+        const isTarget = (team.name === h || team.name === a);
+        const highlightClass = isTarget ? "bg-indigo-50/80 font-bold text-gray-900" : "text-gray-600";
+        
+        tbody.innerHTML += `
+            <tr class="${highlightClass}">
+                <td class="py-2 px-3 text-center font-black ${idx === 0 ? 'text-indigo-600' : ''}">${idx + 1}</td>
+                <td class="py-2 px-3 truncate max-w-[120px]">${team.name} ${isTarget ? '⚡' : ''}</td>
+                <td class="py-2 px-2 text-center">${team.mp}</td>
+                <td class="py-2 px-2 text-center font-mono ${team.gd >= 0 ? 'text-emerald-600' : 'text-rose-500'}">${team.gd > 0 ? '+' + team.gd : team.gd}</td>
+                <td class="py-2 px-3 text-center text-indigo-600 font-extrabold">${team.pts}</td>
+            </tr>
+        `;
+    });
+    
+    // Unhide preview block smooth layout window
+    document.getElementById('pred-table-container').classList.remove('hidden');
+};
 
 window.deductPointsPrompt = function(teamName) {
     if(!isAdmin) return;
