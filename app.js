@@ -440,10 +440,23 @@ function renderTable() {
         const pos = idx + 1;
         let recent = team.formHistory.slice(-5);
         while (recent.length < 5) recent.unshift('-');
-        const formHtml = `<div class="flex gap-1.5 justify-center">${recent.map(res => res === 'W' ? '<span class="w-5 h-5 bg-emerald-100 text-emerald-700 rounded-full text-[9px] font-bold flex items-center justify-center">W</span>' : res === 'L' ? '<span class="w-5 h-5 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center text-[9px] font-bold">L</span>' : res === 'D' ? '<span class="w-5 h-5 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center text-[9px] font-bold">D</span>' : '<span class="w-5 h-5 bg-gray-100 text-gray-400 rounded-full flex items-center justify-center text-[9px]">-</span>').join('')}</div>`;
-        const penaltyBadge = team.deductedPoints > 0 ? `<span class="ml-1 text-[9px] bg-rose-50 text-rose-600 px-1 rounded-full">-${team.deductedPoints}</span>` : "";
-        const actionBtn = isAdmin ? `<td class="py-3 px-2 text-center"><button onclick="event.stopPropagation(); openPenaltyModal('${team.name}')" class="text-xs bg-amber-50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100">⚖️</button> <button onclick="event.stopPropagation(); removeTeamFromLeague('${team.name}')" class="text-xs bg-rose-50 text-rose-600 px-2 py-1 rounded-full hover:bg-rose-100">🗑️</button></td>` : "";
-        tbody.innerHTML += `<tr class="hover:bg-gray-50 transition ${pos === 1 ? 'champions-row' : (pos > sorted.length - 2 ? 'relegation-row' : '')}" onclick="showTeamDetails('${team.name}')"><td class="py-3 px-3 text-center font-bold ${pos === 1 ? 'text-indigo-600' : ''}">${pos}</td><td class="py-3 px-4"><span class="font-semibold text-base">${team.name}</span>${penaltyBadge}</td><td class="py-3 px-2 text-center">${team.mp}</td><td class="py-3 px-2 text-center text-emerald-600">${team.w}</td><td class="py-3 px-2 text-center">${team.d}</td><td class="py-3 px-2 text-center text-rose-500">${team.l}</td><td class="py-3 px-2 text-center">${team.gf}</td><td class="py-3 px-2 text-center">${team.ga}</td><td class="py-3 px-2 text-center ${team.gd >= 0 ? 'text-emerald-600' : 'text-rose-500'} font-mono">${team.gd > 0 ? '+' + team.gd : team.gd}</td><td class="py-3 px-3 text-center font-black text-indigo-600">${team.pts}</td><td class="py-3 px-4 text-center">${formHtml}</td>${actionBtn}</tr>`;
+        const formHtml = `<div class="flex gap-1 justify-center">${recent.map(res => res === 'W' ? '<span class="w-4 h-4 bg-emerald-100 text-emerald-700 rounded-full text-[8px] font-bold flex items-center justify-center">W</span>' : res === 'L' ? '<span class="w-4 h-4 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center text-[8px] font-bold">L</span>' : res === 'D' ? '<span class="w-4 h-4 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center text-[8px] font-bold">D</span>' : '<span class="w-4 h-4 bg-gray-100 text-gray-400 rounded-full flex items-center justify-center text-[8px]">-</span>').join('')}</div>`;
+        const penaltyBadge = team.deductedPoints > 0 ? `<span class="ml-1 text-[8px] bg-rose-50 text-rose-600 px-1 rounded-full">-${team.deductedPoints}</span>` : "";
+        const actionBtn = isAdmin ? `<td class="py-2 px-1 text-center"><button onclick="event.stopPropagation(); openPenaltyModal('${team.name}')" class="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-full hover:bg-amber-100">⚖️</button> <button onclick="event.stopPropagation(); removeTeamFromLeague('${team.name}')" class="text-[9px] bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded-full hover:bg-rose-100">🗑️</button></td>` : "";
+        tbody.innerHTML += `<tr class="hover:bg-gray-50 transition ${pos === 1 ? 'champions-row' : (pos > sorted.length - 2 ? 'relegation-row' : '')}" onclick="showTeamDetails('${team.name}')">
+            <td class="py-2 px-2 text-center font-bold text-xs ${pos === 1 ? 'text-indigo-600' : ''}">${pos}</td>
+            <td class="py-2 px-2"><span class="font-semibold text-xs">${team.name}</span>${penaltyBadge}</td>
+            <td class="py-2 px-1 text-center text-xs">${team.mp}</td>
+            <td class="py-2 px-1 text-center text-emerald-600 text-xs">${team.w}</td>
+            <td class="py-2 px-1 text-center text-xs">${team.d}</td>
+            <td class="py-2 px-1 text-center text-rose-500 text-xs">${team.l}</td>
+            <td class="py-2 px-1 text-center text-xs">${team.gf}</td>
+            <td class="py-2 px-1 text-center text-xs">${team.ga}</td>
+            <td class="py-2 px-1 text-center font-mono text-xs ${team.gd >= 0 ? 'text-emerald-600' : 'text-rose-500'}">${team.gd > 0 ? '+' + team.gd : team.gd}</td>
+            <td class="py-2 px-2 text-center font-black text-indigo-600 text-xs">${team.pts}</td>
+            <td class="py-2 px-2 text-center">${formHtml}</td>
+            ${actionBtn}
+        </tr>`;
     });
     generateTickerFacts();
 }
