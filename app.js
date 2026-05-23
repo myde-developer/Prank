@@ -640,13 +640,36 @@ window.showMatchComment = function(fixtureId) {
             const msgId = msg.id || childSnapshot.key; // Fallback to key if ID isn't found
             const isMyComment = myBanterIds.includes(msgId);
             
-            const timeStr = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
-            const editedLabel = msg.edited ? `<span class="text-[8px] text-gray-400 italic ml-1">(edited)</span>` : '';
+                        // --- INSIDE window.showMatchComment SNAPSHOT LOOP ---
+            const timeStr = data.timestamp ? new Date(data.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
+            const editedLabel = data.edited ? `<span class="text-[8px] text-gray-400 italic ml-1">(edited)</span>` : '';
             
-            // Edit link UI visible only to the original author
+            // Edit button logic (for the comment author)
             const editButtonHtml = isMyComment 
-                ? `<button onclick="startBanterInlineEdit('${fixtureId}', '${msgId}')" class="text-[9px] text-indigo-500 hover:underline font-bold ml-1.5 cursor-pointer">✏️ edit</button>` 
+                ? `<button onclick="startBanterInlineEdit(${fixtureId}, '${msgId}')" class="text-[9px] text-indigo-500 hover:underline font-bold ml-1.5 cursor-pointer">✏️ edit</button>` 
                 : '';
+
+            // ADMIN EXCLUSIVE MODIFICATION: Show delete link if isAdmin is true
+            const deleteButtonHtml = isAdmin 
+                ? `<button onclick="deleteBanterMessage(${fixtureId}, '${msgId}')" class="text-[9px] text-rose-500 hover:underline font-bold ml-1.5 cursor-pointer">🗑️ delete</button>` 
+                : '';
+
+            const displayName = data.user ? data.user : "Viewer";
+
+            messagesBox.innerHTML += `
+                <div id="banter-card-${msgId}" class="bg-white p-2.5 rounded-xl border border-slate-100 shadow-2xs flex flex-col gap-0.5">
+                    <div class="flex justify-between items-center mb-0.5">
+                        <span class="font-extrabold text-indigo-600 text-[11px]">${escapeHTML(displayName)} ${isMyComment ? '<span class="text-[9px] text-gray-400 font-normal">(You)</span>' : ''}</span>
+                        <div class="flex items-center gap-1 text-[9px] text-gray-400">
+                            <span>${timeStr}</span>
+                            ${editedLabel}
+                            ${editButtonHtml}
+                            ${deleteButtonHtml}
+                        </div>
+                    </div>
+                    <p id="banter-text-content-${msgId}" class="text-gray-700 leading-relaxed font-normal text-xs break-words">${escapeHTML(data.text || '')}</p>
+                </div>
+            `;
 
             messagesBox.innerHTML += `
                 <div id="banter-card-${msgId}" class="bg-white p-2 rounded-lg border border-slate-100 shadow-2xs flex flex-col gap-0.5">
@@ -846,6 +869,23 @@ window.saveBanterInlineUpdate = function(fixtureId, msgId) {
     });
 };
 
+// ADMINISTRATIVE MODIFICATION: DELETE BANTER FROM FIREBASE
+window.deleteBanterMessage = function(fixtureId, msgId) {
+    if (!isAdmin) {
+        showToast("Unauthorized operation!");
+        return;
+    }
+
+    if (confirm("Are you sure you want to delete this banter comment? 🗑️")) {
+        db.ref(`predictions/${fixtureId}/comments/${msgId}`).remove()
+            .then(() => {
+                showToast("Banter removed by Admin.");
+            })
+            .catch(() => {
+                showToast("Failed to delete message.");
+            });
+    }
+};
 
 // ============================================================
 // 12. CROWD-SOURCED PUBLIC MATCH PREDICTOR ENGINE & FEATURE 5
