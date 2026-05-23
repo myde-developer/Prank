@@ -20,6 +20,7 @@ let tickerInterval = null;
 let currentTickerFactIndex = 0;
 let tickerFacts = [];
 let activePredictorFixtureId = null;
+let currentPredictionFixtureId = null;
 let pendingFixtureId = null;
 let pendingHomeScore = null;
 let pendingAwayScore = null;
@@ -585,21 +586,21 @@ function renderFixtures() {
                     <button onclick="openBanterModal(${f.id})" class="text-[10px] font-bold bg-purple-50 text-purple-600 px-2 py-1 rounded-full hover:bg-purple-100">🤣 Banter</button>
                 </div>
             </div>`;
-        } else {
-            container.innerHTML += `<div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full">
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div class="flex-1 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${f.home}</div>
-                    <div class="flex justify-center">
-                        ${played ? `<div class="bg-gray-100 px-3 py-1 rounded-full font-mono font-bold text-sm cursor-pointer hover:bg-indigo-50" onclick="runMatchPrediction(${f.id})">${f.homeScore} - ${f.awayScore}</div>` : `<button onclick="runMatchPrediction(${f.id})" class="text-[11px] bg-gray-100 hover:bg-indigo-50 px-3 py-1 rounded-full">🔮 Predict</button>`}
-                    </div>
-                    <div class="flex-1 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${f.away}</div>
-                </div>
-                <div class="mt-2 flex justify-center gap-1">
-                    <button onclick="showMatchComment(${f.id})" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full">💬</button>
-                    <button onclick="openBanterModal(${f.id})" class="text-[11px] bg-purple-50 hover:bg-purple-100 px-3 py-1 rounded-full">🤣 Banter</button>
-                </div>
-            </div>`;
-        }
+       } else {
+    container.innerHTML += `<div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="flex-1 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${f.home}</div>
+            <div class="flex justify-center">
+                ${played ? `<div class="bg-gray-100 px-3 py-1 rounded-full font-mono font-bold text-sm">${f.homeScore} - ${f.awayScore}</div>` : `<button onclick="openPredictionsModal(${f.id})" class="text-[11px] bg-gray-100 hover:bg-indigo-50 px-3 py-1 rounded-full">🔮 Predictions</button>`}
+            </div>
+            <div class="flex-1 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${f.away}</div>
+        </div>
+        <div class="mt-2 flex justify-center gap-1">
+            <button onclick="showMatchComment(${f.id})" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full">💬</button>
+            <button onclick="openBanterModal(${f.id})" class="text-[11px] bg-purple-50 hover:bg-purple-100 px-3 py-1 rounded-full">🤣 Banter</button>
+        </div>
+    </div>`;
+}
     });
 }
 
@@ -683,59 +684,109 @@ function editViewerComment() {
 }
 
 // ======================= PREDICTOR =======================
-function runMatchPrediction(fixtureId) {
-    const f = fixtures.find(f => f.id === fixtureId);
-    if (!f || f.home === 'BYE' || f.away === 'BYE') { alert("Cannot simulate BYE fixture."); return; }
-    activePredictorFixtureId = fixtureId;
-    document.getElementById('pred-home-name').innerText = f.home;
-    document.getElementById('pred-away-name').innerText = f.away;
-    document.getElementById('pred-home-score').value = f.played ? f.homeScore : '';
-    document.getElementById('pred-away-score').value = f.played ? f.awayScore : '';
-    document.getElementById('pred-table-container').classList.add('hidden');
+
+
+function openPredictionsModal(fixtureId) {
+    currentPredictionFixtureId = fixtureId;
+    const fixture = fixtures.find(f => f.id === fixtureId);
+    if (!fixture) return;
+    document.getElementById('prediction-match-name').innerText = `${fixture.home} vs ${fixture.away}`;
+    document.getElementById('prediction-nickname').value = '';
+    document.getElementById('prediction-home-score').value = '';
+    document.getElementById('prediction-away-score').value = '';
+    document.getElementById('predictions-list').innerHTML = '<div class="text-center text-gray-400 text-sm py-4">Loading predictions...</div>';
     document.getElementById('predictor-modal').classList.remove('hidden');
+    renderPredictions(fixtureId);
 }
 
-function closePredictorModal() { document.getElementById('predictor-modal').classList.add('hidden'); activePredictorFixtureId = null; }
+function closePredictionsModal() {
+    document.getElementById('predictor-modal').classList.add('hidden');
+    currentPredictionFixtureId = null;
+}
 
-function calculatePredictedTable() {
-    if (activePredictorFixtureId === null) return;
-    const homeInp = document.getElementById('pred-home-score').value;
-    const awayInp = document.getElementById('pred-away-score').value;
-    if (homeInp === "" || awayInp === "") { alert("Enter scores"); return; }
-    const simH = parseInt(homeInp), simA = parseInt(awayInp);
-    let simTeams = {};
-    for (let t in teams) {
-        simTeams[t] = { ...teams[t], pts: teams[t].pts, w: teams[t].w, d: teams[t].d, l: teams[t].l, gf: teams[t].gf, ga: teams[t].ga, mp: teams[t].mp, gd: teams[t].gd, deductedPoints: teams[t].deductedPoints || 0 };
+function renderPredictions(fixtureId) {
+    const fixture = fixtures.find(f => f.id === fixtureId);
+    const container = document.getElementById('predictions-list');
+    if (!fixture.predictions || fixture.predictions.length === 0) {
+        container.innerHTML = '<div class="text-center text-gray-400 text-sm py-4">🤔 No predictions yet. Be the first!</div>';
+        return;
     }
-    const f = fixtures.find(f => f.id === activePredictorFixtureId);
-    const h = f.home, a = f.away;
-    if (f.played) {
-        const oldH = parseInt(f.homeScore), oldA = parseInt(f.awayScore);
-        simTeams[h].mp--; simTeams[a].mp--;
-        simTeams[h].gf -= oldH; simTeams[h].ga -= oldA;
-        simTeams[a].gf -= oldA; simTeams[a].ga -= oldH;
-        if (oldH > oldA) { simTeams[h].w--; simTeams[a].l--; simTeams[h].pts -= 3; }
-        else if (oldA > oldH) { simTeams[a].w--; simTeams[h].l--; simTeams[a].pts -= 3; }
-        else { simTeams[h].d--; simTeams[a].d--; simTeams[h].pts -= 1; simTeams[a].pts -= 1; }
-    }
-    simTeams[h].mp++; simTeams[a].mp++;
-    simTeams[h].gf += simH; simTeams[h].ga += simA;
-    simTeams[a].gf += simA; simTeams[a].ga += simH;
-    if (simH > simA) { simTeams[h].w++; simTeams[a].l++; simTeams[h].pts += 3; }
-    else if (simA > simH) { simTeams[a].w++; simTeams[h].l++; simTeams[a].pts += 3; }
-    else { simTeams[h].d++; simTeams[a].d++; simTeams[h].pts += 1; simTeams[a].pts += 1; }
-    for (let t in simTeams) {
-        simTeams[t].gd = simTeams[t].gf - simTeams[t].ga;
-        simTeams[t].pts = Math.max(0, simTeams[t].pts - simTeams[t].deductedPoints);
-    }
-    const sorted = Object.values(simTeams).sort((x, y) => y.pts - x.pts || y.gd - x.gd || y.gf - x.gf);
-    const tbody = document.getElementById('pred-table-body');
-    tbody.innerHTML = "";
-    sorted.forEach((team, idx) => {
-        const highlight = (team.name === h || team.name === a) ? "bg-indigo-50/80 font-bold text-gray-900" : "text-gray-600";
-        tbody.innerHTML += `<tr class="${highlight}"><td class="py-2 px-3 text-center font-black ${idx === 0 ? 'text-indigo-600' : ''}">${idx + 1}</td><td class="py-2 px-3 truncate">${team.name}</td><td class="py-2 px-2 text-center">${team.mp}</td><td class="py-2 px-2 text-center font-mono ${team.gd >= 0 ? 'text-emerald-600' : 'text-rose-500'}">${team.gd > 0 ? '+' + team.gd : team.gd}</td><td class="py-2 px-3 text-center text-indigo-600 font-extrabold">${team.pts}</td></tr>`;
+    container.innerHTML = '';
+    // Show newest first
+    [...fixture.predictions].reverse().forEach((pred, idx) => {
+        const originalIdx = fixture.predictions.length - 1 - idx;
+        const date = new Date(pred.timestamp).toLocaleString();
+        const deleteBtn = isAdmin ? `<button onclick="deletePrediction(${fixtureId}, ${originalIdx})" class="prediction-delete-btn text-xs text-rose-500 hover:text-rose-700 ml-2">🗑️</button>` : '';
+        container.innerHTML += `
+            <div class="prediction-item">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="font-semibold text-sm text-gray-800">${escapeHtml(pred.nickname || 'Anonymous')}</span>
+                            <span class="text-xs font-mono bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full">${pred.homeScore} - ${pred.awayScore}</span>
+                        </div>
+                        <p class="text-[10px] text-gray-400 mt-1">${date}</p>
+                    </div>
+                    ${deleteBtn}
+                </div>
+            </div>
+        `;
     });
-    document.getElementById('pred-table-container').classList.remove('hidden');
+}
+
+function submitPrediction() {
+    if (!currentPredictionFixtureId) return;
+    const nickname = document.getElementById('prediction-nickname').value.trim();
+    const homeScore = parseInt(document.getElementById('prediction-home-score').value);
+    const awayScore = parseInt(document.getElementById('prediction-away-score').value);
+    
+    if (isNaN(homeScore) || isNaN(awayScore)) {
+        alert("Please enter valid scores.");
+        return;
+    }
+    if (nickname === "") {
+        alert("Please enter your name.");
+        return;
+    }
+    
+    const fixture = fixtures.find(f => f.id === currentPredictionFixtureId);
+    if (!fixture) return;
+    if (!fixture.predictions) fixture.predictions = [];
+    
+    fixture.predictions.push({
+        nickname: nickname.slice(0, 20),
+        homeScore: homeScore,
+        awayScore: awayScore,
+        timestamp: Date.now()
+    });
+    
+    saveToStorage();
+    renderPredictions(currentPredictionFixtureId);
+    document.getElementById('prediction-nickname').value = '';
+    document.getElementById('prediction-home-score').value = '';
+    document.getElementById('prediction-away-score').value = '';
+    showToast("Prediction submitted!");
+}
+
+function deletePrediction(fixtureId, index) {
+    if (!isAdmin) return;
+    const fixture = fixtures.find(f => f.id === fixtureId);
+    if (fixture && fixture.predictions && fixture.predictions[index]) {
+        fixture.predictions.splice(index, 1);
+        saveToStorage();
+        renderPredictions(fixtureId);
+        showToast("Prediction deleted");
+    }
+}
+
+// Helper to escape HTML
+function escapeHtml(str) {
+    return str.replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+    });
 }
 
 // ======================= TEAM MANAGEMENT =======================
@@ -817,9 +868,6 @@ window.confirmComment = confirmComment;
 window.showMatchComment = showMatchComment;
 window.closeCommentViewer = closeCommentViewer;
 window.editViewerComment = editViewerComment;
-window.runMatchPrediction = runMatchPrediction;
-window.closePredictorModal = closePredictorModal;
-window.calculatePredictedTable = calculatePredictedTable;
 window.removeTeamFromLeague = removeTeamFromLeague;
 window.showTeamDetails = showTeamDetails;
 window.closeTeamModal = closeTeamModal;

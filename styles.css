@@ -88,3 +88,22 @@ input[type=number]::-webkit-outer-spin-button {
 .banter-message:hover .banter-delete-btn {
     opacity: 1;
 }
+
+/* Prediction item styling */
+.prediction-item {
+    background: #f8fafc;
+    border-radius: 0.75rem;
+    padding: 0.65rem;
+    border: 1px solid #e2e8f0;
+    transition: all 0.1s ease;
+}
+.prediction-item:hover {
+    background: #f1f5f9;
+}
+.prediction-delete-btn {
+    opacity: 0;
+    transition: opacity 0.1s;
+}
+.prediction-item:hover .prediction-delete-btn {
+    opacity: 1;
+}
