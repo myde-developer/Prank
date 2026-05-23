@@ -14,7 +14,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-let teams = {};
+let teadatabaseBanterms = {};
 let fixtures = [];
 let currentSelectedRound = 1;
 let isAdmin = false;
@@ -623,30 +623,49 @@ window.showMatchComment = function(fixtureId) {
     const messagesBox = document.getElementById('banter-messages-box');
     messagesBox.innerHTML = `<p class="text-gray-400 italic text-center pt-4 animate-pulse">Entering chat room...</p>`;
     
-    databaseBanterRef = db.ref(`match_banter_chats/${fixtureId}`).limitToLast(30);
+        databaseBanterRef = db.ref(`match_banter_chats/${fixtureId}`).limitToLast(30);
     databaseBanterRef.on('value', (snapshot) => {
         messagesBox.innerHTML = "";
-        const data = snapshot.val();
-        if (!data) {
+        
+        // Load IDs of banter written on this device
+        const myBanterIds = JSON.parse(localStorage.getItem('my_banter_ids')) || [];
+        
+        if (!snapshot.exists()) {
             messagesBox.innerHTML = `<p class="text-gray-400 italic text-center pt-4">No banter yet. Start the vawulence! 🔥</p>`;
             return;
         }
-        
-        Object.values(data).forEach(msg => {
+
+        snapshot.forEach((childSnapshot) => {
+            const msg = childSnapshot.val();
+            const msgId = msg.id || childSnapshot.key; // Fallback to key if ID isn't found
+            const isMyComment = myBanterIds.includes(msgId);
+            
             const timeStr = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
+            const editedLabel = msg.edited ? `<span class="text-[8px] text-gray-400 italic ml-1">(edited)</span>` : '';
+            
+            // Edit link UI visible only to the original author
+            const editButtonHtml = isMyComment 
+                ? `<button onclick="startBanterInlineEdit('${fixtureId}', '${msgId}')" class="text-[9px] text-indigo-500 hover:underline font-bold ml-1.5 cursor-pointer">✏️ edit</button>` 
+                : '';
+
             messagesBox.innerHTML += `
-                <div class="bg-white p-2 rounded-lg border border-slate-100 shadow-2xs">
+                <div id="banter-card-${msgId}" class="bg-white p-2 rounded-lg border border-slate-100 shadow-2xs flex flex-col gap-0.5">
                     <div class="flex justify-between items-center mb-0.5">
-                        <span class="font-extrabold text-indigo-600 text-[11px]">${escapeHTML(msg.user)}</span>
-                        <span class="text-[9px] text-gray-400 font-mono">${timeStr}</span>
+                        <span class="font-extrabold text-indigo-600 text-[11px]">${escapeHTML(msg.user)} ${isMyComment ? '<span class="text-[9px] text-gray-400 font-normal">(You)</span>' : ''}</span>
+                        <div class="flex items-center gap-1 text-[9px] text-gray-400">
+                            <span>${timeStr}</span>
+                            ${editedLabel}
+                            ${editButtonHtml}
+                        </div>
                     </div>
-                    <p class="text-gray-700 text-xs break-words">${escapeHTML(msg.text)}</p>
+                    <p id="banter-text-content-${msgId}" class="text-gray-700 leading-relaxed font-normal text-xs break-words">${escapeHTML(msg.text || '')}</p>
                 </div>
             `;
         });
-        // Auto Scroll viewport container to floor
+        
         messagesBox.scrollTop = messagesBox.scrollHeight;
     });
+
     
     document.getElementById('comment-viewer-modal').classList.remove('hidden');
     document.getElementById('comment-viewer-modal').classList.add('flex');
@@ -661,20 +680,40 @@ window.closeCommentViewer = function() {
 
 window.submitBanterMessage = function() {
     if (currentViewerFixtureId === null) return;
-    let usernameInput = document.getElementById('banter-input-username').value.trim();
-    const messageInput = document.getElementById('banter-input-text').value.trim();
+    const nameInput = document.getElementById('banter-input-username');
+    const textInput = document.getElementById('banter-input-text');
     
-    if (messageInput === "") return;
-    if (usernameInput === "") usernameInput = "Anonymous";
+    let username = nameInput.value.trim();
+    const text = textInput.value.trim();
     
-    db.ref(`match_banter_chats/${currentViewerFixtureId}`).push({
-        user: usernameInput,
-        text: messageInput,
+    if (!text) return;
+    if (!username) username = "Anonymous";
+    
+    nameInput.value = username; // Keep the locked-in username visible
+    
+    // 1. Generate the message reference node and key
+    const newMsgRef = db.ref(`match_banter_chats/${currentViewerFixtureId}`).push();
+    const messageId = newMsgRef.key;
+    
+    // 2. Set the payload including the explicit ID
+    const payload = {
+        id: messageId,
+        user: username,
+        text: text,
         timestamp: firebase.database.ServerValue.TIMESTAMP
-    }).then(() => {
-        document.getElementById('banter-input-text').value = "";
-    }).catch(() => {
-        showToast("Banter blocked by networking fault.");
+    };
+    
+    newMsgRef.set(payload, (error) => {
+        if (!error) {
+            // 3. Save the message ID locally so they can edit it later
+            let myBanterIds = JSON.parse(localStorage.getItem('my_banter_ids')) || [];
+            myBanterIds.push(messageId);
+            localStorage.setItem('my_banter_ids', JSON.stringify(myBanterIds));
+            
+            textInput.value = "";
+        } else {
+            showToast("Failed to send banter.");
+        }
     });
 };
 
@@ -766,6 +805,47 @@ window.undoMatchResult = function(fixtureId) {
         showToast("Match status rolled back to unplayed.");
     }
 };
+
+// Swaps the text within the banter room card node into an inline textarea workspace
+window.startBanterInlineEdit = function(fixtureId, msgId) {
+    const textContainer = document.getElementById(`banter-text-content-${msgId}`);
+    if (!textContainer) return;
+
+    const currentRawText = textContainer.innerText;
+
+    // Inject inline editing UI directly into the banter message flow
+    textContainer.innerHTML = `
+        <div class="mt-1 flex flex-col gap-1 w-full">
+            <textarea id="inline-edit-input-${msgId}" class="w-full border border-indigo-200 rounded p-1 bg-slate-50 text-xs focus:ring-1 focus:ring-indigo-300 focus:bg-white outline-none" rows="2">${currentRawText}</textarea>
+            <div class="flex gap-2 justify-end">
+                <button onclick="openCommentViewer(${fixtureId})" class="text-[10px] text-gray-400 hover:underline cursor-pointer">Cancel</button>
+                <button onclick="saveBanterInlineUpdate('${fixtureId}', '${msgId}')" class="text-[10px] text-emerald-600 font-bold hover:underline cursor-pointer">Save</button>
+            </div>
+        </div>
+    `;
+};
+
+// Pushes updated updates securely back down to Firebase path
+window.saveBanterInlineUpdate = function(fixtureId, msgId) {
+    const textarea = document.getElementById(`inline-edit-input-${msgId}`);
+    if (!textarea) return;
+
+    const modifiedText = textarea.value.trim();
+    if (!modifiedText) {
+        showToast("Message cannot be empty!");
+        return;
+    }
+
+    db.ref(`match_banter_chats/${fixtureId}/${msgId}`).update({
+        text: modifiedText,
+        edited: true
+    }).then(() => {
+        showToast("Banter updated!");
+    }).catch(() => {
+        showToast("Error updating comment.");
+    });
+};
+
 
 // ============================================================
 // 12. CROWD-SOURCED PUBLIC MATCH PREDICTOR ENGINE & FEATURE 5
