@@ -670,20 +670,6 @@ window.showMatchComment = function(fixtureId) {
                     <p id="banter-text-content-${msgId}" class="text-gray-700 leading-relaxed font-normal text-xs break-words">${escapeHTML(data.text || '')}</p>
                 </div>
             `;
-
-            messagesBox.innerHTML += `
-                <div id="banter-card-${msgId}" class="bg-white p-2 rounded-lg border border-slate-100 shadow-2xs flex flex-col gap-0.5">
-                    <div class="flex justify-between items-center mb-0.5">
-                        <span class="font-extrabold text-indigo-600 text-[11px]">${escapeHTML(msg.user)} ${isMyComment ? '<span class="text-[9px] text-gray-400 font-normal">(You)</span>' : ''}</span>
-                        <div class="flex items-center gap-1 text-[9px] text-gray-400">
-                            <span>${timeStr}</span>
-                            ${editedLabel}
-                            ${editButtonHtml}
-                        </div>
-                    </div>
-                    <p id="banter-text-content-${msgId}" class="text-gray-700 leading-relaxed font-normal text-xs break-words">${escapeHTML(msg.text || '')}</p>
-                </div>
-            `;
         });
         
         messagesBox.scrollTop = messagesBox.scrollHeight;
