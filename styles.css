@@ -297,6 +297,13 @@ button:active::after {
     transform: none !important;
 }
 
+#chat-toggle {
+    background-color: rgba(16, 185, 129, 0.2) !important; /* 20% opacity */
+}
+#chat-toggle:hover {
+    background-color: rgba(16, 185, 129, 0.8) !important; /* 80% on hover */
+}
+
 @keyframes drift {
     0%   { transform: translate(0, 0); }
     25%  { transform: translate(calc(100vw - 100px), 0); }
