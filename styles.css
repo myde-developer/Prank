@@ -11,9 +11,9 @@ body {
 }
 
 /* Glass fixture cards */
-.fixture-card {
-    background: rgba(255, 255, 255, 0.7) !important;
-    backdrop-filter: blur(4px);
+   .fixture-card {
+    background: rgba(255, 255, 255, 0.5) !important;
+    backdrop-filter: blur(8px);
     border: 1px solid rgba(255, 255, 255, 0.5);
 }
 .fixture-card:hover {
@@ -57,10 +57,11 @@ body {
 }
 
 /* ========== GLASSMORPHISM TABLE ========== */
-.league-table-container {
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(2px);
-    border: 1px solid rgba(255, 255, 255, 0.3);
+  .league-table-container {
+    background: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 .league-table-container thead {
     background: rgba(243, 244, 246, 0.9);

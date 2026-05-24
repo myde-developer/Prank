@@ -46,7 +46,7 @@
         </div>
     </header>
 
-    <!-- ================= ALL MODALS ================= -->
+    <!-- ================= ALL MODALS (each once) ================= -->
 
     <!-- TEAM MODAL (advanced stats) -->
     <div id="team-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
@@ -209,74 +209,7 @@
     </div>
 
     <!-- CHANGE PASSWORD MODAL -->
-  <div id="comment-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-gray-200 overflow-hidden animate-fadeInUp">
-            <div class="p-5 border-b border-gray-200 flex justify-between items-center"><h3 class="font-bold text-gray-800">✏️ Edit Match Report</h3><button onclick="closeCommentModal(false)" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button></div>
-            <div class="p-5"><p class="text-sm text-gray-600 mb-2">Match: <span id="comment-match-name"></span></p><textarea id="comment-text" rows="4" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm"></textarea></div>
-            <div class="p-4 bg-gray-50 flex gap-3 justify-end rounded-b-2xl"><button onclick="closeCommentModal(false)" class="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100">Cancel</button><button onclick="confirmComment()" class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-500">Confirm & Save</button></div>
-        </div>
-    </div>
-
-    <!-- MATCH VIEWER MODAL (with events timeline) -->
-    <div id="comment-viewer-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-gray-200 overflow-hidden animate-fadeInUp">
-            <div class="p-5 border-b border-gray-200 flex justify-between items-center"><h3 class="font-bold text-gray-800">📝 Match Details</h3><button onclick="closeCommentViewer()" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button></div>
-            <div class="p-5 space-y-4">
-                <p class="text-sm font-semibold" id="viewer-match-name"></p>
-                <p class="text-xs text-gray-500">Score: <span id="viewer-score"></span></p>
-                <div class="bg-gray-50 p-3 rounded-xl"><p class="text-xs font-medium text-gray-700 mb-1">📖 Match Report</p><p id="viewer-comment" class="text-sm text-gray-800 italic"></p></div>
-                <div id="viewer-events-container" class="hidden border-t pt-2"><p class="text-xs font-bold text-gray-600">⚽ Timeline</p><div id="viewer-events" class="max-h-40 overflow-y-auto text-xs space-y-1 mt-1"></div></div>
-            </div>
-            <div class="p-4 bg-gray-50 flex flex-wrap gap-2 justify-end rounded-b-2xl">
-                <button onclick="closeCommentViewer()" class="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100">Close</button>
-                <button id="viewer-edit-btn" onclick="editViewerComment()" class="hidden px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-500">Edit Report</button>
-                <button id="viewer-edit-events-btn" onclick="editViewerEvents()" class="hidden px-4 py-2 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-500">⏱️ Edit Events</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- EVENT EDITOR MODAL -->
-    <div id="event-editor-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-gray-200 overflow-hidden animate-fadeInUp">
-            <div class="p-5 border-b border-gray-200 flex justify-between items-center"><h3 class="font-bold text-gray-800">⚙️ Edit Match Events</h3><button onclick="closeEventEditor()" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button></div>
-            <div class="p-5 space-y-3">
-                <p class="text-sm font-medium" id="event-match-name"></p>
-                <div id="events-list-container" class="max-h-60 overflow-y-auto border rounded-xl p-2 bg-gray-50 space-y-2"></div>
-                <div class="flex gap-2 mt-2">
-                    <input type="number" id="new-event-minute" placeholder="Min" class="w-16 text-center border rounded-lg px-2 py-1 text-sm">
-                    <select id="new-event-team" class="border rounded-lg px-2 py-1 text-sm"></select>
-                    <input type="text" id="new-event-player" placeholder="Player" class="flex-1 border rounded-lg px-2 py-1 text-sm">
-                    <button onclick="addEvent()" class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-lg text-sm">+ Add</button>
-                </div>
-            </div>
-            <div class="p-4 bg-gray-50 flex justify-end gap-2 rounded-b-2xl">
-                <button onclick="closeEventEditor()" class="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100">Cancel</button>
-                <button onclick="saveEventsAndClose()" class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-500">Save Events</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- TEAM SELECT MODAL -->
-    <div id="team-select-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full border border-gray-200 overflow-hidden animate-fadeInUp">
-            <div class="p-5 border-b border-gray-200 flex justify-between items-center"><h3 class="font-bold text-gray-800">Select Team</h3><button onclick="closeTeamSelectModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button></div>
-            <div class="p-5"><p class="text-sm text-gray-600 mb-3">Choose the correct team for this fixture:</p><select id="team-select-dropdown" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm"></select></div>
-            <div class="p-4 bg-gray-50 flex gap-3 justify-end rounded-b-2xl"><button onclick="closeTeamSelectModal()" class="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100">Cancel</button><button onclick="confirmTeamSelection()" class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-500">Confirm</button></div>
-        </div>
-    </div>
-
-    <!-- PASSWORD MODAL -->
-    <div id="password-modal" class="fixed inset-0 z-50 hidden bg-gray-900/50 backdrop-blur-sm items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4">
-            <div class="flex items-center gap-3 border-b border-gray-100 pb-3"><div class="bg-indigo-50 p-2 rounded-full">🔑</div><h3 class="font-bold text-gray-800">Admin Authentication</h3></div>
-            <input type="password" id="admin-password-input" placeholder="Enter master password" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-center font-mono text-lg tracking-widest">
-            <p id="password-error" class="hidden text-red-500 text-xs text-center">❌ Invalid passcode</p>
-            <div class="flex gap-3 pt-2"><button onclick="closePasswordModal()" class="flex-1 py-2 border border-gray-300 rounded-lg text-sm">Cancel</button><button onclick="verifyAdminPassword()" class="flex-1 bg-indigo-600 text-white rounded-lg py-2 text-sm font-bold">Unlock</button></div>
-        </div>
-    </div>
-
-    <!-- CHANGE PASSWORD MODAL -->
-    <div id="change-password-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
+      <div id="change-password-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full border border-gray-200 overflow-hidden animate-fadeInUp">
             <div class="p-5 border-b border-gray-200 flex justify-between items-center"><h3 class="font-bold text-gray-800">🔐 Change Master Password</h3><button onclick="closeChangePasswordModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button></div>
             <div class="p-5 space-y-3"><input type="password" id="new-password" placeholder="New password" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-center font-mono text-sm"><input type="password" id="confirm-password" placeholder="Confirm new password" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-center font-mono text-sm"><p id="password-match-error" class="hidden text-red-500 text-xs text-center">Passwords do not match</p></div>
@@ -322,7 +255,7 @@
                 <div class="overflow-x-auto">
                     <table class="w-full text-xs min-w-[650px]">
                         <thead class="bg-gray-100 text-gray-500 text-[10px] font-mono uppercase">
-                            <tr><th class="py-2 px-2 text-center">Pos</th><th class="py-2 px-2 text-left">Team</th><th class="py-2 px-1 text-center">MP</th><th class="py-2 px-1 text-center">W</th><th class="py-2 px-1 text-center">D</th><th class="py-2 px-1 text-center">L</th><th class="py-2 px-1 text-center">GF</th><th class="py-2 px-1 text-center">GA</th><th class="py-2 px-1 text-center">GD</th><th class="py-2 px-2 text-center">PTS</th><th class="py-2 px-2 text-center">Form</th><th id="th-admin-actions" class="hidden py-2 px-2 text-center">Actions</th></tr>
+                            <tr><th class="py-2 px-2 text-center">Pos</th><th class="py-2 px-2 text-left">Team</th><th class="py-2 px-1 text-center">MP</th><th class="py-2 px-1 text-center">W</th><th class="py-2 px-1 text-center">D</th><th class="py-2 px-1 text-center">L</th><th class="py-2 px-1 text-center">GF</th><th class="py-2 px-1 text-center">GA</th><th class="py-2 px-1 text-center">GD</th><th class="py-2 px-2 text-center">PTS</th><th class="py-2 px-2 text-center">Form</th><th id="th-admin-actions" class="hidden py-2 px-2 text-center">Actions</th></td>
                         </thead>
                         <tbody id="league-table-body"></tbody>
                     </table>
@@ -330,7 +263,7 @@
                 <div id="admin-table-hint" class="hidden text-center text-[11px] text-indigo-500 bg-indigo-50 py-2 border-t border-indigo-100">✋ Admin: drag fixtures to reorder | click team name to assign | 📖 for report & events</div>
             </div>
 
-<!-- Knockout Bracket (gradient border) -->
+            <!-- Knockout Bracket (gradient border) -->
             <div id="knockout-section" class="hidden rounded-2xl border-2 border-transparent bg-gradient-to-r from-amber-50 via-white to-pink-50 p-5 shadow-sm">
                 <h2 class="font-bold text-indigo-700 flex items-center gap-2">🏆 Knockout Stage</h2>
                 <div id="knockout-bracket" class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-3"></div>
@@ -342,7 +275,6 @@
                     <h2 class="font-bold text-gray-700">📅 Match Schedule</h2>
                     <div id="gameweek-tabs" class="flex gap-1 overflow-x-auto pb-1"></div>
                 </div>
-                <!-- Loading skeleton (will be replaced) -->
                 <div id="fixtures-container" class="flex flex-col gap-3">
                     <div class="skeleton h-24 w-full rounded-xl"></div>
                     <div class="skeleton h-24 w-full rounded-xl"></div>
@@ -371,6 +303,9 @@
             <button onclick="resetTournament()" class="w-10 h-10 rounded-full bg-rose-100 text-rose-600 hover:bg-rose-200 transition" title="Wipe Data">⚠️</button>
         </div>
     </div>
+
+    <!-- Back to Top Button (optional) -->
+    <button id="backToTop" class="fixed bottom-24 right-5 z-50 bg-indigo-600 text-white rounded-full p-3 shadow-lg hidden hover:bg-indigo-700 transition-all duration-200" style="width: 44px; height: 44px; font-size: 1.5rem; line-height: 1;">↑</button>
 
     <div id="toast-container" class="fixed bottom-5 right-5 z-50 space-y-2"></div>
 
