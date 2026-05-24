@@ -251,12 +251,6 @@
                 <div class="px-5 py-3 bg-gray-50/80 border-b border-gray-200 flex justify-between items-center">
                     <h2 class="font-bold text-gray-700 flex items-center gap-2"><span>🏆</span> League Table</h2>
                     <div id="phase-indicator" class="text-xs font-mono text-indigo-500"></div>
-<div class="flex items-center gap-2 text-xs">
-    <label class="text-gray-600">⚡ Auto‑start next round:</label>
-    <button id="auto-start-toggle" onclick="toggleAutoStart()" class="relative inline-flex h-5 w-9 rounded-full transition-colors duration-200 bg-gray-300">
-        <span id="auto-start-dot" class="translate-x-0 inline-block h-4 w-4 rounded-full bg-white shadow transform transition duration-200 mt-0.5 ml-0.5"></span>
-    </button>
-</div>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-xs min-w-[650px]">
@@ -276,17 +270,27 @@
             </div>
 
             <!-- Match Schedule -->
-            <div id="schedule-section" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-4">
-                <div class="flex flex-wrap justify-between items-center gap-3">
-                    <h2 class="font-bold text-gray-700">📅 Match Schedule</h2>
-                    <div id="gameweek-tabs" class="flex gap-1 overflow-x-auto pb-1"></div>
-                </div>
-                <div id="fixtures-container" class="flex flex-col gap-3">
-                    <div class="skeleton h-24 w-full rounded-xl"></div>
-                    <div class="skeleton h-24 w-full rounded-xl"></div>
-                    <div class="skeleton h-24 w-full rounded-xl"></div>
-                </div>
-            </div>
+           <div id="schedule-section" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-4">
+    <div class="flex flex-wrap justify-between items-center gap-3">
+        <h2 class="font-bold text-gray-700">📅 Match Schedule</h2>
+        <div id="gameweek-tabs" class="flex gap-1 overflow-x-auto pb-1"></div>
+    </div>
+    <!-- Auto‑start toggle (admin only) -->
+    <div id="auto-start-container" class="hidden flex justify-end">
+        <div class="flex items-center gap-2 text-xs bg-gray-50 px-3 py-1.5 rounded-full">
+            <label class="text-gray-600">⚡ Auto‑start next round:</label>
+            <button id="auto-start-toggle" onclick="toggleAutoStart()" class="relative inline-flex h-5 w-9 rounded-full transition-colors duration-200 bg-gray-300">
+                <span id="auto-start-dot" class="translate-x-0 inline-block h-4 w-4 rounded-full bg-white shadow transform transition duration-200 mt-0.5 ml-0.5"></span>
+            </button>
+        </div>
+    </div>
+    <!-- Fixtures container -->
+    <div id="fixtures-container" class="flex flex-col gap-3">
+        <div class="skeleton h-24 w-full rounded-xl"></div>
+        <div class="skeleton h-24 w-full rounded-xl"></div>
+        <div class="skeleton h-24 w-full rounded-xl"></div>
+    </div>
+</div>
 
             <!-- Relegation Zone -->
             <div id="relegation-zone" class="hidden bg-white rounded-2xl border border-red-200 shadow-sm p-5 space-y-4">

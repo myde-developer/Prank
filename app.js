@@ -280,6 +280,11 @@ function activateAdminMode() { isAdmin = true; updateAdminUIElements(); showToas
 function deactivateAdminMode() { isAdmin = false; updateAdminUIElements(); showToast("Admin mode deactivated"); }
 function updateAdminUIElements() {
     const btn = document.getElementById('admin-btn'), dot = document.getElementById('admin-btn-dot'), statusText = document.getElementById('admin-status-text'), resetContainer = document.getElementById('admin-reset-container'), thActions = document.getElementById('th-admin-actions'), hint = document.getElementById('admin-table-hint'), relegationZone = document.getElementById('relegation-zone');
+   const autoStartContainer = document.getElementById('auto-start-container');
+if (autoStartContainer) {
+    if (isAdmin) autoStartContainer.classList.remove('hidden');
+    else autoStartContainer.classList.add('hidden');
+}
     const floatMenu = document.getElementById('floating-admin-menu');
     if (isAdmin) {
         btn?.classList.replace('bg-gray-300', 'bg-indigo-600'); dot?.classList.replace('translate-x-0', 'translate-x-5');
@@ -697,9 +702,15 @@ function renderGameweekTabs() {
     container.innerHTML = "";
     for (let r = 1; r <= total; r++) {
         const startTime = roundStartTimes[r];
+        const roundFixtures = fixtures.filter(f => f.round === r && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
+        const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
+        
         let statusHtml = '';
         let startBtnHtml = '';
-        if (startTime) {
+        
+        if (allResolved) {
+            statusHtml = `<span class="text-[9px] font-mono text-green-600 ml-1">✅ Completed</span>`;
+        } else if (startTime) {
             const deadline = startTime + 2 * 24 * 60 * 60 * 1000;
             const now = Date.now();
             if (now < deadline) {
@@ -716,6 +727,7 @@ function renderGameweekTabs() {
                 statusHtml = `<span class="text-[9px] font-mono text-gray-400 ml-1">⏸ Not started</span>`;
             }
         }
+        
         const active = r === currentSelectedRound;
         const btn = document.createElement('button');
         btn.className = `px-3 py-1 text-[11px] font-mono rounded-full transition shrink-0 flex items-center gap-1 ${active ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
@@ -1134,6 +1146,7 @@ function deletePrediction(fixtureId, index) {
 }
 
 function toggleAutoStart() {
+    if (!isAdmin) return;
     autoStartNextRound = !autoStartNextRound;
     const btn = document.getElementById('auto-start-toggle');
     const dot = document.getElementById('auto-start-dot');
