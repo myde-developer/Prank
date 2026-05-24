@@ -316,8 +316,8 @@
 
 <!-- Back to Top Button (centered bottom) -->
 <button id="backToTop" class="fixed bottom-5 left-1/2 transform -translate-x-1/2 z-50 bg-indigo-600/60 hover:bg-indigo-600 text-white rounded-full p-2 shadow-lg hidden transition-all duration-200 backdrop-blur-sm" style="width: 36px; height: 36px; font-size: 1.2rem; line-height: 1;">↑</button>
-<!-- Drifting Chat Button -->
-<button id="chat-toggle" onclick="openChatModal()" class="fixed z-50 bg-emerald-600/70 hover:bg-emerald-600 text-white rounded-full px-3 py-2 shadow-lg transition-all duration-200 flex items-center gap-1 backdrop-blur-sm text-xs sm:text-sm" style="touch-action: none;">
+<!-- Drifting Chat Button (no fixed start position – animation drives it) -->
+<button id="chat-toggle" onclick="openChatModal()" class="fixed z-50 bg-emerald-600/70 hover:bg-emerald-600 text-white rounded-full px-3 py-2 shadow-lg transition-all duration-200 flex items-center gap-1 backdrop-blur-sm text-xs sm:text-sm" style="touch-action: none; top: auto; bottom: auto; left: auto; right: auto; transform: none;">
     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
     </svg>

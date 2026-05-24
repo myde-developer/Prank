@@ -285,30 +285,40 @@ button:active::after {
         cursor: pointer;
     }
 }
-
-/* Drifting chat button animation */
+/* ========== DRIFTING CHAT BUTTON (from top‑left corner) ========== */
 #chat-toggle {
-    animation: drift 18s ease-in-out infinite;
+    animation: drift 20s ease-in-out infinite;
     will-change: transform;
+    touch-action: none;
+    top: 10px !important;
+    left: 10px !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: none !important;
 }
 
 @keyframes drift {
     0%   { transform: translate(0, 0); }
-    25%  { transform: translate(calc(100vw - 100px), 0); }          /* top-right corner */
-    50%  { transform: translate(calc(100vw - 100px), calc(100vh - 80px)); } /* bottom-right */
-    75%  { transform: translate(0, calc(100vh - 80px)); }          /* bottom-left */
-    100% { transform: translate(0, 0); }                           /* back to top-left */
+    25%  { transform: translate(calc(100vw - 100px), 0); }
+    50%  { transform: translate(calc(100vw - 100px), calc(100vh - 80px)); }
+    75%  { transform: translate(0, calc(100vh - 80px)); }
+    100% { transform: translate(0, 0); }
 }
 
-/* Adjust for smaller screens – keep inside viewport */
+#chat-toggle:hover {
+    animation-play-state: paused;
+}
+
+/* Mobile adjustment – keep inside viewport */
 @media (max-width: 768px) {
     #chat-toggle {
-        animation: drift-mobile 18s ease-in-out infinite;
+        top: 5px !important;
+        left: 5px !important;
     }
-    @keyframes drift-mobile {
+    @keyframes drift {
         0%   { transform: translate(0, 0); }
-        25%  { transform: translate(calc(100vw - 80px), 0); }
-        50%  { transform: translate(calc(100vw - 80px), calc(100vh - 70px)); }
+        25%  { transform: translate(calc(100vw - 75px), 0); }
+        50%  { transform: translate(calc(100vw - 75px), calc(100vh - 70px)); }
         75%  { transform: translate(0, calc(100vh - 70px)); }
         100% { transform: translate(0, 0); }
     }
