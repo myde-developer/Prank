@@ -84,8 +84,6 @@ function generateRandomRoundRobin(teamNames) {
 }
 
 // ==================== GLOBAL CHAT ROOM ====================
-let chatMessagesRef = null;
-
 function initChatListener() {
     chatMessagesRef = db.ref('chat_messages');
     chatMessagesRef.off(); // remove old listeners to avoid duplicates
@@ -186,37 +184,6 @@ function deleteChatMessage(userId) {
 function expireOldFixtures() {
     const now = Date.now();
     let changed = false;
-    fixtures.forEach(f => {
-        if (!f.played && !f.cancelled) {
-            const startTime = roundStartTimes[f.round];
-            if (startTime) {
-                const deadline = startTime + 2 * 24 * 60 * 60 * 1000;
-                if (now > deadline) {
-                    f.cancelled = true;
-                    changed = true;
-                    showToast(`⏰ Round ${f.round} match cancelled: ${f.home} vs ${f.away} (time limit exceeded)`);
-                }
-            }
-        }
-    });
-    knockoutMatches.forEach(k => {
-        if (!k.played && !k.cancelled && k.deadline && now > k.deadline) {
-            k.cancelled = true;
-            changed = true;
-            showToast(`⏰ Knockout match cancelled: ${k.home} vs ${k.away} (time limit exceeded)`);
-        }
-    });
-    if (changed) {
-        updateTableCalculations();
-        renderTable();
-        renderFixtures();
-        renderKnockoutBracket();
-        saveToStorage();
-    }
-// ==================== TIME LIMIT (ADMIN‑CONTROLLED) ====================
-function expireOldFixtures() {
-    const now = Date.now();
-    let changed = false;
     
     // Cancel expired league fixtures
     fixtures.forEach(f => {
@@ -250,24 +217,24 @@ function expireOldFixtures() {
         saveToStorage();
     }
     
-    // ========== AUTO-START NEXT ROUND (Feature #6) ==========
+    // ========== AUTO-START NEXT ROUND ==========
     if (autoStartNextRound && tournamentPhase === 'league') {
-        const currentRound = currentSelectedRound;
-        // Get all fixtures of current round that involve non‑relegated teams
-        const roundFixtures = fixtures.filter(f => f.round === currentRound && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
-        if (roundFixtures.length === 0) return;
-        
-        const allResolved = roundFixtures.every(f => f.played || f.cancelled);
-        if (allResolved) {
-            const nextRound = currentRound + 1;
-            const nextRoundExists = fixtures.some(f => f.round === nextRound);
-            // Only start next round if it exists and hasn't been started yet
-            if (nextRoundExists && !roundStartTimes[nextRound]) {
-                startRound(nextRound);
+        // Find the first round that is NOT fully resolved (or the next after the highest resolved)
+        let highestResolvedRound = 0;
+        for (let r = 1; r <= Math.max(...fixtures.map(f => f.round)); r++) {
+            const roundFixtures = fixtures.filter(f => f.round === r && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
+            if (roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled)) {
+                highestResolvedRound = r;
+            } else {
+                break;
             }
         }
+        const nextRound = highestResolvedRound + 1;
+        const nextRoundExists = fixtures.some(f => f.round === nextRound);
+        if (nextRoundExists && !roundStartTimes[nextRound]) {
+            startRound(nextRound);
+        }
     }
-}
 }
 
 // ==================== DATABASE + LIVE ALERTS + CHAT ====================
