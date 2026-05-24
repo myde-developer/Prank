@@ -265,6 +265,27 @@ button:active::after {
 }
 .chat-message:hover .chat-delete-btn { opacity: 1; }
 
+/* Chat modal – ensure full height on mobile */
+@media (max-width: 640px) {
+    #chat-modal {
+        padding: 0.5rem;
+    }
+    #chat-modal > div {
+        max-height: 95vh;
+    }
+    #chat-messages-container {
+        max-height: calc(95vh - 130px) !important;
+    }
+    .chat-message .bubble {
+        max-width: 90%;
+    }
+    /* Better touch targets for buttons */
+    #chat-toggle, #backToTop {
+        touch-action: manipulation;
+        cursor: pointer;
+    }
+}
+
 /* ========== TOAST & UTILITIES ========== */
 .toast {
     background: #1e293b;
