@@ -84,18 +84,35 @@ function generateRandomRoundRobin(teamNames) {
 }
 
 // ==================== GLOBAL CHAT ROOM ====================
+let chatMessagesRef = null;
+
+function initChatListener() {
+    chatMessagesRef = db.ref('chat_messages');
+    chatMessagesRef.off(); // remove old listeners to avoid duplicates
+    chatMessagesRef.on('child_added', (snapshot) => {
+        const msg = snapshot.val();
+        appendChatMessage(msg);
+    });
+}
+
 function openChatModal() {
-    document.getElementById('chat-modal').classList.remove('hidden');
-    document.getElementById('chat-modal').classList.add('flex');
-    document.getElementById('chat-nickname').value = currentChatNickname;
-    // Scroll to bottom
-    const container = document.getElementById('chat-messages-container');
-    container.scrollTop = container.scrollHeight;
+    const modal = document.getElementById('chat-modal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        const savedName = localStorage.getItem('chatNickname');
+        if (savedName) document.getElementById('chat-nickname').value = savedName;
+        const container = document.getElementById('chat-messages-container');
+        if (container) container.scrollTop = container.scrollHeight;
+    }
 }
 
 function closeChatModal() {
-    document.getElementById('chat-modal').classList.add('hidden');
-    document.getElementById('chat-modal').classList.remove('flex');
+    const modal = document.getElementById('chat-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
 }
 
 function sendChatMessage() {
@@ -108,30 +125,36 @@ function sendChatMessage() {
     const text = document.getElementById('chat-input').value.trim();
     if (text === "") return;
     
-    // Save nickname to localStorage
     localStorage.setItem('chatNickname', nickname);
-    currentChatNickname = nickname;
     
     const message = {
         nickname: nickname.slice(0, 20),
         text: text.slice(0, 200),
         timestamp: Date.now(),
-        userId: Date.now() + Math.random() // simple unique ID
+        userId: Date.now() + Math.random()
     };
-    chatMessagesRef.push(message);
-    document.getElementById('chat-input').value = '';
+    
+    if (chatMessagesRef) {
+        chatMessagesRef.push(message);
+        document.getElementById('chat-input').value = '';
+    } else {
+        console.error("Chat not initialised");
+        showToast("Chat not ready, try again");
+    }
 }
 
 function appendChatMessage(msg) {
     const container = document.getElementById('chat-messages-container');
+    if (!container) return;
     // Remove loading placeholder if present
     if (container.children.length === 1 && container.children[0].innerText.includes('Loading')) {
         container.innerHTML = '';
     }
     const date = new Date(msg.timestamp).toLocaleString();
-    const isCurrentUser = (msg.nickname === currentChatNickname);
+    const currentNick = localStorage.getItem('chatNickname') || '';
+    const isCurrentUser = (msg.nickname === currentNick);
     const bubbleClass = isCurrentUser ? 'sent' : 'received';
-    const deleteBtn = isAdmin ? `<button onclick="deleteChatMessage('${msg.userId}')" class="chat-delete-btn text-xs text-rose-500 hover:text-rose-700 ml-2">🗑️</button>` : '';
+    const deleteBtn = isAdmin ? `<button onclick="deleteChatMessage('${msg.userId}')" class="chat-delete-btn" title="Delete">🗑️</button>` : '';
     
     const messageDiv = document.createElement('div');
     messageDiv.className = `chat-message ${bubbleClass}`;
@@ -151,7 +174,6 @@ function appendChatMessage(msg) {
 
 function deleteChatMessage(userId) {
     if (!isAdmin) return;
-    // Find message by userId (we stored a unique ID)
     chatMessagesRef.orderByChild('userId').equalTo(userId).once('value', snapshot => {
         snapshot.forEach(child => {
             child.ref.remove();
@@ -159,8 +181,6 @@ function deleteChatMessage(userId) {
         });
     });
 }
-
-// Load existing messages on page load (they come via child_added)
 
 // ==================== TIME LIMIT (ADMIN‑CONTROLLED) ====================
 function expireOldFixtures() {
@@ -252,6 +272,7 @@ function expireOldFixtures() {
 
 // ==================== DATABASE + LIVE ALERTS + CHAT ====================
 function initRealtimeDatabaseSync() {
+    // Tournament data listener
     db.ref('tournament_data').on('value', (snapshot) => {
         const data = snapshot.val();
         if (data && data.teams && data.fixtures) {
@@ -280,7 +301,7 @@ function initRealtimeDatabaseSync() {
                 }
             }
             
-            // Update UI and calculations
+            // Update everything
             updateTableCalculations();
             renderTable();
             renderGameweekTabs();
@@ -327,11 +348,7 @@ function initRealtimeDatabaseSync() {
     });
     
     // Global chat listener (real‑time)
-    const chatMessagesRef = db.ref('chat_messages');
-    chatMessagesRef.on('child_added', (snapshot) => {
-        const msg = snapshot.val();
-        appendChatMessage(msg);
-    });
+    initChatListener();
 }
 
 // ==================== TICKER ====================
