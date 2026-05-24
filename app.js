@@ -18,6 +18,7 @@ let currentPenaltyTeam = null, pendingAssignFixtureId = null, pendingAssignSide 
 let currentPredictionFixtureId = null, currentBanterFixtureId = null;
 let currentEditingEventsFixture = null, pendingEvents = [];
 let currentSortable = null;
+let autoStartNextRound = false;
 let roundStartTimes = {};   // stores timestamp when admin starts a round
 
 // ==================== HELPERS ====================
@@ -26,7 +27,58 @@ function showToast(msg) {
     if (c) { let t = document.createElement("div"); t.className = "toast"; t.innerText = msg; c.appendChild(t); setTimeout(() => t.remove(), 2500); }
 }
 function saveToStorage() { 
-    db.ref('tournament_data').set({ teams, fixtures, knockoutMatches, tournamentPhase, password: tournamentPassword, roundStartTimes }); 
+    db.ref('tournament_data').set({ teams, fixtures, knockoutMatches, tournamentPhase, password: tournamentPassword, roundStartTimes, autoStartNextRound }); 
+}
+
+// ==================== RANDOMIZED FIXTURE GENERATION ====================
+function generateRandomRoundRobin(teamNames) {
+    let n = teamNames.length;
+    let hasBye = false;
+    if (n % 2 !== 0) {
+        teamNames.push("BYE");
+        n++;
+        hasBye = true;
+    }
+    
+    // Randomly shuffle the initial team order
+    let shuffled = [...teamNames];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    
+    const numRounds = n - 1;
+    const halfSize = n / 2;
+    const rounds = [];
+    
+    for (let round = 0; round < numRounds; round++) {
+        const roundFixtures = [];
+        for (let i = 0; i < halfSize; i++) {
+            const home = shuffled[i];
+            const away = shuffled[n - 1 - i];
+            if (home !== "BYE" && away !== "BYE") {
+                // Randomly decide home/away
+                if (Math.random() < 0.5) {
+                    roundFixtures.push({ home, away });
+                } else {
+                    roundFixtures.push({ home: away, away: home });
+                }
+            }
+        }
+        rounds.push(roundFixtures);
+        
+        // Rotate the array (standard round‑robin rotation)
+        const last = shuffled.pop();
+        shuffled.splice(1, 0, last);
+    }
+    
+    // Optional: shuffle the order of rounds for extra unpredictability
+    for (let i = rounds.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [rounds[i], rounds[j]] = [rounds[j], rounds[i]];
+    }
+    
+    return rounds;
 }
 
 // ==================== TIME LIMIT (ADMIN‑CONTROLLED) ====================
@@ -60,6 +112,61 @@ function expireOldFixtures() {
         renderKnockoutBracket();
         saveToStorage();
     }
+// ==================== TIME LIMIT (ADMIN‑CONTROLLED) ====================
+function expireOldFixtures() {
+    const now = Date.now();
+    let changed = false;
+    
+    // Cancel expired league fixtures
+    fixtures.forEach(f => {
+        if (!f.played && !f.cancelled) {
+            const startTime = roundStartTimes[f.round];
+            if (startTime) {
+                const deadline = startTime + 2 * 24 * 60 * 60 * 1000;
+                if (now > deadline) {
+                    f.cancelled = true;
+                    changed = true;
+                    showToast(`⏰ Round ${f.round} match cancelled: ${f.home} vs ${f.away} (time limit exceeded)`);
+                }
+            }
+        }
+    });
+    
+    // Cancel expired knockout matches
+    knockoutMatches.forEach(k => {
+        if (!k.played && !k.cancelled && k.deadline && now > k.deadline) {
+            k.cancelled = true;
+            changed = true;
+            showToast(`⏰ Knockout match cancelled: ${k.home} vs ${k.away} (time limit exceeded)`);
+        }
+    });
+    
+    if (changed) {
+        updateTableCalculations();
+        renderTable();
+        renderFixtures();
+        renderKnockoutBracket();
+        saveToStorage();
+    }
+    
+    // ========== AUTO-START NEXT ROUND (Feature #6) ==========
+    if (autoStartNextRound && tournamentPhase === 'league') {
+        const currentRound = currentSelectedRound;
+        // Get all fixtures of current round that involve non‑relegated teams
+        const roundFixtures = fixtures.filter(f => f.round === currentRound && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
+        if (roundFixtures.length === 0) return;
+        
+        const allResolved = roundFixtures.every(f => f.played || f.cancelled);
+        if (allResolved) {
+            const nextRound = currentRound + 1;
+            const nextRoundExists = fixtures.some(f => f.round === nextRound);
+            // Only start next round if it exists and hasn't been started yet
+            if (nextRoundExists && !roundStartTimes[nextRound]) {
+                startRound(nextRound);
+            }
+        }
+    }
+}
 }
 
 // ==================== DATABASE + LIVE ALERTS ====================
@@ -73,6 +180,25 @@ function initRealtimeDatabaseSync() {
             knockoutMatches = data.knockoutMatches || [];
             tournamentPhase = data.tournamentPhase || 'league';
             roundStartTimes = data.roundStartTimes || {};
+            autoStartNextRound = data.autoStartNextRound || false;
+            
+            // Sync the toggle button UI based on loaded setting
+            const toggleBtn = document.getElementById('auto-start-toggle');
+            const toggleDot = document.getElementById('auto-start-dot');
+            if (toggleBtn && toggleDot) {
+                if (autoStartNextRound) {
+                    toggleBtn.classList.remove('bg-gray-300');
+                    toggleBtn.classList.add('bg-indigo-600');
+                    toggleDot.classList.remove('translate-x-0');
+                    toggleDot.classList.add('translate-x-4');
+                } else {
+                    toggleBtn.classList.remove('bg-indigo-600');
+                    toggleBtn.classList.add('bg-gray-300');
+                    toggleDot.classList.remove('translate-x-4');
+                    toggleDot.classList.add('translate-x-0');
+                }
+            }
+            
             updateTableCalculations();
             renderTable();
             renderGameweekTabs();
@@ -92,6 +218,7 @@ function initRealtimeDatabaseSync() {
         } else {
             tournamentPassword = "1234";
             roundStartTimes = {};
+            autoStartNextRound = false;
             document.getElementById('setup-section')?.classList.remove('hidden');
             document.getElementById('dashboard-section')?.classList.add('hidden');
             document.getElementById('admin-toggle-container')?.classList.add('hidden');
@@ -196,29 +323,60 @@ function initializeTournament() {
     const count = parseInt(document.getElementById('team-count').value);
     const pass = document.getElementById('tournament-password').value.trim();
     if (pass) tournamentPassword = pass;
+    
+    // Collect team names
     let list = [];
-    for (let i = 1; i <= count; i++) { let name = document.getElementById(`team-input-${i}`).value.trim(); if (name === "") name = `Team ${i}`; list.push({ name }); }
-    if (list.length % 2 !== 0) list.push({ name: "BYE" });
-    teams = {};
-    list.forEach(item => { if (item.name !== "BYE") teams[item.name] = { name: item.name, mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0, deductedPoints: 0, formHistory: [], relegated: false }; });
-    fixtures = [];
-    const n = list.length, rounds = n - 1;
-    for (let r = 0; r < rounds; r++) {
-        for (let m = 0; m < n / 2; m++) {
-            let homeIdx = (r + m) % (n - 1);
-            let awayIdx = (n - 1 - m + r) % (n - 1);
-            if (m === 0) awayIdx = n - 1;
-            if (list[homeIdx].name !== "BYE" && list[awayIdx].name !== "BYE") {
-                fixtures.push({ id: fixtures.length, round: r + 1, home: list[homeIdx].name, away: list[awayIdx].name, homeScore: null, awayScore: null, played: false, cancelled: false, comment: null, predictions: [], banter: [], events: [], report: null, deadline: null });
-            }
-        }
+    for (let i = 1; i <= count; i++) {
+        let name = document.getElementById(`team-input-${i}`).value.trim();
+        if (name === "") name = `Team ${i}`;
+        list.push({ name });
     }
+    
+    // Create teams object (no BYE team yet)
+    teams = {};
+    list.forEach(item => {
+        teams[item.name] = { 
+            name: item.name, 
+            mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0, 
+            deductedPoints: 0, formHistory: [], relegated: false 
+        };
+    });
+    
+    // Generate random round‑robin fixtures
+    const teamNames = Object.keys(teams);
+    const rounds = generateRandomRoundRobin(teamNames);
+    
+    // Flatten rounds into fixtures array
+    fixtures = [];
+    let fixtureId = 0;
+    rounds.forEach((roundFixtures, roundIndex) => {
+        roundFixtures.forEach(({ home, away }) => {
+            fixtures.push({
+                id: fixtureId++,
+                round: roundIndex + 1,
+                home: home,
+                away: away,
+                homeScore: null,
+                awayScore: null,
+                played: false,
+                cancelled: false,
+                comment: null,
+                predictions: [],
+                banter: [],
+                events: [],
+                report: null,
+                deadline: null
+            });
+        });
+    });
+    
     tournamentPhase = 'league';
     knockoutMatches = [];
     roundStartTimes = {};
+    autoStartNextRound = false;
     currentSelectedRound = 1;
     saveToStorage();
-    showToast("Tournament launched! Admin must start each gameweek.");
+    showToast("Tournament launched with random, unpredictable fixtures!");
 }
 
 // ==================== ADMIN: START ROUND ====================
@@ -973,6 +1131,22 @@ function deletePrediction(fixtureId, index) {
     if (!isAdmin) return;
     const f = fixtures.find(f => f.id === fixtureId);
     if (f && f.predictions && f.predictions[index]) { f.predictions.splice(index,1); saveToStorage(); renderPredictions(fixtureId); showToast("Prediction deleted"); }
+}
+
+function toggleAutoStart() {
+    autoStartNextRound = !autoStartNextRound;
+    const btn = document.getElementById('auto-start-toggle');
+    const dot = document.getElementById('auto-start-dot');
+    if (autoStartNextRound) {
+        btn.classList.replace('bg-gray-300', 'bg-indigo-600');
+        dot.classList.replace('translate-x-0', 'translate-x-4');
+        showToast("Auto‑start enabled");
+    } else {
+        btn.classList.replace('bg-indigo-600', 'bg-gray-300');
+        dot.classList.replace('translate-x-4', 'translate-x-0');
+        showToast("Auto‑start disabled");
+    }
+    saveToStorage();
 }
 
 // ==================== BANTER (WHATSAPP STYLE) ====================
