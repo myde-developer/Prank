@@ -18,6 +18,8 @@ let currentPenaltyTeam = null, pendingAssignFixtureId = null, pendingAssignSide 
 let currentPredictionFixtureId = null, currentBanterFixtureId = null;
 let currentEditingEventsFixture = null, pendingEvents = [];
 let currentSortable = null;
+let chatMessagesRef = null;
+let currentChatNickname = localStorage.getItem('chatNickname') || '';
 let autoStartNextRound = false;
 let roundStartTimes = {};   // stores timestamp when admin starts a round
 
@@ -80,6 +82,85 @@ function generateRandomRoundRobin(teamNames) {
     
     return rounds;
 }
+
+// ==================== GLOBAL CHAT ROOM ====================
+function openChatModal() {
+    document.getElementById('chat-modal').classList.remove('hidden');
+    document.getElementById('chat-modal').classList.add('flex');
+    document.getElementById('chat-nickname').value = currentChatNickname;
+    // Scroll to bottom
+    const container = document.getElementById('chat-messages-container');
+    container.scrollTop = container.scrollHeight;
+}
+
+function closeChatModal() {
+    document.getElementById('chat-modal').classList.add('hidden');
+    document.getElementById('chat-modal').classList.remove('flex');
+}
+
+function sendChatMessage() {
+    const nicknameInput = document.getElementById('chat-nickname');
+    let nickname = nicknameInput.value.trim();
+    if (nickname === "") {
+        alert("Please enter your name");
+        return;
+    }
+    const text = document.getElementById('chat-input').value.trim();
+    if (text === "") return;
+    
+    // Save nickname to localStorage
+    localStorage.setItem('chatNickname', nickname);
+    currentChatNickname = nickname;
+    
+    const message = {
+        nickname: nickname.slice(0, 20),
+        text: text.slice(0, 200),
+        timestamp: Date.now(),
+        userId: Date.now() + Math.random() // simple unique ID
+    };
+    chatMessagesRef.push(message);
+    document.getElementById('chat-input').value = '';
+}
+
+function appendChatMessage(msg) {
+    const container = document.getElementById('chat-messages-container');
+    // Remove loading placeholder if present
+    if (container.children.length === 1 && container.children[0].innerText.includes('Loading')) {
+        container.innerHTML = '';
+    }
+    const date = new Date(msg.timestamp).toLocaleString();
+    const isCurrentUser = (msg.nickname === currentChatNickname);
+    const bubbleClass = isCurrentUser ? 'sent' : 'received';
+    const deleteBtn = isAdmin ? `<button onclick="deleteChatMessage('${msg.userId}')" class="chat-delete-btn text-xs text-rose-500 hover:text-rose-700 ml-2">🗑️</button>` : '';
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `chat-message ${bubbleClass}`;
+    messageDiv.innerHTML = `
+        <div class="bubble">
+            ${deleteBtn}
+            <p>${escapeHtml(msg.text)}</p>
+            <div class="message-meta">
+                <span class="message-author">${escapeHtml(msg.nickname)}</span>
+                <span class="message-time">${date}</span>
+            </div>
+        </div>
+    `;
+    container.appendChild(messageDiv);
+    container.scrollTop = container.scrollHeight;
+}
+
+function deleteChatMessage(userId) {
+    if (!isAdmin) return;
+    // Find message by userId (we stored a unique ID)
+    chatMessagesRef.orderByChild('userId').equalTo(userId).once('value', snapshot => {
+        snapshot.forEach(child => {
+            child.ref.remove();
+            showToast("Message deleted");
+        });
+    });
+}
+
+// Load existing messages on page load (they come via child_added)
 
 // ==================== TIME LIMIT (ADMIN‑CONTROLLED) ====================
 function expireOldFixtures() {
@@ -169,7 +250,7 @@ function expireOldFixtures() {
 }
 }
 
-// ==================== DATABASE + LIVE ALERTS ====================
+// ==================== DATABASE + LIVE ALERTS + CHAT ====================
 function initRealtimeDatabaseSync() {
     db.ref('tournament_data').on('value', (snapshot) => {
         const data = snapshot.val();
@@ -182,7 +263,7 @@ function initRealtimeDatabaseSync() {
             roundStartTimes = data.roundStartTimes || {};
             autoStartNextRound = data.autoStartNextRound || false;
             
-            // Sync the toggle button UI based on loaded setting
+            // Sync auto-start toggle button UI
             const toggleBtn = document.getElementById('auto-start-toggle');
             const toggleDot = document.getElementById('auto-start-dot');
             if (toggleBtn && toggleDot) {
@@ -199,6 +280,7 @@ function initRealtimeDatabaseSync() {
                 }
             }
             
+            // Update UI and calculations
             updateTableCalculations();
             renderTable();
             renderGameweekTabs();
@@ -207,15 +289,22 @@ function initRealtimeDatabaseSync() {
             renderRelegatedTeams();
             generateTickerFacts();
             checkAndCelebrateChampion();
+            
+            // Show dashboard, hide setup
             document.getElementById('setup-section')?.classList.add('hidden');
             document.getElementById('dashboard-section')?.classList.remove('hidden');
             document.getElementById('admin-toggle-container')?.classList.remove('hidden');
             document.getElementById('deadline-clock')?.classList.remove('hidden');
+            
+            // Initialise back‑to‑top button (must exist in HTML)
+            initBackToTop();
+            
             document.title = `DLS | ${Object.keys(teams).length} teams`;
             initSortable();
             expireOldFixtures();
             startDeadlineClock();
         } else {
+            // No tournament data – show setup
             tournamentPassword = "1234";
             roundStartTimes = {};
             autoStartNextRound = false;
@@ -225,13 +314,23 @@ function initRealtimeDatabaseSync() {
             document.getElementById('deadline-clock')?.classList.add('hidden');
             document.getElementById('news-ticker').innerHTML = "⚽ Ready to create your league";
         }
-    }, () => showToast("Firebase connection issue"));
+    }, (error) => { 
+        showToast("Firebase connection issue");
+    });
     
+    // Live alerts for fixture changes
     db.ref('tournament_data/fixtures').on('child_changed', (snapshot) => {
         const updated = snapshot.val();
         if (updated && updated.played === true && updated.homeScore !== null) {
             showToast(`📢 Result: ${updated.home} ${updated.homeScore}-${updated.awayScore} ${updated.away}`);
         }
+    });
+    
+    // Global chat listener (real‑time)
+    const chatMessagesRef = db.ref('chat_messages');
+    chatMessagesRef.on('child_added', (snapshot) => {
+        const msg = snapshot.val();
+        appendChatMessage(msg);
     });
 }
 
@@ -271,6 +370,25 @@ function generateTickerFacts() {
         tickerInterval = setInterval(updateTickerFacts, 6000);
     }
 }
+
+// ==================== BACK TO TOP BUTTON ====================
+function initBackToTop() {
+    const backBtn = document.getElementById('backToTop');
+    if (!backBtn) return;
+    
+    window.addEventListener('scroll', () => {
+        if (window.scrollY > 300) {
+            backBtn.classList.remove('hidden');
+        } else {
+            backBtn.classList.add('hidden');
+        }
+    });
+    
+    backBtn.addEventListener('click', () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+}
+
 
 // ==================== ADMIN MODE ====================
 function handleAdminToggleClick() { if (!isAdmin) { document.getElementById('admin-password-input').value = ""; document.getElementById('password-error').classList.add('hidden'); document.getElementById('password-modal').classList.remove('hidden'); } else deactivateAdminMode(); }
@@ -1174,34 +1292,63 @@ function openBanterModal(fixtureId) {
     renderBanterMessages(fixtureId);
 }
 function closeBanterModal() { document.getElementById('banter-modal').classList.add('hidden'); currentBanterFixtureId = null; }
-function renderBanterMessages(fixtureId) {
-    const f = fixtures.find(f => f.id === fixtureId);
-    const container = document.getElementById('banter-messages-container');
-    if (!f.banter || f.banter.length === 0) { container.innerHTML = '<div class="text-center text-gray-400 text-sm py-8">😴 No banter yet. Be the first!</div>'; return; }
-    container.innerHTML = '';
-    f.banter.forEach((msg, idx) => {
-        const date = new Date(msg.timestamp).toLocaleString();
-        const isSent = (msg.author === 'Fan');
-        const bubbleClass = isSent ? 'sent' : 'received';
-        const deleteBtn = isAdmin ? `<button onclick="deleteBanter(${fixtureId}, ${idx})" class="banter-delete-btn" title="Delete">🗑️</button>` : '';
-        container.innerHTML += `<div class="banter-message ${bubbleClass}" style="position: relative;"><div class="bubble">${deleteBtn}<p>${escapeHtml(msg.text)}</p><div class="message-meta"><span class="message-author">${escapeHtml(msg.author || 'Fan')}</span><span class="message-time">${date}</span></div></div></div>`;
-    });
-    container.scrollTop = container.scrollHeight;
-}
+
 function postBanter() {
-    if (!currentBanterFixtureId) return;
+    if (!currentBanterFixtureId) {
+        showToast("No fixture selected");
+        return;
+    }
     const input = document.getElementById('banter-input');
     const text = input.value.trim();
-    if (text === "") { alert("Write something funny!"); return; }
-    const f = fixtures.find(f => f.id === currentBanterFixtureId);
-    if (!f) return;
-    if (!f.banter) f.banter = [];
-    f.banter.push({ text: text.slice(0,200), timestamp: Date.now(), author: "Fan" });
+    if (text === "") {
+        alert("Write something funny!");
+        return;
+    }
+    const fixture = fixtures.find(f => f.id === currentBanterFixtureId);
+    if (!fixture) return;
+    if (!fixture.banter) fixture.banter = [];
+    fixture.banter.push({
+        text: text.slice(0, 200),
+        timestamp: Date.now(),
+        author: "Fan"
+    });
     saveToStorage();
     input.value = '';
     renderBanterMessages(currentBanterFixtureId);
     showToast("Banter posted!");
 }
+
+function renderBanterMessages(fixtureId) {
+    const f = fixtures.find(f => f.id === fixtureId);
+    const container = document.getElementById('banter-messages-container');
+    if (!container) return;
+    if (!f?.banter || f.banter.length === 0) {
+        container.innerHTML = '<div class="text-center text-gray-400 text-sm py-4">😴 No banter yet. Be the first!</div>';
+        return;
+    }
+    container.innerHTML = '';
+    // Show newest last (oldest first) – like a real chat
+    f.banter.forEach((msg, idx) => {
+        const date = new Date(msg.timestamp).toLocaleString();
+        const isSent = (msg.author === 'Fan');
+        const bubbleClass = isSent ? 'sent' : 'received';
+        const deleteBtn = isAdmin ? `<button onclick="deleteBanter(${fixtureId}, ${idx})" class="banter-delete-btn" title="Delete">🗑️</button>` : '';
+        container.innerHTML += `
+            <div class="banter-message ${bubbleClass}" style="position: relative;">
+                <div class="bubble">
+                    ${deleteBtn}
+                    <p>${escapeHtml(msg.text)}</p>
+                    <div class="message-meta">
+                        <span class="message-author">${escapeHtml(msg.author || 'Fan')}</span>
+                        <span class="message-time">${date}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    container.scrollTop = container.scrollHeight;
+}
+
 function deleteBanter(fixtureId, index) {
     if (!isAdmin) return;
     const f = fixtures.find(f => f.id === fixtureId);
@@ -1284,3 +1431,7 @@ window.saveKnockoutResult = saveKnockoutResult;
 window.showMatchCommentForKnockout = showMatchCommentForKnockout;
 window.editKnockoutResult = editKnockoutResult;
 window.startRound = startRound;
+window.openChatModal = openChatModal;
+window.closeChatModal = closeChatModal;
+window.sendChatMessage = sendChatMessage;
+window.deleteChatMessage = deleteChatMessage;
