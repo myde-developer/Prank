@@ -35,6 +35,7 @@ function initRealtimeDatabaseSync() {
             renderTable();
             renderGameweekTabs();
             renderFixtures();
+            renderRelegatedTeams();
             generateTickerFacts();
             document.getElementById('setup-section')?.classList.add('hidden');
             document.getElementById('dashboard-section')?.classList.remove('hidden');
@@ -64,15 +65,18 @@ function updateTickerFacts() {
     }, 500);
 }
 function generateTickerFacts() {
-    const totalTeams = Object.keys(teams).length, totalMatchesPlayed = fixtures.filter(f => f.played).length, totalMatches = fixtures.length;
+    const activeTeams = Object.values(teams).filter(t => !t.relegated);
+    const totalTeams = activeTeams.length;
+    const totalMatchesPlayed = fixtures.filter(f => f.played && !teams[f.home]?.relegated && !teams[f.away]?.relegated).length;
+    const totalMatches = fixtures.filter(f => !teams[f.home]?.relegated && !teams[f.away]?.relegated).length;
     let leader = null, topScorer = null, biggestWin = null;
     if (totalTeams) {
-        const sorted = Object.values(teams).sort((a, b) => b.pts - a.pts || b.gd - a.gd);
+        const sorted = activeTeams.sort((a, b) => b.pts - a.pts || b.gd - a.gd);
         if (sorted.length) leader = sorted[0];
-        const sortedGF = Object.values(teams).sort((a, b) => b.gf - a.gf);
+        const sortedGF = activeTeams.sort((a, b) => b.gf - a.gf);
         if (sortedGF.length) topScorer = sortedGF[0];
     }
-    fixtures.forEach(f => { if (f.played && f.homeScore !== null) { const total = f.homeScore + f.awayScore; if (!biggestWin || total > biggestWin.total) biggestWin = { home: f.home, away: f.away, homeScore: f.homeScore, awayScore: f.awayScore, total }; } });
+    fixtures.forEach(f => { if (f.played && f.homeScore !== null && !teams[f.home]?.relegated && !teams[f.away]?.relegated) { const total = f.homeScore + f.awayScore; if (!biggestWin || total > biggestWin.total) biggestWin = { home: f.home, away: f.away, homeScore: f.homeScore, awayScore: f.awayScore, total }; } });
     tickerFacts = [`🏆 DLS Vawulence Academy Hub`, `⚽ ${totalTeams} teams`, `📊 ${totalMatchesPlayed}/${totalMatches} played`, leader ? `👑 Leader: ${leader.name} (${leader.pts} pts)` : null, topScorer ? `🔥 Top scorer: ${topScorer.name} (${topScorer.gf} goals)` : null, biggestWin ? `🎯 Biggest win: ${biggestWin.home} ${biggestWin.homeScore}-${biggestWin.awayScore} ${biggestWin.away}` : null, `🔮 Predict matches & post banter!`].filter(f => f);
     if (tickerFacts.length) {
         const el = document.getElementById('news-ticker');
@@ -90,15 +94,18 @@ function verifyAdminPassword() { const val = document.getElementById('admin-pass
 function activateAdminMode() { isAdmin = true; updateAdminUIElements(); showToast("Admin mode ACTIVE"); }
 function deactivateAdminMode() { isAdmin = false; updateAdminUIElements(); showToast("Admin mode deactivated"); }
 function updateAdminUIElements() {
-    const btn = document.getElementById('admin-btn'), dot = document.getElementById('admin-btn-dot'), statusText = document.getElementById('admin-status-text'), resetContainer = document.getElementById('admin-reset-container'), thActions = document.getElementById('th-admin-actions'), hint = document.getElementById('admin-table-hint');
+    const btn = document.getElementById('admin-btn'), dot = document.getElementById('admin-btn-dot'), statusText = document.getElementById('admin-status-text'), resetContainer = document.getElementById('admin-reset-container'), thActions = document.getElementById('th-admin-actions'), hint = document.getElementById('admin-table-hint'), relegationZone = document.getElementById('relegation-zone');
     if (isAdmin) {
         btn?.classList.replace('bg-gray-300', 'bg-indigo-600'); dot?.classList.replace('translate-x-0', 'translate-x-5');
         if (statusText) { statusText.innerText = "⚡ ADMIN MODE"; statusText.classList.replace('text-gray-600', 'text-indigo-600'); }
         if (resetContainer) resetContainer.classList.remove('hidden'); if (thActions) thActions.classList.remove('hidden'); if (hint) hint.classList.remove('hidden');
+        if (relegationZone) relegationZone.classList.remove('hidden');
+        renderRelegatedTeams();
     } else {
         btn?.classList.replace('bg-indigo-600', 'bg-gray-300'); dot?.classList.replace('translate-x-5', 'translate-x-0');
         if (statusText) { statusText.innerText = "🔒 READ ONLY"; statusText.classList.replace('text-indigo-600', 'text-gray-600'); }
         if (resetContainer) resetContainer.classList.add('hidden'); if (thActions) thActions.classList.add('hidden'); if (hint) hint.classList.add('hidden');
+        if (relegationZone) relegationZone.classList.add('hidden');
     }
     renderTable(); renderGameweekTabs(); renderFixtures();
 }
@@ -123,7 +130,7 @@ function initializeTournament() {
     for (let i = 1; i <= count; i++) { let name = document.getElementById(`team-input-${i}`).value.trim(); if (name === "") name = `Team ${i}`; list.push({ name }); }
     if (list.length % 2 !== 0) list.push({ name: "BYE" });
     teams = {};
-    list.forEach(item => { if (item.name !== "BYE") teams[item.name] = { name: item.name, mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0, deductedPoints: 0, formHistory: [] }; });
+    list.forEach(item => { if (item.name !== "BYE") teams[item.name] = { name: item.name, mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0, deductedPoints: 0, formHistory: [], relegated: false }; });
     fixtures = [];
     const n = list.length, rounds = n - 1;
     for (let r = 0; r < rounds; r++) {
@@ -156,7 +163,7 @@ function shuffleRound(roundNumber) {
     saveToStorage(); showToast(`Round ${roundNumber} shuffled!`); renderGameweekTabs(); renderFixtures(); renderTable(); generateTickerFacts();
 }
 function swapFixture(fixtureId) { if (!isAdmin) return; const f = fixtures.find(f => f.id === fixtureId); [f.home, f.away] = [f.away, f.home]; f.homeScore = null; f.awayScore = null; f.played = false; f.comment = null; saveToStorage(); showToast(`Swapped ${f.home} vs ${f.away}`); renderFixtures(); renderTable(); generateTickerFacts(); }
-function editFixtureTeamName(fixtureId, side) { if (!isAdmin) return; const fixture = fixtures.find(f => f.id === fixtureId); const dropdown = document.getElementById('team-select-dropdown'); dropdown.innerHTML = '<option value="">— Cancel / No change —</option>'; const otherSide = side === 'home' ? fixture.away : fixture.home; Object.keys(teams).sort().forEach(name => { if (name !== otherSide) { const opt = document.createElement('option'); opt.value = name; opt.textContent = name; dropdown.appendChild(opt); } }); const byeOpt = document.createElement('option'); byeOpt.value = 'BYE_REMOVE'; byeOpt.textContent = '— Remove team (set to BYE) —'; dropdown.appendChild(byeOpt); pendingAssignFixtureId = fixtureId; pendingAssignSide = side; document.getElementById('team-select-modal').classList.remove('hidden'); }
+function editFixtureTeamName(fixtureId, side) { if (!isAdmin) return; const fixture = fixtures.find(f => f.id === fixtureId); const dropdown = document.getElementById('team-select-dropdown'); dropdown.innerHTML = '<option value="">— Cancel / No change —</option>'; const otherSide = side === 'home' ? fixture.away : fixture.home; const teamNames = Object.values(teams).filter(t => !t.relegated).map(t => t.name).sort(); teamNames.forEach(name => { if (name !== otherSide) { const opt = document.createElement('option'); opt.value = name; opt.textContent = name; dropdown.appendChild(opt); } }); const byeOpt = document.createElement('option'); byeOpt.value = 'BYE_REMOVE'; byeOpt.textContent = '— Remove team (set to BYE) —'; dropdown.appendChild(byeOpt); pendingAssignFixtureId = fixtureId; pendingAssignSide = side; document.getElementById('team-select-modal').classList.remove('hidden'); }
 function closeTeamSelectModal() { document.getElementById('team-select-modal').classList.add('hidden'); pendingAssignFixtureId = null; pendingAssignSide = null; }
 function confirmTeamSelection() { if (pendingAssignFixtureId === null) return; const selected = document.getElementById('team-select-dropdown').value; if (selected === '') { closeTeamSelectModal(); return; } const fixture = fixtures.find(f => f.id === pendingAssignFixtureId); const side = pendingAssignSide; if (selected === 'BYE_REMOVE') { if (side === 'home') fixture.home = 'BYE'; else fixture.away = 'BYE'; fixture.homeScore = null; fixture.awayScore = null; fixture.played = false; fixture.comment = null; saveToStorage(); showToast(`Removed team, set to BYE`); renderFixtures(); renderTable(); generateTickerFacts(); closeTeamSelectModal(); return; } const newTeam = selected; const oldTeam = side === 'home' ? fixture.home : fixture.away; if (newTeam === oldTeam) { closeTeamSelectModal(); return; } const round = fixture.round; const otherFixtures = fixtures.filter(f => f.round === round && f.id !== fixture.id); if (otherFixtures.some(f => f.home === newTeam || f.away === newTeam)) { showToast(`Team "${newTeam}" already has fixture this round!`); closeTeamSelectModal(); return; } if (side === 'home') fixture.home = newTeam; else fixture.away = newTeam; fixture.homeScore = null; fixture.awayScore = null; fixture.played = false; fixture.comment = null; saveToStorage(); showToast(`Assigned ${newTeam} to ${side}`); renderFixtures(); renderTable(); generateTickerFacts(); closeTeamSelectModal(); }
 
@@ -178,7 +185,8 @@ function updateTableCalculations() {
     for (let t in teams) { teams[t].pts = Math.max(0, teams[t].pts - (teams[t].deductedPoints || 0)); teams[t].gd = teams[t].gf - teams[t].ga; }
 }
 function renderTable() {
-    const sorted = Object.values(teams).sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
+    const activeTeams = Object.values(teams).filter(t => !t.relegated);
+    const sorted = activeTeams.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
     const tbody = document.getElementById('league-table-body');
     tbody.innerHTML = "";
     sorted.forEach((team, idx) => {
@@ -187,12 +195,12 @@ function renderTable() {
         while (recent.length < 5) recent.unshift('-');
         const formHtml = `<div class="flex gap-1 justify-center">${recent.map(r => r === 'W' ? '<span class="w-4 h-4 bg-emerald-100 text-emerald-700 rounded-full text-[8px] font-bold flex items-center justify-center">W</span>' : r === 'L' ? '<span class="w-4 h-4 bg-rose-100 text-rose-600 rounded-full text-[8px] font-bold flex items-center justify-center">L</span>' : r === 'D' ? '<span class="w-4 h-4 bg-amber-100 text-amber-700 rounded-full text-[8px] font-bold flex items-center justify-center">D</span>' : '<span class="w-4 h-4 bg-gray-100 text-gray-400 rounded-full text-[8px] flex items-center justify-center">-</span>').join('')}</div>`;
         const penaltyBadge = team.deductedPoints > 0 ? `<span class="ml-1 text-[8px] bg-rose-50 text-rose-600 px-1 rounded-full">-${team.deductedPoints}</span>` : "";
-        const actionBtn = isAdmin ? `<td class="py-2 px-1 text-center"><button onclick="event.stopPropagation(); openPenaltyModal('${team.name}')" class="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-full hover:bg-amber-100">⚖️</button> <button onclick="event.stopPropagation(); removeTeamFromLeague('${team.name}')" class="text-[9px] bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded-full hover:bg-rose-100">🗑️</button></td>` : "";
+        const actionBtn = isAdmin ? `<td class="py-2 px-1 text-center"><button onclick="event.stopPropagation(); openPenaltyModal('${team.name}')" class="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-full hover:bg-amber-100">⚖️</button> <button onclick="event.stopPropagation(); relegateTeam('${team.name}')" class="text-[9px] bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded-full hover:bg-orange-100">⬇️ Relegate</button></td>` : "";
         tbody.innerHTML += `<tr class="hover:bg-gray-50 transition ${pos === 1 ? 'champions-row' : (pos > sorted.length - 2 ? 'relegation-row' : '')}" onclick="showTeamDetails('${team.name}')"><td class="py-2 px-2 text-center font-bold text-xs ${pos === 1 ? 'text-indigo-600' : ''}">${pos}</td><td class="py-2 px-2"><span class="font-semibold text-xs">${team.name}</span>${penaltyBadge}</td><td class="py-2 px-1 text-center text-xs">${team.mp}</td><td class="py-2 px-1 text-center text-emerald-600 text-xs">${team.w}</td><td class="py-2 px-1 text-center text-xs">${team.d}</td><td class="py-2 px-1 text-center text-rose-500 text-xs">${team.l}</td><td class="py-2 px-1 text-center text-xs">${team.gf}</td><td class="py-2 px-1 text-center text-xs">${team.ga}</td><td class="py-2 px-1 text-center font-mono text-xs ${team.gd >= 0 ? 'text-emerald-600' : 'text-rose-500'}">${team.gd > 0 ? '+' + team.gd : team.gd}</td><td class="py-2 px-2 text-center font-black text-indigo-600 text-xs">${team.pts}</td><td class="py-2 px-2 text-center">${formHtml}</td>${actionBtn}</tr>`;
     });
     generateTickerFacts();
 }
-function renderGameweekTabs() {
+ function renderGameweekTabs() {
     const container = document.getElementById('gameweek-tabs');
     if (!fixtures.length) return;
     const total = Math.max(...fixtures.map(f => f.round));
@@ -203,7 +211,7 @@ function renderGameweekTabs() {
 function renderFixtures() {
     const container = document.getElementById('fixtures-container');
     container.innerHTML = "";
-    fixtures.filter(f => f.round === currentSelectedRound).forEach(f => {
+    fixtures.filter(f => f.round === currentSelectedRound && !teams[f.home]?.relegated && !teams[f.away]?.relegated).forEach(f => {
         const played = f.played;
         if (isAdmin) {
             container.innerHTML += `<div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div class="flex-1 flex items-center justify-center gap-2 text-center"><span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'home')">${f.home}</span></div><div class="flex items-center justify-center"><div class="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full"><input type="number" id="home-score-${f.id}" value="${played ? f.homeScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm"><span class="text-gray-400">:</span><input type="number" id="away-score-${f.id}" value="${played ? f.awayScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm"></div></div><div class="flex-1 flex items-center justify-center gap-2 text-center"><span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'away')">${f.away}</span></div></div><div class="mt-2 flex justify-center gap-1"><button onclick="swapFixture(${f.id})" class="text-[10px] font-bold bg-amber-50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100">🔄 Swap</button><button onclick="saveResult(${f.id})" class="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full hover:bg-indigo-100">💾 Save</button><button onclick="showMatchComment(${f.id})" class="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-full hover:bg-gray-200">💬</button><button onclick="openBanterModal(${f.id})" class="text-[10px] font-bold bg-purple-50 text-purple-600 px-2 py-1 rounded-full hover:bg-purple-100">🤣 Banter</button></div></div>`;
@@ -211,6 +219,55 @@ function renderFixtures() {
             container.innerHTML += `<div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div class="flex-1 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${f.home}</div><div class="flex justify-center">${played ? `<div class="bg-gray-100 px-3 py-1 rounded-full font-mono font-bold text-sm">${f.homeScore} - ${f.awayScore}</div>` : `<button onclick="openPredictionsModal(${f.id})" class="text-[11px] bg-gray-100 hover:bg-indigo-50 px-3 py-1 rounded-full">🔮 Predictions</button>`}</div><div class="flex-1 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${f.away}</div></div><div class="mt-2 flex justify-center gap-1"><button onclick="showMatchComment(${f.id})" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full">💬</button><button onclick="openBanterModal(${f.id})" class="text-[11px] bg-purple-50 hover:bg-purple-100 px-3 py-1 rounded-full">🤣 Banter</button></div></div>`;
         }
     });
+}
+
+// Relegation Zone
+function relegateTeam(teamName) {
+    if (!isAdmin) return;
+    const team = teams[teamName];
+    if (!team) return;
+    if (team.relegated) { showToast(`${teamName} is already relegated.`); return; }
+    if (confirm(`Relegate ${teamName}? They will disappear from league table and future fixtures. Past results remain.`)) {
+        team.relegated = true;
+        // Remove all unplayed fixtures involving this team
+        fixtures = fixtures.filter(f => {
+            if (f.played) return true;
+            return (f.home !== teamName && f.away !== teamName);
+        });
+        fixtures.forEach((f, idx) => { f.id = idx; });
+        saveToStorage();
+        showToast(`${teamName} relegated.`);
+        if (fixtures.length > 0) { const maxRound = Math.max(...fixtures.map(f => f.round)); if (currentSelectedRound > maxRound) currentSelectedRound = maxRound; } else { currentSelectedRound = 1; }
+        updateTableCalculations();
+        renderTable();
+        renderGameweekTabs();
+        renderFixtures();
+        renderRelegatedTeams();
+        generateTickerFacts();
+    }
+}
+function restoreTeam(teamName) {
+    if (!isAdmin) return;
+    const team = teams[teamName];
+    if (!team || !team.relegated) return;
+    if (confirm(`Restore ${teamName} to the league? They will reappear in the table, but future fixtures are missing. You may need to re-add them manually via "Edit Fixture".`)) {
+        team.relegated = false;
+        saveToStorage();
+        showToast(`${teamName} restored.`);
+        updateTableCalculations();
+        renderTable();
+        renderGameweekTabs();
+        renderFixtures();
+        renderRelegatedTeams();
+        generateTickerFacts();
+    }
+}
+function renderRelegatedTeams() {
+    const container = document.getElementById('relegated-teams-list');
+    if (!container) return;
+    const relegated = Object.values(teams).filter(t => t.relegated);
+    if (relegated.length === 0) { container.innerHTML = '<p class="text-sm text-gray-400 italic">No relegated teams</p>'; return; }
+    container.innerHTML = relegated.map(team => `<div class="bg-red-50 border border-red-200 rounded-lg px-3 py-1.5 flex items-center gap-2"><span class="text-sm font-medium text-red-700">${team.name}</span><button onclick="restoreTeam('${team.name}')" class="text-xs bg-green-100 hover:bg-green-200 text-green-700 px-2 py-0.5 rounded-full">↺ Restore</button></div>`).join('');
 }
 
 // Match Comments
@@ -237,23 +294,7 @@ function postBanter() { if (!currentBanterFixtureId) return; const input = docum
 function deleteBanter(fixtureId, index) { if (!isAdmin) return; const f = fixtures.find(f => f.id === fixtureId); if (f && f.banter && f.banter[index]) { f.banter.splice(index, 1); saveToStorage(); renderBanterMessages(fixtureId); showToast("Banter deleted"); } }
 function escapeHtml(str) { return str.replace(/[&<>]/g, function (m) { if (m === '&') return '&amp;'; if (m === '<') return '&lt;'; if (m === '>') return '&gt;'; return m; }); }
 
-// Team Management (removed team also removes all its fixtures)
-function removeTeamFromLeague(teamName) {
-    if (!isAdmin) return;
-    if (confirm(`Permanently remove ${teamName}? This will delete all their fixtures.`)) {
-        fixtures = fixtures.filter(f => f.home !== teamName && f.away !== teamName);
-        delete teams[teamName];
-        fixtures.forEach((f, idx) => { f.id = idx; });
-        saveToStorage();
-        showToast(`${teamName} removed and all their fixtures deleted.`);
-        if (fixtures.length > 0) { const maxRound = Math.max(...fixtures.map(f => f.round)); if (currentSelectedRound > maxRound) currentSelectedRound = maxRound; } else { currentSelectedRound = 1; }
-        updateTableCalculations();
-        renderTable();
-        renderGameweekTabs();
-        renderFixtures();
-        generateTickerFacts();
-    }
-}
+// Team details
 function showTeamDetails(teamName) { const team = teams[teamName]; if (!team) return; document.getElementById('team-modal-name').innerText = team.name; document.getElementById('modal-mp').innerText = team.mp; document.getElementById('modal-pts').innerText = team.pts; document.getElementById('modal-w').innerText = team.w; document.getElementById('modal-d').innerText = team.d; document.getElementById('modal-l').innerText = team.l; document.getElementById('modal-gf').innerText = team.gf; document.getElementById('modal-ga').innerText = team.ga; const gd = team.gd; document.getElementById('modal-gd').innerHTML = `<span class="${gd >= 0 ? 'text-emerald-600' : 'text-rose-500'}">${gd > 0 ? '+' + gd : gd}</span>`; document.getElementById('modal-penalty').innerText = team.deductedPoints ? `-${team.deductedPoints}` : 'None'; let recent = team.formHistory.slice(-5); while (recent.length < 5) recent.unshift('-'); document.getElementById('modal-form').innerHTML = recent.map(r => r === 'W' ? '<span class="w-6 h-6 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold flex items-center justify-center">W</span>' : r === 'L' ? '<span class="w-6 h-6 bg-rose-100 text-rose-600 rounded-full text-[10px] font-bold flex items-center justify-center">L</span>' : r === 'D' ? '<span class="w-6 h-6 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold flex items-center justify-center">D</span>' : '<span class="w-6 h-6 bg-gray-100 text-gray-400 rounded-full text-[10px] flex items-center justify-center">-</span>').join(''); const ppg = (team.pts / (team.mp || 1)).toFixed(1); let summary = ppg >= 2.3 ? '🔥 Title contenders!' : ppg >= 1.8 ? '👍 Solid season.' : ppg >= 1.2 ? '⚖️ Mid-table consistency.' : '⚠️ Needs improvement.'; if (team.deductedPoints > 0) summary += ` (Includes -${team.deductedPoints} pts penalty)`; document.getElementById('modal-summary').innerText = summary; document.getElementById('team-modal').classList.remove('hidden'); }
 function closeTeamModal() { document.getElementById('team-modal').classList.add('hidden'); }
 function resetTournament() { if (confirm("Wipe ALL data? This cannot be undone.")) db.ref('tournament_data').remove().then(() => location.reload()); }
@@ -261,7 +302,7 @@ function resetTournament() { if (confirm("Wipe ALL data? This cannot be undone."
 // Initialization
 window.onload = () => initRealtimeDatabaseSync();
 
-// Expose all functions to global scope
+// Expose all functions
 window.handleAdminToggleClick = handleAdminToggleClick;
 window.verifyAdminPassword = verifyAdminPassword;
 window.closePasswordModal = closePasswordModal;
@@ -292,7 +333,8 @@ window.openBanterModal = openBanterModal;
 window.closeBanterModal = closeBanterModal;
 window.postBanter = postBanter;
 window.deleteBanter = deleteBanter;
-window.removeTeamFromLeague = removeTeamFromLeague;
+window.relegateTeam = relegateTeam;
+window.restoreTeam = restoreTeam;
 window.showTeamDetails = showTeamDetails;
 window.closeTeamModal = closeTeamModal;
 window.resetTournament = resetTournament;

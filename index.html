@@ -125,6 +125,18 @@
                 <div id="fixtures-container" class="flex flex-col gap-3"></div>
             </div>
 
+            <!-- Relegation Zone (admin only) -->
+          <div id="relegation-zone" class="hidden bg-white rounded-2xl border border-red-200 shadow-sm p-5 space-y-4">
+                <div class="flex items-center justify-between">
+                    <h2 class="font-bold text-red-600 flex items-center gap-2">⚠️ Relegation Zone</h2>
+                    <span class="text-xs text-gray-400">Only visible to admin</span>
+                </div>
+                <div id="relegated-teams-list" class="flex flex-wrap gap-2">
+                    <p class="text-sm text-gray-400 italic">No relegated teams</p>
+                </div>
+                <p class="text-xs text-gray-500">Relegated teams are removed from the league table and future fixtures, but past results stay.</p>
+            </div>
+
             <div id="admin-reset-container" class="text-center hidden pt-4 space-x-3"><button onclick="openChangePasswordModal()" class="text-xs text-indigo-600 hover:text-indigo-800 underline decoration-dotted">🔑 Change Master Password</button><button onclick="resetTournament()" class="text-xs text-rose-500 hover:text-rose-700 underline decoration-dotted">⚠️ Wipe entire league data (irreversible)</button></div>
         </section>
     </main>
