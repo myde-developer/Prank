@@ -24,14 +24,10 @@
     transform: translateX(0);
     opacity: 1;
 }
-
-/* Custom scrollbar */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-
-/* Table row styling */
 .champions-row {
     background: linear-gradient(90deg, rgba(255,215,0,0.05) 0%, rgba(255,215,0,0) 95%);
     border-left: 3px solid #fbbf24;
@@ -40,8 +36,6 @@
     background: linear-gradient(90deg, rgba(239,68,68,0.04) 0%, rgba(239,68,68,0) 95%);
     border-left: 3px solid #f87171;
 }
-
-/* Toast animation */
 @keyframes fadeInUp {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
@@ -57,53 +51,30 @@
     box-shadow: 0 5px 15px rgba(0,0,0,0.1);
     animation: fadeInUp 0.2s ease;
 }
-
-/* Clickable table row */
 #league-table-body tr {
     cursor: pointer;
     transition: background 0.1s ease;
 }
-
-/* Number input spinners subtle */
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button {
     opacity: 0.5;
 }
-
-/* Banter message styling */
-.banter-message {
-    background: #f8fafc;
-    border-radius: 1rem;
-    padding: 0.75rem;
-    border: 1px solid #e2e8f0;
-    transition: all 0.1s ease;
-}
-.banter-message:hover {
-    background: #f1f5f9;
-}
-.banter-delete-btn {
-    opacity: 0;
-    transition: opacity 0.1s;
-}
-.banter-message:hover .banter-delete-btn {
-    opacity: 1;
-}
-
-/* Prediction item styling */
-.prediction-item {
+/* Prediction & Banter items */
+.prediction-item, .banter-message {
     background: #f8fafc;
     border-radius: 0.75rem;
     padding: 0.65rem;
     border: 1px solid #e2e8f0;
     transition: all 0.1s ease;
 }
-.prediction-item:hover {
+.prediction-item:hover, .banter-message:hover {
     background: #f1f5f9;
 }
-.prediction-delete-btn {
+.prediction-delete-btn, .banter-delete-btn {
     opacity: 0;
     transition: opacity 0.1s;
 }
-.prediction-item:hover .prediction-delete-btn {
+.prediction-item:hover .prediction-delete-btn,
+.banter-message:hover .banter-delete-btn {
     opacity: 1;
 }
