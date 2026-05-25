@@ -1237,6 +1237,16 @@ function showMatchComment(fixtureId) {
     modal.classList.add('flex');
 }
 
+function closeCommentViewer() {
+    console.log("Closing comment viewer");
+    const modal = document.getElementById('comment-viewer-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+    currentViewerFixtureId = null;
+}
+
 // ==================== RELEGATION (MANUAL) ====================
 function relegateTeam(teamName) {
     if (!isAdmin) return;
