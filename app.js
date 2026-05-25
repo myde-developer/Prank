@@ -19,6 +19,7 @@ let currentPredictionFixtureId = null, currentBanterFixtureId = null;
 let chatMessagesRef = null;
 let autoStartNextRound = false;
 let roundStartTimes = {};
+
 // ==================== ROLE SELECTION ====================
 let userRole = null; // 'viewer' or 'admin'
 
@@ -106,6 +107,33 @@ function checkAndLoadTournament() {
             }
         }
     });
+}
+
+function loadTournamentData(data) {
+    tournamentPassword = data.password || "1234";
+    teams = data.teams;
+    fixtures = data.fixtures;
+    knockoutMatches = data.knockoutMatches || [];
+    tournamentPhase = data.tournamentPhase || 'league';
+    roundStartTimes = data.roundStartTimes || {};
+    autoStartNextRound = data.autoStartNextRound || false;
+    updateTableCalculations();
+    renderTable();
+    renderGameweekTabs();
+    renderFixtures();
+    renderKnockoutBracket();
+    renderRelegatedTeams();
+    generateTickerFacts();
+    checkAndCelebrateChampion();
+    document.getElementById('setup-section')?.classList.add('hidden');
+    document.getElementById('dashboard-section')?.classList.remove('hidden');
+    document.getElementById('deadline-clock')?.classList.remove('hidden');
+    initBackToTop();
+    startDeadlineClock();
+    initChatListener();
+    if (userRole === 'admin') {
+        updateAdminUIElements(); // shows admin buttons etc.
+    }
 }
 
 // ==================== HELPERS ====================
