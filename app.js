@@ -1337,6 +1337,46 @@ function deletePrediction(fixtureId, index) {
     if (f && f.predictions && f.predictions[index]) { f.predictions.splice(index,1); saveToStorage(); renderPredictions(fixtureId); showToast("Prediction deleted"); }
 }
 
+// ==================== EDIT REPORT ONLY (for admin) ====================
+function editViewerComment() {
+    if (!isAdmin || currentViewerFixtureId === null) return;
+    const f = fixtures.find(f => f.id === currentViewerFixtureId);
+    if (!f.played) return;
+    pendingFixtureId = currentViewerFixtureId;
+    pendingHomeScore = f.homeScore;
+    pendingAwayScore = f.awayScore;
+    document.getElementById('comment-match-name').innerText = `${f.home} vs ${f.away}`;
+    document.getElementById('comment-text').value = f.report || '';
+    document.getElementById('comment-modal').classList.remove('hidden');
+    document.getElementById('comment-modal').classList.add('flex');
+    closeCommentViewer();
+}
+
+function confirmComment() {
+    if (pendingFixtureId === null) return;
+    const finalReport = document.getElementById('comment-text').value.trim();
+    if (finalReport === "") { alert("Report cannot be empty"); return; }
+    const fixture = fixtures.find(f => f.id === pendingFixtureId);
+    if (!fixture) return;
+    fixture.report = finalReport;
+    saveToStorage();
+    showToast(`Report updated for ${fixture.home} vs ${fixture.away}`);
+    closeCommentModal(true);
+    pendingFixtureId = null;
+    renderTable();
+    renderFixtures();
+    generateTickerFacts();
+}
+
+function closeCommentModal(save = false) {
+    const modal = document.getElementById('comment-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+    if (!save) pendingFixtureId = null;
+}
+
 // ==================== BANTER (WHATSAPP STYLE) ====================
 function openBanterModal(fixtureId) {
     const f = fixtures.find(f => f.id === fixtureId);
