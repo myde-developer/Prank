@@ -1180,8 +1180,10 @@ function showMatchComment(fixtureId) {
         return;
     }
     
-    // Clear any inline display style that might have been set by closeCommentViewer
-    modal.style.display = '';
+    // Force display flex to override any previous inline none
+    modal.style.display = 'flex';
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
     
     const nameEl = document.getElementById('viewer-match-name');
     const scoreEl = document.getElementById('viewer-score');
@@ -1220,19 +1222,15 @@ function showMatchComment(fixtureId) {
             editEventsBtn.classList.add('hidden');
         }
     }
-    
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
 }
 
 function closeCommentViewer() {
     console.log("closeCommentViewer called");
     const modal = document.getElementById('comment-viewer-modal');
     if (modal) {
+        modal.style.display = 'none';
         modal.classList.add('hidden');
         modal.classList.remove('flex');
-        // Remove any inline display style so that next opening works
-        modal.style.display = '';
     } else {
         console.error("Modal element not found");
     }
