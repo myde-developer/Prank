@@ -1180,6 +1180,63 @@ function openGoalEditorForEdit(existingEvents) {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
+function showMatchComment(fixtureId) {
+    const f = fixtures.find(f => f.id === fixtureId);
+    if (!f) {
+        showToast("Fixture not found");
+        return;
+    }
+    currentViewerFixtureId = fixtureId;
+    
+    const modal = document.getElementById('comment-viewer-modal');
+    if (!modal) {
+        console.error("Modal not found");
+        showToast("Error opening match details");
+        return;
+    }
+    
+    const nameEl = document.getElementById('viewer-match-name');
+    const scoreEl = document.getElementById('viewer-score');
+    const commentEl = document.getElementById('viewer-comment');
+    const eventsContainer = document.getElementById('viewer-events-container');
+    const eventsDiv = document.getElementById('viewer-events');
+    const editBtn = document.getElementById('viewer-edit-btn');
+    const editEventsBtn = document.getElementById('viewer-edit-events-btn');
+    
+    if (nameEl) nameEl.innerHTML = `${f.home} vs ${f.away}`;
+    if (scoreEl) scoreEl.innerText = f.played ? `${f.homeScore} - ${f.awayScore}` : 'Not played yet';
+    if (commentEl) commentEl.innerText = f.report || (f.played ? 'No report available.' : 'Match not played.');
+    
+    if (eventsContainer && eventsDiv) {
+        if (f.events && f.events.length > 0) {
+            eventsContainer.classList.remove('hidden');
+            eventsDiv.innerHTML = f.events.map(ev => {
+                const assistText = ev.assist ? ` (assist: ${ev.assist})` : '';
+                const typeText = ev.goalType && ev.goalType !== 'Open play' ? ` [${ev.goalType}]` : '';
+                return `<div class="flex justify-between border-b border-gray-200 py-1">
+                    <span class="font-mono w-12">${ev.minute}′</span>
+                    <span class="flex-1">⚽ ${ev.team} - ${ev.player}${typeText}${assistText}</span>
+                </div>`;
+            }).join('');
+        } else {
+            eventsContainer.classList.add('hidden');
+        }
+    }
+    
+    if (editBtn && editEventsBtn) {
+        if (isAdmin && f.played) {
+            editBtn.classList.remove('hidden');
+            editEventsBtn.classList.remove('hidden');
+        } else {
+            editBtn.classList.add('hidden');
+            editEventsBtn.classList.add('hidden');
+        }
+    }
+    
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
 // ==================== RELEGATION (MANUAL) ====================
 function relegateTeam(teamName) {
     if (!isAdmin) return;
