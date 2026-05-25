@@ -1180,6 +1180,9 @@ function showMatchComment(fixtureId) {
         return;
     }
     
+    // Clear any inline display style that might have been set by closeCommentViewer
+    modal.style.display = '';
+    
     const nameEl = document.getElementById('viewer-match-name');
     const scoreEl = document.getElementById('viewer-score');
     const commentEl = document.getElementById('viewer-comment');
@@ -1223,14 +1226,13 @@ function showMatchComment(fixtureId) {
 }
 
 function closeCommentViewer() {
-    console.log("closeCommentViewer called"); // for debugging
+    console.log("closeCommentViewer called");
     const modal = document.getElementById('comment-viewer-modal');
     if (modal) {
-        // Use both classList and style to ensure hiding
         modal.classList.add('hidden');
         modal.classList.remove('flex');
-        // Fallback for any stubborn styles
-        modal.style.display = 'none';
+        // Remove any inline display style so that next opening works
+        modal.style.display = '';
     } else {
         console.error("Modal element not found");
     }
