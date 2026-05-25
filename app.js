@@ -19,6 +19,11 @@ let currentPredictionFixtureId = null, currentBanterFixtureId = null;
 let chatMessagesRef = null;
 let autoStartNextRound = false;
 let roundStartTimes = {};
+let typingTimeout = null;
+let isTyping = false;
+let unreadMessagesCount = 0;
+let lastReadTimestamp = localStorage.getItem('chatLastRead') ? parseInt(localStorage.getItem('chatLastRead')) : Date.now();
+let isChatModalOpen = false;
 
 // ==================== ROLE SELECTION ====================
 let userRole = null; // 'viewer' or 'admin'
@@ -202,6 +207,7 @@ function generateRandomRoundRobin(teamNames) {
 }
 
 // ==================== GLOBAL CHAT ROOM ====================
+// ==================== GLOBAL CHAT ROOM (with unread badge & typing) ====================
 function initChatListener() {
     chatMessagesRef = db.ref('chat_messages');
     chatMessagesRef.off();
@@ -209,25 +215,128 @@ function initChatListener() {
         const msg = snapshot.val();
         appendChatMessage(msg);
     });
+    initTypingListener();
+    initPollListener();
 }
+
 function openChatModal() {
     const modal = document.getElementById('chat-modal');
     if (modal) {
         modal.classList.remove('hidden');
         modal.classList.add('flex');
+        modal.style.display = 'flex';
         const savedName = localStorage.getItem('chatNickname');
         if (savedName) document.getElementById('chat-nickname').value = savedName;
         const container = document.getElementById('chat-messages-container');
         if (container) container.scrollTop = container.scrollHeight;
+        
+        // Mark all messages as read
+        isChatModalOpen = true;
+        lastReadTimestamp = Date.now();
+        localStorage.setItem('chatLastRead', lastReadTimestamp);
+        unreadMessagesCount = 0;
+        updateUnreadBadge();
+        
+        // Show poll create button for admin
+        const pollBtn = document.getElementById('create-poll-btn');
+        if (pollBtn) {
+            if (isAdmin) pollBtn.classList.remove('hidden');
+            else pollBtn.classList.add('hidden');
+        }
     }
 }
+
 function closeChatModal() {
     const modal = document.getElementById('chat-modal');
     if (modal) {
         modal.classList.add('hidden');
         modal.classList.remove('flex');
+        modal.style.display = '';
+    }
+    isChatModalOpen = false;
+}
+
+function updateUnreadBadge() {
+    const badge = document.getElementById('chat-unread-badge');
+    if (badge) {
+        if (unreadMessagesCount > 0) {
+            badge.classList.remove('hidden');
+            badge.innerText = unreadMessagesCount > 99 ? '99+' : unreadMessagesCount;
+        } else {
+            badge.classList.add('hidden');
+        }
     }
 }
+
+function sendTypingStatus() {
+    if (!userRole) return;
+    if (!isTyping) {
+        isTyping = true;
+        db.ref('chat_typing').set({ user: userRole === 'admin' ? 'Admin' : (localStorage.getItem('chatNickname') || 'Fan'), timestamp: Date.now() });
+    }
+    clearTimeout(typingTimeout);
+    typingTimeout = setTimeout(() => {
+        isTyping = false;
+        db.ref('chat_typing').remove();
+    }, 1500);
+}
+
+function initTypingListener() {
+    db.ref('chat_typing').on('value', (snapshot) => {
+        const data = snapshot.val();
+        const typingDiv = document.getElementById('chat-typing-indicator');
+        if (data && data.user) {
+            typingDiv.innerText = `${data.user} is typing...`;
+            typingDiv.classList.remove('hidden');
+        } else {
+            typingDiv.classList.add('hidden');
+        }
+    });
+}
+
+function appendChatMessage(msg) {
+    const container = document.getElementById('chat-messages-container');
+    if (!container) return;
+    
+    if (container.children.length === 1 && container.children[0].innerText.includes('Loading')) {
+        container.innerHTML = '';
+    }
+    
+    // Handle poll messages
+    if (msg.isPoll && msg.pollId) {
+        renderPollMessage(msg.pollId);
+        return;
+    }
+    
+    const date = new Date(msg.timestamp).toLocaleString();
+    const currentNick = localStorage.getItem('chatNickname') || '';
+    const isCurrentUser = (msg.nickname === currentNick);
+    const bubbleClass = isCurrentUser ? 'sent' : 'received';
+    const deleteBtn = isAdmin ? `<button onclick="deleteChatMessage('${msg.userId}')" class="chat-delete-btn" title="Delete">🗑️</button>` : '';
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `chat-message ${bubbleClass}`;
+    messageDiv.innerHTML = `
+        <div class="bubble">
+            ${deleteBtn}
+            <p>${escapeHtml(msg.text)}</p>
+            <div class="message-meta">
+                <span class="message-author">${escapeHtml(msg.nickname)}</span>
+                <span class="message-time">${date}</span>
+            </div>
+        </div>
+    `;
+    container.appendChild(messageDiv);
+    container.scrollTop = container.scrollHeight;
+    
+    // Unread count logic
+    if (!isChatModalOpen && !isCurrentUser && msg.timestamp > lastReadTimestamp) {
+        unreadMessagesCount++;
+        updateUnreadBadge();
+    }
+}
+
+// Keep your existing sendChatMessage, deleteChatMessage, etc. unchanged
 function sendChatMessage() {
     const nicknameInput = document.getElementById('chat-nickname');
     let nickname = nicknameInput.value.trim();
@@ -241,25 +350,130 @@ function sendChatMessage() {
         document.getElementById('chat-input').value = '';
     } else { console.error("Chat not initialised"); showToast("Chat not ready, try again"); }
 }
-function appendChatMessage(msg) {
-    const container = document.getElementById('chat-messages-container');
-    if (!container) return;
-    if (container.children.length === 1 && container.children[0].innerText.includes('Loading')) container.innerHTML = '';
-    const date = new Date(msg.timestamp).toLocaleString();
-    const currentNick = localStorage.getItem('chatNickname') || '';
-    const isCurrentUser = (msg.nickname === currentNick);
-    const bubbleClass = isCurrentUser ? 'sent' : 'received';
-    const deleteBtn = isAdmin ? `<button onclick="deleteChatMessage('${msg.userId}')" class="chat-delete-btn" title="Delete">🗑️</button>` : '';
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `chat-message ${bubbleClass}`;
-    messageDiv.innerHTML = `<div class="bubble">${deleteBtn}<p>${escapeHtml(msg.text)}</p><div class="message-meta"><span class="message-author">${escapeHtml(msg.nickname)}</span><span class="message-time">${date}</span></div></div>`;
-    container.appendChild(messageDiv);
-    container.scrollTop = container.scrollHeight;
-}
+
 function deleteChatMessage(userId) {
     if (!isAdmin) return;
     chatMessagesRef.orderByChild('userId').equalTo(userId).once('value', snapshot => {
         snapshot.forEach(child => { child.ref.remove(); showToast("Message deleted"); });
+    });
+}
+
+// ==================== POLLS ====================
+function initPollListener() {
+    db.ref('chat_polls').on('child_changed', (snapshot) => {
+        const poll = snapshot.val();
+        if (poll) updatePollUI(poll.id);
+    });
+}
+
+function openPollModal() {
+    if (!isAdmin) return;
+    document.getElementById('poll-modal').classList.remove('hidden');
+    document.getElementById('poll-modal').classList.add('flex');
+}
+
+function closePollModal() {
+    document.getElementById('poll-modal').classList.add('hidden');
+    document.getElementById('poll-modal').classList.remove('flex');
+}
+
+function addPollOption() {
+    const container = document.getElementById('poll-options-container');
+    const div = document.createElement('div');
+    div.className = 'flex gap-2 mb-2';
+    div.innerHTML = `<input type="text" placeholder="Option" class="poll-option flex-1 bg-gray-50 border rounded-lg p-2"><button onclick="removePollOption(this)" class="text-red-500">✖</button>`;
+    container.appendChild(div);
+}
+
+function removePollOption(btn) {
+    btn.parentElement.remove();
+}
+
+function createPoll() {
+    const question = document.getElementById('poll-question').value.trim();
+    if (!question) { alert("Enter a question"); return; }
+    const options = Array.from(document.querySelectorAll('.poll-option')).map(inp => inp.value.trim()).filter(v => v);
+    if (options.length < 2) { alert("At least 2 options"); return; }
+    const pollId = Date.now();
+    const poll = {
+        id: pollId,
+        question: question,
+        options: options.map(opt => ({ text: opt, votes: 0 })),
+        totalVotes: 0,
+        voters: {},
+        createdAt: Date.now()
+    };
+    db.ref(`chat_polls/${pollId}`).set(poll);
+    // Announce poll in chat
+    const msg = {
+        nickname: "System",
+        text: `📊 New poll: ${question}`,
+        timestamp: Date.now(),
+        userId: `poll_${pollId}`,
+        isPoll: true,
+        pollId: pollId
+    };
+    db.ref('chat_messages').push(msg);
+    closePollModal();
+    document.getElementById('poll-question').value = '';
+    document.getElementById('poll-options-container').innerHTML = `
+        <div class="flex gap-2 mb-2"><input type="text" placeholder="Option 1" class="poll-option flex-1 bg-gray-50 border rounded-lg p-2"><button onclick="removePollOption(this)" class="text-red-500">✖</button></div>
+        <div class="flex gap-2 mb-2"><input type="text" placeholder="Option 2" class="poll-option flex-1 bg-gray-50 border rounded-lg p-2"><button onclick="removePollOption(this)" class="text-red-500">✖</button></div>
+    `;
+}
+
+function votePoll(pollId, optionIndex) {
+    const nickname = localStorage.getItem('chatNickname') || 'Fan';
+    db.ref(`chat_polls/${pollId}/voters/${nickname}`).once('value', snap => {
+        if (snap.exists()) { showToast("You already voted"); return; }
+        db.ref(`chat_polls/${pollId}/options/${optionIndex}/votes`).transaction(votes => (votes || 0) + 1);
+        db.ref(`chat_polls/${pollId}/totalVotes`).transaction(total => (total || 0) + 1);
+        db.ref(`chat_polls/${pollId}/voters/${nickname}`).set(true);
+        showToast("Vote cast!");
+    });
+}
+
+function renderPollMessage(pollId) {
+    db.ref(`chat_polls/${pollId}`).once('value', (snapshot) => {
+        const poll = snapshot.val();
+        if (!poll) return;
+        const container = document.getElementById('chat-messages-container');
+        const pollDiv = document.createElement('div');
+        pollDiv.className = 'poll-card bg-white rounded-lg p-3 shadow my-2 border';
+        pollDiv.id = `poll-${poll.id}`;
+        pollDiv.innerHTML = `
+            <p class="font-bold">📊 ${escapeHtml(poll.question)}</p>
+            <div class="space-y-2 mt-2" id="poll-options-${poll.id}"></div>
+            <div class="text-xs text-gray-500 mt-2">${poll.totalVotes || 0} vote(s)</div>
+        `;
+        container.appendChild(pollDiv);
+        updatePollUI(poll.id);
+    });
+}
+
+function updatePollUI(pollId) {
+    db.ref(`chat_polls/${pollId}`).once('value', (snapshot) => {
+        const poll = snapshot.val();
+        if (!poll) return;
+        const optionsContainer = document.getElementById(`poll-options-${pollId}`);
+        if (!optionsContainer) return;
+        optionsContainer.innerHTML = '';
+        const total = poll.totalVotes || 1;
+        poll.options.forEach((opt, idx) => {
+            const percent = ((opt.votes || 0) / total) * 100;
+            optionsContainer.innerHTML += `
+                <div class="flex items-center justify-between gap-2 text-sm">
+                    <span class="flex-1">${escapeHtml(opt.text)}</span>
+                    <span class="w-16 text-right">${opt.votes || 0}</span>
+                    <div class="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div class="h-full bg-emerald-500 rounded-full" style="width: ${percent}%"></div>
+                    </div>
+                    <button onclick="votePoll(${pollId}, ${idx})" class="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full hover:bg-indigo-200">Vote</button>
+                </div>
+            `;
+        });
+        const totalSpan = optionsContainer.parentElement?.querySelector('.text-xs');
+        if (totalSpan) totalSpan.innerText = `${poll.totalVotes || 0} vote(s)`;
     });
 }
 
@@ -1511,3 +1725,10 @@ window.closeChatModal = closeChatModal;
 window.sendChatMessage = sendChatMessage;
 window.deleteChatMessage = deleteChatMessage;
 window.toggleAutoStart = toggleAutoStart;
+window.openPollModal = openPollModal;
+window.closePollModal = closePollModal;
+window.addPollOption = addPollOption;
+window.removePollOption = removePollOption;
+window.createPoll = createPoll;
+window.votePoll = votePoll;
+window.sendTypingStatus = sendTypingStatus;
