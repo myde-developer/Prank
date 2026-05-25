@@ -821,6 +821,7 @@ function renderGameweekTabs() {
         const roundFixtures = fixtures.filter(f => f.round === r && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
         const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
         let statusHtml = '', startBtnHtml = '', stopBtnHtml = '';
+
         if (allResolved) {
             statusHtml = `<span class="text-[9px] font-mono text-green-600 ml-1">✅ Completed</span>`;
         } else if (startTime) {
@@ -830,7 +831,10 @@ function renderGameweekTabs() {
                 const hoursLeft = Math.max(0, Math.floor((deadline - now) / (1000 * 60 * 60)));
                 const minutesLeft = Math.floor(((deadline - now) % (1000 * 60 * 60)) / (1000 * 60));
                 statusHtml = `<span class="text-[9px] font-mono text-green-600 ml-1">⏳ ${hoursLeft}h ${minutesLeft}m</span>`;
-                stopBtnHtml = `<button onclick="stopRound(${r})" class="ml-1 text-[9px] bg-red-100 text-red-700 px-1 py-0.5 rounded-full hover:bg-red-200">⏹️ Stop</button>`;
+                // ✅ Stop button only for admins
+                if (isAdmin) {
+                    stopBtnHtml = `<button onclick="stopRound(${r})" class="ml-1 text-[9px] bg-red-100 text-red-700 px-1 py-0.5 rounded-full hover:bg-red-200">⏹️ Stop</button>`;
+                }
             } else {
                 statusHtml = `<span class="text-[9px] font-mono text-red-500 ml-1">⌛ Expired</span>`;
             }
@@ -841,6 +845,7 @@ function renderGameweekTabs() {
                 statusHtml = `<span class="text-[9px] font-mono text-gray-400 ml-1">⏸ Not started</span>`;
             }
         }
+
         const active = r === currentSelectedRound;
         const btn = document.createElement('button');
         btn.className = `px-3 py-1 text-[11px] font-mono rounded-full transition shrink-0 flex items-center gap-1 ${active ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
