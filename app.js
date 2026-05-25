@@ -16,7 +16,6 @@ let tickerInterval = null, currentTickerFactIndex = 0, tickerFacts = [];
 let pendingFixtureId = null, pendingHomeScore = null, pendingAwayScore = null;
 let currentPenaltyTeam = null, pendingAssignFixtureId = null, pendingAssignSide = null, currentViewerFixtureId = null;
 let currentPredictionFixtureId = null, currentBanterFixtureId = null;
-let currentEditingEventsFixture = null, pendingEvents = [];
 let chatMessagesRef = null;
 let autoStartNextRound = false;
 let roundStartTimes = {};
@@ -59,7 +58,6 @@ function generateRandomRoundRobin(teamNames) {
         const last = shuffled.pop();
         shuffled.splice(1, 0, last);
     }
-    // Shuffle round order
     for (let i = rounds.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [rounds[i], rounds[j]] = [rounds[j], rounds[i]];
@@ -247,6 +245,43 @@ function initBackToTop() {
     backBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
 }
 
+// ==================== TICKER ====================
+function updateTickerFacts() {
+    if (!tickerFacts.length) return;
+    const el = document.getElementById('news-ticker');
+    if (!el) return;
+    el.classList.add('slide-out');
+    setTimeout(() => {
+        currentTickerFactIndex = (currentTickerFactIndex + 1) % tickerFacts.length;
+        el.innerHTML = `<span class="inline-flex items-center gap-2"><span class="w-2 h-2 bg-white rounded-full animate-pulse"></span> ${tickerFacts[currentTickerFactIndex]}</span>`;
+        el.classList.remove('slide-out');
+        el.classList.add('slide-in');
+        setTimeout(() => el.classList.remove('slide-in'), 500);
+    }, 500);
+}
+function generateTickerFacts() {
+    const activeTeams = Object.values(teams).filter(t => !t.relegated);
+    const totalTeams = activeTeams.length;
+    const totalMatchesPlayed = fixtures.filter(f => f.played && !teams[f.home]?.relegated && !teams[f.away]?.relegated).length;
+    const totalMatches = fixtures.filter(f => !teams[f.home]?.relegated && !teams[f.away]?.relegated).length;
+    let leader = null, topScorer = null, biggestWin = null;
+    if (totalTeams) {
+        const sorted = activeTeams.sort((a, b) => b.pts - a.pts || b.gd - a.gd);
+        if (sorted.length) leader = sorted[0];
+        const sortedGF = activeTeams.sort((a, b) => b.gf - a.gf);
+        if (sortedGF.length) topScorer = sortedGF[0];
+    }
+    fixtures.forEach(f => { if (f.played && f.homeScore !== null && !teams[f.home]?.relegated && !teams[f.away]?.relegated) { const total = f.homeScore + f.awayScore; if (!biggestWin || total > biggestWin.total) biggestWin = { home: f.home, away: f.away, homeScore: f.homeScore, awayScore: f.awayScore, total }; } });
+    tickerFacts = [`🏆 DLS Vawulence Academy Hub`, `⚽ ${totalTeams} teams`, `📊 ${totalMatchesPlayed}/${totalMatches} played`, leader ? `👑 Leader: ${leader.name} (${leader.pts} pts)` : null, topScorer ? `🔥 Top scorer: ${topScorer.name} (${topScorer.gf} goals)` : null, biggestWin ? `🎯 Biggest win: ${biggestWin.home} ${biggestWin.homeScore}-${biggestWin.awayScore} ${biggestWin.away}` : null, `🔮 Predict matches & post banter!`].filter(f => f);
+    if (tickerFacts.length) {
+        const el = document.getElementById('news-ticker');
+        if (el) el.innerHTML = `<span class="inline-flex items-center gap-2"><span class="w-2 h-2 bg-white rounded-full animate-pulse"></span> ${tickerFacts[0]}</span>`;
+        currentTickerFactIndex = 0;
+        if (tickerInterval) clearInterval(tickerInterval);
+        tickerInterval = setInterval(updateTickerFacts, 6000);
+    }
+}
+
 // ==================== ADMIN MODE ====================
 function handleAdminToggleClick() { if (!isAdmin) { document.getElementById('admin-password-input').value = ""; document.getElementById('password-error').classList.add('hidden'); document.getElementById('password-modal').classList.remove('hidden'); } else deactivateAdminMode(); }
 function closePasswordModal() { document.getElementById('password-modal').classList.add('hidden'); }
@@ -332,7 +367,7 @@ function initializeTournament() {
     showToast(`Tournament launched with ${count} teams!`);
 }
 
-// ==================== ADMIN: START ROUND (prevents multiple active rounds) ====================
+// ==================== ADMIN: START ROUND ====================
 function startRound(roundNumber) {
     if (!isAdmin) return;
     const now = Date.now();
@@ -361,6 +396,20 @@ function startRound(roundNumber) {
     renderGameweekTabs();
     renderFixtures();
     showToast(`⏱️ Round ${roundNumber} started! 2‑day deadline begins now.`);
+}
+
+// ==================== ADMIN: STOP ROUND TIMER ====================
+function stopRound(roundNumber) {
+    if (!isAdmin) return;
+    if (!roundStartTimes[roundNumber]) {
+        showToast(`Round ${roundNumber} hasn't started yet.`);
+        return;
+    }
+    delete roundStartTimes[roundNumber];
+    saveToStorage();
+    renderGameweekTabs();
+    renderFixtures();
+    showToast(`⏹️ Round ${roundNumber} timer stopped. You can start it again later.`);
 }
 
 // ==================== FIXTURE MANAGEMENT ====================
@@ -554,44 +603,6 @@ function renderKnockoutMatchCard(m) {
     return `<div class="bg-gray-50 p-2 rounded-lg border"><div class="flex justify-between items-center"><span class="font-medium text-sm">${m.home}</span><span>vs</span><span class="font-medium text-sm">${m.away}</span></div><div class="text-center mt-1">${scoreHtml}</div>${actionsHtml}<div class="text-right text-[9px] text-gray-400">${m.round}${legLabel}</div></div>`;
 }
 
-// ==================== TICKER ====================
-function updateTickerFacts() {
-    if (!tickerFacts.length) return;
-    const el = document.getElementById('news-ticker');
-    if (!el) return;
-    el.classList.add('slide-out');
-    setTimeout(() => {
-        currentTickerFactIndex = (currentTickerFactIndex + 1) % tickerFacts.length;
-        el.innerHTML = `<span class="inline-flex items-center gap-2"><span class="w-2 h-2 bg-white rounded-full animate-pulse"></span> ${tickerFacts[currentTickerFactIndex]}</span>`;
-        el.classList.remove('slide-out');
-        el.classList.add('slide-in');
-        setTimeout(() => el.classList.remove('slide-in'), 500);
-    }, 500);
-}
-
-function generateTickerFacts() {
-    const activeTeams = Object.values(teams).filter(t => !t.relegated);
-    const totalTeams = activeTeams.length;
-    const totalMatchesPlayed = fixtures.filter(f => f.played && !teams[f.home]?.relegated && !teams[f.away]?.relegated).length;
-    const totalMatches = fixtures.filter(f => !teams[f.home]?.relegated && !teams[f.away]?.relegated).length;
-    let leader = null, topScorer = null, biggestWin = null;
-    if (totalTeams) {
-        const sorted = activeTeams.sort((a, b) => b.pts - a.pts || b.gd - a.gd);
-        if (sorted.length) leader = sorted[0];
-        const sortedGF = activeTeams.sort((a, b) => b.gf - a.gf);
-        if (sortedGF.length) topScorer = sortedGF[0];
-    }
-    fixtures.forEach(f => { if (f.played && f.homeScore !== null && !teams[f.home]?.relegated && !teams[f.away]?.relegated) { const total = f.homeScore + f.awayScore; if (!biggestWin || total > biggestWin.total) biggestWin = { home: f.home, away: f.away, homeScore: f.homeScore, awayScore: f.awayScore, total }; } });
-    tickerFacts = [`🏆 DLS Vawulence Academy Hub`, `⚽ ${totalTeams} teams`, `📊 ${totalMatchesPlayed}/${totalMatches} played`, leader ? `👑 Leader: ${leader.name} (${leader.pts} pts)` : null, topScorer ? `🔥 Top scorer: ${topScorer.name} (${topScorer.gf} goals)` : null, biggestWin ? `🎯 Biggest win: ${biggestWin.home} ${biggestWin.homeScore}-${biggestWin.awayScore} ${biggestWin.away}` : null, `🔮 Predict matches & post banter!`].filter(f => f);
-    if (tickerFacts.length) {
-        const el = document.getElementById('news-ticker');
-        if (el) el.innerHTML = `<span class="inline-flex items-center gap-2"><span class="w-2 h-2 bg-white rounded-full animate-pulse"></span> ${tickerFacts[0]}</span>`;
-        currentTickerFactIndex = 0;
-        if (tickerInterval) clearInterval(tickerInterval);
-        tickerInterval = setInterval(updateTickerFacts, 6000);
-    }
-}
-
 // ==================== KNOCKOUT ADMIN ACTIONS ====================
 function saveKnockoutResult(matchId) {
     if (!isAdmin) return;
@@ -669,7 +680,7 @@ function renderTable() {
         const formHtml = `<div class="flex gap-1 justify-center">${recent.map(r => r === 'W' ? '<span class="w-4 h-4 bg-emerald-100 text-emerald-700 rounded-full text-[8px] font-bold flex items-center justify-center">W</span>' : r === 'L' ? '<span class="w-4 h-4 bg-rose-100 text-rose-600 rounded-full text-[8px] font-bold flex items-center justify-center">L</span>' : r === 'D' ? '<span class="w-4 h-4 bg-amber-100 text-amber-700 rounded-full text-[8px] font-bold flex items-center justify-center">D</span>' : '<span class="w-4 h-4 bg-gray-100 text-gray-400 rounded-full text-[8px] flex items-center justify-center">-</span>').join('')}</div>`;
         const penaltyBadge = team.deductedPoints > 0 ? `<span class="ml-1 text-[8px] bg-rose-50 text-rose-600 px-1 rounded-full">-${team.deductedPoints}</span>` : "";
         const actionBtn = isAdmin ? `<td class="py-2 px-1 text-center"><button onclick="event.stopPropagation(); openPenaltyModal('${team.name}')" class="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-full hover:bg-amber-100">⚖️</button> <button onclick="event.stopPropagation(); relegateTeam('${team.name}')" class="text-[9px] bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded-full hover:bg-orange-100">⬇️ Relegate</button></td>` : "";
-        tbody.innerHTML += `<tr class="hover:bg-gray-50 transition ${pos === 1 ? 'champions-row' : (pos > sorted.length - 2 ? 'relegation-row' : '')}" onclick="showTeamDetails('${team.name}')"><td class="py-2 px-2 text-center font-bold text-xs ${pos === 1 ? 'text-indigo-600' : ''}">${pos}</td><td class="py-2 px-2"><span class="font-semibold text-xs">${team.name}</span>${penaltyBadge}</td><td class="py-2 px-1 text-center text-xs">${team.mp}</td><td class="py-2 px-1 text-center text-emerald-600 text-xs">${team.w}</td><td class="py-2 px-1 text-center text-xs">${team.d}</td><td class="py-2 px-1 text-center text-rose-500 text-xs">${team.l}</td><td class="py-2 px-1 text-center text-xs">${team.gf}</td><td class="py-2 px-1 text-center text-xs">${team.ga}</td><td class="py-2 px-1 text-center font-mono text-xs ${team.gd >= 0 ? 'text-emerald-600' : 'text-rose-500'}">${team.gd > 0 ? '+' + team.gd : team.gd}</td><td class="py-2 px-2 text-center font-black text-indigo-600 text-xs">${team.pts}</td><td class="py-2 px-2 text-center">${formHtml}</td>${actionBtn}</tr>`;
+        tbody.innerHTML += `<tr class="hover:bg-gray-50 transition ${pos === 1 ? 'champions-row' : (pos > sorted.length - 2 ? 'relegation-row' : '')}" onclick="showTeamDetails('${team.name}')"><td class="py-2 px-2 text-center font-bold text-xs ${pos === 1 ? 'text-indigo-600' : ''}">${pos}</td><td class="py-2 px-2"><span class="font-semibold text-xs">${team.name}</span>${penaltyBadge}</td><td class="py-2 px-1 text-center text-xs">${team.mp}</td><td class="py-2 px-1 text-center text-emerald-600 text-xs">${team.w}</td><td class="py-2 px-1 text-center text-xs">${team.d}</td><td class="py-2 px-1 text-center text-rose-500 text-xs">${team.l}</td><td class="py-2 px-1 text-center text-xs">${team.gf}</td><td class="py-2 px-1 text-center text-xs">${team.ga}</td><td class="py-2 px-1 text-center font-mono text-xs ${team.gd >= 0 ? 'text-emerald-600' : 'text-rose-500'}">${team.gd > 0 ? '+' + team.gd : team.gd}</td><td class="py-2 px-2 text-center font-black text-indigo-600 text-xs">${team.pts}</td><td class="py-2 px-2 text-center">${formHtml}<td>${actionBtn}</tr>`;
     });
     const phaseIndicator = document.getElementById('phase-indicator');
     if (phaseIndicator) phaseIndicator.innerText = tournamentPhase === 'league' ? '🏆 League Phase' : '🥇 Knockout Stage';
@@ -686,24 +697,31 @@ function renderGameweekTabs() {
         const startTime = roundStartTimes[r];
         const roundFixtures = fixtures.filter(f => f.round === r && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
         const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
-        let statusHtml = '', startBtnHtml = '';
-        if (allResolved) statusHtml = `<span class="text-[9px] font-mono text-green-600 ml-1">✅ Completed</span>`;
-        else if (startTime) {
+        let statusHtml = '', startBtnHtml = '', stopBtnHtml = '';
+        if (allResolved) {
+            statusHtml = `<span class="text-[9px] font-mono text-green-600 ml-1">✅ Completed</span>`;
+        } else if (startTime) {
             const deadline = startTime + 2 * 24 * 60 * 60 * 1000;
             const now = Date.now();
             if (now < deadline) {
                 const hoursLeft = Math.max(0, Math.floor((deadline - now) / (1000 * 60 * 60)));
                 const minutesLeft = Math.floor(((deadline - now) % (1000 * 60 * 60)) / (1000 * 60));
                 statusHtml = `<span class="text-[9px] font-mono text-green-600 ml-1">⏳ ${hoursLeft}h ${minutesLeft}m</span>`;
-            } else statusHtml = `<span class="text-[9px] font-mono text-red-500 ml-1">⌛ Expired</span>`;
+                stopBtnHtml = `<button onclick="stopRound(${r})" class="ml-1 text-[9px] bg-red-100 text-red-700 px-1 py-0.5 rounded-full hover:bg-red-200">⏹️ Stop</button>`;
+            } else {
+                statusHtml = `<span class="text-[9px] font-mono text-red-500 ml-1">⌛ Expired</span>`;
+            }
         } else {
-            if (isAdmin && tournamentPhase === 'league') startBtnHtml = `<button onclick="startRound(${r})" class="ml-1 text-[9px] bg-green-100 text-green-700 px-1 py-0.5 rounded-full hover:bg-green-200">▶ Start</button>`;
-            else statusHtml = `<span class="text-[9px] font-mono text-gray-400 ml-1">⏸ Not started</span>`;
+            if (isAdmin && tournamentPhase === 'league') {
+                startBtnHtml = `<button onclick="startRound(${r})" class="ml-1 text-[9px] bg-green-100 text-green-700 px-1 py-0.5 rounded-full hover:bg-green-200">▶ Start</button>`;
+            } else {
+                statusHtml = `<span class="text-[9px] font-mono text-gray-400 ml-1">⏸ Not started</span>`;
+            }
         }
         const active = r === currentSelectedRound;
         const btn = document.createElement('button');
         btn.className = `px-3 py-1 text-[11px] font-mono rounded-full transition shrink-0 flex items-center gap-1 ${active ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
-        btn.innerHTML = `GW ${r} ${statusHtml} ${startBtnHtml}`;
+        btn.innerHTML = `GW ${r} ${statusHtml} ${startBtnHtml} ${stopBtnHtml}`;
         btn.onclick = () => { currentSelectedRound = r; renderGameweekTabs(); renderFixtures(); };
         container.appendChild(btn);
     }
@@ -740,7 +758,6 @@ function renderFixtures() {
             return;
         }
 
-        // Determine deadline warning for active round
         if (roundStart) {
             const deadline = roundStart + 2 * 24 * 60 * 60 * 1000;
             if (Date.now() < deadline) {
@@ -754,7 +771,6 @@ function renderFixtures() {
             deadlineWarning = `<span class="text-gray-400 text-[9px] ml-1">⏸ Not started</span>`;
         }
 
-        // Admin view – always show real team names (they need to edit)
         if (isAdmin) {
             let homeDisplay = f.home === "VACANT" ? `<span class="font-semibold text-sm text-red-500 cursor-pointer" onclick="editFixtureTeamName(${f.id}, 'home')">[VACANT]</span>` : `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'home')">${f.home}</span>`;
             let awayDisplay = f.away === "VACANT" ? `<span class="font-semibold text-sm text-red-500 cursor-pointer" onclick="editFixtureTeamName(${f.id}, 'away')">[VACANT]</span>` : `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'away')">${f.away}</span>`;
@@ -762,24 +778,15 @@ function renderFixtures() {
             const saveOpacity = !roundActive ? 'opacity-50' : '';
             container.innerHTML += `<div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div class="flex-1 flex items-center justify-center gap-2 text-center">${homeDisplay}</div><div class="flex items-center justify-center"><div class="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full"><input type="number" id="home-score-${f.id}" value="${played ? f.homeScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm"><span class="text-gray-400">:</span><input type="number" id="away-score-${f.id}" value="${played ? f.awayScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm"></div>${deadlineWarning}</div><div class="flex-1 flex items-center justify-center gap-2 text-center">${awayDisplay}</div></div><div class="mt-2 flex justify-center gap-1"><button onclick="swapFixture(${f.id})" class="text-[10px] font-bold bg-amber-50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100">🔄 Swap</button><button onclick="saveResult(${f.id})" class="text-[10px] font-bold ${saveOpacity} bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full hover:bg-indigo-100" ${saveDisabled}>💾 Save</button><button onclick="showMatchComment(${f.id})" class="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-full hover:bg-gray-200">📖</button><button onclick="openBanterModal(${f.id})" class="text-[10px] font-bold bg-purple-50 text-purple-600 px-2 py-1 rounded-full hover:bg-purple-100">🤣 Banter</button></div></div>`;
         } else {
-            // Non‑admin view – show real team names only if the round has been started; otherwise show "TBD"
             let homeName, awayName;
             if (roundStart) {
-                // Round has started – show real teams
                 homeName = f.home === "VACANT" ? "TBD" : f.home;
                 awayName = f.away === "VACANT" ? "TBD" : f.away;
             } else {
-                // Round not started – hide teams
                 homeName = "TBD";
                 awayName = "TBD";
             }
-
-            const predictionBtn = (!played && !roundActive) 
-                ? `<span class="text-[11px] text-gray-400 px-3 py-1 rounded-full bg-gray-100">⏸ Not started</span>`
-                : (played 
-                    ? `<div class="bg-gray-100 px-3 py-1 rounded-full font-mono font-bold text-sm">${f.homeScore} - ${f.awayScore}</div>`
-                    : `<button onclick="openPredictionsModal(${f.id})" class="text-[11px] bg-gray-100 hover:bg-indigo-50 px-3 py-1 rounded-full">🔮 Predictions</button>`
-                );
+            const predictionBtn = (!played && !roundActive) ? `<span class="text-[11px] text-gray-400 px-3 py-1 rounded-full bg-gray-100">⏸ Not started</span>` : (played ? `<div class="bg-gray-100 px-3 py-1 rounded-full font-mono font-bold text-sm">${f.homeScore} - ${f.awayScore}</div>` : `<button onclick="openPredictionsModal(${f.id})" class="text-[11px] bg-gray-100 hover:bg-indigo-50 px-3 py-1 rounded-full">🔮 Predictions</button>`);
             container.innerHTML += `<div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div class="flex-1 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${homeName}</div><div class="flex justify-center">${predictionBtn}${deadlineWarning}</div><div class="flex-1 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${awayName}</div></div><div class="mt-2 flex justify-center gap-1"><button onclick="showMatchComment(${f.id})" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full">📖</button><button onclick="openBanterModal(${f.id})" class="text-[11px] bg-purple-50 hover:bg-purple-100 px-3 py-1 rounded-full">🤣 Banter</button></div></div>`;
         }
     });
@@ -838,13 +845,12 @@ function showTeamDetails(teamName) {
 }
 function closeTeamModal() { document.getElementById('team-modal').classList.add('hidden'); }
 
-// ==================== RICH MATCH REPORT & RANDOM EVENTS ====================
-function generateRichReport(home, away, homeScore, awayScore, events) {
+// ==================== RICH REPORT FROM EVENTS ====================
+function generateRichReportFromEvents(home, away, homeScore, awayScore, events) {
     const goalEvents = events.filter(e => e.type === 'goal');
     let report = '';
     if (homeScore === awayScore) {
-        const templates = [`🤝 ${home} and ${away} shared the spoils in a ${homeScore}-${awayScore} draw.`, `⚖️ Neither side could break the deadlock – ${homeScore}-${awayScore}.`, `🔄 Points shared as ${home} ${homeScore} : ${awayScore} ${away}.`];
-        report = templates[Math.floor(Math.random() * templates.length)];
+        report = `🤝 ${home} and ${away} shared the spoils in a ${homeScore}-${awayScore} draw.`;
     } else {
         const winner = homeScore > awayScore ? home : away;
         const loser = homeScore > awayScore ? away : home;
@@ -855,32 +861,24 @@ function generateRichReport(home, away, homeScore, awayScore, events) {
     }
     if (goalEvents.length > 0) {
         const first = goalEvents[0];
-        report += ` The opener came in the ${first.minute}′ through ${first.player} (${first.team}).`;
-        if (goalEvents.length > 1) { const last = goalEvents[goalEvents.length-1]; report += ` ${last.player} sealed it at ${last.minute}′.`; }
-    } else if (homeScore === 0 && awayScore === 0) { report += ` A rare goalless affair with no clear chances.`; }
+        const assistText = first.assist ? ` (assisted by ${first.assist})` : '';
+        const typeText = first.goalType === 'Open play' ? '' : ` (${first.goalType})`;
+        report += ` The opener came in the ${first.minute}′ through ${first.player} (${first.team})${typeText}${assistText}.`;
+        if (goalEvents.length > 1) {
+            const last = goalEvents[goalEvents.length-1];
+            const lastAssistText = last.assist ? ` (assisted by ${last.assist})` : '';
+            const lastTypeText = last.goalType === 'Open play' ? '' : ` (${last.goalType})`;
+            report += ` ${last.player} sealed it at ${last.minute}′${lastTypeText}${lastAssistText}.`;
+        }
+    } else if (homeScore === 0 && awayScore === 0) {
+        report += ` A rare goalless affair with no clear chances.`;
+    }
     const flavours = [`${home} dominated possession but lacked precision.`, `${away} defended deep and hit on the counter.`, `The match was a midfield battle from start to finish.`, `Both goalkeepers produced world-class saves.`, `End-to-end action thrilled the crowd.`, `Set pieces proved decisive today.`];
     report += ` ${flavours[Math.floor(Math.random() * flavours.length)]}`;
     return report;
 }
-function generateRandomEvents(home, away, homeScore, awayScore) {
-    const events = [];
-    const totalGoals = homeScore + awayScore;
-    const goalDistribution = [];
-    for (let i = 0; i < homeScore; i++) goalDistribution.push(home);
-    for (let i = 0; i < awayScore; i++) goalDistribution.push(away);
-    for (let i = goalDistribution.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [goalDistribution[i], goalDistribution[j]] = [goalDistribution[j], goalDistribution[i]]; }
-    let usedMinutes = new Set();
-    for (let i = 0; i < goalDistribution.length; i++) {
-        let minute;
-        do { minute = Math.floor(Math.random() * 90) + 1; } while (usedMinutes.has(minute));
-        usedMinutes.add(minute);
-        events.push({ minute, type: 'goal', team: goalDistribution[i], player: `Player ${Math.floor(Math.random() * 30) + 1}` });
-    }
-    events.sort((a,b) => a.minute - b.minute);
-    return events;
-}
 
-// ==================== SAVE RESULT (LEAGUE) ====================
+// ==================== SAVE RESULT & GOAL EDITOR ====================
 function saveResult(fixtureId) {
     const homeScore = document.getElementById(`home-score-${fixtureId}`).value;
     const awayScore = document.getElementById(`away-score-${fixtureId}`).value;
@@ -890,122 +888,169 @@ function saveResult(fixtureId) {
     pendingFixtureId = fixtureId;
     pendingHomeScore = parseInt(homeScore);
     pendingAwayScore = parseInt(awayScore);
-    const events = generateRandomEvents(fixture.home, fixture.away, pendingHomeScore, pendingAwayScore);
-    const report = generateRichReport(fixture.home, fixture.away, pendingHomeScore, pendingAwayScore, events);
-    window._pendingEvents = events;
-    window._pendingReport = report;
-    document.getElementById('comment-match-name').innerText = `${fixture.home} vs ${fixture.away}`;
-    document.getElementById('comment-text').value = report;
-    document.getElementById('comment-modal').classList.remove('hidden');
+    openGoalEditor();
 }
-function closeCommentModal(save = false) {
-    document.getElementById('comment-modal').classList.add('hidden');
-    if (!save) { pendingFixtureId = null; window._pendingEvents = null; window._pendingReport = null; }
-}
-function confirmComment() {
-    if (pendingFixtureId === null) return;
-    const finalReport = document.getElementById('comment-text').value.trim();
-    if (finalReport === "") { alert("Report cannot be empty"); return; }
+
+function openGoalEditor() {
     const fixture = fixtures.find(f => f.id === pendingFixtureId);
+    const totalGoals = pendingHomeScore + pendingAwayScore;
+    let modalHtml = `
+        <div id="goal-editor-modal" class="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="p-5 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white">
+                    <h3 class="font-bold text-lg">⚽ Enter Goal Details</h3>
+                    <button onclick="closeGoalEditor()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+                </div>
+                <div class="p-5 space-y-4">
+                    <p class="text-sm text-gray-600">Match: ${fixture.home} vs ${fixture.away}</p>
+                    <p class="text-sm font-semibold">Score: ${pendingHomeScore} - ${pendingAwayScore}</p>
+                    <div id="goals-list-container" class="space-y-3">
+    `;
+    for (let i = 0; i < totalGoals; i++) {
+        modalHtml += `
+            <div class="goal-entry border rounded-xl p-3 bg-gray-50" data-goal-index="${i}">
+                <div class="font-medium mb-2">Goal #${i+1}</div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <select class="goal-team border rounded-lg px-3 py-2 text-sm bg-white">
+                        <option value="${fixture.home}">${fixture.home}</option>
+                        <option value="${fixture.away}">${fixture.away}</option>
+                    </select>
+                    <input type="text" class="goal-scorer border rounded-lg px-3 py-2 text-sm" placeholder="Scorer name">
+                    <input type="text" class="goal-assist border rounded-lg px-3 py-2 text-sm" placeholder="Assist (optional)">
+                    <input type="number" class="goal-minute border rounded-lg px-3 py-2 text-sm" placeholder="Minute" min="1" max="120">
+                    <select class="goal-type border rounded-lg px-3 py-2 text-sm bg-white">
+                        <option value="Open play">⚽ Open play</option>
+                        <option value="Penalty">🎯 Penalty</option>
+                        <option value="Free kick">🦵 Free kick</option>
+                        <option value="Header">👑 Header</option>
+                        <option value="Own goal">😵 Own goal</option>
+                    </select>
+                </div>
+            </div>
+        `;
+    }
+    modalHtml += `
+                    </div>
+                    <div class="flex justify-end gap-3 pt-4">
+                        <button onclick="closeGoalEditor()" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100">Cancel</button>
+                        <button onclick="saveGoalsAndFinish()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500">Save Match & Report</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    const existingModal = document.getElementById('goal-editor-modal');
+    if (existingModal) existingModal.remove();
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function closeGoalEditor() {
+    const modal = document.getElementById('goal-editor-modal');
+    if (modal) modal.remove();
+    pendingFixtureId = null;
+}
+
+function saveGoalsAndFinish() {
+    const fixture = fixtures.find(f => f.id === pendingFixtureId);
+    if (!fixture) return;
+    const goalEntries = document.querySelectorAll('.goal-entry');
+    const events = [];
+    for (let i = 0; i < goalEntries.length; i++) {
+        const entry = goalEntries[i];
+        const team = entry.querySelector('.goal-team').value;
+        const scorer = entry.querySelector('.goal-scorer').value.trim();
+        const assist = entry.querySelector('.goal-assist').value.trim();
+        const minute = parseInt(entry.querySelector('.goal-minute').value);
+        const type = entry.querySelector('.goal-type').value;
+        if (!scorer) { alert(`Please enter scorer name for goal #${i+1}`); return; }
+        if (isNaN(minute) || minute < 1 || minute > 120) { alert(`Please enter a valid minute (1-120) for goal #${i+1}`); return; }
+        events.push({ minute, type: 'goal', team, player: scorer, assist: assist || null, goalType: type });
+    }
+    events.sort((a,b) => a.minute - b.minute);
+    const report = generateRichReportFromEvents(fixture.home, fixture.away, pendingHomeScore, pendingAwayScore, events);
     fixture.homeScore = pendingHomeScore;
     fixture.awayScore = pendingAwayScore;
     fixture.played = true;
-    fixture.report = finalReport;
-    fixture.events = window._pendingEvents || [];
+    fixture.report = report;
+    fixture.events = events;
     if (!fixture.predictions) fixture.predictions = [];
     if (!fixture.banter) fixture.banter = [];
     updateTableCalculations();
     saveToStorage();
     showToast(`Saved: ${fixture.home} ${pendingHomeScore}-${pendingAwayScore} ${fixture.away}`);
-    if (typeof confetti === 'function') confetti({ particleCount: 60, spread: 45, origin: { y: 0.7 }, startVelocity: 12, colors: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'] });
-    closeCommentModal(true);
+    closeGoalEditor();
     pendingFixtureId = null;
-    window._pendingEvents = null;
-    window._pendingReport = null;
     renderTable();
     renderFixtures();
     generateTickerFacts();
+    if (typeof confetti === 'function') confetti({ particleCount: 60, spread: 45, origin: { y: 0.7 }, startVelocity: 12, colors: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'] });
 }
-function showMatchComment(fixtureId) {
-    const f = fixtures.find(f => f.id === fixtureId);
-    if (!f) return;
-    currentViewerFixtureId = fixtureId;
-    document.getElementById('viewer-match-name').innerHTML = `${f.home} vs ${f.away}`;
-    document.getElementById('viewer-score').innerText = f.played ? `${f.homeScore} - ${f.awayScore}` : 'Not played yet';
-    document.getElementById('viewer-comment').innerText = f.report || (f.played ? 'No report available.' : 'Match not played.');
-    const eventsContainer = document.getElementById('viewer-events-container');
-    const eventsDiv = document.getElementById('viewer-events');
-    if (f.events && f.events.length > 0) {
-        eventsContainer.classList.remove('hidden');
-        eventsDiv.innerHTML = f.events.map(ev => `<div class="flex justify-between border-b border-gray-200 py-1"><span class="font-mono w-12">${ev.minute}′</span><span class="flex-1">⚽ ${ev.team} - ${ev.player}</span></div>`).join('');
-    } else eventsContainer.classList.add('hidden');
-    const editBtn = document.getElementById('viewer-edit-btn');
-    const editEventsBtn = document.getElementById('viewer-edit-events-btn');
-    if (isAdmin && f.played) { editBtn.classList.remove('hidden'); editEventsBtn.classList.remove('hidden'); }
-    else { editBtn.classList.add('hidden'); editEventsBtn.classList.add('hidden'); }
-    document.getElementById('comment-viewer-modal').classList.remove('hidden');
-}
-function closeCommentViewer() { document.getElementById('comment-viewer-modal').classList.add('hidden'); currentViewerFixtureId = null; }
-function editViewerComment() {
+
+// ==================== EDIT EXISTING MATCH EVENTS ====================
+function editViewerEvents() {
     if (!isAdmin || currentViewerFixtureId === null) return;
     const f = fixtures.find(f => f.id === currentViewerFixtureId);
     if (!f.played) return;
     pendingFixtureId = currentViewerFixtureId;
     pendingHomeScore = f.homeScore;
     pendingAwayScore = f.awayScore;
-    document.getElementById('comment-match-name').innerText = `${f.home} vs ${f.away}`;
-    document.getElementById('comment-text').value = f.report || '';
-    document.getElementById('comment-modal').classList.remove('hidden');
+    openGoalEditorForEdit(f.events || []);
     closeCommentViewer();
 }
 
-// ==================== EVENT EDITOR (ADMIN) ====================
-function editViewerEvents() {
-    if (!isAdmin || currentViewerFixtureId === null) return;
-    const f = fixtures.find(f => f.id === currentViewerFixtureId);
-    if (!f.played) return;
-    currentEditingEventsFixture = f.id;
-    pendingEvents = [...(f.events || [])];
-    document.getElementById('event-match-name').innerText = `${f.home} vs ${f.away}`;
-    const teamSelect = document.getElementById('new-event-team');
-    teamSelect.innerHTML = `<option value="${f.home}">${f.home}</option><option value="${f.away}">${f.away}</option>`;
-    renderEventsList();
-    document.getElementById('event-editor-modal').classList.remove('hidden');
-    closeCommentViewer();
+function openGoalEditorForEdit(existingEvents) {
+    const fixture = fixtures.find(f => f.id === pendingFixtureId);
+    const totalGoals = pendingHomeScore + pendingAwayScore;
+    let modalHtml = `
+        <div id="goal-editor-modal" class="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="p-5 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white">
+                    <h3 class="font-bold text-lg">✏️ Edit Goal Details</h3>
+                    <button onclick="closeGoalEditor()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+                </div>
+                <div class="p-5 space-y-4">
+                    <p class="text-sm text-gray-600">Match: ${fixture.home} vs ${fixture.away}</p>
+                    <p class="text-sm font-semibold">Score: ${pendingHomeScore} - ${pendingAwayScore}</p>
+                    <div id="goals-list-container" class="space-y-3">
+    `;
+    for (let i = 0; i < totalGoals; i++) {
+        const ev = existingEvents[i] || {};
+        modalHtml += `
+            <div class="goal-entry border rounded-xl p-3 bg-gray-50" data-goal-index="${i}">
+                <div class="font-medium mb-2">Goal #${i+1}</div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <select class="goal-team border rounded-lg px-3 py-2 text-sm bg-white">
+                        <option value="${fixture.home}" ${ev.team === fixture.home ? 'selected' : ''}>${fixture.home}</option>
+                        <option value="${fixture.away}" ${ev.team === fixture.away ? 'selected' : ''}>${fixture.away}</option>
+                    </select>
+                    <input type="text" class="goal-scorer border rounded-lg px-3 py-2 text-sm" placeholder="Scorer name" value="${escapeHtml(ev.player || '')}">
+                    <input type="text" class="goal-assist border rounded-lg px-3 py-2 text-sm" placeholder="Assist (optional)" value="${escapeHtml(ev.assist || '')}">
+                    <input type="number" class="goal-minute border rounded-lg px-3 py-2 text-sm" placeholder="Minute" value="${ev.minute || ''}">
+                    <select class="goal-type border rounded-lg px-3 py-2 text-sm bg-white">
+                        <option value="Open play" ${ev.goalType === 'Open play' ? 'selected' : ''}>⚽ Open play</option>
+                        <option value="Penalty" ${ev.goalType === 'Penalty' ? 'selected' : ''}>🎯 Penalty</option>
+                        <option value="Free kick" ${ev.goalType === 'Free kick' ? 'selected' : ''}>🦵 Free kick</option>
+                        <option value="Header" ${ev.goalType === 'Header' ? 'selected' : ''}>👑 Header</option>
+                        <option value="Own goal" ${ev.goalType === 'Own goal' ? 'selected' : ''}>😵 Own goal</option>
+                    </select>
+                </div>
+            </div>
+        `;
+    }
+    modalHtml += `
+                    </div>
+                    <div class="flex justify-end gap-3 pt-4">
+                        <button onclick="closeGoalEditor()" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100">Cancel</button>
+                        <button onclick="saveGoalsAndFinish()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500">Save Changes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    const existingModal = document.getElementById('goal-editor-modal');
+    if (existingModal) existingModal.remove();
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
-function renderEventsList() {
-    const container = document.getElementById('events-list-container');
-    if (!container) return;
-    container.innerHTML = '';
-    pendingEvents.sort((a,b) => a.minute - b.minute).forEach((ev, idx) => {
-        const div = document.createElement('div');
-        div.className = 'flex justify-between items-center bg-white p-2 rounded border';
-        div.innerHTML = `<span class="font-mono w-12">${ev.minute}′</span><span class="flex-1">⚽ ${ev.team} - ${ev.player}</span><button onclick="removeEvent(${idx})" class="text-red-500 text-sm">🗑️</button>`;
-        container.appendChild(div);
-    });
-}
-function addEvent() {
-    const minute = parseInt(document.getElementById('new-event-minute').value);
-    const team = document.getElementById('new-event-team').value;
-    const player = document.getElementById('new-event-player').value.trim();
-    if (isNaN(minute) || minute < 1 || minute > 120) { alert("Minute must be 1-120"); return; }
-    if (!player) { alert("Enter player name"); return; }
-    pendingEvents.push({ minute, type: 'goal', team, player });
-    renderEventsList();
-    document.getElementById('new-event-minute').value = '';
-    document.getElementById('new-event-player').value = '';
-}
-function removeEvent(idx) { pendingEvents.splice(idx, 1); renderEventsList(); }
-function saveEventsAndClose() {
-    if (currentEditingEventsFixture === null) return;
-    const f = fixtures.find(f => f.id === currentEditingEventsFixture);
-    f.events = pendingEvents;
-    saveToStorage();
-    showToast("Events updated");
-    closeEventEditor();
-    if (currentViewerFixtureId === currentEditingEventsFixture) showMatchComment(currentViewerFixtureId);
-}
-function closeEventEditor() { document.getElementById('event-editor-modal').classList.add('hidden'); currentEditingEventsFixture = null; pendingEvents = []; }
 
 // ==================== RELEGATION (MANUAL) ====================
 function relegateTeam(teamName) {
@@ -1179,8 +1224,10 @@ function startDeadlineClock() {
     if (window.deadlineClockInterval) clearInterval(window.deadlineClockInterval);
     window.deadlineClockInterval = setInterval(updateDeadlineClock, 60000);
 }
+
 // ==================== RESET ====================
 function resetTournament() { if (confirm("Wipe ALL data? This cannot be undone.")) db.ref('tournament_data').remove().then(() => location.reload()); }
+
 // ==================== INIT ====================
 window.onload = () => { initRealtimeDatabaseSync(); };
 
@@ -1208,10 +1255,6 @@ window.showMatchComment = showMatchComment;
 window.closeCommentViewer = closeCommentViewer;
 window.editViewerComment = editViewerComment;
 window.editViewerEvents = editViewerEvents;
-window.addEvent = addEvent;
-window.removeEvent = removeEvent;
-window.saveEventsAndClose = saveEventsAndClose;
-window.closeEventEditor = closeEventEditor;
 window.openPredictionsModal = openPredictionsModal;
 window.closePredictionsModal = closePredictionsModal;
 window.submitPrediction = submitPrediction;
@@ -1229,6 +1272,7 @@ window.saveKnockoutResult = saveKnockoutResult;
 window.showMatchCommentForKnockout = showMatchCommentForKnockout;
 window.editKnockoutResult = editKnockoutResult;
 window.startRound = startRound;
+window.stopRound = stopRound;
 window.openChatModal = openChatModal;
 window.closeChatModal = closeChatModal;
 window.sendChatMessage = sendChatMessage;
