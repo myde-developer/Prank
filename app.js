@@ -554,6 +554,44 @@ function renderKnockoutMatchCard(m) {
     return `<div class="bg-gray-50 p-2 rounded-lg border"><div class="flex justify-between items-center"><span class="font-medium text-sm">${m.home}</span><span>vs</span><span class="font-medium text-sm">${m.away}</span></div><div class="text-center mt-1">${scoreHtml}</div>${actionsHtml}<div class="text-right text-[9px] text-gray-400">${m.round}${legLabel}</div></div>`;
 }
 
+// ==================== TICKER ====================
+function updateTickerFacts() {
+    if (!tickerFacts.length) return;
+    const el = document.getElementById('news-ticker');
+    if (!el) return;
+    el.classList.add('slide-out');
+    setTimeout(() => {
+        currentTickerFactIndex = (currentTickerFactIndex + 1) % tickerFacts.length;
+        el.innerHTML = `<span class="inline-flex items-center gap-2"><span class="w-2 h-2 bg-white rounded-full animate-pulse"></span> ${tickerFacts[currentTickerFactIndex]}</span>`;
+        el.classList.remove('slide-out');
+        el.classList.add('slide-in');
+        setTimeout(() => el.classList.remove('slide-in'), 500);
+    }, 500);
+}
+
+function generateTickerFacts() {
+    const activeTeams = Object.values(teams).filter(t => !t.relegated);
+    const totalTeams = activeTeams.length;
+    const totalMatchesPlayed = fixtures.filter(f => f.played && !teams[f.home]?.relegated && !teams[f.away]?.relegated).length;
+    const totalMatches = fixtures.filter(f => !teams[f.home]?.relegated && !teams[f.away]?.relegated).length;
+    let leader = null, topScorer = null, biggestWin = null;
+    if (totalTeams) {
+        const sorted = activeTeams.sort((a, b) => b.pts - a.pts || b.gd - a.gd);
+        if (sorted.length) leader = sorted[0];
+        const sortedGF = activeTeams.sort((a, b) => b.gf - a.gf);
+        if (sortedGF.length) topScorer = sortedGF[0];
+    }
+    fixtures.forEach(f => { if (f.played && f.homeScore !== null && !teams[f.home]?.relegated && !teams[f.away]?.relegated) { const total = f.homeScore + f.awayScore; if (!biggestWin || total > biggestWin.total) biggestWin = { home: f.home, away: f.away, homeScore: f.homeScore, awayScore: f.awayScore, total }; } });
+    tickerFacts = [`🏆 DLS Vawulence Academy Hub`, `⚽ ${totalTeams} teams`, `📊 ${totalMatchesPlayed}/${totalMatches} played`, leader ? `👑 Leader: ${leader.name} (${leader.pts} pts)` : null, topScorer ? `🔥 Top scorer: ${topScorer.name} (${topScorer.gf} goals)` : null, biggestWin ? `🎯 Biggest win: ${biggestWin.home} ${biggestWin.homeScore}-${biggestWin.awayScore} ${biggestWin.away}` : null, `🔮 Predict matches & post banter!`].filter(f => f);
+    if (tickerFacts.length) {
+        const el = document.getElementById('news-ticker');
+        if (el) el.innerHTML = `<span class="inline-flex items-center gap-2"><span class="w-2 h-2 bg-white rounded-full animate-pulse"></span> ${tickerFacts[0]}</span>`;
+        currentTickerFactIndex = 0;
+        if (tickerInterval) clearInterval(tickerInterval);
+        tickerInterval = setInterval(updateTickerFacts, 6000);
+    }
+}
+
 // ==================== KNOCKOUT ADMIN ACTIONS ====================
 function saveKnockoutResult(matchId) {
     if (!isAdmin) return;
@@ -1166,7 +1204,6 @@ window.closeTeamSelectModal = closeTeamSelectModal;
 window.confirmTeamSelection = confirmTeamSelection;
 window.saveResult = saveResult;
 window.closeCommentModal = closeCommentModal;
-window.confirmComment = confirmComment;
 window.showMatchComment = showMatchComment;
 window.closeCommentViewer = closeCommentViewer;
 window.editViewerComment = editViewerComment;
