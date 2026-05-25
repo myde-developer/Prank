@@ -19,7 +19,6 @@ let currentPredictionFixtureId = null, currentBanterFixtureId = null;
 let chatMessagesRef = null;
 let autoStartNextRound = false;
 let roundStartTimes = {};
-
 // ==================== ROLE SELECTION ====================
 let userRole = null; // 'viewer' or 'admin'
 
@@ -29,23 +28,25 @@ function selectRole(role) {
     document.getElementById('role-selector').style.display = 'none';
     
     if (role === 'admin') {
-        // Prompt for password if a tournament already exists
+        // Always request password, even if no tournament exists yet
+        const entered = prompt("Enter admin master password:");
+        if (entered === null) {
+            // User cancelled – reload to show role selector again
+            location.reload();
+            return;
+        }
+        // First, check if a tournament exists to get the stored password
         db.ref('tournament_data/password').once('value', (snapshot) => {
             const storedPass = snapshot.val();
-            if (storedPass) {
-                const entered = prompt("Enter admin password:");
-                if (entered === storedPass) {
-                    isAdmin = true;
-                    showToast("Admin access granted");
-                    checkAndLoadTournament();
-                } else {
-                    alert("Wrong password. Reload to try again.");
-                    location.reload();
-                }
-            } else {
-                // No tournament yet – allow admin to set password during creation
+            const validPassword = storedPass ? entered === storedPass : entered === "1234";
+            if (validPassword) {
                 isAdmin = true;
+                showToast("Admin access granted");
+                // Now load or show setup
                 checkAndLoadTournament();
+            } else {
+                alert("Wrong password. Reload to try again.");
+                location.reload();
             }
         });
     } else {
@@ -59,10 +60,10 @@ function checkAndLoadTournament() {
         const data = snapshot.val();
         if (data && data.teams && data.fixtures) {
             // Tournament exists – show dashboard
-            document.getElementById('setup-section')?.classList.add('hidden');
-            document.getElementById('dashboard-section')?.classList.remove('hidden');
-            document.getElementById('admin-toggle-container')?.classList.add('hidden'); // viewers never see toggle
+            loadTournamentData(data);
             if (userRole === 'viewer') {
+                // Hide all admin UI elements
+                document.getElementById('admin-toggle-container')?.classList.add('hidden');
                 document.getElementById('admin-reset-container')?.classList.add('hidden');
                 document.getElementById('floating-admin-menu')?.classList.add('hidden');
                 document.getElementById('auto-start-container')?.classList.add('hidden');
@@ -71,15 +72,14 @@ function checkAndLoadTournament() {
                 document.getElementById('relegation-zone')?.classList.add('hidden');
             } else if (userRole === 'admin') {
                 document.getElementById('admin-toggle-container')?.classList.remove('hidden');
-                // Other admin UI will be shown via updateAdminUIElements later
+                // Other admin UI elements will be shown via updateAdminUIElements later
             }
-            // Load data into global variables and render
-            loadTournamentData(data);
         } else {
             // No tournament exists
             if (userRole === 'viewer') {
                 document.getElementById('dashboard-section')?.classList.add('hidden');
                 document.getElementById('setup-section')?.classList.add('hidden');
+                // Replace role selector content with friendly message
                 document.getElementById('role-selector').innerHTML = `
                     <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center">
                         <div class="mb-4">
@@ -94,42 +94,18 @@ function checkAndLoadTournament() {
                         </button>
                     </div>
                 `;
+                document.getElementById('role-selector').style.display = 'flex';
             } else if (userRole === 'admin') {
                 // Show setup section so admin can create tournament
                 document.getElementById('dashboard-section')?.classList.add('hidden');
                 document.getElementById('setup-section')?.classList.remove('hidden');
                 document.getElementById('role-selector')?.remove();
+                // Ensure admin UI elements are hidden until tournament is created
+                document.getElementById('admin-toggle-container')?.classList.add('hidden');
+                document.getElementById('floating-admin-menu')?.classList.add('hidden');
             }
         }
     });
-}
-
-function loadTournamentData(data) {
-    tournamentPassword = data.password || "1234";
-    teams = data.teams;
-    fixtures = data.fixtures;
-    knockoutMatches = data.knockoutMatches || [];
-    tournamentPhase = data.tournamentPhase || 'league';
-    roundStartTimes = data.roundStartTimes || {};
-    autoStartNextRound = data.autoStartNextRound || false;
-    updateTableCalculations();
-    renderTable();
-    renderGameweekTabs();
-    renderFixtures();
-    renderKnockoutBracket();
-    renderRelegatedTeams();
-    generateTickerFacts();
-    checkAndCelebrateChampion();
-    document.getElementById('setup-section')?.classList.add('hidden');
-    document.getElementById('dashboard-section')?.classList.remove('hidden');
-    document.getElementById('deadline-clock')?.classList.remove('hidden');
-    initBackToTop();
-    startDeadlineClock();
-    initChatListener();
-    if (userRole === 'admin') {
-        // Show admin-specific UI elements
-        updateAdminUIElements(); // this will show admin buttons etc.
-    }
 }
 
 // ==================== HELPERS ====================
