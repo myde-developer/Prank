@@ -831,7 +831,7 @@ function renderGameweekTabs() {
                 const hoursLeft = Math.max(0, Math.floor((deadline - now) / (1000 * 60 * 60)));
                 const minutesLeft = Math.floor(((deadline - now) % (1000 * 60 * 60)) / (1000 * 60));
                 statusHtml = `<span class="text-[9px] font-mono text-green-600 ml-1">⏳ ${hoursLeft}h ${minutesLeft}m</span>`;
-                // ✅ Stop button only for admins
+                // ✅ Only admins see the stop button
                 if (isAdmin) {
                     stopBtnHtml = `<button onclick="stopRound(${r})" class="ml-1 text-[9px] bg-red-100 text-red-700 px-1 py-0.5 rounded-full hover:bg-red-200">⏹️ Stop</button>`;
                 }
