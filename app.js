@@ -60,10 +60,10 @@ function checkAndLoadTournament() {
     db.ref('tournament_data').once('value', (snapshot) => {
         const data = snapshot.val();
         if (data && data.teams && data.fixtures) {
-            // Tournament exists – show dashboard
+            // Tournament exists – load it
             loadTournamentData(data);
             if (userRole === 'viewer') {
-                // Hide all admin UI elements
+                // Hide admin UI
                 document.getElementById('admin-toggle-container')?.classList.add('hidden');
                 document.getElementById('admin-reset-container')?.classList.add('hidden');
                 document.getElementById('floating-admin-menu')?.classList.add('hidden');
@@ -73,37 +73,57 @@ function checkAndLoadTournament() {
                 document.getElementById('relegation-zone')?.classList.add('hidden');
             } else if (userRole === 'admin') {
                 document.getElementById('admin-toggle-container')?.classList.remove('hidden');
-                // Other admin UI elements will be shown via updateAdminUIElements later
+                // Other admin elements shown via updateAdminUIElements later
             }
         } else {
             // No tournament exists
             if (userRole === 'viewer') {
+                // Show friendly message in role selector
                 document.getElementById('dashboard-section')?.classList.add('hidden');
                 document.getElementById('setup-section')?.classList.add('hidden');
-                // Replace role selector content with friendly message
-                document.getElementById('role-selector').innerHTML = `
-                    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center">
-                        <div class="mb-4">
-                            <div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                                <span class="text-3xl">🏆</span>
+                const roleSelector = document.getElementById('role-selector');
+                if (roleSelector) {
+                    roleSelector.innerHTML = `
+                        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center">
+                            <div class="mb-4">
+                                <div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <span class="text-3xl">🏆</span>
+                                </div>
+                                <h2 class="text-2xl font-bold text-gray-800">No Tournament Yet</h2>
+                                <p class="text-gray-500 text-sm mt-1">An admin hasn't started a tournament.</p>
                             </div>
-                            <h2 class="text-2xl font-bold text-gray-800">No Tournament Yet</h2>
-                            <p class="text-gray-500 text-sm mt-1">An admin hasn't started a tournament.</p>
+                            <button onclick="selectRole('admin')" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition">
+                                🔑 Switch to Admin to Create
+                            </button>
                         </div>
-                        <button onclick="selectRole('admin')" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition">
-                            🔑 Switch to Admin to Create
-                        </button>
-                    </div>
-                `;
-                document.getElementById('role-selector').style.display = 'flex';
+                    `;
+                    roleSelector.style.display = 'flex';
+                }
             } else if (userRole === 'admin') {
-                // Show setup section so admin can create tournament
-                document.getElementById('dashboard-section')?.classList.add('hidden');
-                document.getElementById('setup-section')?.classList.remove('hidden');
-                document.getElementById('role-selector')?.remove();
-                // Ensure admin UI elements are hidden until tournament is created
+                // Show setup page for admin
+                const setupSection = document.getElementById('setup-section');
+                const dashboardSection = document.getElementById('dashboard-section');
+                const roleSelector = document.getElementById('role-selector');
+                if (setupSection) {
+                    setupSection.classList.remove('hidden');
+                    console.log('Setup section shown');
+                } else {
+                    console.error('Setup section not found');
+                }
+                if (dashboardSection) dashboardSection.classList.add('hidden');
+                if (roleSelector) roleSelector.remove();
+                // Ensure step-1 is visible and step-2 hidden
+                const step1 = document.getElementById('step-1');
+                const step2 = document.getElementById('step-2');
+                if (step1) step1.classList.remove('hidden');
+                if (step2) step2.classList.add('hidden');
+                // Clear any leftover team inputs
+                const container = document.getElementById('team-inputs-container');
+                if (container) container.innerHTML = '';
+                // Hide admin-only floating elements
                 document.getElementById('admin-toggle-container')?.classList.add('hidden');
                 document.getElementById('floating-admin-menu')?.classList.add('hidden');
+                showToast("Setup mode – create your tournament");
             }
         }
     });
