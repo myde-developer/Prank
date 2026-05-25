@@ -173,21 +173,30 @@
 
     <!-- MATCH VIEWER MODAL (with events timeline) -->
     <div id="comment-viewer-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-gray-200 overflow-hidden animate-fadeInUp">
-            <div class="p-5 border-b border-gray-200 flex justify-between items-center"><h3 class="font-bold text-gray-800">📝 Match Details</h3><button onclick="closeCommentViewer()" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button></div>
-            <div class="p-5 space-y-4">
-                <p class="text-sm font-semibold" id="viewer-match-name"></p>
-                <p class="text-xs text-gray-500">Score: <span id="viewer-score"></span></p>
-                <div class="bg-gray-50 p-3 rounded-xl"><p class="text-xs font-medium text-gray-700 mb-1">📖 Match Report</p><p id="viewer-comment" class="text-sm text-gray-800 italic"></p></div>
-                <div id="viewer-events-container" class="hidden border-t pt-2"><p class="text-xs font-bold text-gray-600">⚽ Timeline</p><div id="viewer-events" class="max-h-40 overflow-y-auto text-xs space-y-1 mt-1"></div></div>
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-gray-200 overflow-hidden animate-fadeInUp">
+        <div class="p-5 border-b border-gray-200 flex justify-between items-center">
+            <h3 class="font-bold text-gray-800">📝 Match Details</h3>
+            <button onclick="closeCommentViewer(); return false;" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button>
+        </div>
+        <div class="p-5 space-y-4">
+            <p class="text-sm font-semibold" id="viewer-match-name"></p>
+            <p class="text-xs text-gray-500">Score: <span id="viewer-score"></span></p>
+            <div class="bg-gray-50 p-3 rounded-xl">
+                <p class="text-xs font-medium text-gray-700 mb-1">📖 Match Report</p>
+                <p id="viewer-comment" class="text-sm text-gray-800 italic"></p>
             </div>
-            <div class="p-4 bg-gray-50 flex flex-wrap gap-2 justify-end rounded-b-2xl">
-                <button onclick="closeCommentViewer()" class="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100">Close</button>
-                <button id="viewer-edit-btn" onclick="editViewerComment()" class="hidden px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-500">Edit Report</button>
-                <button id="viewer-edit-events-btn" onclick="editViewerEvents()" class="hidden px-4 py-2 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-500">⏱️ Edit Events</button>
+            <div id="viewer-events-container" class="hidden border-t pt-2">
+                <p class="text-xs font-bold text-gray-600">⚽ Timeline</p>
+                <div id="viewer-events" class="max-h-40 overflow-y-auto text-xs space-y-1 mt-1"></div>
             </div>
         </div>
+        <div class="p-4 bg-gray-50 flex flex-wrap gap-2 justify-end rounded-b-2xl">
+            <button onclick="closeCommentViewer(); return false;" class="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100">Close</button>
+            <button id="viewer-edit-btn" onclick="editViewerComment()" class="hidden px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-500">Edit Report</button>
+            <button id="viewer-edit-events-btn" onclick="editViewerEvents()" class="hidden px-4 py-2 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-500">⏱️ Edit Events</button>
+        </div>
     </div>
+</div>
 
     <!-- TEAM SELECT MODAL -->
     <div id="team-select-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">

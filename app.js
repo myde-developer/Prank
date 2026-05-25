@@ -774,21 +774,6 @@ function editKnockoutResult(matchId) {
     document.getElementById('comment-modal').classList.remove('hidden');
     window._editingKnockout = true;
 }
-const originalConfirmComment = confirmComment;
-window.confirmComment = function() {
-    if (window._editingKnockout && pendingFixtureId !== null) {
-        const finalReport = document.getElementById('comment-text').value.trim();
-        if (finalReport === "") { alert("Report cannot be empty"); return; }
-        const match = knockoutMatches.find(m => m.id === pendingFixtureId);
-        if (match) { match.report = finalReport; saveToStorage(); showToast("Knockout match report updated"); }
-        closeCommentModal(true);
-        pendingFixtureId = null;
-        window._editingKnockout = false;
-        renderKnockoutBracket();
-        return;
-    }
-    originalConfirmComment();
-};
 
 // ==================== RENDER LEAGUE TABLE ====================
 function renderTable() {
@@ -1238,11 +1223,16 @@ function showMatchComment(fixtureId) {
 }
 
 function closeCommentViewer() {
-    console.log("Closing comment viewer");
+    console.log("closeCommentViewer called"); // for debugging
     const modal = document.getElementById('comment-viewer-modal');
     if (modal) {
+        // Use both classList and style to ensure hiding
         modal.classList.add('hidden');
         modal.classList.remove('flex');
+        // Fallback for any stubborn styles
+        modal.style.display = 'none';
+    } else {
+        console.error("Modal element not found");
     }
     currentViewerFixtureId = null;
 }
