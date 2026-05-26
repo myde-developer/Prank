@@ -6,18 +6,7 @@ body {
 }
 @keyframes backgroundShift {
     0% { background-position: 0% 50%; }
- chat-toggle {
-    animation: driftFromBottomRight 20s ease-in-out infinite;
-    will-change: transform;
-    touch-action: none;
-    bottom: 20px !important;
-    right: 20px !important;
-    top: auto !important;
-    left: auto !important;
-    transform: none !important;
-}
-#chat-toggle:hover {
-    animation-play-   50% { background-position: 100% 50%; }
+    50% { background-position: 100% 50%; }
     100% { background-position: 0% 50%; }
 }
 
@@ -277,7 +266,9 @@ button:active::after {
 }
 .chat-message:hover .chat-delete-btn { opacity: 1; }
 
+/* Chat button – fixed above admin menu, no drifting */
 #chat-toggle {
+    /* Use Tailwind classes in HTML – no extra CSS needed for positioning */
     animation: gentlePulse 2s ease-in-out infinite;
 }
 @keyframes gentlePulse {
