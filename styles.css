@@ -266,39 +266,33 @@ button:active::after {
 }
 .chat-message:hover .chat-delete-btn { opacity: 1; }
 
-/* ========== DRIFTING CHAT BUTTON ========== */
+/* Drifting chat button – starts from bottom‑right */
 #chat-toggle {
-    animation: drift 20s ease-in-out infinite;
+    animation: driftFromBottomRight 20s ease-in-out infinite;
     will-change: transform;
     touch-action: none;
-    top: 10px !important;
-    left: 10px !important;
-    right: auto !important;
-    bottom: auto !important;
+    bottom: 20px !important;
+    right: 20px !important;
+    top: auto !important;
+    left: auto !important;
     transform: none !important;
-    background-color: rgba(5, 150, 105, 0.35) !important;
 }
 #chat-toggle:hover {
-    background-color: rgba(5, 150, 105, 0.8) !important;
     animation-play-state: paused;
 }
-@keyframes drift {
+@keyframes driftFromBottomRight {
     0%   { transform: translate(0, 0); }
-    25%  { transform: translate(calc(100vw - 100px), 0); }
-    50%  { transform: translate(calc(100vw - 100px), calc(100vh - 80px)); }
-    75%  { transform: translate(0, calc(100vh - 80px)); }
+    25%  { transform: translate(-calc(100vw - 100px), 0); }
+    50%  { transform: translate(-calc(100vw - 100px), -calc(100vh - 100px)); }
+    75%  { transform: translate(0, -calc(100vh - 100px)); }
     100% { transform: translate(0, 0); }
 }
 @media (max-width: 768px) {
-    #chat-toggle {
-        top: 5px !important;
-        left: 5px !important;
-    }
-    @keyframes drift {
+    @keyframes driftFromBottomRight {
         0%   { transform: translate(0, 0); }
-        25%  { transform: translate(calc(100vw - 75px), 0); }
-        50%  { transform: translate(calc(100vw - 75px), calc(100vh - 70px)); }
-        75%  { transform: translate(0, calc(100vh - 70px)); }
+        25%  { transform: translate(-calc(100vw - 80px), 0); }
+        50%  { transform: translate(-calc(100vw - 80px), -calc(100vh - 80px)); }
+        75%  { transform: translate(0, -calc(100vh - 80px)); }
         100% { transform: translate(0, 0); }
     }
 }
