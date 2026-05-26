@@ -1889,6 +1889,7 @@ window.onload = () => {
 };
 
 // ==================== EXPOSE FUNCTIONS ====================
+window.selectRole = selectRole;
 window.handleAdminToggleClick = handleAdminToggleClick;
 window.verifyAdminPassword = verifyAdminPassword;
 window.closePasswordModal = closePasswordModal;
