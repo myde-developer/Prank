@@ -10,7 +10,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-let teams = {}, fixtures = [], knockoutMatches = [], tournamentPhase = 'league';
+let teams = {}, fixtures = [];
 let currentSelectedRound = 1, isAdmin = false, tournamentPassword = "";
 let tickerInterval = null, currentTickerFactIndex = 0, tickerFacts = [];
 let pendingFixtureId = null, pendingHomeScore = null, pendingAwayScore = null;
@@ -140,18 +140,14 @@ function loadTournamentData(data) {
     tournamentPassword = data.password || "1234";
     teams = data.teams;
     fixtures = data.fixtures;
-    knockoutMatches = data.knockoutMatches || [];
-    tournamentPhase = data.tournamentPhase || 'league';
     roundStartTimes = data.roundStartTimes || {};
     autoStartNextRound = data.autoStartNextRound || false;
     updateTableCalculations();
     renderTable();
     renderGameweekTabs();
     renderFixtures();
-    renderKnockoutBracket();
     renderRelegatedTeams();
     generateTickerFacts();
-    checkAndCelebrateChampion();
     document.getElementById('setup-section')?.classList.add('hidden');
     document.getElementById('dashboard-section')?.classList.remove('hidden');
     document.getElementById('deadline-clock')?.classList.remove('hidden');
@@ -159,7 +155,7 @@ function loadTournamentData(data) {
     startDeadlineClock();
     initChatListener();
     if (userRole === 'admin') {
-        updateAdminUIElements(); // shows admin buttons etc.
+        updateAdminUIElements();
     }
 }
 
@@ -169,7 +165,7 @@ function showToast(msg) {
     if (c) { let t = document.createElement("div"); t.className = "toast"; t.innerText = msg; c.appendChild(t); setTimeout(() => t.remove(), 2500); }
 }
 function saveToStorage() { 
-    db.ref('tournament_data').set({ teams, fixtures, knockoutMatches, tournamentPhase, password: tournamentPassword, roundStartTimes, autoStartNextRound }); 
+    db.ref('tournament_data').set({ teams, fixtures, password: tournamentPassword, roundStartTimes, autoStartNextRound }); 
 }
 function getCurrentUserId() {
     let id = localStorage.getItem('chatUserId');
@@ -622,22 +618,14 @@ function expireOldFixtures() {
             }
         }
     });
-    knockoutMatches.forEach(k => {
-        if (!k.played && !k.cancelled && k.deadline && now > k.deadline) {
-            k.cancelled = true;
-            changed = true;
-            showToast(`⏰ Knockout match cancelled: ${k.home} vs ${k.away} (time limit exceeded)`);
-        }
-    });
     if (changed) {
         updateTableCalculations();
         renderTable();
         renderFixtures();
-        renderKnockoutBracket();
         saveToStorage();
     }
-    // Auto‑start next round if enabled
-    if (autoStartNextRound && tournamentPhase === 'league') {
+    // Auto‑start next round if enabled (keep this part)
+    if (autoStartNextRound) {
         let highestResolvedRound = 0;
         const maxRound = Math.max(...fixtures.map(f => f.round));
         for (let r = 1; r <= maxRound; r++) {
@@ -823,13 +811,11 @@ function initializeTournament() {
             fixtures.push({ id: fixtureId++, round: roundIndex + 1, home, away, homeScore: null, awayScore: null, played: false, cancelled: false, comment: null, predictions: [], banter: [], events: [], report: null, deadline: null });
         });
     });
-    tournamentPhase = 'league';
-    knockoutMatches = [];
     roundStartTimes = {};
-    autoStartNextRound = false;
-    currentSelectedRound = 1;
-    saveToStorage();
-    showToast(`Tournament launched with ${count} teams!`);
+autoStartNextRound = false;
+currentSelectedRound = 1;
+saveToStorage();
+showToast(`League launched with ${count} teams!`);
 }
 
 // ==================== ADMIN: START ROUND ====================
@@ -920,7 +906,7 @@ function confirmTeamSelection() {
     saveToStorage(); showToast(`Assigned ${newTeam} to ${side} side.`); renderFixtures(); renderTable(); generateTickerFacts(); closeTeamSelectModal();
 }
 
-// ==================== STANDINGS & KNOCKOUT TRIGGER ====================
+// ==================== STANDINGS ====================
 function updateTableCalculations() {
     for (let t in teams) { if (!teams[t].relegated) { teams[t] = { ...teams[t], mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0, formHistory: [] }; } }
     fixtures.forEach(f => {
@@ -936,185 +922,6 @@ function updateTableCalculations() {
         }
     });
     for (let t in teams) { teams[t].pts = Math.max(0, teams[t].pts - (teams[t].deductedPoints || 0)); teams[t].gd = teams[t].gf - teams[t].ga; }
-    const activeTeams = Object.values(teams).filter(t => !t.relegated);
-    if (activeTeams.length === 4 && tournamentPhase === 'league' && knockoutMatches.length === 0) {
-        startKnockoutStage(activeTeams);
-    }
-}
-function startKnockoutStage(activeTeams) {
-    const sorted = [...activeTeams].sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
-    const now = Date.now();
-    generateSemiFinalLegs(sorted[0].name, sorted[3].name, sorted[1].name, sorted[2].name, now);
-}
-function generateSemiFinalLegs(team1, team4, team2, team3, baseTime) {
-    const leg1Deadline = baseTime + 2 * 24 * 60 * 60 * 1000;
-    const leg2Deadline = baseTime + 4 * 24 * 60 * 60 * 1000;
-    const semiId = Date.now();
-    const semiMatches = [
-        { id: semiId, round: 'semi_leg1', home: team1, away: team4, homeScore: null, awayScore: null, played: false, cancelled: false, events: [], report: null, deadline: leg1Deadline, semiId: semiId, leg: 1, pair: 1 },
-        { id: semiId + 1, round: 'semi_leg2', home: team4, away: team1, homeScore: null, awayScore: null, played: false, cancelled: false, events: [], report: null, deadline: leg2Deadline, semiId: semiId, leg: 2, pair: 1 },
-        { id: semiId + 2, round: 'semi_leg1', home: team2, away: team3, homeScore: null, awayScore: null, played: false, cancelled: false, events: [], report: null, deadline: leg1Deadline, semiId: semiId + 1, leg: 1, pair: 2 },
-        { id: semiId + 3, round: 'semi_leg2', home: team3, away: team2, homeScore: null, awayScore: null, played: false, cancelled: false, events: [], report: null, deadline: leg2Deadline, semiId: semiId + 1, leg: 2, pair: 2 }
-    ];
-    knockoutMatches = semiMatches;
-    tournamentPhase = 'knockout';
-    saveToStorage();
-    renderKnockoutBracket();
-    showToast("🏆 Only 4 teams left! Two‑leg semi‑finals begin.");
-}
-function checkSemiFinalsCompletion() {
-    const semis = knockoutMatches.filter(k => k.round === 'semi_leg1' || k.round === 'semi_leg2');
-    if (semis.length !== 4) return;
-    if (!semis.every(s => s.played || s.cancelled)) return;
-    const pairs = {};
-    semis.forEach(s => { if (!pairs[s.pair]) pairs[s.pair] = []; pairs[s.pair].push(s); });
-    const winners = [];
-    for (let pair in pairs) {
-        const legs = pairs[pair];
-        if (legs.length !== 2) { winners.push(null); continue; }
-        const leg1 = legs.find(l => l.leg === 1);
-        const leg2 = legs.find(l => l.leg === 2);
-        if (!leg1 || !leg2 || leg1.cancelled || leg2.cancelled) { winners.push(null); continue; }
-        const aggHome = (leg1.homeScore || 0) + (leg2.awayScore || 0);
-        const aggAway = (leg1.awayScore || 0) + (leg2.homeScore || 0);
-        if (aggHome > aggAway) winners.push(leg1.home);
-        else if (aggAway > aggHome) winners.push(leg1.away);
-        else { winners.push(leg1.home); showToast(`Semi‑final tied aggregate. ${leg1.home} advances on random draw.`); }
-    }
-    if (winners.length === 2 && winners[0] && winners[1]) generateFinalLegs(winners[0], winners[1]);
-    else showToast("Semi‑finals incomplete or cancelled. Cannot generate final.");
-}
-function generateFinalLegs(teamA, teamB) {
-    const now = Date.now();
-    const leg1Deadline = now + 2 * 24 * 60 * 60 * 1000;
-    const leg2Deadline = now + 4 * 24 * 60 * 60 * 1000;
-    const finalId = Date.now();
-    const finalLegs = [
-        { id: finalId, round: 'final_leg1', home: teamA, away: teamB, homeScore: null, awayScore: null, played: false, cancelled: false, events: [], report: null, deadline: leg1Deadline, finalId: finalId, leg: 1 },
-        { id: finalId + 1, round: 'final_leg2', home: teamB, away: teamA, homeScore: null, awayScore: null, played: false, cancelled: false, events: [], report: null, deadline: leg2Deadline, finalId: finalId, leg: 2 }
-    ];
-    knockoutMatches = knockoutMatches.filter(k => k.round !== 'final_leg1' && k.round !== 'final_leg2');
-    knockoutMatches.push(...finalLegs);
-    saveToStorage();
-    renderKnockoutBracket();
-    showToast("🏆 Final set! Two legs to decide the champion.");
-}
-function checkFinalCompletion() {
-    const legs = knockoutMatches.filter(k => k.round === 'final_leg1' || k.round === 'final_leg2');
-    if (legs.length !== 2) return;
-    if (!legs.every(l => l.played || l.cancelled)) return;
-    const leg1 = legs.find(l => l.leg === 1);
-    const leg2 = legs.find(l => l.leg === 2);
-    if (!leg1 || !leg2) return;
-    if (leg1.cancelled || leg2.cancelled) { showToast("Final legs cancelled. No champion crowned."); return; }
-    const aggHome = (leg1.homeScore || 0) + (leg2.awayScore || 0);
-    const aggAway = (leg1.awayScore || 0) + (leg2.homeScore || 0);
-    let champion = null;
-    if (aggHome > aggAway) champion = leg1.home;
-    else if (aggAway > aggHome) champion = leg1.away;
-    else { champion = leg1.home; showToast("Aggregate tie! Champion decided by random draw."); }
-    db.ref('tournament_data/champion').set({ name: champion, date: new Date().toISOString() });
-    if (typeof confetti === 'function') confetti({ particleCount: 300, spread: 100, origin: { y: 0.6 } });
-    showToast(`🏆 ${champion} are the ultimate champions! 🏆`);
-}
-function checkAndCelebrateChampion() { /* handled in checkFinalCompletion */ }
-
-// ==================== RENDER KNOCKOUT BRACKET ====================
-function renderKnockoutBracket() {
-    const container = document.getElementById('knockout-bracket');
-    const section = document.getElementById('knockout-section');
-    if (!container) return;
-    if (tournamentPhase !== 'knockout' || knockoutMatches.length === 0) {
-        section?.classList.add('hidden');
-        return;
-    }
-    section?.classList.remove('hidden');
-    container.innerHTML = '';
-    const semiLegs = knockoutMatches.filter(k => k.round === 'semi_leg1' || k.round === 'semi_leg2');
-    const finalLegs = knockoutMatches.filter(k => k.round === 'final_leg1' || k.round === 'final_leg2');
-    if (semiLegs.length) {
-        const pairs = {};
-        semiLegs.forEach(leg => { if (!pairs[leg.pair]) pairs[leg.pair] = []; pairs[leg.pair].push(leg); });
-        const semiDiv = document.createElement('div');
-        semiDiv.className = 'space-y-4';
-        semiDiv.innerHTML = '<h3 class="font-semibold text-sm text-gray-600">Semi‑finals (two legs)</h3>';
-        for (const pair in pairs) {
-            const legs = pairs[pair].sort((a,b) => a.leg - b.leg);
-            semiDiv.innerHTML += `<div class="border-l-2 border-indigo-200 pl-3 mb-2"><p class="text-xs font-mono text-gray-500 mb-1">Match ${pair}</p>${legs.map(leg => renderKnockoutMatchCard(leg)).join('')}</div>`;
-        }
-        container.appendChild(semiDiv);
-    }
-    if (finalLegs.length) {
-        const finalDiv = document.createElement('div');
-        finalDiv.className = 'space-y-3';
-        finalDiv.innerHTML = '<h3 class="font-semibold text-sm text-gray-600">Final (two legs)</h3>';
-        finalLegs.sort((a,b) => a.leg - b.leg).forEach(leg => { finalDiv.innerHTML += renderKnockoutMatchCard(leg); });
-        container.appendChild(finalDiv);
-    }
-}
-function renderKnockoutMatchCard(m) {
-    const played = m.played;
-    const cancelled = m.cancelled;
-    let scoreHtml = '', actionsHtml = '';
-    if (cancelled) scoreHtml = `<span class="text-rose-500 text-xs font-bold">CANCELLED</span>`;
-    else if (played) {
-        scoreHtml = `<span class="font-mono font-bold">${m.homeScore} - ${m.awayScore}</span>`;
-        if (isAdmin) actionsHtml = `<div class="mt-1 flex gap-1"><button onclick="showMatchCommentForKnockout(${m.id})" class="text-[9px] bg-gray-100 px-1 py-0.5 rounded">📖</button><button onclick="editKnockoutResult(${m.id})" class="text-[9px] bg-indigo-100 px-1 py-0.5 rounded">✏️</button></div>`;
-    } else {
-        if (isAdmin) scoreHtml = `<div class="flex items-center gap-1"><input type="number" id="ko-home-${m.id}" placeholder="0" class="w-10 text-center bg-white border rounded text-xs"><span>:</span><input type="number" id="ko-away-${m.id}" placeholder="0" class="w-10 text-center bg-white border rounded text-xs"><button onclick="saveKnockoutResult(${m.id})" class="bg-indigo-600 text-white text-[9px] px-1 py-0.5 rounded">Save</button></div>`;
-        else scoreHtml = `<span class="text-gray-400 text-xs">Not played yet</span>`;
-    }
-    const legLabel = m.leg ? ` (Leg ${m.leg})` : '';
-    return `<div class="bg-gray-50 p-2 rounded-lg border"><div class="flex justify-between items-center"><span class="font-medium text-sm">${m.home}</span><span>vs</span><span class="font-medium text-sm">${m.away}</span></div><div class="text-center mt-1">${scoreHtml}</div>${actionsHtml}<div class="text-right text-[9px] text-gray-400">${m.round}${legLabel}</div></div>`;
-}
-
-// ==================== KNOCKOUT ADMIN ACTIONS ====================
-function saveKnockoutResult(matchId) {
-    if (!isAdmin) return;
-    const match = knockoutMatches.find(m => m.id === matchId);
-    if (!match) return;
-    const homeScore = document.getElementById(`ko-home-${matchId}`).value;
-    const awayScore = document.getElementById(`ko-away-${matchId}`).value;
-    if (homeScore === "" || awayScore === "") { alert("Enter both scores"); return; }
-    match.homeScore = parseInt(homeScore);
-    match.awayScore = parseInt(awayScore);
-    match.played = true;
-    match.cancelled = false;
-    match.events = [];
-    match.report = `🎉 ${match.home} ${match.homeScore} - ${match.awayScore} ${match.away}`;
-    saveToStorage();
-    showToast(`Knockout result saved: ${match.home} ${match.homeScore}-${match.awayScore} ${match.away}`);
-    renderKnockoutBracket();
-    if (match.round === 'semi_leg1' || match.round === 'semi_leg2') checkSemiFinalsCompletion();
-    if (match.round === 'final_leg1' || match.round === 'final_leg2') checkFinalCompletion();
-    if (typeof confetti === 'function') confetti({ particleCount: 60, spread: 45, origin: { y: 0.7 }, startVelocity: 12, colors: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'] });
-}
-function showMatchCommentForKnockout(matchId) {
-    const match = knockoutMatches.find(m => m.id === matchId);
-    if (!match || !match.played) return;
-    currentViewerFixtureId = matchId;
-    document.getElementById('viewer-match-name').innerHTML = `${match.home} vs ${match.away}`;
-    document.getElementById('viewer-score').innerText = `${match.homeScore} - ${match.awayScore}`;
-    document.getElementById('viewer-comment').innerText = match.report || 'No report.';
-    const eventsDiv = document.getElementById('viewer-events');
-    const eventsContainer = document.getElementById('viewer-events-container');
-    if (match.events && match.events.length) {
-        eventsContainer.classList.remove('hidden');
-        eventsDiv.innerHTML = match.events.map(ev => `<div>${ev.minute}′ ⚽ ${ev.team} - ${ev.player}</div>`).join('');
-    } else eventsContainer.classList.add('hidden');
-    document.getElementById('comment-viewer-modal').classList.remove('hidden');
-}
-function editKnockoutResult(matchId) {
-    if (!isAdmin) return;
-    const match = knockoutMatches.find(m => m.id === matchId);
-    if (!match || !match.played) return;
-    pendingFixtureId = matchId;
-    pendingHomeScore = match.homeScore;
-    pendingAwayScore = match.awayScore;
-    document.getElementById('comment-match-name').innerText = `${match.home} vs ${match.away}`;
-    document.getElementById('comment-text').value = match.report || '';
-    document.getElementById('comment-modal').classList.remove('hidden');
-    window._editingKnockout = true;
 }
 
 // ==================== RENDER LEAGUE TABLE ====================
@@ -1133,9 +940,8 @@ function renderTable() {
         tbody.innerHTML += `<tr class="hover:bg-gray-50 transition ${pos === 1 ? 'champions-row' : (pos > sorted.length - 2 ? 'relegation-row' : '')}" onclick="showTeamDetails('${team.name}')"><td class="py-2 px-2 text-center font-bold text-xs ${pos === 1 ? 'text-indigo-600' : ''}">${pos}</td><td class="py-2 px-2"><span class="font-semibold text-xs">${team.name}</span>${penaltyBadge}</td><td class="py-2 px-1 text-center text-xs">${team.mp}</td><td class="py-2 px-1 text-center text-emerald-600 text-xs">${team.w}</td><td class="py-2 px-1 text-center text-xs">${team.d}</td><td class="py-2 px-1 text-center text-rose-500 text-xs">${team.l}</td><td class="py-2 px-1 text-center text-xs">${team.gf}</td><td class="py-2 px-1 text-center text-xs">${team.ga}</td><td class="py-2 px-1 text-center font-mono text-xs ${team.gd >= 0 ? 'text-emerald-600' : 'text-rose-500'}">${team.gd > 0 ? '+' + team.gd : team.gd}</td><td class="py-2 px-2 text-center font-black text-indigo-600 text-xs">${team.pts}</td><td class="py-2 px-2 text-center">${formHtml}<td>${actionBtn}</tr>`;
     });
     const phaseIndicator = document.getElementById('phase-indicator');
-    if (phaseIndicator) phaseIndicator.innerText = tournamentPhase === 'league' ? '🏆 League Phase' : '🥇 Knockout Stage';
-    generateTickerFacts();
-}
+if (phaseIndicator) phaseIndicator.innerText = '🏆 League Phase';
+generateTickerFacts();
 
 // ==================== RENDER GAMEWEEK TABS ====================
 function renderGameweekTabs() {
@@ -1166,7 +972,7 @@ function renderGameweekTabs() {
                 statusHtml = `<span class="text-[9px] font-mono text-red-500 ml-1">⌛ Expired</span>`;
             }
         } else {
-            if (isAdmin && tournamentPhase === 'league') {
+            if (isAdmin) {
                 startBtnHtml = `<button onclick="startRound(${r})" class="ml-1 text-[9px] bg-green-100 text-green-700 px-1 py-0.5 rounded-full hover:bg-green-200">▶ Start</button>`;
             } else {
                 statusHtml = `<span class="text-[9px] font-mono text-gray-400 ml-1">⏸ Not started</span>`;
@@ -1180,7 +986,7 @@ function renderGameweekTabs() {
         btn.onclick = () => { currentSelectedRound = r; renderGameweekTabs(); renderFixtures(); };
         container.appendChild(btn);
     }
-    if (isAdmin && tournamentPhase === 'league') {
+    if (isAdmin) {
         const shuffleBtn = document.createElement('button');
         shuffleBtn.className = 'px-3 py-1 text-[11px] font-mono rounded-full bg-amber-100 text-amber-700 hover:bg-amber-200 transition ml-2 shrink-0';
         shuffleBtn.innerText = '🔄 Shuffle Round';
@@ -1193,11 +999,6 @@ function renderGameweekTabs() {
 function renderFixtures() {
     const container = document.getElementById('fixtures-container');
     const scheduleSection = document.getElementById('schedule-section');
-    if (tournamentPhase !== 'league') {
-        if (scheduleSection) scheduleSection.classList.add('hidden');
-        container.innerHTML = '<div class="text-center text-gray-400 py-8">🏆 League phase completed. Knockout stage is active above.</div>';
-        return;
-    }
     if (scheduleSection) scheduleSection.classList.remove('hidden');
     container.innerHTML = "";
 
@@ -1582,7 +1383,6 @@ function closeCommentViewer() {
 // ==================== RELEGATION (MANUAL) ====================
 function relegateTeam(teamName) {
     if (!isAdmin) return;
-    if (tournamentPhase !== 'league') { showToast("Cannot relegate during knockout stage."); return; }
     const team = teams[teamName];
     if (!team) return;
     if (team.relegated) { showToast(`${teamName} is already relegated.`); return; }
@@ -1606,7 +1406,6 @@ function relegateTeam(teamName) {
 }
 function restoreTeam(teamName) {
     if (!isAdmin) return;
-    if (tournamentPhase !== 'league') { showToast("Cannot restore during knockout stage."); return; }
     const team = teams[teamName];
     if (!team || !team.relegated) return;
     if (confirm(`Restore ${teamName} to the league? They will reappear in the table, but future fixtures are missing. You may need to re-add them manually via "Edit Fixture".`)) {
@@ -1843,9 +1642,6 @@ window.restoreTeam = restoreTeam;
 window.showTeamDetails = showTeamDetails;
 window.closeTeamModal = closeTeamModal;
 window.resetTournament = resetTournament;
-window.saveKnockoutResult = saveKnockoutResult;
-window.showMatchCommentForKnockout = showMatchCommentForKnockout;
-window.editKnockoutResult = editKnockoutResult;
 window.startRound = startRound;
 window.stopRound = stopRound;
 window.openChatModal = openChatModal;
