@@ -6,7 +6,18 @@ body {
 }
 @keyframes backgroundShift {
     0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
+ chat-toggle {
+    animation: driftFromBottomRight 20s ease-in-out infinite;
+    will-change: transform;
+    touch-action: none;
+    bottom: 20px !important;
+    right: 20px !important;
+    top: auto !important;
+    left: auto !important;
+    transform: none !important;
+}
+#chat-toggle:hover {
+    animation-play-   50% { background-position: 100% 50%; }
     100% { background-position: 0% 50%; }
 }
 
@@ -266,35 +277,13 @@ button:active::after {
 }
 .chat-message:hover .chat-delete-btn { opacity: 1; }
 
-/* Drifting chat button – starts from bottom‑right */
 #chat-toggle {
-    animation: driftFromBottomRight 20s ease-in-out infinite;
-    will-change: transform;
-    touch-action: none;
-    bottom: 20px !important;
-    right: 20px !important;
-    top: auto !important;
-    left: auto !important;
-    transform: none !important;
+    animation: gentlePulse 2s ease-in-out infinite;
 }
-#chat-toggle:hover {
-    animation-play-state: paused;
-}
-@keyframes driftFromBottomRight {
-    0%   { transform: translate(0, 0); }
-    25%  { transform: translate(-calc(100vw - 100px), 0); }
-    50%  { transform: translate(-calc(100vw - 100px), -calc(100vh - 100px)); }
-    75%  { transform: translate(0, -calc(100vh - 100px)); }
-    100% { transform: translate(0, 0); }
-}
-@media (max-width: 768px) {
-    @keyframes driftFromBottomRight {
-        0%   { transform: translate(0, 0); }
-        25%  { transform: translate(-calc(100vw - 80px), 0); }
-        50%  { transform: translate(-calc(100vw - 80px), -calc(100vh - 80px)); }
-        75%  { transform: translate(0, -calc(100vh - 80px)); }
-        100% { transform: translate(0, 0); }
-    }
+@keyframes gentlePulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
 }
 
 /* ========== TOAST & UTILITIES ========== */
