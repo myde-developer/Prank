@@ -132,6 +132,27 @@ body {
     to { opacity: 1; transform: translateY(0); }
 }
 
+/* Make match report scrollable */
+#viewer-comment {
+    max-height: 200px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    padding-right: 8px; /* avoid text touching scrollbar */
+}
+
+/* Optional: style the scrollbar for consistency */
+#viewer-comment::-webkit-scrollbar {
+    width: 6px;
+}
+#viewer-comment::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+#viewer-comment::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 10px;
+}
+
 /* ========== LOADING SKELETON ========== */
 .skeleton {
     background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
