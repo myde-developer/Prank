@@ -329,3 +329,33 @@ button:active::after {
         cursor: pointer;
     }
 }
+
+#mention-dropdown {
+    position: absolute;
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+    z-index: 60;
+}
+.mention-item:hover {
+    background: #f3f4f6;
+}
+
+.chat-delete-btn {
+    position: absolute;
+    top: 4px;
+    right: 8px;
+    opacity: 0;
+    transition: opacity 0.1s;
+    font-size: 11px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #6b7280;
+}
+.chat-message:hover .chat-delete-btn {
+    opacity: 1;
+}
+.bubble {
+    position: relative;
+}
