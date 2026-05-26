@@ -1,4 +1,4 @@
-// ==================== FIREBASE & GLOBALS ====================
+// ==================== FIREBASE & GLOBALS (unchanged from your original) ====================
 const firebaseConfig = {
     apiKey: "AIzaSyBmy0tmvaYcw9KsQQRH7RLKcXC8EN6WFqY",
     authDomain: "dls-premier-league.firebaseapp.com",
@@ -9,6 +9,7 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+const storage = firebase.storage();
 
 let teams = {}, fixtures = [], knockoutMatches = [], tournamentPhase = 'league';
 let currentSelectedRound = 1, isAdmin = false, tournamentPassword = "";
@@ -16,16 +17,405 @@ let tickerInterval = null, currentTickerFactIndex = 0, tickerFacts = [];
 let pendingFixtureId = null, pendingHomeScore = null, pendingAwayScore = null;
 let currentPenaltyTeam = null, pendingAssignFixtureId = null, pendingAssignSide = null, currentViewerFixtureId = null;
 let currentPredictionFixtureId = null, currentBanterFixtureId = null;
-let chatMessagesRef = null;
 let autoStartNextRound = false;
 let roundStartTimes = {};
-let typingTimeout = null;
-let isTyping = false;
+// ==================== NEW WHATSAPP-STYLE CHAT IMPLEMENTATION ====================
+let chatMessagesRef = null;
+let currentChatRoom = "tournament_group";
+let messagesLimit = 50;
+let lastMessageKey = null;
+let isLoadingMore = false;
+let currentTheme = localStorage.getItem('chatTheme') || 'light';
+let currentReplyTo = null;
+let currentContextMessage = null;
+let onlineUsers = new Map();
+let userColors = {};
+let typingRef = null;
+let presenceRef = null;
+let isChatModalOpen = false;
 let unreadMessagesCount = 0;
 let lastReadTimestamp = localStorage.getItem('chatLastRead') ? parseInt(localStorage.getItem('chatLastRead')) : Date.now();
-let isChatModalOpen = false;
-let currentMentionText = '';
-let mentionTimeout = null;
+const currentUserId = localStorage.getItem('chatUserId') || ('user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6));
+localStorage.setItem('chatUserId', currentUserId);
+
+// DOM elements (will be set after modal opens)
+let messagesContainer, chatInput, sendBtn, typingIndicator, searchInput, emojiBtn, attachBtn, fileInput, replyPreviewDiv, replyPreviewText, themeIcon;
+
+function initWhatsAppChat() {
+    messagesContainer = document.getElementById('chat-messages-container');
+    chatInput = document.getElementById('chat-input');
+    sendBtn = document.getElementById('send-msg-btn');
+    typingIndicator = document.getElementById('chat-typing-indicator');
+    searchInput = document.getElementById('chat-search-input');
+    emojiBtn = document.getElementById('emoji-btn');
+    attachBtn = document.getElementById('attach-btn');
+    fileInput = document.getElementById('file-input');
+    replyPreviewDiv = document.getElementById('reply-preview');
+    replyPreviewText = document.getElementById('reply-preview-text');
+    themeIcon = document.getElementById('theme-icon');
+
+    if (!messagesContainer) return;
+    applyTheme(currentTheme);
+    setupChatEventListeners();
+    loadChatMessages();
+    setupTypingIndicator();
+    setupPresence();
+    setupSearch();
+    setupEmojiPicker();
+    setupFileAttachments();
+    setupContextMenu();
+    updateParticipantsList();
+    startReadReceiptUpdater();
+}
+
+function loadChatMessages(loadMore = false) {
+    if (!chatMessagesRef) chatMessagesRef = db.ref(`group_chat/${currentChatRoom}/messages`);
+    let query = chatMessagesRef.orderByKey();
+    if (loadMore && lastMessageKey) query = query.endAt(lastMessageKey).limitToLast(messagesLimit + 1);
+    else query = query.limitToLast(messagesLimit);
+    query.once('value', (snapshot) => {
+        const messages = [];
+        snapshot.forEach(child => messages.unshift({ id: child.key, ...child.val() }));
+        if (loadMore && messages.length) messages.shift();
+        if (!loadMore) { messagesContainer.innerHTML = ''; renderMessages(messages); scrollToBottom(); }
+        else { const prevHeight = messagesContainer.scrollHeight; renderMessages(messages, true); messagesContainer.scrollTop = messagesContainer.scrollHeight - prevHeight; }
+        if (messages.length) lastMessageKey = messages[0]?.id;
+        attachRealtimeListener();
+    });
+}
+
+function attachRealtimeListener() {
+    if (chatMessagesRef) {
+        chatMessagesRef.off('child_added');
+        chatMessagesRef.on('child_added', (snapshot) => {
+            const msg = snapshot.val();
+            if (msg && !document.getElementById(`msg-${snapshot.key}`)) {
+                appendMessage(snapshot.key, msg);
+                if (!isChatModalOpen && msg.senderId !== currentUserId && msg.timestamp > lastReadTimestamp) {
+                    unreadMessagesCount++;
+                    updateUnreadBadge();
+                }
+                if (msg.senderId !== currentUserId) markAsRead(snapshot.key);
+                markMessageAsDelivered(snapshot.key);
+            }
+        });
+    }
+}
+
+function renderMessages(messages, prepend = false) {
+    messages.forEach(msg => {
+        if (!document.getElementById(`msg-${msg.id}`)) {
+            const el = createMessageElement(msg.id, msg);
+            if (prepend) messagesContainer.prepend(el);
+            else messagesContainer.appendChild(el);
+        }
+    });
+    if (!prepend) scrollToBottom();
+    updateLastMessagePreview();
+}
+
+function appendMessage(msgId, msg) {
+    const el = createMessageElement(msgId, msg);
+    messagesContainer.appendChild(el);
+    scrollToBottomIfNeeded();
+    updateLastMessagePreview();
+}
+
+function createMessageElement(msgId, msg) {
+    const isOwn = msg.senderId === currentUserId;
+    const wrapper = document.createElement('div');
+    wrapper.className = `chat-message ${isOwn ? 'sent' : 'received'}`;
+    wrapper.id = `msg-${msgId}`;
+    wrapper.setAttribute('data-mid', msgId);
+    const time = new Date(msg.timestamp).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+    const senderName = msg.senderName || 'Fan';
+    const colorHash = getColorForUser(senderName);
+    let replyHtml = msg.replyTo ? `<div class="reply-bubble">↩️ ${msg.replyTo.senderName}: ${escapeHtml(msg.replyTo.text?.substring(0,50))}</div>` : '';
+    let reactionsHtml = '';
+    if (msg.reactions && Object.keys(msg.reactions).length) {
+        reactionsHtml = `<div class="reactions-bar">${Object.entries(msg.reactions).map(([emoji, users]) => `<span class="reaction" data-emoji="${emoji}">${emoji} ${users.length}</span>`).join('')}</div>`;
+    }
+    let statusHtml = '';
+    if (isOwn) {
+        const read = msg.readBy && msg.readBy.includes(currentUserId);
+        const delivered = msg.deliveredBy && msg.deliveredBy.includes(currentUserId);
+        statusHtml = `<span class="message-status ${read ? 'read' : (delivered ? 'delivered' : 'sent')}">${read ? '✓✓' : (delivered ? '✓✓' : '✓')}</span>`;
+    }
+    let forwardLabel = msg.isForwarded ? '<span class="forwarded-label">Forwarded</span>' : '';
+    let attachmentHtml = '';
+    if (msg.attachments && msg.attachments.length) {
+        attachmentHtml = `<div class="attachment-group">${msg.attachments.map(att => {
+            if (att.type.startsWith('image/')) return `<img src="${att.url}" class="attached-image" onclick="window.open('${att.url}')">`;
+            if (att.type.startsWith('video/')) return `<video src="${att.url}" controls class="attached-video"></video>`;
+            if (att.type.startsWith('audio/')) return `<audio src="${att.url}" controls class="attached-audio"></audio>`;
+            return `<a href="${att.url}" target="_blank" class="attached-file">📄 ${att.name}</a>`;
+        }).join('')}</div>`;
+    }
+    wrapper.innerHTML = `
+        <div class="bubble" data-msg-id="${msgId}">
+            ${!isOwn ? `<div class="message-author" style="color:${colorHash};">${escapeHtml(senderName)}</div>` : ''}
+            ${replyHtml}${attachmentHtml}<div class="message-text">${escapeHtml(msg.text || '')}</div>
+            ${reactionsHtml}<div class="message-meta"><span class="message-time">${time}</span>${statusHtml}${forwardLabel}</div>
+        </div>
+    `;
+    wrapper.addEventListener('contextmenu', (e) => { e.preventDefault(); openContextMenu(e, msgId, msg, isOwn); });
+    return wrapper;
+}
+
+async function sendMessage(text, fileAttachments = []) {
+    if (!text.trim() && !fileAttachments.length) return;
+    const nickname = localStorage.getItem('chatNickname') || (userRole === 'admin' ? 'Admin' : 'Fan');
+    const message = {
+        text: text.trim(),
+        senderId: currentUserId,
+        senderName: nickname.slice(0,20),
+        timestamp: Date.now(),
+        attachments: fileAttachments,
+        replyTo: currentReplyTo ? { messageId: currentReplyTo.id, senderName: currentReplyTo.senderName, text: currentReplyTo.text } : null,
+        deliveredBy: [],
+        readBy: [],
+        isForwarded: false,
+        reactions: {}
+    };
+    await chatMessagesRef.push(message);
+    if (currentReplyTo) cancelReply();
+    chatInput.value = '';
+    scrollToBottom();
+}
+
+function deleteMessageForEveryone(msgId) {
+    if (!isAdmin) return;
+    chatMessagesRef.child(msgId).remove();
+    showToast('Message deleted for everyone');
+}
+
+function deleteMessageForMe(msgId) {
+    localStorage.setItem(`deleted_${msgId}`, 'true');
+    const el = document.getElementById(`msg-${msgId}`);
+    if (el) el.remove();
+}
+
+function addReaction(msgId, emoji) {
+    const reactionRef = chatMessagesRef.child(`${msgId}/reactions/${emoji}`);
+    reactionRef.transaction(current => {
+        if (!current) return [currentUserId];
+        if (!current.includes(currentUserId)) current.push(currentUserId);
+        return current;
+    });
+}
+
+function replyToMessage(msgId, msg) {
+    currentReplyTo = { id: msgId, senderName: msg.senderName, text: msg.text };
+    replyPreviewText.innerText = `${msg.senderName}: ${msg.text.substring(0,60)}`;
+    replyPreviewDiv.classList.remove('hidden');
+    chatInput.focus();
+}
+
+function cancelReply() { currentReplyTo = null; replyPreviewDiv.classList.add('hidden'); }
+
+function markMessageAsDelivered(msgId) {
+    chatMessagesRef.child(`${msgId}/deliveredBy`).transaction(d => { if (!d) d=[]; if(!d.includes(currentUserId)) d.push(currentUserId); return d; });
+}
+
+function markAsRead(msgId) {
+    chatMessagesRef.child(`${msgId}/readBy`).transaction(r => { if (!r) r=[]; if(!r.includes(currentUserId)) r.push(currentUserId); return r; });
+}
+
+function startReadReceiptUpdater() {
+    setInterval(() => {
+        document.querySelectorAll('.chat-message:not(.sent) .bubble').forEach(bubble => {
+            const msgId = bubble.closest('.chat-message')?.dataset?.mid;
+            if (msgId) markAsRead(msgId);
+        });
+    }, 3000);
+}
+
+function setupTypingIndicator() {
+    typingRef = db.ref(`group_chat/${currentChatRoom}/typing`);
+    chatInput?.addEventListener('input', () => {
+        typingRef.set({ userId: currentUserId, name: localStorage.getItem('chatNickname') || 'Fan', timestamp: Date.now() });
+        clearTimeout(window.typingTimeout);
+        window.typingTimeout = setTimeout(() => typingRef.remove(), 1500);
+    });
+    typingRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data && data.userId !== currentUserId && Date.now() - data.timestamp < 3000) {
+            typingIndicator.innerText = `${data.name} is typing...`;
+            typingIndicator.classList.remove('hidden');
+        } else typingIndicator.classList.add('hidden');
+    });
+}
+
+function setupPresence() {
+    presenceRef = db.ref(`group_chat/${currentChatRoom}/presence/${currentUserId}`);
+    const myName = localStorage.getItem('chatNickname') || (userRole === 'admin' ? 'Admin' : 'Fan');
+    presenceRef.onDisconnect().remove();
+    presenceRef.set({ name: myName, online: true, lastSeen: Date.now() });
+    setInterval(() => presenceRef.update({ lastSeen: Date.now() }), 30000);
+    db.ref(`group_chat/${currentChatRoom}/presence`).on('value', (snap) => {
+        onlineUsers.clear();
+        const users = snap.val() || {};
+        Object.entries(users).forEach(([uid, data]) => { if (data.online) onlineUsers.set(uid, data.name); });
+        updateParticipantsList();
+        const onlineCount = onlineUsers.size;
+        document.getElementById('group-members-status').innerText = `${onlineCount} online, ${Object.keys(users).length} members`;
+        document.getElementById('group-online-status').className = `absolute bottom-0 right-0 w-2.5 h-2.5 ${onlineCount>0?'bg-green-500':'bg-gray-400'} rounded-full border border-white`;
+    });
+}
+
+function updateParticipantsList() {
+    if (!document.getElementById('participants-list')) return;
+    db.ref(`group_chat/${currentChatRoom}/presence`).once('value', snap => {
+        const all = snap.val() || {};
+        let html = '';
+        Object.entries(all).forEach(([uid, data]) => {
+            const online = onlineUsers.has(uid);
+            html += `<div class="flex items-center gap-2 text-sm"><div class="w-2 h-2 rounded-full ${online ? 'bg-green-500' : 'bg-gray-400'}"></div><span>${escapeHtml(data.name)}</span>${isAdmin && uid !== currentUserId ? `<button onclick="makeAdmin('${uid}')" class="ml-auto text-xs text-indigo-500">👑</button>` : ''}</div>`;
+        });
+        document.getElementById('participants-list').innerHTML = html;
+        document.getElementById('participant-count').innerText = Object.keys(all).length;
+    });
+}
+
+function setupSearch() {
+    let timeout;
+    searchInput?.addEventListener('input', () => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => {
+            const query = searchInput.value.trim().toLowerCase();
+            if (!query) { loadChatMessages(); return; }
+            chatMessagesRef.orderByChild('text').startAt(query).endAt(query+'\uf8ff').once('value', snap => {
+                const results = [];
+                snap.forEach(child => results.push({ id: child.key, ...child.val() }));
+                messagesContainer.innerHTML = '';
+                renderMessages(results);
+                if (!results.length) messagesContainer.innerHTML = '<div class="text-center text-gray-400 py-4">No messages found</div>';
+            });
+        }, 300);
+    });
+}
+
+function setupEmojiPicker() {
+    let picker;
+    emojiBtn?.addEventListener('click', async () => {
+        if (!picker) {
+            const { EmojiPicker } = await import('https://unpkg.com/emoji-picker-element@1.18.3/dist/index.js');
+            picker = new EmojiPicker();
+            const container = document.createElement('div');
+            container.id = 'emoji-picker-container';
+            container.className = 'absolute bottom-16 left-4 z-20';
+            container.appendChild(picker);
+            document.body.appendChild(container);
+            picker.addEventListener('emoji-click', event => {
+                chatInput.value += event.detail.unicode;
+                container.remove();
+                chatInput.focus();
+            });
+        } else {
+            const existing = document.getElementById('emoji-picker-container');
+            if (existing) existing.remove();
+            else {
+                const container = document.createElement('div');
+                container.id = 'emoji-picker-container';
+                container.className = 'absolute bottom-16 left-4 z-20';
+                container.appendChild(picker);
+                document.body.appendChild(container);
+            }
+        }
+    });
+}
+
+function setupFileAttachments() {
+    attachBtn?.addEventListener('click', () => fileInput.click());
+    fileInput?.addEventListener('change', async () => {
+        const files = Array.from(fileInput.files);
+        const attachments = [];
+        for (const file of files) {
+            const ext = file.name.split('.').pop();
+            const storageRef = storage.ref(`chat_attachments/${Date.now()}_${Math.random().toString(36)}.${ext}`);
+            await storageRef.put(file);
+            const url = await storageRef.getDownloadURL();
+            attachments.push({ name: file.name, type: file.type, url, size: file.size });
+        }
+        sendMessage(chatInput.value, attachments);
+        fileInput.value = '';
+    });
+}
+
+function openContextMenu(e, msgId, msg, isOwn) {
+    const menu = document.getElementById('message-context-menu');
+    menu.style.left = `${e.pageX}px`;
+    menu.style.top = `${e.pageY}px`;
+    menu.classList.remove('hidden');
+    document.getElementById('ctx-reply').onclick = () => { replyToMessage(msgId, msg); menu.classList.add('hidden'); };
+    document.getElementById('ctx-forward').onclick = () => { menu.classList.add('hidden'); };
+    document.getElementById('ctx-react').onclick = () => { const em = prompt('Enter emoji (👍,😂,❤️)'); if(em) addReaction(msgId, em); menu.classList.add('hidden'); };
+    document.getElementById('ctx-delete').onclick = () => { if(confirm('Delete for everyone?')) deleteMessageForEveryone(msgId); menu.classList.add('hidden'); };
+    document.getElementById('ctx-delete-self').onclick = () => { deleteMessageForMe(msgId); menu.classList.add('hidden'); };
+    if (!isAdmin && !isOwn) document.getElementById('ctx-delete').style.display = 'none';
+    else document.getElementById('ctx-delete').style.display = 'block';
+}
+
+function setupContextMenu() {
+    document.addEventListener('click', () => document.getElementById('message-context-menu').classList.add('hidden'));
+}
+
+function toggleTheme() {
+    currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+    localStorage.setItem('chatTheme', currentTheme);
+    applyTheme(currentTheme);
+}
+function applyTheme(theme) {
+    if (theme === 'dark') document.body.classList.add('dark');
+    else document.body.classList.remove('dark');
+    if (themeIcon) themeIcon.innerText = theme === 'dark' ? '☀️' : '🌙';
+}
+function getColorForUser(name) {
+    if (!userColors[name]) {
+        let hash = 0;
+        for (let i=0; i<name.length; i++) hash = ((hash<<5)-hash)+name.charCodeAt(i);
+        userColors[name] = `hsl(${Math.abs(hash%360)}, 70%, 45%)`;
+    }
+    return userColors[name];
+}
+function scrollToBottom() { messagesContainer.scrollTop = messagesContainer.scrollHeight; }
+function scrollToBottomIfNeeded() {
+    if (messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight < 100) scrollToBottom();
+}
+function updateLastMessagePreview() {
+    chatMessagesRef.limitToLast(1).once('value', snap => {
+        const last = Object.values(snap.val() || {})[0];
+        if (last) document.getElementById('last-message-preview').innerText = `${last.senderName}: ${last.text?.substring(0,30) || '📎 attachment'}`;
+    });
+}
+function updateUnreadBadge() {
+    const badge = document.getElementById('chat-unread-badge');
+    if (badge) {
+        if (unreadMessagesCount > 0) { badge.classList.remove('hidden'); badge.innerText = unreadMessagesCount > 99 ? '99+' : unreadMessagesCount; }
+        else badge.classList.add('hidden');
+    }
+}
+function setupChatEventListeners() {
+    sendBtn?.addEventListener('click', () => sendMessage(chatInput.value));
+    chatInput?.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(chatInput.value); });
+}
+function openChatModal() {
+    const modal = document.getElementById('chat-modal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    isChatModalOpen = true;
+    lastReadTimestamp = Date.now();
+    localStorage.setItem('chatLastRead', lastReadTimestamp);
+    unreadMessagesCount = 0;
+    updateUnreadBadge();
+    if (!chatMessagesRef) initWhatsAppChat();
+    else loadChatMessages();
+}
+function closeChatModal() {
+    document.getElementById('chat-modal').classList.add('hidden');
+    isChatModalOpen = false;
+}
+function openGroupInfo() { showToast('Group info – coming soon'); }
 
 // ==================== ROLE SELECTION ====================
 let userRole = null; // 'viewer' or 'admin'
@@ -216,395 +606,7 @@ function generateRandomRoundRobin(teamNames) {
     return rounds;
 }
 
-// ==================== GLOBAL CHAT ROOM ====================
-// ==================== GLOBAL CHAT ROOM (with unread badge & typing) ====================
-function initChatListener() {
-    chatMessagesRef = db.ref('chat_messages');
-    chatMessagesRef.off();
-    chatMessagesRef.on('child_added', (snapshot) => {
-        const msg = snapshot.val();
-        appendChatMessage(msg);
-    });
-    initTypingListener();
-    initPollListener();
-}
 
-function openChatModal() {
-    const modal = document.getElementById('chat-modal');
-    if (modal) {
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-        modal.style.display = 'flex';
-        const savedName = localStorage.getItem('chatNickname');
-        if (savedName) document.getElementById('chat-nickname').value = savedName;
-        const container = document.getElementById('chat-messages-container');
-        if (container) container.scrollTop = container.scrollHeight;
-        
-        // Mark all messages as read
-        isChatModalOpen = true;
-        lastReadTimestamp = Date.now();
-        localStorage.setItem('chatLastRead', lastReadTimestamp);
-        unreadMessagesCount = 0;
-        updateUnreadBadge();
-        
-        // Show poll create button for admin
-        const pollBtn = document.getElementById('create-poll-btn');
-        if (pollBtn) {
-            if (isAdmin) pollBtn.classList.remove('hidden');
-            else pollBtn.classList.add('hidden');
-        }
-    }
-}
-
-function closeChatModal() {
-    const modal = document.getElementById('chat-modal');
-    if (modal) {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-        modal.style.display = '';
-    }
-    isChatModalOpen = false;
-}
-
-function updateUnreadBadge() {
-    const badge = document.getElementById('chat-unread-badge');
-    if (badge) {
-        if (unreadMessagesCount > 0) {
-            badge.classList.remove('hidden');
-            badge.innerText = unreadMessagesCount > 99 ? '99+' : unreadMessagesCount;
-        } else {
-            badge.classList.add('hidden');
-        }
-    }
-}
-
-function sendTypingStatus() {
-    if (!userRole) return;
-    if (!isTyping) {
-        isTyping = true;
-        db.ref('chat_typing').set({ user: userRole === 'admin' ? 'Admin' : (localStorage.getItem('chatNickname') || 'Fan'), timestamp: Date.now() });
-    }
-    clearTimeout(typingTimeout);
-    typingTimeout = setTimeout(() => {
-        isTyping = false;
-        db.ref('chat_typing').remove();
-    }, 1500);
-}
-
-function initTypingListener() {
-    db.ref('chat_typing').on('value', (snapshot) => {
-        const data = snapshot.val();
-        const typingDiv = document.getElementById('chat-typing-indicator');
-        if (data && data.user) {
-            typingDiv.innerText = `${data.user} is typing...`;
-            typingDiv.classList.remove('hidden');
-        } else {
-            typingDiv.classList.add('hidden');
-        }
-    });
-}
-
-function appendChatMessage(msg) {
-    const container = document.getElementById('chat-messages-container');
-    if (!container) return;
-    if (container.children.length === 1 && container.children[0].innerText.includes('Loading')) {
-        container.innerHTML = '';
-    }
-    
-    // Handle poll messages (unchanged)
-    if (msg.isPoll && msg.pollId) {
-        renderPollMessage(msg.pollId);
-        return;
-    }
-    
-    const date = new Date(msg.timestamp).toLocaleString();
-    const currentNick = localStorage.getItem('chatNickname') || '';
-    const currentUserId = getCurrentUserId();
-    const isCurrentUser = (msg.userId === currentUserId);
-    const bubbleClass = isCurrentUser ? 'sent' : 'received';
-    
-    // Highlight mentions in message text
-    let formattedText = escapeHtml(msg.text);
-    // Replace @username with highlighted span (simple regex)
-    formattedText = formattedText.replace(/@(\w+)/g, '<span class="text-blue-600 font-semibold">@$1</span>');
-    
-    // Delete button: visible to admin or message owner
-    const canDelete = (isAdmin || isCurrentUser);
-    const deleteBtn = canDelete ? `<button onclick="deleteChatMessage('${msg.messageId}', '${msg.userId}')" class="chat-delete-btn" title="Delete">🗑️</button>` : '';
-    
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `chat-message ${bubbleClass}`;
-    messageDiv.innerHTML = `
-        <div class="bubble">
-            ${deleteBtn}
-            <p>${formattedText}</p>
-            <div class="message-meta">
-                <span class="message-author">${escapeHtml(msg.nickname)}</span>
-                <span class="message-time">${date}</span>
-            </div>
-        </div>
-    `;
-    container.appendChild(messageDiv);
-    container.scrollTop = container.scrollHeight;
-    
-    // Unread logic (unchanged)
-    if (!isChatModalOpen && !isCurrentUser && msg.timestamp > lastReadTimestamp) {
-        unreadMessagesCount++;
-        updateUnreadBadge();
-    }
-}
-
-// Keep your existing sendChatMessage, deleteChatMessage, etc. unchanged
-function sendChatMessage() {
-    const nicknameInput = document.getElementById('chat-nickname');
-    let nickname = nicknameInput.value.trim();
-    if (nickname === "") { alert("Please enter your name"); return; }
-    const text = document.getElementById('chat-input').value.trim();
-    if (text === "") return;
-    
-    localStorage.setItem('chatNickname', nickname);
-    const userId = getCurrentUserId();
-    
-    const message = {
-        nickname: nickname.slice(0,20),
-        text: text.slice(0,200),
-        timestamp: Date.now(),
-        userId: userId,
-        messageId: Date.now() + '_' + Math.random().toString(36).substr(2, 6)
-    };
-    
-    if (chatMessagesRef) {
-        chatMessagesRef.push(message);
-        document.getElementById('chat-input').value = '';
-        hideMentionDropdown();
-    } else {
-        showToast("Chat not ready, try again");
-    }
-}
-
-function deleteChatMessage(messageId, messageUserId) {
-    const currentUserId = getCurrentUserId();
-    if (!isAdmin && currentUserId !== messageUserId) {
-        showToast("You can only delete your own messages");
-        return;
-    }
-    chatMessagesRef.orderByChild('messageId').equalTo(messageId).once('value', snapshot => {
-        snapshot.forEach(child => {
-            child.ref.remove();
-            showToast("Message deleted");
-        });
-    });
-}
-
-function onChatInput() {
-    const input = document.getElementById('chat-input');
-    const value = input.value;
-    const cursorPos = input.selectionStart;
-    const textBeforeCursor = value.slice(0, cursorPos);
-    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
-    
-    if (lastAtIndex !== -1 && (lastAtIndex === 0 || value[lastAtIndex-1] === ' ')) {
-        currentMentionText = textBeforeCursor.slice(lastAtIndex + 1);
-        showMentionSuggestions(currentMentionText);
-    } else {
-        hideMentionDropdown();
-    }
-    
-    // Typing indicator (existing)
-    sendTypingStatus();
-}
-
-function showMentionSuggestions(query) {
-    const allNicknames = new Set();
-    allNicknames.add(localStorage.getItem('chatNickname') || '');
-    const container = document.getElementById('chat-messages-container');
-    const nicknames = new Set();
-    document.querySelectorAll('#chat-messages-container .message-author').forEach(el => {
-        nicknames.add(el.innerText);
-    });
-    nicknames.add(localStorage.getItem('chatNickname'));
-    const filtered = Array.from(nicknames).filter(n => n.toLowerCase().includes(query.toLowerCase()));
-    const dropdown = document.getElementById('mention-dropdown');
-    if (filtered.length === 0) {
-        dropdown.classList.add('hidden');
-        return;
-    }
-    dropdown.innerHTML = filtered.map(n => `<div class="mention-item px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm" data-name="${n}">@${n}</div>`).join('');
-    dropdown.classList.remove('hidden');
-    // Position dropdown near cursor (simplified: below input)
-    const input = document.getElementById('chat-input');
-    const rect = input.getBoundingClientRect();
-    dropdown.style.bottom = `${window.innerHeight - rect.top + 5}px`;
-    dropdown.style.left = `${rect.left}px`;
-    
-    // Attach click handlers
-    document.querySelectorAll('.mention-item').forEach(item => {
-        item.onclick = () => {
-            const name = item.dataset.name;
-            insertMention(name);
-        };
-    });
-}
-
-function insertMention(name) {
-    const input = document.getElementById('chat-input');
-    const value = input.value;
-    const cursorPos = input.selectionStart;
-    const lastAtIndex = value.lastIndexOf('@', cursorPos-1);
-    if (lastAtIndex !== -1) {
-        const newValue = value.slice(0, lastAtIndex) + `@${name} ` + value.slice(cursorPos);
-        input.value = newValue;
-        input.focus();
-        input.selectionStart = input.selectionEnd = lastAtIndex + name.length + 2;
-    }
-    hideMentionDropdown();
-}
-
-function hideMentionDropdown() {
-    document.getElementById('mention-dropdown').classList.add('hidden');
-}
-
-// ==================== POLLS ====================
-function initPollListener() {
-    db.ref('chat_polls').on('child_changed', (snapshot) => {
-        const poll = snapshot.val();
-        if (poll) updatePollUI(poll.id);
-    });
-}
-
-function openPollModal() {
-    if (!isAdmin) return;
-    document.getElementById('poll-modal').classList.remove('hidden');
-    document.getElementById('poll-modal').classList.add('flex');
-}
-
-function closePollModal() {
-    document.getElementById('poll-modal').classList.add('hidden');
-    document.getElementById('poll-modal').classList.remove('flex');
-}
-
-function addPollOption() {
-    const container = document.getElementById('poll-options-container');
-    const div = document.createElement('div');
-    div.className = 'flex gap-2 mb-2';
-    div.innerHTML = `<input type="text" placeholder="Option" class="poll-option flex-1 bg-gray-50 border rounded-lg p-2"><button onclick="removePollOption(this)" class="text-red-500">✖</button>`;
-    container.appendChild(div);
-}
-
-function removePollOption(btn) {
-    btn.parentElement.remove();
-}
-
-function createPoll() {
-    const question = document.getElementById('poll-question').value.trim();
-    if (!question) { alert("Enter a question"); return; }
-    const options = Array.from(document.querySelectorAll('.poll-option')).map(inp => inp.value.trim()).filter(v => v);
-    if (options.length < 2) { alert("At least 2 options"); return; }
-    const pollId = Date.now();
-    const poll = {
-        id: pollId,
-        question: question,
-        options: options.map(opt => ({ text: opt, votes: 0 })),
-        totalVotes: 0,
-        voters: {},
-        createdAt: Date.now()
-    };
-    db.ref(`chat_polls/${pollId}`).set(poll);
-    // Announce poll in chat
-    const msg = {
-        nickname: "System",
-        text: `📊 New poll: ${question}`,
-        timestamp: Date.now(),
-        userId: `poll_${pollId}`,
-        isPoll: true,
-        pollId: pollId
-    };
-    db.ref('chat_messages').push(msg);
-    closePollModal();
-    document.getElementById('poll-question').value = '';
-    document.getElementById('poll-options-container').innerHTML = `
-        <div class="flex gap-2 mb-2"><input type="text" placeholder="Option 1" class="poll-option flex-1 bg-gray-50 border rounded-lg p-2"><button onclick="removePollOption(this)" class="text-red-500">✖</button></div>
-        <div class="flex gap-2 mb-2"><input type="text" placeholder="Option 2" class="poll-option flex-1 bg-gray-50 border rounded-lg p-2"><button onclick="removePollOption(this)" class="text-red-500">✖</button></div>
-    `;
-}
-
-function votePoll(pollId, optionIndex) {
-    const nickname = localStorage.getItem('chatNickname') || 'Fan';
-    db.ref(`chat_polls/${pollId}/voters/${nickname}`).once('value', snap => {
-        if (snap.exists()) { showToast("You already voted"); return; }
-        db.ref(`chat_polls/${pollId}/options/${optionIndex}/votes`).transaction(votes => (votes || 0) + 1);
-        db.ref(`chat_polls/${pollId}/totalVotes`).transaction(total => (total || 0) + 1);
-        db.ref(`chat_polls/${pollId}/voters/${nickname}`).set(true);
-        showToast("Vote cast!");
-    });
-}
-
-function renderPollMessage(pollId) {
-    db.ref(`chat_polls/${pollId}`).once('value', (snapshot) => {
-        const poll = snapshot.val();
-        if (!poll) return;
-        const container = document.getElementById('chat-messages-container');
-        const pollDiv = document.createElement('div');
-        pollDiv.className = 'poll-card bg-white rounded-lg p-3 shadow my-2 border relative';
-        pollDiv.id = `poll-${poll.id}`;
-        
-        // Delete button for admin
-        const deleteBtn = isAdmin ? `<button onclick="deletePoll('${poll.id}')" class="absolute top-2 right-2 text-red-500 hover:text-red-700 text-xs bg-white rounded-full p-1 shadow">🗑️</button>` : '';
-        
-        pollDiv.innerHTML = `
-            ${deleteBtn}
-            <p class="font-bold">📊 ${escapeHtml(poll.question)}</p>
-            <div class="space-y-2 mt-2" id="poll-options-${poll.id}"></div>
-            <div class="text-xs text-gray-500 mt-2">${poll.totalVotes || 0} vote(s)</div>
-        `;
-        container.appendChild(pollDiv);
-        updatePollUI(poll.id);
-    });
-}
-
-function updatePollUI(pollId) {
-    db.ref(`chat_polls/${pollId}`).once('value', (snapshot) => {
-        const poll = snapshot.val();
-        if (!poll) return;
-        const optionsContainer = document.getElementById(`poll-options-${pollId}`);
-        if (!optionsContainer) return;
-        optionsContainer.innerHTML = '';
-        const total = poll.totalVotes || 1;
-        poll.options.forEach((opt, idx) => {
-            const percent = ((opt.votes || 0) / total) * 100;
-            optionsContainer.innerHTML += `
-                <div class="flex items-center justify-between gap-2 text-sm">
-                    <span class="flex-1">${escapeHtml(opt.text)}</span>
-                    <span class="w-16 text-right">${opt.votes || 0}</span>
-                    <div class="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div class="h-full bg-emerald-500 rounded-full" style="width: ${percent}%"></div>
-                    </div>
-                    <button onclick="votePoll(${pollId}, ${idx})" class="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full hover:bg-indigo-200">Vote</button>
-                </div>
-            `;
-        });
-        const totalSpan = optionsContainer.parentElement?.querySelector('.text-xs');
-        if (totalSpan) totalSpan.innerText = `${poll.totalVotes || 0} vote(s)`;
-    });
-}
-
-function deletePoll(pollId) {
-    if (!isAdmin) return;
-    if (confirm("Delete this poll permanently?")) {
-        // Remove poll data
-        db.ref(`chat_polls/${pollId}`).remove();
-        // Also remove the corresponding announcement message in chat_messages
-        db.ref('chat_messages').orderByChild('pollId').equalTo(pollId).once('value', (snapshot) => {
-            snapshot.forEach(child => {
-                child.ref.remove();
-            });
-        });
-        // Remove the poll card from UI
-        const pollCard = document.getElementById(`poll-${pollId}`);
-        if (pollCard) pollCard.remove();
-        showToast("Poll deleted");
-    }
-}
 // ==================== TIME LIMIT (ADMIN‑CONTROLLED) ====================
 function expireOldFixtures() {
     const now = Date.now();
@@ -831,6 +833,7 @@ function initializeTournament() {
     saveToStorage();
     showToast(`Tournament launched with ${count} teams!`);
 }
+
 
 // ==================== ADMIN: START ROUND ====================
 function startRound(roundNumber) {
@@ -1850,16 +1853,10 @@ window.startRound = startRound;
 window.stopRound = stopRound;
 window.openChatModal = openChatModal;
 window.closeChatModal = closeChatModal;
-window.sendChatMessage = sendChatMessage;
-window.deleteChatMessage = deleteChatMessage;
-window.deleteChatMessage = deleteChatMessage;
-window.onChatInput = onChatInput;
+window.toggleTheme = toggleTheme;
+window.cancelReply = cancelReply;
+window.sendChatMessage = sendMessage; // compat
+window.deleteChatMessage = deleteMessageForEveryone;
 window.toggleAutoStart = toggleAutoStart;
-window.openPollModal = openPollModal;
-window.closePollModal = closePollModal;
-window.addPollOption = addPollOption;
-window.removePollOption = removePollOption;
-window.createPoll = createPoll;
-window.deletePoll = deletePoll;
-window.votePoll = votePoll;
 window.sendTypingStatus = sendTypingStatus;
+
