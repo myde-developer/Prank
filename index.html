@@ -295,6 +295,23 @@
         </div>
     </div>
 
+<!-- Nickname input modal (appears once for new users) -->
+<div id="nickname-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full border border-gray-200 overflow-hidden animate-fadeInUp">
+        <div class="p-5 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="font-bold text-lg text-gray-800 dark:text-white">Welcome to the Group Chat! 🎉</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Choose a nickname to join the conversation</p>
+        </div>
+        <div class="p-5 space-y-4">
+            <input type="text" id="nickname-input" maxlength="20" placeholder="Enter your nickname" class="w-full bg-gray-100 dark:bg-gray-700 border-0 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500">
+            <p class="text-xs text-gray-400">This name will be shown next to your messages.</p>
+        </div>
+        <div class="p-4 bg-gray-50 dark:bg-gray-900 flex justify-end rounded-b-2xl">
+            <button onclick="saveNicknameAndJoin()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition">Join Chat</button>
+        </div>
+    </div>
+</div>
+
 <!-- MAIN CONTENT -->
     <main class="max-w-6xl mx-auto px-4 py-8 space-y-10">
         <!-- Setup Section (only visible to admin when no tournament) -->
@@ -366,6 +383,7 @@
             </div>
         </section>
     </main>
+
 
 
     <!-- Floating Chat Button & Admin Menu -->

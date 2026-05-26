@@ -417,6 +417,51 @@ function closeChatModal() {
 }
 function openGroupInfo() { showToast('Group info – coming soon'); }
 
+function checkAndPromptNickname() {
+    const nickname = localStorage.getItem('chatNickname');
+    if (!nickname) {
+        document.getElementById('nickname-modal').classList.remove('hidden');
+        document.getElementById('nickname-modal').classList.add('flex');
+        return false;
+    }
+    return true;
+}
+
+// Save nickname and join chat
+function saveNicknameAndJoin() {
+    const input = document.getElementById('nickname-input');
+    let nickname = input.value.trim();
+    if (!nickname) {
+        alert('Please enter a nickname');
+        return;
+    }
+    // Limit length and sanitize
+    nickname = nickname.slice(0, 20);
+    localStorage.setItem('chatNickname', nickname);
+    
+    // Update presence with new nickname
+    const userId = getCurrentUserId();
+    db.ref(`group_chat/${currentChatRoom}/presence/${userId}`).set({
+        name: nickname,
+        online: true,
+        lastSeen: Date.now()
+    });
+    
+    // Close modal and open chat
+    document.getElementById('nickname-modal').classList.add('hidden');
+    openChatModal();
+}
+
+// Modify openChatModal to check nickname first
+const originalOpenChatModal = window.openChatModal;
+window.openChatModal = function() {
+    if (!checkAndPromptNickname()) {
+        // Wait for modal to be closed via saveNicknameAndJoin
+        return;
+    }
+    originalOpenChatModal();
+};
+
 // ==================== ROLE SELECTION ====================
 let userRole = null; // 'viewer' or 'admin'
 
@@ -562,10 +607,10 @@ function saveToStorage() {
     db.ref('tournament_data').set({ teams, fixtures, knockoutMatches, tournamentPhase, password: tournamentPassword, roundStartTimes, autoStartNextRound }); 
 }
 function getCurrentUserId() {
-    let id = localStorage.getItem('chatUserId');
+    let id = sessionStorage.getItem('chatUserId');
     if (!id) {
-        id = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
-        localStorage.setItem('chatUserId', id);
+        id = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8);
+        sessionStorage.setItem('chatUserId', id);
     }
     return id;
 }
