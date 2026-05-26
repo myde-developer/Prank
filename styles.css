@@ -145,10 +145,21 @@ body {
 }
 
 /* ========== CUSTOM SCROLLBAR ========== */
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 20px; }
-::-webkit-scrollbar-thumb { background: linear-gradient(135deg, #a5b4fc, #818cf8); border-radius: 20px; }
-::-webkit-scrollbar-thumb:hover { background: linear-gradient(135deg, #818cf8, #6366f1); }
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 20px;
+}
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #a5b4fc, #818cf8);
+    border-radius: 20px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #818cf8, #6366f1);
+}
 
 /* ========== BUTTON RIPPLE EFFECT ========== */
 button {
@@ -181,13 +192,17 @@ button:active::after {
     display: flex;
     margin-bottom: 0.75rem;
 }
-.banter-message.sent { justify-content: flex-end; }
+.banter-message.sent {
+    justify-content: flex-end;
+}
 .banter-message.sent .bubble {
     background-color: #dcf8c5;
     border-radius: 18px 18px 4px 18px;
     margin-left: auto;
 }
-.banter-message.received { justify-content: flex-start; }
+.banter-message.received {
+    justify-content: flex-start;
+}
 .banter-message.received .bubble {
     background-color: white;
     border-radius: 18px 18px 18px 4px;
@@ -200,7 +215,11 @@ button:active::after {
     position: relative;
     word-wrap: break-word;
 }
-.bubble p { margin: 0 0 4px 0; font-size: 0.875rem; line-height: 1.4; }
+.bubble p {
+    margin: 0 0 4px 0;
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
 .bubble .message-meta {
     display: flex;
     justify-content: flex-end;
@@ -210,8 +229,14 @@ button:active::after {
     color: #6c757d;
     margin-top: 4px;
 }
-.bubble .message-author { font-weight: 600; color: #075e54; margin-right: 0.5rem; }
-.bubble .message-time { font-size: 0.6rem; }
+.bubble .message-author {
+    font-weight: 600;
+    color: #075e54;
+    margin-right: 0.5rem;
+}
+.bubble .message-time {
+    font-size: 0.6rem;
+}
 .banter-delete-btn {
     position: absolute;
     top: -8px;
@@ -229,20 +254,45 @@ button:active::after {
     cursor: pointer;
     color: #dc2626;
 }
-.banter-message:hover .banter-delete-btn { opacity: 1; }
+.banter-message:hover .banter-delete-btn {
+    opacity: 1;
+}
 
-/* ========== GLOBAL CHAT ========== */
+/* ========== GLOBAL CHAT (WhatsApp style) ========== */
+#chat-full {
+    transition: all 0.2s;
+}
+#chat-sidebar {
+    transition: transform 0.3s ease;
+}
+/* Custom scrollbar for messages */
+#chat-messages-container-new::-webkit-scrollbar {
+    width: 6px;
+}
+#chat-messages-container-new::-webkit-scrollbar-track {
+    background: #ddd;
+    border-radius: 10px;
+}
+#chat-messages-container-new::-webkit-scrollbar-thumb {
+    background: #aaa;
+    border-radius: 10px;
+}
+/* Chat bubbles (used by the new chat) */
 .chat-message {
     display: flex;
     margin-bottom: 0.75rem;
 }
-.chat-message.sent { justify-content: flex-end; }
+.chat-message.sent {
+    justify-content: flex-end;
+}
 .chat-message.sent .bubble {
     background-color: #dcf8c5;
     border-radius: 18px 18px 4px 18px;
     margin-left: auto;
 }
-.chat-message.received { justify-content: flex-start; }
+.chat-message.received {
+    justify-content: flex-start;
+}
 .chat-message.received .bubble {
     background-color: white;
     border-radius: 18px 18px 18px 4px;
@@ -250,25 +300,70 @@ button:active::after {
 }
 .chat-delete-btn {
     position: absolute;
-    top: -8px;
-    right: -8px;
-    background-color: #fee2e2;
-    border-radius: 999px;
-    width: 20px;
-    height: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 10px;
+    top: 4px;
+    right: 8px;
     opacity: 0;
     transition: opacity 0.1s;
+    font-size: 11px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #6b7280;
+}
+.chat-message:hover .chat-delete-btn {
+    opacity: 1;
+}
+.bubble {
+    position: relative;
+}
+/* Dark mode overrides for chat */
+.dark .chat-message.sent .bubble {
+    background-color: #075e54;
+    color: white;
+}
+.dark .chat-message.received .bubble {
+    background-color: #202c33;
+    color: #e9edef;
+}
+.dark .bubble .message-meta {
+    color: #8696a0;
+}
+.dark .bubble .message-author {
+    color: #00a884;
+}
+/* Reply indicator */
+#reply-indicator {
+    transition: all 0.1s;
+}
+/* Emoji picker and attachment menu */
+#emoji-picker button,
+#attachment-menu button {
+    transition: background 0.1s;
+}
+/* Mention dropdown */
+#mention-dropdown {
+    position: absolute;
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+    z-index: 60;
+}
+.mention-item:hover {
+    background: #f3f4f6;
+}
+.dark #mention-dropdown {
+    background: #1f2a37;
+    color: white;
+}
+.dark .mention-item:hover {
+    background: #374151;
+}
+/* Dark mode toggle button */
+#dark-mode-toggle {
     cursor: pointer;
 }
-.chat-message:hover .chat-delete-btn { opacity: 1; }
-
-/* Chat button – fixed above admin menu, no drifting */
+/* Chat button */
 #chat-toggle {
-    /* Use Tailwind classes in HTML – no extra CSS needed for positioning */
     animation: gentlePulse 2s ease-in-out infinite;
 }
 @keyframes gentlePulse {
@@ -289,28 +384,49 @@ button:active::after {
     animation: fadeInUp 0.2s ease;
 }
 @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
-.animate-fadeInUp { animation: fadeInUp 0.2s ease-out; }
+.animate-fadeInUp {
+    animation: fadeInUp 0.2s ease-out;
+}
 
 /* Prediction & Banter items */
-.prediction-item, .banter-message {
+.prediction-item,
+.banter-message {
     background: #f8fafc;
     border-radius: 0.75rem;
     padding: 0.65rem;
     border: 1px solid #e2e8f0;
     transition: all 0.1s ease;
 }
-.prediction-item:hover, .banter-message:hover { background: #f1f5f9; }
-.prediction-delete-btn, .banter-delete-btn { opacity: 0; transition: opacity 0.1s; }
+.prediction-item:hover,
+.banter-message:hover {
+    background: #f1f5f9;
+}
+.prediction-delete-btn,
+.banter-delete-btn {
+    opacity: 0;
+    transition: opacity 0.1s;
+}
 .prediction-item:hover .prediction-delete-btn,
-.banter-message:hover .banter-delete-btn { opacity: 1; }
+.banter-message:hover .banter-delete-btn {
+    opacity: 1;
+}
 
 /* Deadline clock */
-#deadline-clock { font-family: monospace; letter-spacing: 0.5px; }
+#deadline-clock {
+    font-family: monospace;
+    letter-spacing: 0.5px;
+}
 
-/* Chat modal – mobile optimisation */
+/* Chat modal – mobile optimisation (for older chat modal, not the new one) */
 @media (max-width: 640px) {
     #chat-modal {
         padding: 0.5rem;
@@ -324,38 +440,21 @@ button:active::after {
     .chat-message .bubble {
         max-width: 90%;
     }
-    #chat-toggle, #backToTop {
+    #chat-toggle,
+    #backToTop {
         touch-action: manipulation;
         cursor: pointer;
     }
 }
 
-#mention-dropdown {
-    position: absolute;
-    background: white;
-    border-radius: 0.5rem;
-    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
-    z-index: 60;
-}
-.mention-item:hover {
-    background: #f3f4f6;
-}
-
-.chat-delete-btn {
-    position: absolute;
-    top: 4px;
-    right: 8px;
-    opacity: 0;
-    transition: opacity 0.1s;
-    font-size: 11px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: #6b7280;
-}
-.chat-message:hover .chat-delete-btn {
-    opacity: 1;
-}
-.bubble {
-    position: relative;
+/* New WhatsApp chat fullscreen on mobile */
+@media (max-width: 768px) {
+    #chat-full .flex {
+        flex-direction: column;
+    }
+    #chat-sidebar {
+        height: 100%;
+        width: 80%;
+        z-index: 60;
+    }
 }

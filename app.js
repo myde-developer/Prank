@@ -9,6 +9,7 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+const storage = firebase.storage();
 
 let teams = {}, fixtures = [], knockoutMatches = [], tournamentPhase = 'league';
 let currentSelectedRound = 1, isAdmin = false, tournamentPassword = "";
@@ -16,41 +17,36 @@ let tickerInterval = null, currentTickerFactIndex = 0, tickerFacts = [];
 let pendingFixtureId = null, pendingHomeScore = null, pendingAwayScore = null;
 let currentPenaltyTeam = null, pendingAssignFixtureId = null, pendingAssignSide = null, currentViewerFixtureId = null;
 let currentPredictionFixtureId = null, currentBanterFixtureId = null;
-let chatMessagesRef = null;
 let autoStartNextRound = false;
 let roundStartTimes = {};
+
+// Chat globals
+let chatMessagesRef = null;
+let chatTypingRef = null;
+let chatPresenceRef = null;
+let messages = [];
+let replyingTo = null;
+let currentDarkMode = localStorage.getItem('chatDarkMode') === 'true';
 let typingTimeout = null;
-let isTyping = false;
-let unreadMessagesCount = 0;
-let lastReadTimestamp = localStorage.getItem('chatLastRead') ? parseInt(localStorage.getItem('chatLastRead')) : Date.now();
-let isChatModalOpen = false;
-let currentMentionText = '';
-let mentionTimeout = null;
+
+// Role selection
+let userRole = null;
 
 // ==================== ROLE SELECTION ====================
-let userRole = null; // 'viewer' or 'admin'
-
 function selectRole(role) {
     userRole = role;
     sessionStorage.setItem('tournamentRole', role);
     document.getElementById('role-selector').style.display = 'none';
     
     if (role === 'admin') {
-        // Always request password, even if no tournament exists yet
         const entered = prompt("Enter admin master password:");
-        if (entered === null) {
-            // User cancelled – reload to show role selector again
-            location.reload();
-            return;
-        }
-        // First, check if a tournament exists to get the stored password
+        if (entered === null) { location.reload(); return; }
         db.ref('tournament_data/password').once('value', (snapshot) => {
             const storedPass = snapshot.val();
             const validPassword = storedPass ? entered === storedPass : entered === "1234";
             if (validPassword) {
                 isAdmin = true;
                 showToast("Admin access granted");
-                // Now load or show setup
                 checkAndLoadTournament();
             } else {
                 alert("Wrong password. Reload to try again.");
@@ -67,10 +63,8 @@ function checkAndLoadTournament() {
     db.ref('tournament_data').once('value', (snapshot) => {
         const data = snapshot.val();
         if (data && data.teams && data.fixtures) {
-            // Tournament exists – load it
             loadTournamentData(data);
             if (userRole === 'viewer') {
-                // Hide admin UI
                 document.getElementById('admin-toggle-container')?.classList.add('hidden');
                 document.getElementById('admin-reset-container')?.classList.add('hidden');
                 document.getElementById('floating-admin-menu')?.classList.add('hidden');
@@ -80,54 +74,23 @@ function checkAndLoadTournament() {
                 document.getElementById('relegation-zone')?.classList.add('hidden');
             } else if (userRole === 'admin') {
                 document.getElementById('admin-toggle-container')?.classList.remove('hidden');
-                // Other admin elements shown via updateAdminUIElements later
             }
         } else {
-            // No tournament exists
             if (userRole === 'viewer') {
-                // Show friendly message in role selector
                 document.getElementById('dashboard-section')?.classList.add('hidden');
                 document.getElementById('setup-section')?.classList.add('hidden');
                 const roleSelector = document.getElementById('role-selector');
                 if (roleSelector) {
-                    roleSelector.innerHTML = `
-                        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center">
-                            <div class="mb-4">
-                                <div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                                    <span class="text-3xl">🏆</span>
-                                </div>
-                                <h2 class="text-2xl font-bold text-gray-800">No Tournament Yet</h2>
-                                <p class="text-gray-500 text-sm mt-1">An admin hasn't started a tournament.</p>
-                            </div>
-                            <button onclick="selectRole('admin')" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition">
-                                🔑 Switch to Admin to Create
-                            </button>
-                        </div>
-                    `;
+                    roleSelector.innerHTML = `<div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center">...</div>`;
                     roleSelector.style.display = 'flex';
                 }
             } else if (userRole === 'admin') {
-                // Show setup page for admin
-                const setupSection = document.getElementById('setup-section');
-                const dashboardSection = document.getElementById('dashboard-section');
-                const roleSelector = document.getElementById('role-selector');
-                if (setupSection) {
-                    setupSection.classList.remove('hidden');
-                    console.log('Setup section shown');
-                } else {
-                    console.error('Setup section not found');
-                }
-                if (dashboardSection) dashboardSection.classList.add('hidden');
-                if (roleSelector) roleSelector.remove();
-                // Ensure step-1 is visible and step-2 hidden
-                const step1 = document.getElementById('step-1');
-                const step2 = document.getElementById('step-2');
-                if (step1) step1.classList.remove('hidden');
-                if (step2) step2.classList.add('hidden');
-                // Clear any leftover team inputs
-                const container = document.getElementById('team-inputs-container');
-                if (container) container.innerHTML = '';
-                // Hide admin-only floating elements
+                document.getElementById('setup-section')?.classList.remove('hidden');
+                document.getElementById('dashboard-section')?.classList.add('hidden');
+                document.getElementById('role-selector')?.remove();
+                document.getElementById('step-1').classList.remove('hidden');
+                document.getElementById('step-2').classList.add('hidden');
+                document.getElementById('team-inputs-container').innerHTML = '';
                 document.getElementById('admin-toggle-container')?.classList.add('hidden');
                 document.getElementById('floating-admin-menu')?.classList.add('hidden');
                 showToast("Setup mode – create your tournament");
@@ -157,10 +120,8 @@ function loadTournamentData(data) {
     document.getElementById('deadline-clock')?.classList.remove('hidden');
     initBackToTop();
     startDeadlineClock();
-    initChatListener();
-    if (userRole === 'admin') {
-        updateAdminUIElements(); // shows admin buttons etc.
-    }
+    initWhatsAppChat(); // start the new chat
+    if (userRole === 'admin') updateAdminUIElements();
 }
 
 // ==================== HELPERS ====================
@@ -216,396 +177,203 @@ function generateRandomRoundRobin(teamNames) {
     return rounds;
 }
 
-// ==================== GLOBAL CHAT ROOM ====================
-// ==================== GLOBAL CHAT ROOM (with unread badge & typing) ====================
-function initChatListener() {
-    chatMessagesRef = db.ref('chat_messages');
-    chatMessagesRef.off();
-    chatMessagesRef.on('child_added', (snapshot) => {
-        const msg = snapshot.val();
-        appendChatMessage(msg);
+// ==================== TOURNAMENT SETUP ====================
+function generateTeamInputs() {
+    const count = parseInt(document.getElementById('team-count').value);
+    if (isNaN(count) || count < 2) { alert("Enter at least 2 teams"); return; }
+    const container = document.getElementById('team-inputs-container');
+    container.innerHTML = "";
+    for (let i = 1; i <= count; i++) { 
+        container.innerHTML += `<div class="bg-gray-50 p-3 rounded-xl border border-gray-200"><div class="flex items-center gap-2"><span class="bg-gray-200 text-gray-600 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">${i}</span><input type="text" id="team-input-${i}" placeholder="Club name" class="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm"></div></div>`; 
+    }
+    document.getElementById('step-1').classList.add('hidden');
+    document.getElementById('step-2').classList.remove('hidden');
+}
+
+function initializeTournament() {
+    const count = parseInt(document.getElementById('team-count').value);
+    const pass = document.getElementById('tournament-password').value.trim();
+    if (pass) tournamentPassword = pass;
+    let list = [];
+    for (let i = 1; i <= count; i++) { 
+        let name = document.getElementById(`team-input-${i}`).value.trim(); 
+        if (name === "") name = `Team ${i}`; 
+        list.push({ name }); 
+    }
+    if (list.length % 2 !== 0) list.push({ name: "BYE" });
+    teams = {};
+    list.forEach(item => { 
+        if (item.name !== "BYE") teams[item.name] = { 
+            name: item.name, mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0, 
+            deductedPoints: 0, formHistory: [], relegated: false 
+        }; 
     });
-    initTypingListener();
-    initPollListener();
-}
-
-function openChatModal() {
-    const modal = document.getElementById('chat-modal');
-    if (modal) {
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-        modal.style.display = 'flex';
-        const savedName = localStorage.getItem('chatNickname');
-        if (savedName) document.getElementById('chat-nickname').value = savedName;
-        const container = document.getElementById('chat-messages-container');
-        if (container) container.scrollTop = container.scrollHeight;
-        
-        // Mark all messages as read
-        isChatModalOpen = true;
-        lastReadTimestamp = Date.now();
-        localStorage.setItem('chatLastRead', lastReadTimestamp);
-        unreadMessagesCount = 0;
-        updateUnreadBadge();
-        
-        // Show poll create button for admin
-        const pollBtn = document.getElementById('create-poll-btn');
-        if (pollBtn) {
-            if (isAdmin) pollBtn.classList.remove('hidden');
-            else pollBtn.classList.add('hidden');
-        }
-    }
-}
-
-function closeChatModal() {
-    const modal = document.getElementById('chat-modal');
-    if (modal) {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-        modal.style.display = '';
-    }
-    isChatModalOpen = false;
-}
-
-function updateUnreadBadge() {
-    const badge = document.getElementById('chat-unread-badge');
-    if (badge) {
-        if (unreadMessagesCount > 0) {
-            badge.classList.remove('hidden');
-            badge.innerText = unreadMessagesCount > 99 ? '99+' : unreadMessagesCount;
-        } else {
-            badge.classList.add('hidden');
-        }
-    }
-}
-
-function sendTypingStatus() {
-    if (!userRole) return;
-    if (!isTyping) {
-        isTyping = true;
-        db.ref('chat_typing').set({ user: userRole === 'admin' ? 'Admin' : (localStorage.getItem('chatNickname') || 'Fan'), timestamp: Date.now() });
-    }
-    clearTimeout(typingTimeout);
-    typingTimeout = setTimeout(() => {
-        isTyping = false;
-        db.ref('chat_typing').remove();
-    }, 1500);
-}
-
-function initTypingListener() {
-    db.ref('chat_typing').on('value', (snapshot) => {
-        const data = snapshot.val();
-        const typingDiv = document.getElementById('chat-typing-indicator');
-        if (data && data.user) {
-            typingDiv.innerText = `${data.user} is typing...`;
-            typingDiv.classList.remove('hidden');
-        } else {
-            typingDiv.classList.add('hidden');
-        }
-    });
-}
-
-function appendChatMessage(msg) {
-    const container = document.getElementById('chat-messages-container');
-    if (!container) return;
-    if (container.children.length === 1 && container.children[0].innerText.includes('Loading')) {
-        container.innerHTML = '';
-    }
-    
-    // Handle poll messages (unchanged)
-    if (msg.isPoll && msg.pollId) {
-        renderPollMessage(msg.pollId);
-        return;
-    }
-    
-    const date = new Date(msg.timestamp).toLocaleString();
-    const currentNick = localStorage.getItem('chatNickname') || '';
-    const currentUserId = getCurrentUserId();
-    const isCurrentUser = (msg.userId === currentUserId);
-    const bubbleClass = isCurrentUser ? 'sent' : 'received';
-    
-    // Highlight mentions in message text
-    let formattedText = escapeHtml(msg.text);
-    // Replace @username with highlighted span (simple regex)
-    formattedText = formattedText.replace(/@(\w+)/g, '<span class="text-blue-600 font-semibold">@$1</span>');
-    
-    // Delete button: visible to admin or message owner
-    const canDelete = (isAdmin || isCurrentUser);
-    const deleteBtn = canDelete ? `<button onclick="deleteChatMessage('${msg.messageId}', '${msg.userId}')" class="chat-delete-btn" title="Delete">🗑️</button>` : '';
-    
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `chat-message ${bubbleClass}`;
-    messageDiv.innerHTML = `
-        <div class="bubble">
-            ${deleteBtn}
-            <p>${formattedText}</p>
-            <div class="message-meta">
-                <span class="message-author">${escapeHtml(msg.nickname)}</span>
-                <span class="message-time">${date}</span>
-            </div>
-        </div>
-    `;
-    container.appendChild(messageDiv);
-    container.scrollTop = container.scrollHeight;
-    
-    // Unread logic (unchanged)
-    if (!isChatModalOpen && !isCurrentUser && msg.timestamp > lastReadTimestamp) {
-        unreadMessagesCount++;
-        updateUnreadBadge();
-    }
-}
-
-// Keep your existing sendChatMessage, deleteChatMessage, etc. unchanged
-function sendChatMessage() {
-    const nicknameInput = document.getElementById('chat-nickname');
-    let nickname = nicknameInput.value.trim();
-    if (nickname === "") { alert("Please enter your name"); return; }
-    const text = document.getElementById('chat-input').value.trim();
-    if (text === "") return;
-    
-    localStorage.setItem('chatNickname', nickname);
-    const userId = getCurrentUserId();
-    
-    const message = {
-        nickname: nickname.slice(0,20),
-        text: text.slice(0,200),
-        timestamp: Date.now(),
-        userId: userId,
-        messageId: Date.now() + '_' + Math.random().toString(36).substr(2, 6)
-    };
-    
-    if (chatMessagesRef) {
-        chatMessagesRef.push(message);
-        document.getElementById('chat-input').value = '';
-        hideMentionDropdown();
-    } else {
-        showToast("Chat not ready, try again");
-    }
-}
-
-function deleteChatMessage(messageId, messageUserId) {
-    const currentUserId = getCurrentUserId();
-    if (!isAdmin && currentUserId !== messageUserId) {
-        showToast("You can only delete your own messages");
-        return;
-    }
-    chatMessagesRef.orderByChild('messageId').equalTo(messageId).once('value', snapshot => {
-        snapshot.forEach(child => {
-            child.ref.remove();
-            showToast("Message deleted");
-        });
-    });
-}
-
-function onChatInput() {
-    const input = document.getElementById('chat-input');
-    const value = input.value;
-    const cursorPos = input.selectionStart;
-    const textBeforeCursor = value.slice(0, cursorPos);
-    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
-    
-    if (lastAtIndex !== -1 && (lastAtIndex === 0 || value[lastAtIndex-1] === ' ')) {
-        currentMentionText = textBeforeCursor.slice(lastAtIndex + 1);
-        showMentionSuggestions(currentMentionText);
-    } else {
-        hideMentionDropdown();
-    }
-    
-    // Typing indicator (existing)
-    sendTypingStatus();
-}
-
-function showMentionSuggestions(query) {
-    const allNicknames = new Set();
-    allNicknames.add(localStorage.getItem('chatNickname') || '');
-    const container = document.getElementById('chat-messages-container');
-    const nicknames = new Set();
-    document.querySelectorAll('#chat-messages-container .message-author').forEach(el => {
-        nicknames.add(el.innerText);
-    });
-    nicknames.add(localStorage.getItem('chatNickname'));
-    const filtered = Array.from(nicknames).filter(n => n.toLowerCase().includes(query.toLowerCase()));
-    const dropdown = document.getElementById('mention-dropdown');
-    if (filtered.length === 0) {
-        dropdown.classList.add('hidden');
-        return;
-    }
-    dropdown.innerHTML = filtered.map(n => `<div class="mention-item px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm" data-name="${n}">@${n}</div>`).join('');
-    dropdown.classList.remove('hidden');
-    // Position dropdown near cursor (simplified: below input)
-    const input = document.getElementById('chat-input');
-    const rect = input.getBoundingClientRect();
-    dropdown.style.bottom = `${window.innerHeight - rect.top + 5}px`;
-    dropdown.style.left = `${rect.left}px`;
-    
-    // Attach click handlers
-    document.querySelectorAll('.mention-item').forEach(item => {
-        item.onclick = () => {
-            const name = item.dataset.name;
-            insertMention(name);
-        };
-    });
-}
-
-function insertMention(name) {
-    const input = document.getElementById('chat-input');
-    const value = input.value;
-    const cursorPos = input.selectionStart;
-    const lastAtIndex = value.lastIndexOf('@', cursorPos-1);
-    if (lastAtIndex !== -1) {
-        const newValue = value.slice(0, lastAtIndex) + `@${name} ` + value.slice(cursorPos);
-        input.value = newValue;
-        input.focus();
-        input.selectionStart = input.selectionEnd = lastAtIndex + name.length + 2;
-    }
-    hideMentionDropdown();
-}
-
-function hideMentionDropdown() {
-    document.getElementById('mention-dropdown').classList.add('hidden');
-}
-
-// ==================== POLLS ====================
-function initPollListener() {
-    db.ref('chat_polls').on('child_changed', (snapshot) => {
-        const poll = snapshot.val();
-        if (poll) updatePollUI(poll.id);
-    });
-}
-
-function openPollModal() {
-    if (!isAdmin) return;
-    document.getElementById('poll-modal').classList.remove('hidden');
-    document.getElementById('poll-modal').classList.add('flex');
-}
-
-function closePollModal() {
-    document.getElementById('poll-modal').classList.add('hidden');
-    document.getElementById('poll-modal').classList.remove('flex');
-}
-
-function addPollOption() {
-    const container = document.getElementById('poll-options-container');
-    const div = document.createElement('div');
-    div.className = 'flex gap-2 mb-2';
-    div.innerHTML = `<input type="text" placeholder="Option" class="poll-option flex-1 bg-gray-50 border rounded-lg p-2"><button onclick="removePollOption(this)" class="text-red-500">✖</button>`;
-    container.appendChild(div);
-}
-
-function removePollOption(btn) {
-    btn.parentElement.remove();
-}
-
-function createPoll() {
-    const question = document.getElementById('poll-question').value.trim();
-    if (!question) { alert("Enter a question"); return; }
-    const options = Array.from(document.querySelectorAll('.poll-option')).map(inp => inp.value.trim()).filter(v => v);
-    if (options.length < 2) { alert("At least 2 options"); return; }
-    const pollId = Date.now();
-    const poll = {
-        id: pollId,
-        question: question,
-        options: options.map(opt => ({ text: opt, votes: 0 })),
-        totalVotes: 0,
-        voters: {},
-        createdAt: Date.now()
-    };
-    db.ref(`chat_polls/${pollId}`).set(poll);
-    // Announce poll in chat
-    const msg = {
-        nickname: "System",
-        text: `📊 New poll: ${question}`,
-        timestamp: Date.now(),
-        userId: `poll_${pollId}`,
-        isPoll: true,
-        pollId: pollId
-    };
-    db.ref('chat_messages').push(msg);
-    closePollModal();
-    document.getElementById('poll-question').value = '';
-    document.getElementById('poll-options-container').innerHTML = `
-        <div class="flex gap-2 mb-2"><input type="text" placeholder="Option 1" class="poll-option flex-1 bg-gray-50 border rounded-lg p-2"><button onclick="removePollOption(this)" class="text-red-500">✖</button></div>
-        <div class="flex gap-2 mb-2"><input type="text" placeholder="Option 2" class="poll-option flex-1 bg-gray-50 border rounded-lg p-2"><button onclick="removePollOption(this)" class="text-red-500">✖</button></div>
-    `;
-}
-
-function votePoll(pollId, optionIndex) {
-    const nickname = localStorage.getItem('chatNickname') || 'Fan';
-    db.ref(`chat_polls/${pollId}/voters/${nickname}`).once('value', snap => {
-        if (snap.exists()) { showToast("You already voted"); return; }
-        db.ref(`chat_polls/${pollId}/options/${optionIndex}/votes`).transaction(votes => (votes || 0) + 1);
-        db.ref(`chat_polls/${pollId}/totalVotes`).transaction(total => (total || 0) + 1);
-        db.ref(`chat_polls/${pollId}/voters/${nickname}`).set(true);
-        showToast("Vote cast!");
-    });
-}
-
-function renderPollMessage(pollId) {
-    db.ref(`chat_polls/${pollId}`).once('value', (snapshot) => {
-        const poll = snapshot.val();
-        if (!poll) return;
-        const container = document.getElementById('chat-messages-container');
-        const pollDiv = document.createElement('div');
-        pollDiv.className = 'poll-card bg-white rounded-lg p-3 shadow my-2 border relative';
-        pollDiv.id = `poll-${poll.id}`;
-        
-        // Delete button for admin
-        const deleteBtn = isAdmin ? `<button onclick="deletePoll('${poll.id}')" class="absolute top-2 right-2 text-red-500 hover:text-red-700 text-xs bg-white rounded-full p-1 shadow">🗑️</button>` : '';
-        
-        pollDiv.innerHTML = `
-            ${deleteBtn}
-            <p class="font-bold">📊 ${escapeHtml(poll.question)}</p>
-            <div class="space-y-2 mt-2" id="poll-options-${poll.id}"></div>
-            <div class="text-xs text-gray-500 mt-2">${poll.totalVotes || 0} vote(s)</div>
-        `;
-        container.appendChild(pollDiv);
-        updatePollUI(poll.id);
-    });
-}
-
-function updatePollUI(pollId) {
-    db.ref(`chat_polls/${pollId}`).once('value', (snapshot) => {
-        const poll = snapshot.val();
-        if (!poll) return;
-        const optionsContainer = document.getElementById(`poll-options-${pollId}`);
-        if (!optionsContainer) return;
-        optionsContainer.innerHTML = '';
-        const total = poll.totalVotes || 1;
-        poll.options.forEach((opt, idx) => {
-            const percent = ((opt.votes || 0) / total) * 100;
-            optionsContainer.innerHTML += `
-                <div class="flex items-center justify-between gap-2 text-sm">
-                    <span class="flex-1">${escapeHtml(opt.text)}</span>
-                    <span class="w-16 text-right">${opt.votes || 0}</span>
-                    <div class="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div class="h-full bg-emerald-500 rounded-full" style="width: ${percent}%"></div>
-                    </div>
-                    <button onclick="votePoll(${pollId}, ${idx})" class="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full hover:bg-indigo-200">Vote</button>
-                </div>
-            `;
-        });
-        const totalSpan = optionsContainer.parentElement?.querySelector('.text-xs');
-        if (totalSpan) totalSpan.innerText = `${poll.totalVotes || 0} vote(s)`;
-    });
-}
-
-function deletePoll(pollId) {
-    if (!isAdmin) return;
-    if (confirm("Delete this poll permanently?")) {
-        // Remove poll data
-        db.ref(`chat_polls/${pollId}`).remove();
-        // Also remove the corresponding announcement message in chat_messages
-        db.ref('chat_messages').orderByChild('pollId').equalTo(pollId).once('value', (snapshot) => {
-            snapshot.forEach(child => {
-                child.ref.remove();
+    const teamNames = Object.keys(teams);
+    const rounds = generateRandomRoundRobin(teamNames);
+    fixtures = [];
+    let fixtureId = 0;
+    rounds.forEach((roundFixtures, roundIndex) => {
+        roundFixtures.forEach(({ home, away }) => {
+            fixtures.push({ 
+                id: fixtureId++, round: roundIndex + 1, home, away,
+                homeScore: null, awayScore: null, played: false, cancelled: false,
+                comment: null, predictions: [], banter: [], events: [], report: null, deadline: null
             });
         });
-        // Remove the poll card from UI
-        const pollCard = document.getElementById(`poll-${pollId}`);
-        if (pollCard) pollCard.remove();
-        showToast("Poll deleted");
-    }
+    });
+    tournamentPhase = 'league';
+    knockoutMatches = [];
+    roundStartTimes = {};
+    autoStartNextRound = false;
+    currentSelectedRound = 1;
+    saveToStorage();
+    showToast(`Tournament launched with ${count} teams!`);
 }
-// ==================== TIME LIMIT (ADMIN‑CONTROLLED) ====================
+
+// ==================== FIXTURE MANAGEMENT ====================
+function shuffleRound(roundNumber) {
+    if (!isAdmin) return;
+    const roundFixtures = fixtures.filter(f => f.round === roundNumber);
+    if (!roundFixtures.length) return;
+    const teamsInRound = [];
+    roundFixtures.forEach(f => { if (f.home !== 'BYE') teamsInRound.push(f.home); if (f.away !== 'BYE') teamsInRound.push(f.away); });
+    let uniqueTeams = [...new Set(teamsInRound)];
+    for (let i = uniqueTeams.length - 1; i > 0; i--) { 
+        const j = Math.floor(Math.random() * (i + 1)); 
+        [uniqueTeams[i], uniqueTeams[j]] = [uniqueTeams[j], uniqueTeams[i]]; 
+    }
+    const newPairs = [];
+    for (let i = 0; i < uniqueTeams.length; i += 2) { 
+        if (i + 1 < uniqueTeams.length) { 
+            if (Math.random() < 0.5) newPairs.push({ home: uniqueTeams[i], away: uniqueTeams[i+1] }); 
+            else newPairs.push({ home: uniqueTeams[i+1], away: uniqueTeams[i] }); 
+        } 
+    }
+    roundFixtures.forEach((f, idx) => { 
+        if (idx < newPairs.length) { 
+            f.home = newPairs[idx].home; f.away = newPairs[idx].away; 
+            f.homeScore = null; f.awayScore = null; f.played = false; f.comment = null; f.cancelled = false; 
+        } 
+    });
+    saveToStorage(); 
+    showToast(`Round ${roundNumber} shuffled!`); 
+    renderGameweekTabs(); renderFixtures(); renderTable(); generateTickerFacts();
+}
+
+function swapFixture(fixtureId) { 
+    if (!isAdmin) return; 
+    const f = fixtures.find(f => f.id === fixtureId); 
+    [f.home, f.away] = [f.away, f.home]; 
+    f.homeScore = null; f.awayScore = null; f.played = false; f.comment = null; f.cancelled = false; 
+    saveToStorage(); 
+    showToast(`Swapped ${f.home} vs ${f.away}`); 
+    renderFixtures(); renderTable(); generateTickerFacts(); 
+}
+
+function editFixtureTeamName(fixtureId, side) { 
+    if (!isAdmin) return; 
+    const fixture = fixtures.find(f => f.id === fixtureId); 
+    const dropdown = document.getElementById('team-select-dropdown'); 
+    dropdown.innerHTML = '<option value="">— Cancel / No change —</option>'; 
+    const otherSide = side === 'home' ? fixture.away : fixture.home; 
+    const teamNames = Object.values(teams).filter(t => !t.relegated).map(t => t.name).sort(); 
+    teamNames.forEach(name => { 
+        if (name !== otherSide) { 
+            const opt = document.createElement('option'); 
+            opt.value = name; opt.textContent = name; 
+            dropdown.appendChild(opt); 
+        } 
+    }); 
+    const byeOpt = document.createElement('option'); 
+    byeOpt.value = 'BYE_REMOVE'; 
+    byeOpt.textContent = '— Remove team (set to BYE) —'; 
+    dropdown.appendChild(byeOpt); 
+    pendingAssignFixtureId = fixtureId; 
+    pendingAssignSide = side; 
+    document.getElementById('team-select-modal').classList.remove('hidden'); 
+}
+
+function closeTeamSelectModal() { 
+    document.getElementById('team-select-modal').classList.add('hidden'); 
+    pendingAssignFixtureId = null; 
+    pendingAssignSide = null; 
+}
+
+function confirmTeamSelection() {
+    if (pendingAssignFixtureId === null) return;
+    const selected = document.getElementById('team-select-dropdown').value;
+    if (selected === '') { closeTeamSelectModal(); return; }
+    const fixture = fixtures.find(f => f.id === pendingAssignFixtureId);
+    const side = pendingAssignSide;
+    if (selected === 'BYE_REMOVE') {
+        if (side === 'home') fixture.home = 'BYE'; else fixture.away = 'BYE';
+        fixture.homeScore = null; fixture.awayScore = null; fixture.played = false; fixture.comment = null; fixture.cancelled = false;
+        delete fixture.vacantHome; delete fixture.vacantAway;
+        saveToStorage(); showToast(`Removed team, set to BYE`); 
+        renderFixtures(); renderTable(); generateTickerFacts(); closeTeamSelectModal();
+        return;
+    }
+    const newTeam = selected;
+    const oldTeam = side === 'home' ? fixture.home : fixture.away;
+    if (newTeam === oldTeam) { closeTeamSelectModal(); return; }
+    if (teams[newTeam]?.relegated) { showToast(`Cannot assign a relegated team.`); closeTeamSelectModal(); return; }
+    const round = fixture.round;
+    const otherFixtures = fixtures.filter(f => f.round === round && f.id !== fixture.id);
+    if (otherFixtures.some(f => f.home === newTeam || f.away === newTeam)) { 
+        showToast(`Team "${newTeam}" already has a fixture in this round!`); 
+        closeTeamSelectModal(); return; 
+    }
+    if (side === 'home') { fixture.home = newTeam; delete fixture.vacantHome; }
+    else { fixture.away = newTeam; delete fixture.vacantAway; }
+    fixture.homeScore = null; fixture.awayScore = null; fixture.played = false; fixture.comment = null; fixture.cancelled = false;
+    saveToStorage(); showToast(`Assigned ${newTeam} to ${side} side.`); 
+    renderFixtures(); renderTable(); generateTickerFacts(); closeTeamSelectModal();
+}
+
+// ==================== ADMIN: START ROUND ====================
+function startRound(roundNumber) {
+    if (!isAdmin) return;
+    const now = Date.now();
+    let activeRoundExists = false;
+    for (let r in roundStartTimes) {
+        if (roundStartTimes[r] && parseInt(r) !== roundNumber) {
+            const deadline = roundStartTimes[r] + 2 * 24 * 60 * 60 * 1000;
+            const roundFixtures = fixtures.filter(f => f.round === parseInt(r) && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
+            const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
+            if (!allResolved && now < deadline) {
+                activeRoundExists = true;
+                break;
+            }
+        }
+    }
+    if (activeRoundExists) {
+        showToast("Cannot start a new round – another round is still active!");
+        return;
+    }
+    if (roundStartTimes[roundNumber] && roundStartTimes[roundNumber] !== null) {
+        showToast(`Round ${roundNumber} already started!`);
+        return;
+    }
+    roundStartTimes[roundNumber] = Date.now();
+    saveToStorage();
+    renderGameweekTabs();
+    renderFixtures();
+    showToast(`⏱️ Round ${roundNumber} started! 2‑day deadline begins now.`);
+}
+
+function stopRound(roundNumber) {
+    if (!isAdmin) return;
+    if (!roundStartTimes[roundNumber]) {
+        showToast(`Round ${roundNumber} hasn't started yet.`);
+        return;
+    }
+    delete roundStartTimes[roundNumber];
+    saveToStorage();
+    renderGameweekTabs();
+    renderFixtures();
+    showToast(`⏹️ Round ${roundNumber} timer stopped. You can start it again later.`);
+}
+
 function expireOldFixtures() {
     const now = Date.now();
     let changed = false;
@@ -653,299 +421,48 @@ function expireOldFixtures() {
     }
 }
 
-// ==================== DATABASE + LIVE ALERTS + CHAT ====================
-function initRealtimeDatabaseSync() {
-    // Listen for changes to tournament data to keep UI updated
-    db.ref('tournament_data').on('value', (snapshot) => {
-        if (snapshot.exists() && userRole) {
-            loadTournamentData(snapshot.val());
-        } else if (!snapshot.exists() && userRole === 'admin') {
-            // No tournament exists – show setup for admin
-            document.getElementById('setup-section')?.classList.remove('hidden');
-            document.getElementById('dashboard-section')?.classList.add('hidden');
-            document.getElementById('deadline-clock')?.classList.add('hidden');
-        } else if (!snapshot.exists() && userRole === 'viewer') {
-            // No tournament exists – show friendly message
-            document.getElementById('dashboard-section')?.classList.add('hidden');
-            document.getElementById('setup-section')?.classList.add('hidden');
-            document.getElementById('role-selector').innerHTML = `
-                <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center">
-                    <div class="mb-4">
-                        <div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <span class="text-3xl">🏆</span>
-                        </div>
-                        <h2 class="text-2xl font-bold text-gray-800">No Tournament Yet</h2>
-                        <p class="text-gray-500 text-sm mt-1">An admin hasn't started a tournament.</p>
-                    </div>
-                    <button onclick="selectRole('admin')" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition">
-                        🔑 Switch to Admin to Create
-                    </button>
-                </div>
-            `;
-        }
-    });
-
-    // Live alerts for fixture changes (only for admin or if you want viewers to see results)
-    db.ref('tournament_data/fixtures').on('child_changed', (snapshot) => {
-        const updated = snapshot.val();
-        if (updated && updated.played === true && updated.homeScore !== null) {
-            showToast(`📢 Result: ${updated.home} ${updated.homeScore}-${updated.awayScore} ${updated.away}`);
-        }
-    });
-
-    // Global chat listener (only if user role is selected)
-    if (userRole) {
-        initChatListener();
-    }
-}
-
-// ==================== BACK TO TOP ====================
-function initBackToTop() {
-    const backBtn = document.getElementById('backToTop');
-    if (!backBtn) return;
-    window.addEventListener('scroll', () => {
-        if (window.scrollY > 300) backBtn.classList.remove('hidden');
-        else backBtn.classList.add('hidden');
-    });
-    backBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
-}
-
-// ==================== TICKER ====================
-function updateTickerFacts() {
-    if (!tickerFacts.length) return;
-    const el = document.getElementById('news-ticker');
-    if (!el) return;
-    el.classList.add('slide-out');
-    setTimeout(() => {
-        currentTickerFactIndex = (currentTickerFactIndex + 1) % tickerFacts.length;
-        el.innerHTML = `<span class="inline-flex items-center gap-2"><span class="w-2 h-2 bg-white rounded-full animate-pulse"></span> ${tickerFacts[currentTickerFactIndex]}</span>`;
-        el.classList.remove('slide-out');
-        el.classList.add('slide-in');
-        setTimeout(() => el.classList.remove('slide-in'), 500);
-    }, 500);
-}
-function generateTickerFacts() {
-    const activeTeams = Object.values(teams).filter(t => !t.relegated);
-    const totalTeams = activeTeams.length;
-    const totalMatchesPlayed = fixtures.filter(f => f.played && !teams[f.home]?.relegated && !teams[f.away]?.relegated).length;
-    const totalMatches = fixtures.filter(f => !teams[f.home]?.relegated && !teams[f.away]?.relegated).length;
-    let leader = null, topScorer = null, biggestWin = null;
-    if (totalTeams) {
-        const sorted = activeTeams.sort((a, b) => b.pts - a.pts || b.gd - a.gd);
-        if (sorted.length) leader = sorted[0];
-        const sortedGF = activeTeams.sort((a, b) => b.gf - a.gf);
-        if (sortedGF.length) topScorer = sortedGF[0];
-    }
-    fixtures.forEach(f => { if (f.played && f.homeScore !== null && !teams[f.home]?.relegated && !teams[f.away]?.relegated) { const total = f.homeScore + f.awayScore; if (!biggestWin || total > biggestWin.total) biggestWin = { home: f.home, away: f.away, homeScore: f.homeScore, awayScore: f.awayScore, total }; } });
-    tickerFacts = [`🏆 DLS Vawulence Academy Hub`, `⚽ ${totalTeams} teams`, `📊 ${totalMatchesPlayed}/${totalMatches} played`, leader ? `👑 Leader: ${leader.name} (${leader.pts} pts)` : null, topScorer ? `🔥 Top scorer: ${topScorer.name} (${topScorer.gf} goals)` : null, biggestWin ? `🎯 Biggest win: ${biggestWin.home} ${biggestWin.homeScore}-${biggestWin.awayScore} ${biggestWin.away}` : null, `🔮 Predict matches & post banter!`].filter(f => f);
-    if (tickerFacts.length) {
-        const el = document.getElementById('news-ticker');
-        if (el) el.innerHTML = `<span class="inline-flex items-center gap-2"><span class="w-2 h-2 bg-white rounded-full animate-pulse"></span> ${tickerFacts[0]}</span>`;
-        currentTickerFactIndex = 0;
-        if (tickerInterval) clearInterval(tickerInterval);
-        tickerInterval = setInterval(updateTickerFacts, 6000);
-    }
-}
-
-// ==================== ADMIN MODE ====================
-function handleAdminToggleClick() { if (!isAdmin) { document.getElementById('admin-password-input').value = ""; document.getElementById('password-error').classList.add('hidden'); document.getElementById('password-modal').classList.remove('hidden'); } else deactivateAdminMode(); }
-function closePasswordModal() { document.getElementById('password-modal').classList.add('hidden'); }
-function verifyAdminPassword() { const val = document.getElementById('admin-password-input').value; if (val === tournamentPassword) { closePasswordModal(); activateAdminMode(); } else document.getElementById('password-error').classList.remove('hidden'); }
-function activateAdminMode() { isAdmin = true; updateAdminUIElements(); showToast("Admin mode ACTIVE"); }
-function deactivateAdminMode() { isAdmin = false; updateAdminUIElements(); showToast("Admin mode deactivated"); }
-function updateAdminUIElements() {
-    const btn = document.getElementById('admin-btn'), dot = document.getElementById('admin-btn-dot'), statusText = document.getElementById('admin-status-text'), resetContainer = document.getElementById('admin-reset-container'), thActions = document.getElementById('th-admin-actions'), hint = document.getElementById('admin-table-hint'), relegationZone = document.getElementById('relegation-zone');
-    const autoStartContainer = document.getElementById('auto-start-container');
-    if (autoStartContainer) { if (isAdmin) autoStartContainer.classList.remove('hidden'); else autoStartContainer.classList.add('hidden'); }
-    const floatMenu = document.getElementById('floating-admin-menu');
-    if (isAdmin) {
-        btn?.classList.replace('bg-gray-300', 'bg-indigo-600'); dot?.classList.replace('translate-x-0', 'translate-x-5');
-        if (statusText) { statusText.innerText = "⚡ ADMIN MODE"; statusText.classList.replace('text-gray-600', 'text-indigo-600'); }
-        if (resetContainer) resetContainer.classList.remove('hidden'); if (thActions) thActions.classList.remove('hidden'); if (hint) hint.classList.remove('hidden');
-        if (relegationZone) relegationZone.classList.remove('hidden');
-        if (floatMenu) floatMenu.classList.remove('hidden');
-        renderRelegatedTeams();
-    } else {
-        btn?.classList.replace('bg-indigo-600', 'bg-gray-300'); dot?.classList.replace('translate-x-5', 'translate-x-0');
-        if (statusText) { statusText.innerText = "🔒 READ ONLY"; statusText.classList.replace('text-indigo-600', 'text-gray-600'); }
-        if (resetContainer) resetContainer.classList.add('hidden'); if (thActions) thActions.classList.add('hidden'); if (hint) hint.classList.add('hidden');
-        if (relegationZone) relegationZone.classList.add('hidden');
-        if (floatMenu) floatMenu.classList.add('hidden');
-    }
-    renderTable(); renderGameweekTabs(); renderFixtures();
-}
-function toggleAutoStart() {
-    if (!isAdmin) return;
-    autoStartNextRound = !autoStartNextRound;
-    const btn = document.getElementById('auto-start-toggle');
-    const dot = document.getElementById('auto-start-dot');
-    if (autoStartNextRound) { btn.classList.replace('bg-gray-300', 'bg-indigo-600'); dot.classList.replace('translate-x-0', 'translate-x-4'); showToast("Auto‑start enabled"); }
-    else { btn.classList.replace('bg-indigo-600', 'bg-gray-300'); dot.classList.replace('translate-x-4', 'translate-x-0'); showToast("Auto‑start disabled"); }
-    saveToStorage();
-}
-
-// ==================== PASSWORD CHANGE ====================
-function openChangePasswordModal() { if (!isAdmin) return; document.getElementById('new-password').value = ''; document.getElementById('confirm-password').value = ''; document.getElementById('password-match-error').classList.add('hidden'); document.getElementById('change-password-modal').classList.remove('hidden'); }
-function closeChangePasswordModal() { document.getElementById('change-password-modal').classList.add('hidden'); }
-function updateMasterPassword() { const newPass = document.getElementById('new-password').value.trim(), confirmPass = document.getElementById('confirm-password').value.trim(); if (!newPass) { showToast('Password cannot be empty'); return; } if (newPass !== confirmPass) { document.getElementById('password-match-error').classList.remove('hidden'); return; } tournamentPassword = newPass; saveToStorage(); showToast('Master password updated!'); closeChangePasswordModal(); }
-
-// ==================== ADVANCED PENALTY ====================
-function openPenaltyModal(teamName) { if (!isAdmin) return; currentPenaltyTeam = teamName; const team = teams[teamName]; document.getElementById('penalty-team-name').innerText = teamName; document.getElementById('current-penalty').innerText = team.deductedPoints || 0; document.getElementById('penalty-modal').classList.remove('hidden'); }
-function closePenaltyModal() { document.getElementById('penalty-modal').classList.add('hidden'); currentPenaltyTeam = null; }
-function adjustPenalty(delta) { if (!currentPenaltyTeam) return; const team = teams[currentPenaltyTeam]; let newVal = (team.deductedPoints || 0) + delta; if (newVal < 0) newVal = 0; team.deductedPoints = newVal; document.getElementById('current-penalty').innerText = newVal; saveToStorage(); renderTable(); showToast(`${currentPenaltyTeam} penalty now ${newVal} pts`); }
-function clearPenaltyPoints() { if (!currentPenaltyTeam) return; teams[currentPenaltyTeam].deductedPoints = 0; document.getElementById('current-penalty').innerText = "0"; saveToStorage(); renderTable(); showToast(`Penalty cleared for ${currentPenaltyTeam}`); closePenaltyModal(); }
-
-// ==================== TOURNAMENT SETUP ====================
-function generateTeamInputs() {
-    const count = parseInt(document.getElementById('team-count').value);
-    if (isNaN(count) || count < 2) { alert("Enter at least 2 teams"); return; }
-    const container = document.getElementById('team-inputs-container');
-    container.innerHTML = "";
-    for (let i = 1; i <= count; i++) { container.innerHTML += `<div class="bg-gray-50 p-3 rounded-xl border border-gray-200"><div class="flex items-center gap-2"><span class="bg-gray-200 text-gray-600 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">${i}</span><input type="text" id="team-input-${i}" placeholder="Club name" class="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm"></div></div>`; }
-    document.getElementById('step-1').classList.add('hidden');
-    document.getElementById('step-2').classList.remove('hidden');
-}
-function initializeTournament() {
-    const count = parseInt(document.getElementById('team-count').value);
-    const pass = document.getElementById('tournament-password').value.trim();
-    if (pass) tournamentPassword = pass;
-    let list = [];
-    for (let i = 1; i <= count; i++) { let name = document.getElementById(`team-input-${i}`).value.trim(); if (name === "") name = `Team ${i}`; list.push({ name }); }
-    if (list.length % 2 !== 0) list.push({ name: "BYE" });
-    teams = {};
-    list.forEach(item => { if (item.name !== "BYE") teams[item.name] = { name: item.name, mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0, deductedPoints: 0, formHistory: [], relegated: false }; });
-    const teamNames = Object.keys(teams);
-    const rounds = generateRandomRoundRobin(teamNames);
-    fixtures = [];
-    let fixtureId = 0;
-    rounds.forEach((roundFixtures, roundIndex) => {
-        roundFixtures.forEach(({ home, away }) => {
-            fixtures.push({ id: fixtureId++, round: roundIndex + 1, home, away, homeScore: null, awayScore: null, played: false, cancelled: false, comment: null, predictions: [], banter: [], events: [], report: null, deadline: null });
-        });
-    });
-    tournamentPhase = 'league';
-    knockoutMatches = [];
-    roundStartTimes = {};
-    autoStartNextRound = false;
-    currentSelectedRound = 1;
-    saveToStorage();
-    showToast(`Tournament launched with ${count} teams!`);
-}
-
-// ==================== ADMIN: START ROUND ====================
-function startRound(roundNumber) {
-    if (!isAdmin) return;
-    const now = Date.now();
-    let activeRoundExists = false;
-    for (let r in roundStartTimes) {
-        if (roundStartTimes[r] && parseInt(r) !== roundNumber) {
-            const deadline = roundStartTimes[r] + 2 * 24 * 60 * 60 * 1000;
-            const roundFixtures = fixtures.filter(f => f.round === parseInt(r) && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
-            const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
-            if (!allResolved && now < deadline) {
-                activeRoundExists = true;
-                break;
-            }
-        }
-    }
-    if (activeRoundExists) {
-        showToast("Cannot start a new round – another round is still active!");
-        return;
-    }
-    if (roundStartTimes[roundNumber] && roundStartTimes[roundNumber] !== null) {
-        showToast(`Round ${roundNumber} already started!`);
-        return;
-    }
-    roundStartTimes[roundNumber] = Date.now();
-    saveToStorage();
-    renderGameweekTabs();
-    renderFixtures();
-    showToast(`⏱️ Round ${roundNumber} started! 2‑day deadline begins now.`);
-}
-
-// ==================== ADMIN: STOP ROUND TIMER ====================
-function stopRound(roundNumber) {
-    if (!isAdmin) return;
-    if (!roundStartTimes[roundNumber]) {
-        showToast(`Round ${roundNumber} hasn't started yet.`);
-        return;
-    }
-    delete roundStartTimes[roundNumber];
-    saveToStorage();
-    renderGameweekTabs();
-    renderFixtures();
-    showToast(`⏹️ Round ${roundNumber} timer stopped. You can start it again later.`);
-}
-
-// ==================== FIXTURE MANAGEMENT ====================
-function shuffleRound(roundNumber) {
-    if (!isAdmin) return;
-    const roundFixtures = fixtures.filter(f => f.round === roundNumber);
-    if (!roundFixtures.length) return;
-    const teamsInRound = [];
-    roundFixtures.forEach(f => { if (f.home !== 'BYE') teamsInRound.push(f.home); if (f.away !== 'BYE') teamsInRound.push(f.away); });
-    let uniqueTeams = [...new Set(teamsInRound)];
-    for (let i = uniqueTeams.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [uniqueTeams[i], uniqueTeams[j]] = [uniqueTeams[j], uniqueTeams[i]]; }
-    const newPairs = [];
-    for (let i = 0; i < uniqueTeams.length; i += 2) { if (i + 1 < uniqueTeams.length) { if (Math.random() < 0.5) newPairs.push({ home: uniqueTeams[i], away: uniqueTeams[i + 1] }); else newPairs.push({ home: uniqueTeams[i + 1], away: uniqueTeams[i] }); } }
-    roundFixtures.forEach((f, idx) => { if (idx < newPairs.length) { f.home = newPairs[idx].home; f.away = newPairs[idx].away; f.homeScore = null; f.awayScore = null; f.played = false; f.comment = null; f.cancelled = false; } });
-    saveToStorage(); showToast(`Round ${roundNumber} shuffled!`); renderGameweekTabs(); renderFixtures(); renderTable(); generateTickerFacts();
-}
-function swapFixture(fixtureId) { if (!isAdmin) return; const f = fixtures.find(f => f.id === fixtureId); [f.home, f.away] = [f.away, f.home]; f.homeScore = null; f.awayScore = null; f.played = false; f.comment = null; f.cancelled = false; saveToStorage(); showToast(`Swapped ${f.home} vs ${f.away}`); renderFixtures(); renderTable(); generateTickerFacts(); }
-function editFixtureTeamName(fixtureId, side) { if (!isAdmin) return; const fixture = fixtures.find(f => f.id === fixtureId); const dropdown = document.getElementById('team-select-dropdown'); dropdown.innerHTML = '<option value="">— Cancel / No change —</option>'; const otherSide = side === 'home' ? fixture.away : fixture.home; const teamNames = Object.values(teams).filter(t => !t.relegated).map(t => t.name).sort(); teamNames.forEach(name => { if (name !== otherSide) { const opt = document.createElement('option'); opt.value = name; opt.textContent = name; dropdown.appendChild(opt); } }); const byeOpt = document.createElement('option'); byeOpt.value = 'BYE_REMOVE'; byeOpt.textContent = '— Remove team (set to BYE) —'; dropdown.appendChild(byeOpt); pendingAssignFixtureId = fixtureId; pendingAssignSide = side; document.getElementById('team-select-modal').classList.remove('hidden'); }
-function closeTeamSelectModal() { document.getElementById('team-select-modal').classList.add('hidden'); pendingAssignFixtureId = null; pendingAssignSide = null; }
-function confirmTeamSelection() {
-    if (pendingAssignFixtureId === null) return;
-    const selected = document.getElementById('team-select-dropdown').value;
-    if (selected === '') { closeTeamSelectModal(); return; }
-    const fixture = fixtures.find(f => f.id === pendingAssignFixtureId);
-    const side = pendingAssignSide;
-    if (selected === 'BYE_REMOVE') {
-        if (side === 'home') fixture.home = 'BYE'; else fixture.away = 'BYE';
-        fixture.homeScore = null; fixture.awayScore = null; fixture.played = false; fixture.comment = null; fixture.cancelled = false;
-        delete fixture.vacantHome; delete fixture.vacantAway;
-        saveToStorage(); showToast(`Removed team, set to BYE`); renderFixtures(); renderTable(); generateTickerFacts(); closeTeamSelectModal();
-        return;
-    }
-    const newTeam = selected;
-    const oldTeam = side === 'home' ? fixture.home : fixture.away;
-    if (newTeam === oldTeam) { closeTeamSelectModal(); return; }
-    if (teams[newTeam]?.relegated) { showToast(`Cannot assign a relegated team.`); closeTeamSelectModal(); return; }
-    const round = fixture.round;
-    const otherFixtures = fixtures.filter(f => f.round === round && f.id !== fixture.id);
-    if (otherFixtures.some(f => f.home === newTeam || f.away === newTeam)) { showToast(`Team "${newTeam}" already has a fixture in this round!`); closeTeamSelectModal(); return; }
-    if (side === 'home') { fixture.home = newTeam; delete fixture.vacantHome; }
-    else { fixture.away = newTeam; delete fixture.vacantAway; }
-    fixture.homeScore = null; fixture.awayScore = null; fixture.played = false; fixture.comment = null; fixture.cancelled = false;
-    saveToStorage(); showToast(`Assigned ${newTeam} to ${side} side.`); renderFixtures(); renderTable(); generateTickerFacts(); closeTeamSelectModal();
-}
-
 // ==================== STANDINGS & KNOCKOUT TRIGGER ====================
 function updateTableCalculations() {
-    for (let t in teams) { if (!teams[t].relegated) { teams[t] = { ...teams[t], mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0, formHistory: [] }; } }
+    for (let t in teams) { 
+        if (!teams[t].relegated) { 
+            teams[t] = { ...teams[t], mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0, formHistory: [] }; 
+        } 
+    }
     fixtures.forEach(f => {
         if (f.played && !f.cancelled && teams[f.home] && teams[f.away] && !teams[f.home].relegated && !teams[f.away].relegated && f.home !== "VACANT" && f.away !== "VACANT") {
             const h = f.home, a = f.away, hS = parseInt(f.homeScore), aS = parseInt(f.awayScore);
             teams[h].mp++; teams[a].mp++;
             teams[h].gf += hS; teams[h].ga += aS; teams[a].gf += aS; teams[a].ga += hS;
-            if (hS > aS) { teams[h].w++; teams[h].pts += 3; teams[a].l++; teams[h].formHistory.push('W'); teams[a].formHistory.push('L'); }
-            else if (aS > hS) { teams[a].w++; teams[a].pts += 3; teams[h].l++; teams[h].formHistory.push('L'); teams[a].formHistory.push('W'); }
-            else { teams[h].d++; teams[h].pts += 1; teams[a].d++; teams[a].pts += 1; teams[h].formHistory.push('D'); teams[a].formHistory.push('D'); }
+            if (hS > aS) { 
+                teams[h].w++; teams[h].pts += 3; teams[a].l++; 
+                teams[h].formHistory.push('W'); teams[a].formHistory.push('L'); 
+            } else if (aS > hS) { 
+                teams[a].w++; teams[a].pts += 3; teams[h].l++; 
+                teams[h].formHistory.push('L'); teams[a].formHistory.push('W'); 
+            } else { 
+                teams[h].d++; teams[h].pts += 1; teams[a].d++; teams[a].pts += 1; 
+                teams[h].formHistory.push('D'); teams[a].formHistory.push('D'); 
+            }
             if (teams[h].formHistory.length > 10) teams[h].formHistory.shift();
             if (teams[a].formHistory.length > 10) teams[a].formHistory.shift();
         }
     });
-    for (let t in teams) { teams[t].pts = Math.max(0, teams[t].pts - (teams[t].deductedPoints || 0)); teams[t].gd = teams[t].gf - teams[t].ga; }
+    for (let t in teams) { 
+        teams[t].pts = Math.max(0, teams[t].pts - (teams[t].deductedPoints || 0)); 
+        teams[t].gd = teams[t].gf - teams[t].ga; 
+    }
     const activeTeams = Object.values(teams).filter(t => !t.relegated);
     if (activeTeams.length === 4 && tournamentPhase === 'league' && knockoutMatches.length === 0) {
         startKnockoutStage(activeTeams);
     }
 }
+
 function startKnockoutStage(activeTeams) {
     const sorted = [...activeTeams].sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
     const now = Date.now();
     generateSemiFinalLegs(sorted[0].name, sorted[3].name, sorted[1].name, sorted[2].name, now);
 }
+
 function generateSemiFinalLegs(team1, team4, team2, team3, baseTime) {
     const leg1Deadline = baseTime + 2 * 24 * 60 * 60 * 1000;
     const leg2Deadline = baseTime + 4 * 24 * 60 * 60 * 1000;
@@ -962,6 +479,7 @@ function generateSemiFinalLegs(team1, team4, team2, team3, baseTime) {
     renderKnockoutBracket();
     showToast("🏆 Only 4 teams left! Two‑leg semi‑finals begin.");
 }
+
 function checkSemiFinalsCompletion() {
     const semis = knockoutMatches.filter(k => k.round === 'semi_leg1' || k.round === 'semi_leg2');
     if (semis.length !== 4) return;
@@ -984,6 +502,7 @@ function checkSemiFinalsCompletion() {
     if (winners.length === 2 && winners[0] && winners[1]) generateFinalLegs(winners[0], winners[1]);
     else showToast("Semi‑finals incomplete or cancelled. Cannot generate final.");
 }
+
 function generateFinalLegs(teamA, teamB) {
     const now = Date.now();
     const leg1Deadline = now + 2 * 24 * 60 * 60 * 1000;
@@ -999,6 +518,7 @@ function generateFinalLegs(teamA, teamB) {
     renderKnockoutBracket();
     showToast("🏆 Final set! Two legs to decide the champion.");
 }
+
 function checkFinalCompletion() {
     const legs = knockoutMatches.filter(k => k.round === 'final_leg1' || k.round === 'final_leg2');
     if (legs.length !== 2) return;
@@ -1017,6 +537,7 @@ function checkFinalCompletion() {
     if (typeof confetti === 'function') confetti({ particleCount: 300, spread: 100, origin: { y: 0.6 } });
     showToast(`🏆 ${champion} are the ultimate champions! 🏆`);
 }
+
 function checkAndCelebrateChampion() { /* handled in checkFinalCompletion */ }
 
 // ==================== RENDER KNOCKOUT BRACKET ====================
@@ -1052,6 +573,7 @@ function renderKnockoutBracket() {
         container.appendChild(finalDiv);
     }
 }
+
 function renderKnockoutMatchCard(m) {
     const played = m.played;
     const cancelled = m.cancelled;
@@ -1068,7 +590,7 @@ function renderKnockoutMatchCard(m) {
     return `<div class="bg-gray-50 p-2 rounded-lg border"><div class="flex justify-between items-center"><span class="font-medium text-sm">${m.home}</span><span>vs</span><span class="font-medium text-sm">${m.away}</span></div><div class="text-center mt-1">${scoreHtml}</div>${actionsHtml}<div class="text-right text-[9px] text-gray-400">${m.round}${legLabel}</div></div>`;
 }
 
-// ==================== KNOCKOUT ADMIN ACTIONS ====================
+// Knockout admin actions
 function saveKnockoutResult(matchId) {
     if (!isAdmin) return;
     const match = knockoutMatches.find(m => m.id === matchId);
@@ -1089,6 +611,7 @@ function saveKnockoutResult(matchId) {
     if (match.round === 'final_leg1' || match.round === 'final_leg2') checkFinalCompletion();
     if (typeof confetti === 'function') confetti({ particleCount: 60, spread: 45, origin: { y: 0.7 }, startVelocity: 12, colors: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'] });
 }
+
 function showMatchCommentForKnockout(matchId) {
     const match = knockoutMatches.find(m => m.id === matchId);
     if (!match || !match.played) return;
@@ -1104,6 +627,7 @@ function showMatchCommentForKnockout(matchId) {
     } else eventsContainer.classList.add('hidden');
     document.getElementById('comment-viewer-modal').classList.remove('hidden');
 }
+
 function editKnockoutResult(matchId) {
     if (!isAdmin) return;
     const match = knockoutMatches.find(m => m.id === matchId);
@@ -1116,6 +640,21 @@ function editKnockoutResult(matchId) {
     document.getElementById('comment-modal').classList.remove('hidden');
     window._editingKnockout = true;
 }
+const originalConfirmComment = confirmComment;
+window.confirmComment = function() {
+    if (window._editingKnockout && pendingFixtureId !== null) {
+        const finalReport = document.getElementById('comment-text').value.trim();
+        if (finalReport === "") { alert("Report cannot be empty"); return; }
+        const match = knockoutMatches.find(m => m.id === pendingFixtureId);
+        if (match) { match.report = finalReport; saveToStorage(); showToast("Knockout match report updated"); }
+        closeCommentModal(true);
+        pendingFixtureId = null;
+        window._editingKnockout = false;
+        renderKnockoutBracket();
+        return;
+    }
+    originalConfirmComment();
+};
 
 // ==================== RENDER LEAGUE TABLE ====================
 function renderTable() {
@@ -1130,7 +669,7 @@ function renderTable() {
         const formHtml = `<div class="flex gap-1 justify-center">${recent.map(r => r === 'W' ? '<span class="w-4 h-4 bg-emerald-100 text-emerald-700 rounded-full text-[8px] font-bold flex items-center justify-center">W</span>' : r === 'L' ? '<span class="w-4 h-4 bg-rose-100 text-rose-600 rounded-full text-[8px] font-bold flex items-center justify-center">L</span>' : r === 'D' ? '<span class="w-4 h-4 bg-amber-100 text-amber-700 rounded-full text-[8px] font-bold flex items-center justify-center">D</span>' : '<span class="w-4 h-4 bg-gray-100 text-gray-400 rounded-full text-[8px] flex items-center justify-center">-</span>').join('')}</div>`;
         const penaltyBadge = team.deductedPoints > 0 ? `<span class="ml-1 text-[8px] bg-rose-50 text-rose-600 px-1 rounded-full">-${team.deductedPoints}</span>` : "";
         const actionBtn = isAdmin ? `<td class="py-2 px-1 text-center"><button onclick="event.stopPropagation(); openPenaltyModal('${team.name}')" class="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-full hover:bg-amber-100">⚖️</button> <button onclick="event.stopPropagation(); relegateTeam('${team.name}')" class="text-[9px] bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded-full hover:bg-orange-100">⬇️ Relegate</button></td>` : "";
-        tbody.innerHTML += `<tr class="hover:bg-gray-50 transition ${pos === 1 ? 'champions-row' : (pos > sorted.length - 2 ? 'relegation-row' : '')}" onclick="showTeamDetails('${team.name}')"><td class="py-2 px-2 text-center font-bold text-xs ${pos === 1 ? 'text-indigo-600' : ''}">${pos}</td><td class="py-2 px-2"><span class="font-semibold text-xs">${team.name}</span>${penaltyBadge}</td><td class="py-2 px-1 text-center text-xs">${team.mp}</td><td class="py-2 px-1 text-center text-emerald-600 text-xs">${team.w}</td><td class="py-2 px-1 text-center text-xs">${team.d}</td><td class="py-2 px-1 text-center text-rose-500 text-xs">${team.l}</td><td class="py-2 px-1 text-center text-xs">${team.gf}</td><td class="py-2 px-1 text-center text-xs">${team.ga}</td><td class="py-2 px-1 text-center font-mono text-xs ${team.gd >= 0 ? 'text-emerald-600' : 'text-rose-500'}">${team.gd > 0 ? '+' + team.gd : team.gd}</td><td class="py-2 px-2 text-center font-black text-indigo-600 text-xs">${team.pts}</td><td class="py-2 px-2 text-center">${formHtml}<td>${actionBtn}</tr>`;
+        tbody.innerHTML += `<tr class="hover:bg-gray-50 transition ${pos === 1 ? 'champions-row' : (pos > sorted.length - 2 ? 'relegation-row' : '')}" onclick="showTeamDetails('${team.name}')"><td class="py-2 px-2 text-center font-bold text-xs ${pos === 1 ? 'text-indigo-600' : ''}">${pos}</td><td class="py-2 px-2"><span class="font-semibold text-xs">${team.name}</span>${penaltyBadge}</td><td class="py-2 px-1 text-center text-xs">${team.mp}</td><td class="py-2 px-1 text-center text-emerald-600 text-xs">${team.w}</td><td class="py-2 px-1 text-center text-xs">${team.d}</td><td class="py-2 px-1 text-center text-rose-500 text-xs">${team.l}</td><td class="py-2 px-1 text-center text-xs">${team.gf}</td><td class="py-2 px-1 text-center text-xs">${team.ga}</td><td class="py-2 px-1 text-center font-mono text-xs ${team.gd >= 0 ? 'text-emerald-600' : 'text-rose-500'}">${team.gd > 0 ? '+' + team.gd : team.gd}</td><td class="py-2 px-2 text-center font-black text-indigo-600 text-xs">${team.pts}</td><td class="py-2 px-2 text-center">${formHtml}</td>${actionBtn}</tr>`;
     });
     const phaseIndicator = document.getElementById('phase-indicator');
     if (phaseIndicator) phaseIndicator.innerText = tournamentPhase === 'league' ? '🏆 League Phase' : '🥇 Knockout Stage';
@@ -1148,7 +687,6 @@ function renderGameweekTabs() {
         const roundFixtures = fixtures.filter(f => f.round === r && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
         const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
         let statusHtml = '', startBtnHtml = '', stopBtnHtml = '';
-
         if (allResolved) {
             statusHtml = `<span class="text-[9px] font-mono text-green-600 ml-1">✅ Completed</span>`;
         } else if (startTime) {
@@ -1158,7 +696,6 @@ function renderGameweekTabs() {
                 const hoursLeft = Math.max(0, Math.floor((deadline - now) / (1000 * 60 * 60)));
                 const minutesLeft = Math.floor(((deadline - now) % (1000 * 60 * 60)) / (1000 * 60));
                 statusHtml = `<span class="text-[9px] font-mono text-green-600 ml-1">⏳ ${hoursLeft}h ${minutesLeft}m</span>`;
-                // ✅ Only admins see the stop button
                 if (isAdmin) {
                     stopBtnHtml = `<button onclick="stopRound(${r})" class="ml-1 text-[9px] bg-red-100 text-red-700 px-1 py-0.5 rounded-full hover:bg-red-200">⏹️ Stop</button>`;
                 }
@@ -1172,7 +709,6 @@ function renderGameweekTabs() {
                 statusHtml = `<span class="text-[9px] font-mono text-gray-400 ml-1">⏸ Not started</span>`;
             }
         }
-
         const active = r === currentSelectedRound;
         const btn = document.createElement('button');
         btn.className = `px-3 py-1 text-[11px] font-mono rounded-full transition shrink-0 flex items-center gap-1 ${active ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
@@ -1212,7 +748,6 @@ function renderFixtures() {
             container.innerHTML += `<div class="bg-gray-100 p-3 rounded-xl border border-red-200"><div class="flex justify-between items-center"><span class="line-through">${f.home}</span><span class="text-red-500 text-xs">CANCELLED</span><span class="line-through">${f.away}</span></div></div>`;
             return;
         }
-
         if (roundStart) {
             const deadline = roundStart + 2 * 24 * 60 * 60 * 1000;
             if (Date.now() < deadline) {
@@ -1441,7 +976,6 @@ function saveGoalsAndFinish() {
     if (typeof confetti === 'function') confetti({ particleCount: 60, spread: 45, origin: { y: 0.7 }, startVelocity: 12, colors: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'] });
 }
 
-// ==================== EDIT EXISTING MATCH EVENTS ====================
 function editViewerEvents() {
     if (!isAdmin || currentViewerFixtureId === null) return;
     const f = fixtures.find(f => f.id === currentViewerFixtureId);
@@ -1507,54 +1041,33 @@ function openGoalEditorForEdit(existingEvents) {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
+// ==================== MATCH VIEWER ====================
 function showMatchComment(fixtureId) {
     const f = fixtures.find(f => f.id === fixtureId);
-    if (!f) {
-        showToast("Fixture not found");
-        return;
-    }
+    if (!f) { showToast("Fixture not found"); return; }
     currentViewerFixtureId = fixtureId;
-    
     const modal = document.getElementById('comment-viewer-modal');
-    if (!modal) {
-        console.error("Modal not found");
-        showToast("Error opening match details");
-        return;
-    }
-    
-    // Force display flex to override any previous inline none
+    if (!modal) { showToast("Error opening match details"); return; }
     modal.style.display = 'flex';
     modal.classList.remove('hidden');
     modal.classList.add('flex');
-    
-    const nameEl = document.getElementById('viewer-match-name');
-    const scoreEl = document.getElementById('viewer-score');
-    const commentEl = document.getElementById('viewer-comment');
+    document.getElementById('viewer-match-name').innerHTML = `${f.home} vs ${f.away}`;
+    document.getElementById('viewer-score').innerText = f.played ? `${f.homeScore} - ${f.awayScore}` : 'Not played yet';
+    document.getElementById('viewer-comment').innerText = f.report || (f.played ? 'No report available.' : 'Match not played.');
     const eventsContainer = document.getElementById('viewer-events-container');
     const eventsDiv = document.getElementById('viewer-events');
-    const editBtn = document.getElementById('viewer-edit-btn');
-    const editEventsBtn = document.getElementById('viewer-edit-events-btn');
-    
-    if (nameEl) nameEl.innerHTML = `${f.home} vs ${f.away}`;
-    if (scoreEl) scoreEl.innerText = f.played ? `${f.homeScore} - ${f.awayScore}` : 'Not played yet';
-    if (commentEl) commentEl.innerText = f.report || (f.played ? 'No report available.' : 'Match not played.');
-    
     if (eventsContainer && eventsDiv) {
         if (f.events && f.events.length > 0) {
             eventsContainer.classList.remove('hidden');
             eventsDiv.innerHTML = f.events.map(ev => {
                 const assistText = ev.assist ? ` (assist: ${ev.assist})` : '';
                 const typeText = ev.goalType && ev.goalType !== 'Open play' ? ` [${ev.goalType}]` : '';
-                return `<div class="flex justify-between border-b border-gray-200 py-1">
-                    <span class="font-mono w-12">${ev.minute}′</span>
-                    <span class="flex-1">⚽ ${ev.team} - ${ev.player}${typeText}${assistText}</span>
-                </div>`;
+                return `<div class="flex justify-between border-b border-gray-200 py-1"><span class="font-mono w-12">${ev.minute}′</span><span class="flex-1">⚽ ${ev.team} - ${ev.player}${typeText}${assistText}</span></div>`;
             }).join('');
-        } else {
-            eventsContainer.classList.add('hidden');
-        }
+        } else { eventsContainer.classList.add('hidden'); }
     }
-    
+    const editBtn = document.getElementById('viewer-edit-btn');
+    const editEventsBtn = document.getElementById('viewer-edit-events-btn');
     if (editBtn && editEventsBtn) {
         if (isAdmin && f.played) {
             editBtn.classList.remove('hidden');
@@ -1565,18 +1078,46 @@ function showMatchComment(fixtureId) {
         }
     }
 }
-
 function closeCommentViewer() {
-    console.log("closeCommentViewer called");
     const modal = document.getElementById('comment-viewer-modal');
     if (modal) {
         modal.style.display = 'none';
         modal.classList.add('hidden');
         modal.classList.remove('flex');
-    } else {
-        console.error("Modal element not found");
     }
     currentViewerFixtureId = null;
+}
+function editViewerComment() {
+    if (!isAdmin || currentViewerFixtureId === null) return;
+    const f = fixtures.find(f => f.id === currentViewerFixtureId);
+    if (!f.played) return;
+    pendingFixtureId = currentViewerFixtureId;
+    pendingHomeScore = f.homeScore;
+    pendingAwayScore = f.awayScore;
+    document.getElementById('comment-match-name').innerText = `${f.home} vs ${f.away}`;
+    document.getElementById('comment-text').value = f.report || '';
+    document.getElementById('comment-modal').classList.remove('hidden');
+    closeCommentViewer();
+}
+function confirmComment() {
+    if (pendingFixtureId === null) return;
+    const finalReport = document.getElementById('comment-text').value.trim();
+    if (!finalReport) { alert("Report cannot be empty"); return; }
+    const fixture = fixtures.find(f => f.id === pendingFixtureId);
+    fixture.report = finalReport;
+    saveToStorage();
+    showToast(`Report updated for ${fixture.home} vs ${fixture.away}`);
+    closeCommentModal(true);
+    pendingFixtureId = null;
+    renderTable(); renderFixtures(); generateTickerFacts();
+}
+function closeCommentModal(save = false) {
+    const modal = document.getElementById('comment-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+    if (!save) pendingFixtureId = null;
 }
 
 // ==================== RELEGATION (MANUAL) ====================
@@ -1596,12 +1137,7 @@ function relegateTeam(teamName) {
         });
         saveToStorage();
         showToast(`${teamName} relegated. Vacant slots created in their future fixtures.`);
-        updateTableCalculations();
-        renderTable();
-        renderGameweekTabs();
-        renderFixtures();
-        renderRelegatedTeams();
-        generateTickerFacts();
+        updateTableCalculations(); renderTable(); renderGameweekTabs(); renderFixtures(); renderRelegatedTeams(); generateTickerFacts();
     }
 }
 function restoreTeam(teamName) {
@@ -1613,12 +1149,7 @@ function restoreTeam(teamName) {
         team.relegated = false;
         saveToStorage();
         showToast(`${teamName} restored.`);
-        updateTableCalculations();
-        renderTable();
-        renderGameweekTabs();
-        renderFixtures();
-        renderRelegatedTeams();
-        generateTickerFacts();
+        updateTableCalculations(); renderTable(); renderGameweekTabs(); renderFixtures(); renderRelegatedTeams(); generateTickerFacts();
     }
 }
 function renderRelegatedTeams() {
@@ -1661,7 +1192,7 @@ function submitPrediction() {
     const homeScore = parseInt(document.getElementById('prediction-home-score').value);
     const awayScore = parseInt(document.getElementById('prediction-away-score').value);
     if (isNaN(homeScore) || isNaN(awayScore)) { alert("Please enter valid scores."); return; }
-    if (nickname === "") { alert("Please enter your name."); return; }
+    if (!nickname) { alert("Please enter your name."); return; }
     const f = fixtures.find(f => f.id === currentPredictionFixtureId);
     if (!f) return;
     if (!f.predictions) f.predictions = [];
@@ -1677,46 +1208,6 @@ function deletePrediction(fixtureId, index) {
     if (!isAdmin) return;
     const f = fixtures.find(f => f.id === fixtureId);
     if (f && f.predictions && f.predictions[index]) { f.predictions.splice(index,1); saveToStorage(); renderPredictions(fixtureId); showToast("Prediction deleted"); }
-}
-
-// ==================== EDIT REPORT ONLY (for admin) ====================
-function editViewerComment() {
-    if (!isAdmin || currentViewerFixtureId === null) return;
-    const f = fixtures.find(f => f.id === currentViewerFixtureId);
-    if (!f.played) return;
-    pendingFixtureId = currentViewerFixtureId;
-    pendingHomeScore = f.homeScore;
-    pendingAwayScore = f.awayScore;
-    document.getElementById('comment-match-name').innerText = `${f.home} vs ${f.away}`;
-    document.getElementById('comment-text').value = f.report || '';
-    document.getElementById('comment-modal').classList.remove('hidden');
-    document.getElementById('comment-modal').classList.add('flex');
-    closeCommentViewer();
-}
-
-function confirmComment() {
-    if (pendingFixtureId === null) return;
-    const finalReport = document.getElementById('comment-text').value.trim();
-    if (finalReport === "") { alert("Report cannot be empty"); return; }
-    const fixture = fixtures.find(f => f.id === pendingFixtureId);
-    if (!fixture) return;
-    fixture.report = finalReport;
-    saveToStorage();
-    showToast(`Report updated for ${fixture.home} vs ${fixture.away}`);
-    closeCommentModal(true);
-    pendingFixtureId = null;
-    renderTable();
-    renderFixtures();
-    generateTickerFacts();
-}
-
-function closeCommentModal(save = false) {
-    const modal = document.getElementById('comment-modal');
-    if (modal) {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-    }
-    if (!save) pendingFixtureId = null;
 }
 
 // ==================== BANTER (WHATSAPP STYLE) ====================
@@ -1735,7 +1226,7 @@ function postBanter() {
     if (!currentBanterFixtureId) { showToast("No fixture selected"); return; }
     const input = document.getElementById('banter-input');
     const text = input.value.trim();
-    if (text === "") { alert("Write something funny!"); return; }
+    if (!text) { alert("Write something funny!"); return; }
     const fixture = fixtures.find(f => f.id === currentBanterFixtureId);
     if (!fixture) return;
     if (!fixture.banter) fixture.banter = [];
@@ -1765,9 +1256,111 @@ function deleteBanter(fixtureId, index) {
     const f = fixtures.find(f => f.id === fixtureId);
     if (f && f.banter && f.banter[index]) { f.banter.splice(index,1); saveToStorage(); renderBanterMessages(fixtureId); showToast("Banter deleted"); }
 }
-function escapeHtml(str) { return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m] || m)); }
 
-// ==================== DEADLINE CLOCK ====================
+// ==================== ADMIN MODE, PASSWORD, PENALTY ====================
+function handleAdminToggleClick() { 
+    if (!isAdmin) { 
+        document.getElementById('admin-password-input').value = ""; 
+        document.getElementById('password-error').classList.add('hidden'); 
+        document.getElementById('password-modal').classList.remove('hidden'); 
+    } else deactivateAdminMode(); 
+}
+function closePasswordModal() { document.getElementById('password-modal').classList.add('hidden'); }
+function verifyAdminPassword() { 
+    const val = document.getElementById('admin-password-input').value; 
+    if (val === tournamentPassword) { closePasswordModal(); activateAdminMode(); } 
+    else document.getElementById('password-error').classList.remove('hidden'); 
+}
+function activateAdminMode() { isAdmin = true; updateAdminUIElements(); showToast("Admin mode ACTIVE"); }
+function deactivateAdminMode() { isAdmin = false; updateAdminUIElements(); showToast("Admin mode deactivated"); }
+function updateAdminUIElements() {
+    const btn = document.getElementById('admin-btn'), dot = document.getElementById('admin-btn-dot'), statusText = document.getElementById('admin-status-text'), resetContainer = document.getElementById('admin-reset-container'), thActions = document.getElementById('th-admin-actions'), hint = document.getElementById('admin-table-hint'), relegationZone = document.getElementById('relegation-zone');
+    const autoStartContainer = document.getElementById('auto-start-container');
+    if (autoStartContainer) { if (isAdmin) autoStartContainer.classList.remove('hidden'); else autoStartContainer.classList.add('hidden'); }
+    const floatMenu = document.getElementById('floating-admin-menu');
+    if (isAdmin) {
+        btn?.classList.replace('bg-gray-300', 'bg-indigo-600'); dot?.classList.replace('translate-x-0', 'translate-x-5');
+        if (statusText) { statusText.innerText = "⚡ ADMIN MODE"; statusText.classList.replace('text-gray-600', 'text-indigo-600'); }
+        if (resetContainer) resetContainer.classList.remove('hidden'); if (thActions) thActions.classList.remove('hidden'); if (hint) hint.classList.remove('hidden');
+        if (relegationZone) relegationZone.classList.remove('hidden');
+        if (floatMenu) floatMenu.classList.remove('hidden');
+        renderRelegatedTeams();
+    } else {
+        btn?.classList.replace('bg-indigo-600', 'bg-gray-300'); dot?.classList.replace('translate-x-5', 'translate-x-0');
+        if (statusText) { statusText.innerText = "🔒 READ ONLY"; statusText.classList.replace('text-indigo-600', 'text-gray-600'); }
+        if (resetContainer) resetContainer.classList.add('hidden'); if (thActions) thActions.classList.add('hidden'); if (hint) hint.classList.add('hidden');
+        if (relegationZone) relegationZone.classList.add('hidden');
+        if (floatMenu) floatMenu.classList.add('hidden');
+    }
+    renderTable(); renderGameweekTabs(); renderFixtures();
+}
+function toggleAutoStart() {
+    if (!isAdmin) return;
+    autoStartNextRound = !autoStartNextRound;
+    const btn = document.getElementById('auto-start-toggle');
+    const dot = document.getElementById('auto-start-dot');
+    if (autoStartNextRound) { btn.classList.replace('bg-gray-300', 'bg-indigo-600'); dot.classList.replace('translate-x-0', 'translate-x-4'); showToast("Auto‑start enabled"); }
+    else { btn.classList.replace('bg-indigo-600', 'bg-gray-300'); dot.classList.replace('translate-x-4', 'translate-x-0'); showToast("Auto‑start disabled"); }
+    saveToStorage();
+}
+function openChangePasswordModal() { if (!isAdmin) return; document.getElementById('new-password').value = ''; document.getElementById('confirm-password').value = ''; document.getElementById('password-match-error').classList.add('hidden'); document.getElementById('change-password-modal').classList.remove('hidden'); }
+function closeChangePasswordModal() { document.getElementById('change-password-modal').classList.add('hidden'); }
+function updateMasterPassword() { 
+    const newPass = document.getElementById('new-password').value.trim(), confirmPass = document.getElementById('confirm-password').value.trim(); 
+    if (!newPass) { showToast('Password cannot be empty'); return; } 
+    if (newPass !== confirmPass) { document.getElementById('password-match-error').classList.remove('hidden'); return; } 
+    tournamentPassword = newPass; saveToStorage(); showToast('Master password updated!'); closeChangePasswordModal(); 
+}
+function openPenaltyModal(teamName) { if (!isAdmin) return; currentPenaltyTeam = teamName; const team = teams[teamName]; document.getElementById('penalty-team-name').innerText = teamName; document.getElementById('current-penalty').innerText = team.deductedPoints || 0; document.getElementById('penalty-modal').classList.remove('hidden'); }
+function closePenaltyModal() { document.getElementById('penalty-modal').classList.add('hidden'); currentPenaltyTeam = null; }
+function adjustPenalty(delta) { if (!currentPenaltyTeam) return; const team = teams[currentPenaltyTeam]; let newVal = (team.deductedPoints || 0) + delta; if (newVal < 0) newVal = 0; team.deductedPoints = newVal; document.getElementById('current-penalty').innerText = newVal; saveToStorage(); renderTable(); showToast(`${currentPenaltyTeam} penalty now ${newVal} pts`); }
+function clearPenaltyPoints() { if (!currentPenaltyTeam) return; teams[currentPenaltyTeam].deductedPoints = 0; document.getElementById('current-penalty').innerText = "0"; saveToStorage(); renderTable(); showToast(`Penalty cleared for ${currentPenaltyTeam}`); closePenaltyModal(); }
+
+// ==================== BACK TO TOP, TICKER, DEADLINE CLOCK ====================
+function initBackToTop() {
+    const backBtn = document.getElementById('backToTop');
+    if (!backBtn) return;
+    window.addEventListener('scroll', () => {
+        if (window.scrollY > 300) backBtn.classList.remove('hidden');
+        else backBtn.classList.add('hidden');
+    });
+    backBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+}
+function updateTickerFacts() {
+    if (!tickerFacts.length) return;
+    const el = document.getElementById('news-ticker');
+    if (!el) return;
+    el.classList.add('slide-out');
+    setTimeout(() => {
+        currentTickerFactIndex = (currentTickerFactIndex + 1) % tickerFacts.length;
+        el.innerHTML = `<span class="inline-flex items-center gap-2"><span class="w-2 h-2 bg-white rounded-full animate-pulse"></span> ${tickerFacts[currentTickerFactIndex]}</span>`;
+        el.classList.remove('slide-out');
+        el.classList.add('slide-in');
+        setTimeout(() => el.classList.remove('slide-in'), 500);
+    }, 500);
+}
+function generateTickerFacts() {
+    const activeTeams = Object.values(teams).filter(t => !t.relegated);
+    const totalTeams = activeTeams.length;
+    const totalMatchesPlayed = fixtures.filter(f => f.played && !teams[f.home]?.relegated && !teams[f.away]?.relegated).length;
+    const totalMatches = fixtures.filter(f => !teams[f.home]?.relegated && !teams[f.away]?.relegated).length;
+    let leader = null, topScorer = null, biggestWin = null;
+    if (totalTeams) {
+        const sorted = activeTeams.sort((a, b) => b.pts - a.pts || b.gd - a.gd);
+        if (sorted.length) leader = sorted[0];
+        const sortedGF = activeTeams.sort((a, b) => b.gf - a.gf);
+        if (sortedGF.length) topScorer = sortedGF[0];
+    }
+    fixtures.forEach(f => { if (f.played && f.homeScore !== null && !teams[f.home]?.relegated && !teams[f.away]?.relegated) { const total = f.homeScore + f.awayScore; if (!biggestWin || total > biggestWin.total) biggestWin = { home: f.home, away: f.away, homeScore: f.homeScore, awayScore: f.awayScore, total }; } });
+    tickerFacts = [`🏆 DLS Vawulence Academy Hub`, `⚽ ${totalTeams} teams`, `📊 ${totalMatchesPlayed}/${totalMatches} played`, leader ? `👑 Leader: ${leader.name} (${leader.pts} pts)` : null, topScorer ? `🔥 Top scorer: ${topScorer.name} (${topScorer.gf} goals)` : null, biggestWin ? `🎯 Biggest win: ${biggestWin.home} ${biggestWin.homeScore}-${biggestWin.awayScore} ${biggestWin.away}` : null, `🔮 Predict matches & post banter!`].filter(f => f);
+    if (tickerFacts.length) {
+        const el = document.getElementById('news-ticker');
+        if (el) el.innerHTML = `<span class="inline-flex items-center gap-2"><span class="w-2 h-2 bg-white rounded-full animate-pulse"></span> ${tickerFacts[0]}</span>`;
+        currentTickerFactIndex = 0;
+        if (tickerInterval) clearInterval(tickerInterval);
+        tickerInterval = setInterval(updateTickerFacts, 6000);
+    }
+}
 function updateDeadlineClock() {
     const now = Date.now();
     let nearestDeadline = Infinity;
@@ -1791,17 +1384,506 @@ function startDeadlineClock() {
     if (window.deadlineClockInterval) clearInterval(window.deadlineClockInterval);
     window.deadlineClockInterval = setInterval(updateDeadlineClock, 60000);
 }
-
-// ==================== RESET ====================
 function resetTournament() { if (confirm("Wipe ALL data? This cannot be undone.")) db.ref('tournament_data').remove().then(() => location.reload()); }
+
+// ==================== DATABASE SYNC ====================
+function initRealtimeDatabaseSync() {
+    db.ref('tournament_data').on('value', (snapshot) => {
+        if (snapshot.exists() && userRole) loadTournamentData(snapshot.val());
+        else if (!snapshot.exists() && userRole === 'admin') {
+            document.getElementById('setup-section')?.classList.remove('hidden');
+            document.getElementById('dashboard-section')?.classList.add('hidden');
+            document.getElementById('deadline-clock')?.classList.add('hidden');
+        } else if (!snapshot.exists() && userRole === 'viewer') {
+            document.getElementById('dashboard-section')?.classList.add('hidden');
+            document.getElementById('setup-section')?.classList.add('hidden');
+            document.getElementById('role-selector').innerHTML = `<div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center"><div class="mb-4"><div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3"><span class="text-3xl">🏆</span></div><h2 class="text-2xl font-bold text-gray-800">No Tournament Yet</h2><p class="text-gray-500 text-sm mt-1">An admin hasn't started a tournament.</p></div><button onclick="selectRole('admin')" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition">🔑 Switch to Admin to Create</button></div>`;
+        }
+    });
+    db.ref('tournament_data/fixtures').on('child_changed', (snapshot) => {
+        const updated = snapshot.val();
+        if (updated && updated.played === true && updated.homeScore !== null) {
+            showToast(`📢 Result: ${updated.home} ${updated.homeScore}-${updated.awayScore} ${updated.away}`);
+        }
+    });
+}
+
+// ==================== WHATSAPP CHAT - HELPERS ====================
+function formatChatTime(timestamp) {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+function groupMessagesByDate(messagesArray) {
+    const groups = {};
+    messagesArray.forEach(msg => {
+        const date = new Date(msg.timestamp).toDateString();
+        if (!groups[date]) groups[date] = [];
+        groups[date].push(msg);
+    });
+    return groups;
+}
+
+function renderMessages(append = false) {
+    const container = document.getElementById('chat-messages-container-new');
+    if (!container) return;
+    if (!append) container.innerHTML = '';
+    const grouped = groupMessagesByDate(messages);
+    for (const [date, msgs] of Object.entries(grouped)) {
+        const dateDiv = document.createElement('div');
+        dateDiv.className = 'sticky top-0 z-10 text-center text-xs text-gray-500 bg-[#e5ddd5] dark:bg-gray-900 py-1';
+        dateDiv.innerText = date;
+        container.appendChild(dateDiv);
+        msgs.forEach(msg => {
+            const isCurrentUser = (msg.userId === getCurrentUserId());
+            const bubbleClass = isCurrentUser ? 'bg-emerald-100 dark:bg-emerald-900 text-right' : 'bg-white dark:bg-gray-800';
+            const align = isCurrentUser ? 'justify-end' : 'justify-start';
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `flex ${align} group`;
+            messageDiv.dataset.id = msg.messageId;
+            
+            let senderNameHtml = '';
+            if (!isCurrentUser && msg.nickname) {
+                const adminBadge = (msg.role === 'admin' || msg.userId === 'adminUser') ? '<span class="text-xs text-blue-500 ml-1">(admin)</span>' : '';
+                senderNameHtml = `<div class="text-xs text-gray-500 mb-1 ml-2">${escapeHtml(msg.nickname)}${adminBadge}</div>`;
+            }
+            let replyHtml = '';
+            if (msg.replyTo) replyHtml = `<div class="text-xs text-gray-400 mb-1 border-l-2 border-gray-300 pl-2">↩️ ${escapeHtml(msg.replyTo.text)}</div>`;
+            const forwardHtml = msg.forwarded ? `<div class="text-[10px] text-gray-400">Forwarded</div>` : '';
+            let reactionsHtml = '';
+            if (msg.reactions && Object.keys(msg.reactions).length) {
+                reactionsHtml = `<div class="flex gap-1 mt-1">${Object.entries(msg.reactions).map(([emoji, usersArr]) => `<span class="bg-gray-200 dark:bg-gray-700 rounded-full px-1 text-xs">${emoji} ${usersArr.length}</span>`).join('')}</div>`;
+            }
+            let statusHtml = '';
+            if (isCurrentUser) {
+                if (msg.seen) statusHtml = '<span class="text-blue-500 text-xs ml-1">✓✓</span>';
+                else if (msg.delivered) statusHtml = '<span class="text-gray-500 text-xs ml-1">✓✓</span>';
+                else statusHtml = '<span class="text-gray-500 text-xs ml-1">✓</span>';
+            }
+            let mediaHtml = '';
+            if (msg.type === 'image' && msg.mediaUrl) mediaHtml = `<img src="${msg.mediaUrl}" class="max-w-full max-h-48 rounded-lg mt-1 cursor-pointer" onclick="window.open('${msg.mediaUrl}')">`;
+            else if (msg.type === 'file' && msg.mediaUrl) mediaHtml = `<a href="${msg.mediaUrl}" target="_blank" class="text-blue-500 underline text-sm mt-1">📎 ${msg.filename || 'Attachment'}</a>`;
+            const editedHtml = msg.edited ? '<span class="text-[10px] text-gray-400 ml-1">(edited)</span>' : '';
+            
+            messageDiv.innerHTML = `
+                <div class="max-w-[70%] ${bubbleClass} rounded-lg p-2 shadow relative group-hover:bg-opacity-90">
+                    ${senderNameHtml}
+                    ${replyHtml}
+                    <p class="text-sm break-words">${escapeHtml(msg.text)}${editedHtml}</p>
+                    ${mediaHtml}
+                    ${forwardHtml}
+                    ${reactionsHtml}
+                    <div class="flex justify-end items-center gap-1 mt-1">
+                        <span class="text-[10px] text-gray-400">${formatChatTime(msg.timestamp)}</span>
+                        ${statusHtml}
+                    </div>
+                    <div class="absolute top-1 right-1 hidden group-hover:flex gap-1 bg-white dark:bg-gray-800 rounded-full shadow p-1">
+                        <button class="reply-btn text-xs" data-id="${msg.messageId}">↩️</button>
+                        <button class="react-btn text-xs" data-id="${msg.messageId}">😊</button>
+                        ${(isCurrentUser) ? `<button class="edit-msg-btn text-xs" data-id="${msg.messageId}">✏️</button>` : ''}
+                        ${(isAdmin || isCurrentUser) ? `<button class="delete-msg-btn text-xs" data-id="${msg.messageId}">🗑️</button>` : ''}
+                        ${isAdmin ? `<button class="pin-msg-btn text-xs" data-id="${msg.messageId}">📌</button>` : ''}
+                    </div>
+                </div>
+            `;
+            container.appendChild(messageDiv);
+        });
+    }
+    container.scrollTop = container.scrollHeight;
+    updateSidebarPreview();
+}
+
+async function sendChatMessage(text, type = 'text', mediaUrl = null, filename = null) {
+    if (!text.trim() && !mediaUrl) return;
+    const msg = {
+        messageId: Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+        userId: getCurrentUserId(),
+        nickname: localStorage.getItem('chatNickname') || 'Fan',
+        text: text.slice(0, 500),
+        timestamp: Date.now(),
+        type: type,
+        mediaUrl: mediaUrl,
+        filename: filename,
+        replyTo: replyingTo ? { id: replyingTo.id, text: replyingTo.text } : null,
+        forwarded: false,
+        reactions: {},
+        delivered: true,
+        seen: false,
+        pinned: false,
+        role: isAdmin ? 'admin' : 'user'
+    };
+    await chatMessagesRef.push(msg);
+    clearReply();
+    document.getElementById('chat-input-new').value = '';
+}
+
+async function editMessage(messageId, newText) {
+    if (!newText.trim()) return;
+    const snapshot = await chatMessagesRef.child(messageId).once('value');
+    const msg = snapshot.val();
+    if (!msg) return;
+    if (msg.userId !== getCurrentUserId()) {
+        showToast("You can only edit your own messages");
+        return;
+    }
+    await chatMessagesRef.child(messageId).update({ text: newText.trim(), edited: true });
+    showToast("Message edited");
+}
+
+async function deleteMessage(messageId) {
+    const snapshot = await chatMessagesRef.child(messageId).once('value');
+    const msg = snapshot.val();
+    if (!msg) return;
+    if (!isAdmin && msg.userId !== getCurrentUserId()) {
+        showToast("You can only delete your own messages");
+        return;
+    }
+    await chatMessagesRef.child(messageId).remove();
+}
+
+async function togglePinMessage(messageId) {
+    if (!isAdmin) return;
+    const current = await chatMessagesRef.child(`${messageId}/pinned`).once('value');
+    await chatMessagesRef.child(`${messageId}/pinned`).set(!current.val());
+}
+
+function setReply(messageId, text) {
+    replyingTo = { id: messageId, text: text };
+    const replyIndicator = document.getElementById('reply-indicator');
+    if (replyIndicator) {
+        replyIndicator.innerText = `Replying to: ${text.substring(0, 50)}...`;
+        replyIndicator.classList.remove('hidden');
+    }
+}
+function clearReply() {
+    replyingTo = null;
+    const replyIndicator = document.getElementById('reply-indicator');
+    if (replyIndicator) replyIndicator.classList.add('hidden');
+}
+
+async function addReaction(messageId, emoji) {
+    const userId = getCurrentUserId();
+    const reactionRef = chatMessagesRef.child(`${messageId}/reactions/${emoji}`);
+    const snapshot = await reactionRef.once('value');
+    let users = snapshot.val() || [];
+    if (!users.includes(userId)) users.push(userId);
+    await reactionRef.set(users);
+}
+
+function markMessagesAsSeen() {
+    if (!messages.length) return;
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg && lastMsg.userId !== getCurrentUserId() && !lastMsg.seen) {
+        chatMessagesRef.child(`${lastMsg.messageId}/seen`).set(true);
+    }
+}
+
+function loadMessages() {
+    chatMessagesRef.off();
+    chatMessagesRef.orderByChild('timestamp').limitToLast(50).on('child_added', (snapshot) => {
+        const msg = snapshot.val();
+        if (!messages.find(m => m.messageId === msg.messageId)) {
+            messages.push(msg);
+            messages.sort((a,b) => a.timestamp - b.timestamp);
+            renderMessages();
+            markMessagesAsSeen();
+        }
+    });
+    chatMessagesRef.on('child_changed', (snapshot) => {
+        const updated = snapshot.val();
+        const idx = messages.findIndex(m => m.messageId === updated.messageId);
+        if (idx !== -1) messages[idx] = updated;
+        renderMessages();
+    });
+    chatMessagesRef.on('child_removed', (snapshot) => {
+        messages = messages.filter(m => m.messageId !== snapshot.key);
+        renderMessages();
+    });
+}
+
+function initTypingListener() {
+    chatTypingRef = db.ref('chat_typing');
+    chatTypingRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        const typingDiv = document.getElementById('typing-indicator-new');
+        if (data && data.user && data.user !== localStorage.getItem('chatNickname')) {
+            typingDiv.innerText = `${data.user} is typing...`;
+            typingDiv.classList.remove('hidden');
+        } else {
+            typingDiv.classList.add('hidden');
+        }
+    });
+}
+function sendTypingStatus() {
+    if (!userRole) return;
+    db.ref('chat_typing').set({ user: localStorage.getItem('chatNickname') || 'Fan', timestamp: Date.now() });
+    clearTimeout(typingTimeout);
+    typingTimeout = setTimeout(() => db.ref('chat_typing').remove(), 1500);
+}
+
+function initPresence() {
+    chatPresenceRef = db.ref('presence');
+    const userId = getCurrentUserId();
+    chatPresenceRef.child(userId).set({ online: true, lastSeen: Date.now(), name: localStorage.getItem('chatNickname') });
+    window.addEventListener('beforeunload', () => chatPresenceRef.child(userId).update({ online: false }));
+    chatPresenceRef.on('value', (snapshot) => {
+        const presences = snapshot.val() || {};
+        const onlineCount = Object.values(presences).filter(p => p.online).length;
+        const memberCountSpan = document.getElementById('member-count');
+        if (memberCountSpan) memberCountSpan.innerText = `${onlineCount} online`;
+        const onlineIndicator = document.getElementById('online-indicator');
+        if (onlineIndicator) onlineIndicator.style.backgroundColor = onlineCount > 1 ? '#10b981' : '#9ca3af';
+    });
+}
+
+function updateSidebarPreview() {
+    if (!messages.length) return;
+    const lastMsg = messages[messages.length - 1];
+    const previewSpan = document.getElementById('last-message-preview');
+    if (previewSpan) previewSpan.innerText = lastMsg.text.substring(0, 30);
+    const timeSpan = document.getElementById('last-message-time');
+    if (timeSpan) timeSpan.innerText = formatChatTime(lastMsg.timestamp);
+    const unread = messages.filter(m => !m.seen && m.userId !== getCurrentUserId()).length;
+    const badge = document.getElementById('unread-badge-sidebar');
+    if (badge) {
+        if (unread > 0) { badge.innerText = unread > 9 ? '9+' : unread; badge.classList.remove('hidden'); }
+        else badge.classList.add('hidden');
+    }
+}
+
+function uploadChatAttachment(file, type) {
+    const storageRef = storage.ref(`chat_attachments/${Date.now()}_${file.name}`);
+    const uploadTask = storageRef.put(file);
+    uploadTask.on('state_changed', null, null, () => {
+        storageRef.getDownloadURL().then(url => sendChatMessage('', type, url, file.name));
+    });
+}
+
+function buildEmojiPicker() {
+    const picker = document.getElementById('emoji-picker');
+    if (!picker) return;
+    const emojis = ['😀', '😂', '❤️', '👍', '🎉', '😢', '😡', '😎', '🥳', '😱', '🤔', '🔥', '✨', '🍻', '⚽'];
+    picker.innerHTML = emojis.map(e => `<button class="text-xl hover:bg-gray-100 dark:hover:bg-gray-700 rounded p-1">${e}</button>`).join('');
+    picker.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.getElementById('chat-input-new').value += btn.innerText;
+            picker.classList.add('hidden');
+        });
+    });
+}
+
+function setDarkMode(enabled) {
+    if (enabled) document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
+    localStorage.setItem('chatDarkMode', enabled);
+    currentDarkMode = enabled;
+}
+
+// Poll Modal (kept for chat poll creation)
+function openPollModal() {
+    if (!isAdmin) return;
+    document.getElementById('poll-modal').classList.remove('hidden');
+    document.getElementById('poll-modal').classList.add('flex');
+}
+function closePollModal() {
+    document.getElementById('poll-modal').classList.add('hidden');
+    document.getElementById('poll-modal').classList.remove('flex');
+}
+function addPollOption() {
+    const container = document.getElementById('poll-options-container');
+    const div = document.createElement('div');
+    div.className = 'flex gap-2 mb-2';
+    div.innerHTML = `<input type="text" placeholder="Option" class="poll-option flex-1 bg-gray-50 border rounded-lg p-2"><button onclick="removePollOption(this)" class="text-red-500">✖</button>`;
+    container.appendChild(div);
+}
+function removePollOption(btn) { btn.parentElement.remove(); }
+function createPoll() {
+    const question = document.getElementById('poll-question').value.trim();
+    if (!question) { alert("Enter a question"); return; }
+    const options = Array.from(document.querySelectorAll('.poll-option')).map(inp => inp.value.trim()).filter(v => v);
+    if (options.length < 2) { alert("At least 2 options"); return; }
+    const pollId = Date.now();
+    const poll = { id: pollId, question, options: options.map(opt => ({ text: opt, votes: 0 })), totalVotes: 0, voters: {}, createdAt: Date.now() };
+    db.ref(`chat_polls/${pollId}`).set(poll);
+    const msg = { nickname: "System", text: `📊 New poll: ${question}`, timestamp: Date.now(), userId: `poll_${pollId}`, isPoll: true, pollId: pollId };
+    db.ref('chat_messages').push(msg);
+    closePollModal();
+    document.getElementById('poll-question').value = '';
+    document.getElementById('poll-options-container').innerHTML = `<div class="flex gap-2 mb-2"><input type="text" placeholder="Option 1" class="poll-option flex-1 bg-gray-50 border rounded-lg p-2"><button onclick="removePollOption(this)" class="text-red-500">✖</button></div><div class="flex gap-2 mb-2"><input type="text" placeholder="Option 2" class="poll-option flex-1 bg-gray-50 border rounded-lg p-2"><button onclick="removePollOption(this)" class="text-red-500">✖</button></div>`;
+}
+function votePoll(pollId, optionIndex) {
+    const nickname = localStorage.getItem('chatNickname') || 'Fan';
+    db.ref(`chat_polls/${pollId}/voters/${nickname}`).once('value', snap => {
+        if (snap.exists()) { showToast("You already voted"); return; }
+        db.ref(`chat_polls/${pollId}/options/${optionIndex}/votes`).transaction(v => (v || 0) + 1);
+        db.ref(`chat_polls/${pollId}/totalVotes`).transaction(t => (t || 0) + 1);
+        db.ref(`chat_polls/${pollId}/voters/${nickname}`).set(true);
+        showToast("Vote cast!");
+    });
+}
+function renderPollMessage(pollId) {
+    db.ref(`chat_polls/${pollId}`).once('value', (snapshot) => {
+        const poll = snapshot.val();
+        if (!poll) return;
+        const container = document.getElementById('chat-messages-container-new');
+        const pollDiv = document.createElement('div');
+        pollDiv.className = 'poll-card bg-white rounded-lg p-3 shadow my-2 border';
+        pollDiv.id = `poll-${poll.id}`;
+        pollDiv.innerHTML = `<p class="font-bold">📊 ${escapeHtml(poll.question)}</p><div class="space-y-2 mt-2" id="poll-options-${poll.id}"></div><div class="text-xs text-gray-500 mt-2">${poll.totalVotes || 0} vote(s)</div>`;
+        container.appendChild(pollDiv);
+        updatePollUI(poll.id);
+    });
+}
+function updatePollUI(pollId) {
+    db.ref(`chat_polls/${pollId}`).once('value', (snapshot) => {
+        const poll = snapshot.val();
+        if (!poll) return;
+        const container = document.getElementById(`poll-options-${pollId}`);
+        if (!container) return;
+        container.innerHTML = '';
+        const total = poll.totalVotes || 1;
+        poll.options.forEach((opt, idx) => {
+            const percent = ((opt.votes || 0) / total) * 100;
+            container.innerHTML += `<div class="flex items-center justify-between gap-2 text-sm"><span class="flex-1">${escapeHtml(opt.text)}</span><span class="w-16 text-right">${opt.votes || 0}</span><div class="w-24 h-2 bg-gray-200 rounded-full overflow-hidden"><div class="h-full bg-emerald-500 rounded-full" style="width: ${percent}%"></div></div><button onclick="votePoll(${pollId}, ${idx})" class="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full hover:bg-indigo-200">Vote</button></div>`;
+        });
+        const totalSpan = container.parentElement?.querySelector('.text-xs');
+        if (totalSpan) totalSpan.innerText = `${poll.totalVotes || 0} vote(s)`;
+    });
+}
+function initPollListener() {
+    db.ref('chat_polls').on('child_changed', (snapshot) => {
+        const poll = snapshot.val();
+        if (poll) updatePollUI(poll.id);
+    });
+}
+
+function initWhatsAppChat() {
+    chatMessagesRef = db.ref('chat_messages');
+    chatTypingRef = db.ref('chat_typing');
+    initTypingListener();
+    buildEmojiPicker();
+    loadMessages();
+    initPresence();
+    initPollListener();
+
+    // Sidebar toggle
+    const toggleBtn = document.getElementById('chat-sidebar-toggle');
+    const sidebar = document.getElementById('chat-sidebar');
+    if (toggleBtn && sidebar) toggleBtn.addEventListener('click', () => sidebar.classList.toggle('-translate-x-full'));
+
+    // Send message
+    const sendBtn = document.getElementById('send-message-btn');
+    const inputField = document.getElementById('chat-input-new');
+    if (sendBtn && inputField) {
+        sendBtn.addEventListener('click', () => sendChatMessage(inputField.value));
+        inputField.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendChatMessage(inputField.value); });
+        inputField.addEventListener('input', sendTypingStatus);
+    }
+
+    // Attachment menu
+    const attachBtn = document.getElementById('attach-menu-btn');
+    const attachMenu = document.getElementById('attachment-menu');
+    if (attachBtn && attachMenu) {
+        attachBtn.addEventListener('click', () => attachMenu.classList.toggle('hidden'));
+        document.getElementById('attach-image')?.addEventListener('click', () => {
+            const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*';
+            input.onchange = e => uploadChatAttachment(e.target.files[0], 'image');
+            input.click(); attachMenu.classList.add('hidden');
+        });
+        document.getElementById('attach-file')?.addEventListener('click', () => {
+            const input = document.createElement('input'); input.type = 'file';
+            input.onchange = e => uploadChatAttachment(e.target.files[0], 'file');
+            input.click(); attachMenu.classList.add('hidden');
+        });
+        document.getElementById('create-poll-chat')?.addEventListener('click', () => { openPollModal(); attachMenu.classList.add('hidden'); });
+    }
+
+    // Emoji picker toggle
+    const emojiBtn = document.getElementById('emoji-btn');
+    const emojiPicker = document.getElementById('emoji-picker');
+    if (emojiBtn && emojiPicker) emojiBtn.addEventListener('click', () => emojiPicker.classList.toggle('hidden'));
+
+    // Dark mode toggle
+    const darkBtn = document.getElementById('dark-mode-toggle');
+    if (darkBtn) darkBtn.addEventListener('click', () => setDarkMode(!currentDarkMode));
+    setDarkMode(currentDarkMode);
+
+    // Search
+    const searchBtn = document.getElementById('search-messages-btn');
+    if (searchBtn) searchBtn.addEventListener('click', () => {
+        const keyword = prompt('Search messages:', '');
+        if (keyword) {
+            const results = messages.filter(m => m.text.toLowerCase().includes(keyword.toLowerCase()));
+            alert(`Found ${results.length} messages.`);
+        }
+    });
+
+    // Event delegation for message actions
+    const container = document.getElementById('chat-messages-container-new');
+    if (container) {
+        container.addEventListener('click', async (e) => {
+            const replyBtn = e.target.closest('.reply-btn');
+            if (replyBtn) {
+                const id = replyBtn.dataset.id;
+                const msg = messages.find(m => m.messageId === id);
+                if (msg) setReply(id, msg.text);
+                return;
+            }
+            const reactBtn = e.target.closest('.react-btn');
+            if (reactBtn) {
+                const id = reactBtn.dataset.id;
+                const emoji = prompt('Enter emoji (e.g., ❤️)');
+                if (emoji) await addReaction(id, emoji);
+                return;
+            }
+            const editBtn = e.target.closest('.edit-msg-btn');
+            if (editBtn) {
+                const id = editBtn.dataset.id;
+                const msg = messages.find(m => m.messageId === id);
+                if (msg) {
+                    const newText = prompt("Edit your message:", msg.text);
+                    if (newText && newText !== msg.text) await editMessage(id, newText);
+                }
+                return;
+            }
+            const deleteBtn = e.target.closest('.delete-msg-btn');
+            if (deleteBtn) {
+                const id = deleteBtn.dataset.id;
+                if (confirm('Delete this message?')) await deleteMessage(id);
+                return;
+            }
+            const pinBtn = e.target.closest('.pin-msg-btn');
+            if (pinBtn) {
+                const id = pinBtn.dataset.id;
+                await togglePinMessage(id);
+            }
+        });
+    }
+}
+
+// Open/close chat modal from outside
+function openChatModal() {
+    const chatFull = document.getElementById('chat-full');
+    if (chatFull) {
+        chatFull.classList.remove('hidden');
+        chatFull.classList.add('flex');
+        if (chatMessagesRef) loadMessages();
+        initPresence();
+        document.getElementById('chat-input-new')?.focus();
+    }
+}
+function closeChatModal() {
+    const chatFull = document.getElementById('chat-full');
+    if (chatFull) {
+        chatFull.classList.add('hidden');
+        chatFull.classList.remove('flex');
+    }
+}
 
 // ==================== INIT ====================
 window.onload = () => {
     const savedRole = sessionStorage.getItem('tournamentRole');
     if (savedRole === 'viewer' || savedRole === 'admin') {
         selectRole(savedRole);
-    } else {
-        // Show role selector modal (already visible)
     }
     initRealtimeDatabaseSync();
 };
@@ -1848,18 +1930,23 @@ window.showMatchCommentForKnockout = showMatchCommentForKnockout;
 window.editKnockoutResult = editKnockoutResult;
 window.startRound = startRound;
 window.stopRound = stopRound;
+window.toggleAutoStart = toggleAutoStart;
+
+// Chat exports
 window.openChatModal = openChatModal;
 window.closeChatModal = closeChatModal;
 window.sendChatMessage = sendChatMessage;
-window.deleteChatMessage = deleteChatMessage;
-window.deleteChatMessage = deleteChatMessage;
-window.onChatInput = onChatInput;
-window.toggleAutoStart = toggleAutoStart;
+window.deleteChatMessage = deleteMessage;
+window.addReaction = addReaction;
+window.togglePinMessage = togglePinMessage;
+window.editMessage = editMessage;
+window.setReply = setReply;
+window.clearReply = clearReply;
+window.uploadChatAttachment = uploadChatAttachment;
 window.openPollModal = openPollModal;
 window.closePollModal = closePollModal;
 window.addPollOption = addPollOption;
 window.removePollOption = removePollOption;
 window.createPoll = createPoll;
-window.deletePoll = deletePoll;
 window.votePoll = votePoll;
 window.sendTypingStatus = sendTypingStatus;
