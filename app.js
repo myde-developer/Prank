@@ -330,10 +330,10 @@ function appendChatMessage(msg) {
     container.scrollTop = container.scrollHeight;
     
     // Unread count logic
-    if (!isChatModalOpen && !isCurrentUser && msg.timestamp > lastReadTimestamp) {
-        unreadMessagesCount++;
-        updateUnreadBadge();
-    }
+   if (!isChatModalOpen && !isCurrentUser && msg.timestamp > lastReadTimestamp) {
+    unreadMessagesCount++;
+    updateUnreadBadge();
+}
 }
 
 // Keep your existing sendChatMessage, deleteChatMessage, etc. unchanged
