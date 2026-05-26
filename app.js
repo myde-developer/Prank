@@ -1648,7 +1648,6 @@ window.openChatModal = openChatModal;
 window.closeChatModal = closeChatModal;
 window.sendChatMessage = sendChatMessage;
 window.deleteChatMessage = deleteChatMessage;
-window.deleteChatMessage = deleteChatMessage;
 window.onChatInput = onChatInput;
 window.toggleAutoStart = toggleAutoStart;
 window.openPollModal = openPollModal;
