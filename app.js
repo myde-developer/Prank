@@ -34,6 +34,7 @@ let typingRef = null;
 let presenceRef = null;
 let isChatModalOpen = false;
 let unreadMessagesCount = 0;
+let groupInfoRef = null;
 let lastReadTimestamp = localStorage.getItem('chatLastRead') ? parseInt(localStorage.getItem('chatLastRead')) : Date.now();
 const currentUserId = localStorage.getItem('chatUserId') || ('user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6));
 localStorage.setItem('chatUserId', currentUserId);
@@ -66,6 +67,7 @@ function initWhatsAppChat() {
     setupContextMenu();
     updateParticipantsList();
     startReadReceiptUpdater();
+    initGroupInfoListener(); 
 }
 
 function loadChatMessages(loadMore = false) {
@@ -461,6 +463,71 @@ window.openChatModal = function() {
     }
     originalOpenChatModal();
 };
+
+// ==================== GROUP INFO (ADMIN ONLY) ====================
+
+
+function initGroupInfoListener() {
+    groupInfoRef = db.ref(`group_chat/${currentChatRoom}/info`);
+    groupInfoRef.on('value', (snapshot) => {
+        const info = snapshot.val() || {};
+        // Update header
+        document.getElementById('group-name-display').innerText = info.name || 'DLS Vawulence Academy';
+        document.getElementById('group-description-display').innerText = info.description || 'Official tournament chat';
+        
+        const avatarUrl = info.avatarUrl;
+        const avatarImg = document.getElementById('group-avatar-img');
+        const avatarPlaceholder = document.getElementById('group-avatar-placeholder');
+        if (avatarUrl) {
+            avatarImg.src = avatarUrl;
+            avatarImg.style.display = 'block';
+            avatarPlaceholder.style.display = 'none';
+        } else {
+            avatarImg.style.display = 'none';
+            avatarPlaceholder.style.display = 'flex';
+        }
+    });
+}
+
+function openGroupInfoModal() {
+    if (!isAdmin) {
+        showToast('Only admin can edit group info');
+        return;
+    }
+    // Load current values
+    db.ref(`group_chat/${currentChatRoom}/info`).once('value', (snapshot) => {
+        const info = snapshot.val() || {};
+        document.getElementById('group-name-input').value = info.name || '';
+        document.getElementById('group-description-input').value = info.description || '';
+        document.getElementById('group-avatar-input').value = info.avatarUrl || '';
+        document.getElementById('group-info-modal').classList.remove('hidden');
+        document.getElementById('group-info-modal').classList.add('flex');
+    });
+}
+
+function closeGroupInfoModal() {
+    document.getElementById('group-info-modal').classList.add('hidden');
+    document.getElementById('group-info-modal').classList.remove('flex');
+}
+
+function saveGroupInfo() {
+    if (!isAdmin) return;
+    const name = document.getElementById('group-name-input').value.trim();
+    const description = document.getElementById('group-description-input').value.trim();
+    const avatarUrl = document.getElementById('group-avatar-input').value.trim();
+    
+    const updatedInfo = {};
+    if (name) updatedInfo.name = name;
+    if (description) updatedInfo.description = description;
+    if (avatarUrl) updatedInfo.avatarUrl = avatarUrl;
+    
+    db.ref(`group_chat/${currentChatRoom}/info`).update(updatedInfo)
+        .then(() => {
+            showToast('Group info updated');
+            closeGroupInfoModal();
+        })
+        .catch(err => showToast('Error: ' + err.message));
+}
 
 // ==================== ROLE SELECTION ====================
 let userRole = null; // 'viewer' or 'admin'
@@ -1964,3 +2031,6 @@ window.toggleAutoStart = toggleAutoStart;
 window.sendTypingStatus = sendTypingStatus;
 window.promptReplaceTeam = promptReplaceTeam;
 window.replaceTeam = replaceTeam;
+window.openGroupInfoModal = openGroupInfoModal;
+window.closeGroupInfoModal = closeGroupInfoModal;
+window.saveGroupInfo = saveGroupInfo;
