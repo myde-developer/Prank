@@ -647,8 +647,9 @@ function loadTournamentData(data) {
     knockoutMatches = data.knockoutMatches || [];
     tournamentPhase = data.tournamentPhase || 'league';
     roundStartTimes = data.roundStartTimes || {};
-roundPaused = data.roundPaused || {};
+    roundPaused = data.roundPaused || {};
     autoStartNextRound = data.autoStartNextRound || false;
+    
     updateTableCalculations();
     renderTable();
     renderGameweekTabs();
@@ -657,14 +658,20 @@ roundPaused = data.roundPaused || {};
     renderRelegatedTeams();
     generateTickerFacts();
     checkAndCelebrateChampion();
+    
     document.getElementById('setup-section')?.classList.add('hidden');
     document.getElementById('dashboard-section')?.classList.remove('hidden');
     document.getElementById('deadline-clock')?.classList.remove('hidden');
+    
     initBackToTop();
     startDeadlineClock();
     initChatListener();
-    if (userRole === 'admin') {
-        updateAdminUIElements(); // shows admin buttons etc.
+    
+    // ✅ Force admin UI update after a short delay (ensures DOM is ready)
+    if (isAdmin) {
+        setTimeout(() => {
+            updateAdminUIElements();
+        }, 50);
     }
 }
 
@@ -889,22 +896,26 @@ function updateAdminUIElements() {
     const relegationZone = document.getElementById('relegation-zone');
     const autoStartContainer = document.getElementById('auto-start-container');
     const floatMenu = document.getElementById('floating-admin-menu');
-    const toggleContainer = document.getElementById('admin-toggle-container'); // NEW
+    const toggleContainer = document.getElementById('admin-toggle-container');
 
     if (isAdmin) {
+        // Toggle button styles
         btn?.classList.replace('bg-gray-300', 'bg-indigo-600');
         dot?.classList.replace('translate-x-0', 'translate-x-5');
         if (statusText) {
             statusText.innerText = "⚡ ADMIN MODE";
             statusText.classList.replace('text-gray-600', 'text-indigo-600');
         }
+        // Show all admin-only containers
         if (resetContainer) resetContainer.classList.remove('hidden');
-        if (thActions) thActions.classList.remove('hidden');
-        if (hint) hint.classList.remove('hidden');
-        if (relegationZone) relegationZone.classList.remove('hidden');
-        if (floatMenu) floatMenu.classList.remove('hidden');
-        if (autoStartContainer) autoStartContainer.classList.remove('hidden');
-        if (toggleContainer) toggleContainer.classList.remove('hidden'); // NEW
+        if (thActions) thActions?.classList.remove('hidden');
+        if (hint) hint?.classList.remove('hidden');
+        if (relegationZone) relegationZone?.classList.remove('hidden');
+        if (floatMenu) floatMenu?.classList.remove('hidden');
+        if (autoStartContainer) autoStartContainer?.classList.remove('hidden');
+        if (toggleContainer) toggleContainer?.classList.remove('hidden');
+
+        console.log("Admin mode ON – UI elements shown");
     } else {
         btn?.classList.replace('bg-indigo-600', 'bg-gray-300');
         dot?.classList.replace('translate-x-5', 'translate-x-0');
@@ -912,18 +923,48 @@ function updateAdminUIElements() {
             statusText.innerText = "🔒 READ ONLY";
             statusText.classList.replace('text-indigo-600', 'text-gray-600');
         }
+        // Hide all admin-only containers
         if (resetContainer) resetContainer.classList.add('hidden');
-        if (thActions) thActions.classList.add('hidden');
-        if (hint) hint.classList.add('hidden');
-        if (relegationZone) relegationZone.classList.add('hidden');
-        if (floatMenu) floatMenu.classList.add('hidden');
-        if (autoStartContainer) autoStartContainer.classList.add('hidden');
-        if (toggleContainer) toggleContainer.classList.add('hidden'); // NEW
+        if (thActions) thActions?.classList.add('hidden');
+        if (hint) hint?.classList.add('hidden');
+        if (relegationZone) relegationZone?.classList.add('hidden');
+        if (floatMenu) floatMenu?.classList.add('hidden');
+        if (autoStartContainer) autoStartContainer?.classList.add('hidden');
+        if (toggleContainer) toggleContainer?.classList.add('hidden');
+
+        console.log("Admin mode OFF – UI elements hidden");
     }
 
+    // Re-render table and fixtures to reflect action buttons
     renderTable();
     renderGameweekTabs();
     renderFixtures();
+}
+
+// ==================== AUTO-START TOGGLE UI ====================
+function updateAutoStartToggleUI() {
+    const toggleBtn = document.getElementById('auto-start-toggle');
+    const dot = document.getElementById('auto-start-dot');
+    if (!toggleBtn) return;
+    if (autoStartNextRound) {
+        toggleBtn.classList.remove('bg-gray-300');
+        toggleBtn.classList.add('bg-indigo-600');
+        dot.classList.remove('translate-x-0');
+        dot.classList.add('translate-x-4');
+    } else {
+        toggleBtn.classList.remove('bg-indigo-600');
+        toggleBtn.classList.add('bg-gray-300');
+        dot.classList.remove('translate-x-4');
+        dot.classList.add('translate-x-0');
+    }
+}
+
+function toggleAutoStart() {
+    if (!isAdmin) return;
+    autoStartNextRound = !autoStartNextRound;
+    saveToStorage();
+    updateAutoStartToggleUI();
+    showToast(autoStartNextRound ? "Auto‑start next round: ON" : "Auto‑start next round: OFF");
 }
 
 // ==================== PASSWORD CHANGE ====================
