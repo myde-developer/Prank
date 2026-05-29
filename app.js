@@ -47,7 +47,7 @@ function selectRole(role) {
         // First, check if a tournament exists to get the stored password
         db.ref('tournament_data/password').once('value', (snapshot) => {
             const storedPass = snapshot.val();
-            const validPassword = storedPass ? entered === storedPass : entered === "1234";
+            const validPassword = storedPass ? entered === storedPass : entered === "090541";
             if (validPassword) {
                 isAdmin = true;
                 showToast("Admin access granted");
@@ -138,7 +138,7 @@ function checkAndLoadTournament() {
 }
 
 function loadTournamentData(data) {
-    tournamentPassword = data.password || "1234";
+    tournamentPassword = data.password || "090541";
     teams = data.teams;
     fixtures = data.fixtures;
     knockoutMatches = data.knockoutMatches || [];
