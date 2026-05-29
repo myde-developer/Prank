@@ -475,7 +475,7 @@ function initGroupInfoListener() {
         const info = snapshot.val() || {};
         // Update header
         document.getElementById('group-name-display').innerText = info.name || 'DLS Vawulence Academy';
-        document.getElementById('group-description-display').innerText = info.description || 'Official tournament chat';
+        document.getElementById('group-description-display').innerText = info.description || 'Official league chat';
         
         const avatarUrl = info.avatarUrl;
         const avatarImg = document.getElementById('group-avatar-img');
@@ -880,34 +880,50 @@ function verifyAdminPassword() { const val = document.getElementById('admin-pass
 function activateAdminMode() { isAdmin = true; updateAdminUIElements(); showToast("Admin mode ACTIVE"); }
 function deactivateAdminMode() { isAdmin = false; updateAdminUIElements(); showToast("Admin mode deactivated"); }
 function updateAdminUIElements() {
-    const btn = document.getElementById('admin-btn'), dot = document.getElementById('admin-btn-dot'), statusText = document.getElementById('admin-status-text'), resetContainer = document.getElementById('admin-reset-container'), thActions = document.getElementById('th-admin-actions'), hint = document.getElementById('admin-table-hint'), relegationZone = document.getElementById('relegation-zone');
+    const btn = document.getElementById('admin-btn');
+    const dot = document.getElementById('admin-btn-dot');
+    const statusText = document.getElementById('admin-status-text');
+    const resetContainer = document.getElementById('admin-reset-container');
+    const thActions = document.getElementById('th-admin-actions');
+    const hint = document.getElementById('admin-table-hint');
+    const relegationZone = document.getElementById('relegation-zone');
     const autoStartContainer = document.getElementById('auto-start-container');
-    if (autoStartContainer) { if (isAdmin) autoStartContainer.classList.remove('hidden'); else autoStartContainer.classList.add('hidden'); }
     const floatMenu = document.getElementById('floating-admin-menu');
+    const toggleContainer = document.getElementById('admin-toggle-container'); // NEW
+
     if (isAdmin) {
-        btn?.classList.replace('bg-gray-300', 'bg-indigo-600'); dot?.classList.replace('translate-x-0', 'translate-x-5');
-        if (statusText) { statusText.innerText = "⚡ ADMIN MODE"; statusText.classList.replace('text-gray-600', 'text-indigo-600'); }
-        if (resetContainer) resetContainer.classList.remove('hidden'); if (thActions) thActions.classList.remove('hidden'); if (hint) hint.classList.remove('hidden');
+        btn?.classList.replace('bg-gray-300', 'bg-indigo-600');
+        dot?.classList.replace('translate-x-0', 'translate-x-5');
+        if (statusText) {
+            statusText.innerText = "⚡ ADMIN MODE";
+            statusText.classList.replace('text-gray-600', 'text-indigo-600');
+        }
+        if (resetContainer) resetContainer.classList.remove('hidden');
+        if (thActions) thActions.classList.remove('hidden');
+        if (hint) hint.classList.remove('hidden');
         if (relegationZone) relegationZone.classList.remove('hidden');
         if (floatMenu) floatMenu.classList.remove('hidden');
-        renderRelegatedTeams();
+        if (autoStartContainer) autoStartContainer.classList.remove('hidden');
+        if (toggleContainer) toggleContainer.classList.remove('hidden'); // NEW
     } else {
-        btn?.classList.replace('bg-indigo-600', 'bg-gray-300'); dot?.classList.replace('translate-x-5', 'translate-x-0');
-        if (statusText) { statusText.innerText = "🔒 READ ONLY"; statusText.classList.replace('text-indigo-600', 'text-gray-600'); }
-        if (resetContainer) resetContainer.classList.add('hidden'); if (thActions) thActions.classList.add('hidden'); if (hint) hint.classList.add('hidden');
+        btn?.classList.replace('bg-indigo-600', 'bg-gray-300');
+        dot?.classList.replace('translate-x-5', 'translate-x-0');
+        if (statusText) {
+            statusText.innerText = "🔒 READ ONLY";
+            statusText.classList.replace('text-indigo-600', 'text-gray-600');
+        }
+        if (resetContainer) resetContainer.classList.add('hidden');
+        if (thActions) thActions.classList.add('hidden');
+        if (hint) hint.classList.add('hidden');
         if (relegationZone) relegationZone.classList.add('hidden');
         if (floatMenu) floatMenu.classList.add('hidden');
+        if (autoStartContainer) autoStartContainer.classList.add('hidden');
+        if (toggleContainer) toggleContainer.classList.add('hidden'); // NEW
     }
-    renderTable(); renderGameweekTabs(); renderFixtures();
-}
-function toggleAutoStart() {
-    if (!isAdmin) return;
-    autoStartNextRound = !autoStartNextRound;
-    const btn = document.getElementById('auto-start-toggle');
-    const dot = document.getElementById('auto-start-dot');
-    if (autoStartNextRound) { btn.classList.replace('bg-gray-300', 'bg-indigo-600'); dot.classList.replace('translate-x-0', 'translate-x-4'); showToast("Auto‑start enabled"); }
-    else { btn.classList.replace('bg-indigo-600', 'bg-gray-300'); dot.classList.replace('translate-x-4', 'translate-x-0'); showToast("Auto‑start disabled"); }
-    saveToStorage();
+
+    renderTable();
+    renderGameweekTabs();
+    renderFixtures();
 }
 
 // ==================== PASSWORD CHANGE ====================
@@ -936,17 +952,31 @@ function initializeTournament() {
     const pass = document.getElementById('tournament-password').value.trim();
     if (pass) tournamentPassword = pass;
     let list = [];
-    for (let i = 1; i <= count; i++) { let name = document.getElementById(`team-input-${i}`).value.trim(); if (name === "") name = `Team ${i}`; list.push({ name }); }
+    for (let i = 1; i <= count; i++) {
+        let name = document.getElementById(`team-input-${i}`).value.trim();
+        if (name === "") name = `Team ${i}`;
+        list.push({ name });
+    }
     if (list.length % 2 !== 0) list.push({ name: "BYE" });
     teams = {};
-    list.forEach(item => { if (item.name !== "BYE") teams[item.name] = { name: item.name, mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0, deductedPoints: 0, formHistory: [], relegated: false }; });
+    list.forEach(item => {
+        if (item.name !== "BYE") teams[item.name] = {
+            name: item.name, mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0,
+            gd: 0, pts: 0, deductedPoints: 0, formHistory: [], relegated: false
+        };
+    });
     const teamNames = Object.keys(teams);
-    const rounds = generateDoubleRoundRobin(teamNames); 
+    const rounds = generateDoubleRoundRobin(teamNames);
     fixtures = [];
     let fixtureId = 0;
     rounds.forEach((roundFixtures, roundIndex) => {
         roundFixtures.forEach(({ home, away }) => {
-            fixtures.push({ id: fixtureId++, round: roundIndex + 1, home, away, homeScore: null, awayScore: null, played: false, cancelled: false, comment: null, predictions: [], banter: [], events: [], report: null, deadline: null });
+            fixtures.push({
+                id: fixtureId++, round: roundIndex + 1, home, away,
+                homeScore: null, awayScore: null, played: false, cancelled: false,
+                comment: null, predictions: [], banter: [], events: [],
+                report: null, deadline: null
+            });
         });
     });
     tournamentPhase = 'league';
@@ -955,9 +985,22 @@ function initializeTournament() {
     autoStartNextRound = false;
     currentSelectedRound = 1;
     saveToStorage();
-    showToast(`Tournament launched with ${count} teams!`);
-}
 
+    // NEW: immediately load the tournament data after saving
+    db.ref('tournament_data').once('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            loadTournamentData(data);
+            // Hide setup section and show dashboard
+            document.getElementById('setup-section')?.classList.add('hidden');
+            document.getElementById('dashboard-section')?.classList.remove('hidden');
+            document.getElementById('deadline-clock')?.classList.remove('hidden');
+            showToast(`Tournament launched with ${Object.keys(teams).length} teams!`);
+        } else {
+            showToast("Error loading tournament data. Please refresh.");
+        }
+    }).catch(err => showToast("Error: " + err.message));
+}
 
 // ==================== ADMIN: START ROUND ====================
 function startRound(roundNumber) {
@@ -1314,7 +1357,7 @@ function renderTable() {
         tbody.innerHTML += `<tr class="hover:bg-gray-50 transition ${pos === 1 ? 'champions-row' : (pos > sorted.length - 2 ? 'relegation-row' : '')}" onclick="showTeamDetails('${team.name}')"><td class="py-2 px-2 text-center font-bold text-xs ${pos === 1 ? 'text-indigo-600' : ''}">${pos}</td><td class="py-2 px-2"><span class="font-semibold text-xs">${team.name}</span>${penaltyBadge}</td><td class="py-2 px-1 text-center text-xs">${team.mp}</td><td class="py-2 px-1 text-center text-emerald-600 text-xs">${team.w}</td><td class="py-2 px-1 text-center text-xs">${team.d}</td><td class="py-2 px-1 text-center text-rose-500 text-xs">${team.l}</td><td class="py-2 px-1 text-center text-xs">${team.gf}</td><td class="py-2 px-1 text-center text-xs">${team.ga}</td><td class="py-2 px-1 text-center font-mono text-xs ${team.gd >= 0 ? 'text-emerald-600' : 'text-rose-500'}">${team.gd > 0 ? '+' + team.gd : team.gd}</td><td class="py-2 px-2 text-center font-black text-indigo-600 text-xs">${team.pts}</td><td class="py-2 px-2 text-center">${formHtml}<td>${actionBtn}</tr>`;
     });
     const phaseIndicator = document.getElementById('phase-indicator');
-    if (phaseIndicator) phaseIndicator.innerText = tournamentPhase === 'league' ? '🏆 League Phase' : '🥇 Knockout Stage';
+    if (phaseIndicator) phaseIndicator.innerText = tournamentPhase === 'league' ? '🏆 League' : '🥇 Knockout Stage';
     generateTickerFacts();
 }
 
