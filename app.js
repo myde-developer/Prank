@@ -692,20 +692,21 @@ function getCurrentUserId() {
 }
 
 // ==================== RANDOMIZED FIXTURE GENERATION ====================
-function generateRandomRoundRobin(teamNames) {
+function generateDoubleRoundRobin(teamNames) {
     let n = teamNames.length;
     if (n % 2 !== 0) {
         teamNames.push("BYE");
         n++;
     }
+    // First half (random order)
     let shuffled = [...teamNames];
     for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
-    const numRounds = n - 1;
+    const numRounds = n - 1;       // 29 for 30 teams
     const halfSize = n / 2;
-    const rounds = [];
+    const firstHalfRounds = [];
     for (let round = 0; round < numRounds; round++) {
         const roundFixtures = [];
         for (let i = 0; i < halfSize; i++) {
@@ -716,15 +717,15 @@ function generateRandomRoundRobin(teamNames) {
                 else roundFixtures.push({ home: away, away: home });
             }
         }
-        rounds.push(roundFixtures);
+        firstHalfRounds.push(roundFixtures);
         const last = shuffled.pop();
         shuffled.splice(1, 0, last);
     }
-    for (let i = rounds.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [rounds[i], rounds[j]] = [rounds[j], rounds[i]];
-    }
-    return rounds;
+    // Second half – swap home/away
+    const secondHalfRounds = firstHalfRounds.map(roundFixtures =>
+        roundFixtures.map(fixture => ({ home: fixture.away, away: fixture.home }))
+    );
+    return [...firstHalfRounds, ...secondHalfRounds];
 }
 
 
@@ -940,7 +941,7 @@ function initializeTournament() {
     teams = {};
     list.forEach(item => { if (item.name !== "BYE") teams[item.name] = { name: item.name, mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0, deductedPoints: 0, formHistory: [], relegated: false }; });
     const teamNames = Object.keys(teams);
-    const rounds = generateRandomRoundRobin(teamNames);
+    const rounds = generateDoubleRoundRobin(teamNames); 
     fixtures = [];
     let fixtureId = 0;
     rounds.forEach((roundFixtures, roundIndex) => {
@@ -1062,10 +1063,6 @@ function updateTableCalculations() {
         }
     });
     for (let t in teams) { teams[t].pts = Math.max(0, teams[t].pts - (teams[t].deductedPoints || 0)); teams[t].gd = teams[t].gf - teams[t].ga; }
-    const activeTeams = Object.values(teams).filter(t => !t.relegated);
-    if (activeTeams.length === 4 && tournamentPhase === 'league' && knockoutMatches.length === 0) {
-        startKnockoutStage(activeTeams);
-    }
 }
 function startKnockoutStage(activeTeams) {
     const sorted = [...activeTeams].sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
