@@ -899,16 +899,28 @@ function updateAdminUIElements() {
     const toggleContainer = document.getElementById('admin-toggle-container');
 
     if (isAdmin) {
-        // Toggle button styles
         btn?.classList.replace('bg-gray-300', 'bg-indigo-600');
         dot?.classList.replace('translate-x-0', 'translate-x-5');
         if (statusText) {
             statusText.innerText = "⚡ ADMIN MODE";
             statusText.classList.replace('text-gray-600', 'text-indigo-600');
         }
-        // Show all admin-only containers
-        if (resetContainer) resetContainer.classList.remove('hidden');
-        if (thActions) thActions?.classList.remove('hidden');
+        
+        // Helper to show an element if it exists, otherwise retry
+        const showIfExists = (element, name) => {
+            if (element) {
+                element.classList.remove('hidden');
+            } else {
+                console.warn(`Element #${name} not found, will retry`);
+                setTimeout(() => {
+                    const retryElement = document.getElementById(name);
+                    if (retryElement) retryElement.classList.remove('hidden');
+                }, 200);
+            }
+        };
+        
+        showIfExists(resetContainer, 'admin-reset-container');
+        if (thActions) thActions.classList.remove('hidden');
         if (hint) hint?.classList.remove('hidden');
         if (relegationZone) relegationZone?.classList.remove('hidden');
         if (floatMenu) floatMenu?.classList.remove('hidden');
@@ -923,7 +935,7 @@ function updateAdminUIElements() {
             statusText.innerText = "🔒 READ ONLY";
             statusText.classList.replace('text-indigo-600', 'text-gray-600');
         }
-        // Hide all admin-only containers
+        
         if (resetContainer) resetContainer.classList.add('hidden');
         if (thActions) thActions?.classList.add('hidden');
         if (hint) hint?.classList.add('hidden');
@@ -935,7 +947,6 @@ function updateAdminUIElements() {
         console.log("Admin mode OFF – UI elements hidden");
     }
 
-    // Re-render table and fixtures to reflect action buttons
     renderTable();
     renderGameweekTabs();
     renderFixtures();
