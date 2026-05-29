@@ -18,7 +18,9 @@ let pendingFixtureId = null, pendingHomeScore = null, pendingAwayScore = null;
 let currentPenaltyTeam = null, pendingAssignFixtureId = null, pendingAssignSide = null, currentViewerFixtureId = null;
 let currentPredictionFixtureId = null, currentBanterFixtureId = null;
 let autoStartNextRound = false;
-let roundStartTimes = {};
+// In your existing roundStartTimes and roundPaused objects
+let roundStartTimes = {};      // timestamp when round started (null if not started)
+let roundPaused = {};          // { roundNumber: { pausedAt: timestamp, totalPausedMs: accumulatedMs } }
 // ==================== NEW WHATSAPP-STYLE CHAT IMPLEMENTATION ====================
 let chatMessagesRef = null;
 let currentChatRoom = "tournament_group";
@@ -645,6 +647,7 @@ function loadTournamentData(data) {
     knockoutMatches = data.knockoutMatches || [];
     tournamentPhase = data.tournamentPhase || 'league';
     roundStartTimes = data.roundStartTimes || {};
+roundPaused = data.roundPaused || {};
     autoStartNextRound = data.autoStartNextRound || false;
     updateTableCalculations();
     renderTable();
@@ -670,8 +673,14 @@ function showToast(msg) {
     const c = document.getElementById("toast-container");
     if (c) { let t = document.createElement("div"); t.className = "toast"; t.innerText = msg; c.appendChild(t); setTimeout(() => t.remove(), 2500); }
 }
-function saveToStorage() { 
-    db.ref('tournament_data').set({ teams, fixtures, knockoutMatches, tournamentPhase, password: tournamentPassword, roundStartTimes, autoStartNextRound }); 
+function saveToStorage() {
+    db.ref('tournament_data').set({
+        teams, fixtures, knockoutMatches, tournamentPhase,
+        password: tournamentPassword,
+        roundStartTimes,
+        roundPaused,          // add this
+        autoStartNextRound
+    });
 }
 function getCurrentUserId() {
     let id = sessionStorage.getItem('chatUserId');
@@ -726,6 +735,8 @@ function expireOldFixtures() {
     fixtures.forEach(f => {
         if (!f.played && !f.cancelled) {
             const startTime = roundStartTimes[f.round];
+            // Skip if round is paused
+            if (roundPaused[f.round]) return;
             if (startTime) {
                 const deadline = startTime + 2 * 24 * 60 * 60 * 1000;
                 if (now > deadline) {
@@ -1316,14 +1327,23 @@ function renderGameweekTabs() {
     if (!fixtures.length) return;
     const total = Math.max(...fixtures.map(f => f.round));
     container.innerHTML = "";
+    
     for (let r = 1; r <= total; r++) {
         const startTime = roundStartTimes[r];
+        const pausedData = roundPaused[r];
+        const isPaused = !!pausedData;
         const roundFixtures = fixtures.filter(f => f.round === r && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
         const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
-        let statusHtml = '', startBtnHtml = '', stopBtnHtml = '';
+        
+        let statusHtml = '', actionBtnHtml = '';
 
         if (allResolved) {
             statusHtml = `<span class="text-[9px] font-mono text-green-600 ml-1">✅ Completed</span>`;
+        } else if (isPaused) {
+            statusHtml = `<span class="text-[9px] font-mono text-yellow-600 ml-1">⏸ Paused</span>`;
+            if (isAdmin && tournamentPhase === 'league') {
+                actionBtnHtml = `<button onclick="resumeRound(${r})" class="ml-1 text-[9px] bg-green-100 text-green-700 px-1 py-0.5 rounded-full hover:bg-green-200">▶️ Resume</button>`;
+            }
         } else if (startTime) {
             const deadline = startTime + 2 * 24 * 60 * 60 * 1000;
             const now = Date.now();
@@ -1331,16 +1351,15 @@ function renderGameweekTabs() {
                 const hoursLeft = Math.max(0, Math.floor((deadline - now) / (1000 * 60 * 60)));
                 const minutesLeft = Math.floor(((deadline - now) % (1000 * 60 * 60)) / (1000 * 60));
                 statusHtml = `<span class="text-[9px] font-mono text-green-600 ml-1">⏳ ${hoursLeft}h ${minutesLeft}m</span>`;
-                // ✅ Only admins see the stop button
-                if (isAdmin) {
-                    stopBtnHtml = `<button onclick="stopRound(${r})" class="ml-1 text-[9px] bg-red-100 text-red-700 px-1 py-0.5 rounded-full hover:bg-red-200">⏹️ Stop</button>`;
+                if (isAdmin && tournamentPhase === 'league') {
+                    actionBtnHtml = `<button onclick="pauseRound(${r})" class="ml-1 text-[9px] bg-yellow-100 text-yellow-700 px-1 py-0.5 rounded-full hover:bg-yellow-200">⏸️ Pause</button>`;
                 }
             } else {
                 statusHtml = `<span class="text-[9px] font-mono text-red-500 ml-1">⌛ Expired</span>`;
             }
         } else {
             if (isAdmin && tournamentPhase === 'league') {
-                startBtnHtml = `<button onclick="startRound(${r})" class="ml-1 text-[9px] bg-green-100 text-green-700 px-1 py-0.5 rounded-full hover:bg-green-200">▶ Start</button>`;
+                actionBtnHtml = `<button onclick="startRound(${r})" class="ml-1 text-[9px] bg-green-100 text-green-700 px-1 py-0.5 rounded-full hover:bg-green-200">▶ Start</button>`;
             } else {
                 statusHtml = `<span class="text-[9px] font-mono text-gray-400 ml-1">⏸ Not started</span>`;
             }
@@ -1349,10 +1368,11 @@ function renderGameweekTabs() {
         const active = r === currentSelectedRound;
         const btn = document.createElement('button');
         btn.className = `px-3 py-1 text-[11px] font-mono rounded-full transition shrink-0 flex items-center gap-1 ${active ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
-        btn.innerHTML = `GW ${r} ${statusHtml} ${startBtnHtml} ${stopBtnHtml}`;
+        btn.innerHTML = `GW ${r} ${statusHtml} ${actionBtnHtml}`;
         btn.onclick = () => { currentSelectedRound = r; renderGameweekTabs(); renderFixtures(); };
         container.appendChild(btn);
     }
+    
     if (isAdmin && tournamentPhase === 'league') {
         const shuffleBtn = document.createElement('button');
         shuffleBtn.className = 'px-3 py-1 text-[11px] font-mono rounded-full bg-amber-100 text-amber-700 hover:bg-amber-200 transition ml-2 shrink-0';
@@ -1360,6 +1380,55 @@ function renderGameweekTabs() {
         shuffleBtn.onclick = () => shuffleRound(currentSelectedRound);
         container.appendChild(shuffleBtn);
     }
+}
+
+function pauseRound(roundNumber) {
+    if (!isAdmin) return;
+    const startTime = roundStartTimes[roundNumber];
+    if (!startTime) {
+        showToast(`Round ${roundNumber} hasn't started yet.`);
+        return;
+    }
+    // Check if already paused
+    if (roundPaused[roundNumber]) {
+        showToast(`Round ${roundNumber} is already paused.`);
+        return;
+    }
+    // Store pause start time
+    roundPaused[roundNumber] = {
+        pausedAt: Date.now(),
+        totalPausedMs: (roundPaused[roundNumber]?.totalPausedMs || 0)
+    };
+    saveToStorage();
+    renderGameweekTabs();
+    renderFixtures();
+    showToast(`⏸️ Round ${roundNumber} paused. Click Resume to continue.`);
+}
+
+function resumeRound(roundNumber) {
+    if (!isAdmin) return;
+    const pauseData = roundPaused[roundNumber];
+    if (!pauseData || !pauseData.pausedAt) {
+        showToast(`Round ${roundNumber} is not paused.`);
+        return;
+    }
+    // Calculate how long it was paused
+    const pausedDuration = Date.now() - pauseData.pausedAt;
+    const totalPaused = (pauseData.totalPausedMs || 0) + pausedDuration;
+    
+    // Adjust the original start time forward by the paused duration
+    // So the deadline is extended by exactly the pause length
+    const originalStart = roundStartTimes[roundNumber];
+    const newStart = originalStart + totalPaused;
+    roundStartTimes[roundNumber] = newStart;
+    
+    // Remove pause data
+    delete roundPaused[roundNumber];
+    
+    saveToStorage();
+    renderGameweekTabs();
+    renderFixtures();
+    showToast(`▶️ Round ${roundNumber} resumed! Deadline extended by ${Math.round(pausedDuration / 60000)} minutes.`);
 }
 
 // ==================== RENDER FIXTURES ====================
