@@ -1,436 +1,114 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>DLS Vawulence Academy | League Hub</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1"></script>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>DLS Vawulence Academy | League Hub</title>
+  <!-- Google Fonts & Font Awesome -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <!-- Firebase SDK -->
+  <script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"></script>
+  <script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js"></script>
+  <script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js"></script>
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-gradient-to-br from-slate-50 to-gray-100 font-['Inter'] text-gray-800 antialiased">
+<body>
 
-    <!-- Role Selector Modal (unchanged) -->
-    <div id="role-selector" class="fixed inset-0 z-50 bg-gray-900/80 backdrop-blur-sm flex items-center justify-center">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center mx-4">
-            <div class="mb-4"><div class="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-3"><span class="text-3xl">⚽</span></div><h2 class="text-2xl font-bold text-gray-800">Welcome to DLS Vawulence Academy</h2><p class="text-gray-500 text-sm mt-1">Select your role to continue</p></div>
-            <div class="space-y-3"><button onclick="selectRole('viewer')" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold">👁️ View League (Read Only)</button><button onclick="selectRole('admin')" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold">🔑 Admin (Manage League)</button></div>
+  <!-- GLOBAL LOADER OVERLAY -->
+  <div id="global-loader" class="loader-overlay">
+    <div class="loader-spinner"></div>
+    <p class="loader-text">⚽ KICKING OFF...</p>
+  </div>
+
+  <!-- STICKY NAVBAR -->
+  <nav class="navbar" id="navbar">
+    <div class="nav-container">
+      <div class="logo">
+        <i class="fas fa-futbol"></i>
+        <span>DLS<span class="logo-highlight">PRO</span></span>
+      </div>
+      <div class="nav-links" id="navLinks">
+        <a href="#" data-page="home" class="nav-link active"><i class="fas fa-home"></i> <span>Home</span></a>
+        <a href="#" data-page="fixtures" class="nav-link"><i class="fas fa-calendar-alt"></i> <span>Fixtures</span></a>
+        <a href="#" data-page="results" class="nav-link"><i class="fas fa-trophy"></i> <span>Results</span></a>
+        <a href="#" data-page="table" class="nav-link"><i class="fas fa-table"></i> <span>Table</span></a>
+        <a href="#" data-page="clubs" class="nav-link"><i class="fas fa-shield-alt"></i> <span>Clubs</span></a>
+        <a href="#" data-page="news" class="nav-link"><i class="fas fa-newspaper"></i> <span>News</span></a>
+        <a href="#" data-page="match-center" class="nav-link"><i class="fas fa-tv"></i> <span>Match Center</span></a>
+        <a href="#" data-page="stats" class="nav-link"><i class="fas fa-chart-line"></i> <span>Stats</span></a>
+        <a href="#" id="adminDashboardLink" class="nav-link admin-only" data-page="admin-dashboard" style="display: none;"><i class="fas fa-user-shield"></i> <span>Admin</span></a>
+        <div class="auth-nav-buttons">
+          <a href="#" id="loginRegisterBtn" class="nav-link login-btn"><i class="fas fa-user-circle"></i> <span>Login</span></a>
+          <a href="#" id="profileBtn" class="nav-link" style="display: none;"><i class="fas fa-id-card"></i> <span>Profile</span></a>
+          <a href="#" id="logoutBtn" class="nav-link" style="display: none;"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a>
         </div>
+      </div>
+      <div class="nav-actions">
+        <button id="darkModeToggle" class="icon-btn"><i class="fas fa-moon"></i></button>
+        <button id="mobileMenuBtn" class="icon-btn mobile-menu-btn"><i class="fas fa-bars"></i></button>
+      </div>
     </div>
+  </nav>
 
-    <!-- Header with deadline clock -->
-    <header class="sticky top-0 z-40 bg-white/70 backdrop-blur-md border-b border-gray-200/80 shadow-xs px-6 py-4 flex flex-wrap justify-between items-center gap-3">
-        <div class="flex items-center gap-3">
-            <div class="h-8 w-1.5 bg-gradient-to-b from-indigo-500 to-indigo-700 rounded-full"></div>
-            <div>
-                <h1 class="text-xl font-extrabold tracking-tight bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">DLS Vawulence Academy</h1>
-                <p class="text-[10px] font-mono text-gray-500 tracking-wider">League Site</p>
-            </div>
+  <!-- SIDEBAR (DESKTOP) + MAIN LAYOUT -->
+  <div class="app-layout">
+    <aside class="sidebar desktop-sidebar" id="desktopSidebar">
+      <div class="sidebar-menu">
+        <div class="sidebar-header">
+          <i class="fas fa-futbol"></i> League Hub
         </div>
-        <div class="flex items-center gap-3">
-            <div id="deadline-clock" class="text-right text-xs font-mono text-gray-500 hidden md:block bg-gray-100/80 px-2 py-1 rounded-full">
-                ⏰ <span id="next-deadline-countdown">--</span>
-            </div>
-            <div id="admin-toggle-container" class="hidden flex items-center gap-3 bg-gray-100/80 rounded-full px-4 py-1.5 border border-gray-200 shadow-inner">
-                <span id="admin-status-text" class="text-xs font-bold uppercase tracking-wide text-gray-600">🔒 READ ONLY</span>
-                <button onclick="handleAdminToggleClick()" id="admin-btn" class="relative inline-flex h-5 w-10 rounded-full bg-gray-300 transition-colors duration-200">
-                    <span id="admin-btn-dot" class="translate-x-0 inline-block h-4 w-4 rounded-full bg-white shadow transform transition duration-200 mt-0.5 ml-0.5"></span>
-                </button>
-            </div>
-        </div>
-    </header>
+        <a href="#" data-page="home" class="sidebar-link"><i class="fas fa-home"></i> Dashboard</a>
+        <a href="#" data-page="fixtures" class="sidebar-link"><i class="fas fa-calendar-week"></i> Fixtures</a>
+        <a href="#" data-page="results" class="sidebar-link"><i class="fas fa-check-circle"></i> Results</a>
+        <a href="#" data-page="table" class="sidebar-link"><i class="fas fa-ranking-star"></i> Standings</a>
+        <a href="#" data-page="clubs" class="sidebar-link"><i class="fas fa-building"></i> Clubs</a>
+        <a href="#" data-page="match-center" class="sidebar-link"><i class="fas fa-microphone-alt"></i> Match Centre</a>
+        <div class="sidebar-divider"></div>
+        <a href="#" data-page="news" class="sidebar-link"><i class="fas fa-bullhorn"></i> News</a>
+        <a href="#" data-page="stats" class="sidebar-link"><i class="fas fa-chart-simple"></i> Stats</a>
+        <a href="#" data-page="profile-settings" class="sidebar-link"><i class="fas fa-gear"></i> Profile</a>
+        <a href="#" data-page="contact-about" class="sidebar-link"><i class="fas fa-envelope"></i> About</a>
+      </div>
+    </aside>
 
-    <!-- ========== NEW WHATSAPP-STYLE CHAT MODAL (FULL SCREEN) ========== -->
-    <div id="chat-modal" class="fixed inset-0 z-50 hidden bg-gray-900/95 backdrop-blur-sm overflow-hidden">
-        <div class="flex h-full w-full flex-col md:flex-row bg-white dark:bg-gray-900">
-            <!-- Left Sidebar: Chat list + Participants -->
-            <div class="whatsapp-sidebar w-full md:w-80 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col h-full">
-                <div class="sidebar-header p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
-                    <h2 class="text-lg font-semibold text-gray-800 dark:text-white">Chats</h2>
-                    <button onclick="closeChatModal()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 text-2xl leading-5">&times;</button>
-                </div>
-                <div class="p-3"><div class="relative"><input type="text" id="chat-search-input" placeholder="Search messages..." class="w-full bg-gray-100 dark:bg-gray-800 rounded-full px-4 py-2 text-sm border-0 focus:ring-2 focus:ring-emerald-500"></div></div>
-                <div class="flex-1 overflow-y-auto" id="chat-list-container">
-                    <div class="chat-list-item active bg-gray-100 dark:bg-gray-800 p-3 flex items-center gap-3 cursor-pointer">
-                        <div class="relative"><div class="w-12 h-12 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold">🏆</div><span class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></span></div>
-                        <div class="flex-1"><div class="font-semibold">⚽ DLS Vawulence Group</div><div class="text-xs text-gray-500 truncate" id="last-message-preview">Tap to start chatting</div></div>
-                    </div>
-                    <div class="p-3 border-t border-gray-200 dark:border-gray-800"><div class="font-semibold text-xs text-gray-500 mb-2">Participants · <span id="participant-count">0</span></div><div id="participants-list" class="space-y-2"></div></div>
-                </div>
-            </div>
-
-            <!-- Main Chat Area -->
-            <div class="flex-1 flex flex-col h-full bg-[#efeae2] dark:bg-[#0b141a] chat-wallpaper">
-                <!-- Main Chat Area Header – add close button -->
-<div class="chat-header bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-3 flex items-center justify-between sticky top-0 z-10">
-    <div class="flex items-center gap-3">
-        <div class="relative"><div class="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center text-white">🏆</div><span id="group-online-status" class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border border-white"></span></div>
-        <div><div class="font-bold text-gray-800 dark:text-white">DLS Vawulence Academy</div><div class="text-xs text-gray-500" id="group-members-status">online · 0 members</div></div>
-    </div>
-    <div class="flex gap-2">
-        <button onclick="toggleTheme()" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"><span id="theme-icon">🌙</span></button>
-        <button onclick="openGroupInfo()" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">ℹ️</button>
-        <!-- NEW: X button to close chat modal -->
-        <button onclick="closeChatModal()" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-        </button>
-    </div>
-</div>
-
-                <!-- Messages Container -->
-                <div id="chat-messages-container" class="flex-1 overflow-y-auto p-4 space-y-2" style="background-image: radial-gradient(circle at 10% 20%, rgba(0,0,0,0.03) 2px, transparent 2px); background-size: 20px 20px;">
-                    <div class="text-center text-gray-400 text-sm py-4">Loading messages...</div>
-                </div>
-
-                <!-- Typing Indicator -->
-                <div id="chat-typing-indicator" class="px-4 py-1 text-xs text-emerald-600 dark:text-emerald-400 italic hidden">someone is typing...</div>
-
-                <!-- Input Area -->
-                <div class="chat-input-area bg-white dark:bg-gray-800 p-3 border-t border-gray-200 dark:border-gray-700">
-                    <div class="flex items-center gap-2">
-                        <button id="emoji-btn" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-xl">😊</button>
-                        <button id="attach-btn" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-xl">📎</button>
-                        <div class="flex-1 relative">
-                            <input type="text" id="chat-input" placeholder="Type a message" class="w-full bg-gray-100 dark:bg-gray-700 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                            <div id="reply-preview" class="hidden absolute bottom-full left-0 mb-2 bg-gray-200 dark:bg-gray-700 rounded-lg p-2 text-xs flex items-center gap-2 max-w-xs"><span class="font-bold">Replying to...</span><span id="reply-preview-text"></span><button onclick="cancelReply()" class="text-red-500">✖</button></div>
-                        </div>
-                        <button id="send-msg-btn" class="bg-emerald-600 hover:bg-emerald-700 text-white rounded-full p-2 w-10 h-10 flex items-center justify-center">➤</button>
-                    </div>
-                    <input type="file" id="file-input" accept="image/*,video/*,audio/*,application/pdf" class="hidden" multiple>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Hidden context menu for messages -->
-    <div id="message-context-menu" class="fixed z-50 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 hidden w-48 text-sm">
-        <button id="ctx-reply" class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700">↩️ Reply</button>
-        <button id="ctx-forward" class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700">➡️ Forward</button>
-        <button id="ctx-react" class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700">😊 React</button>
-        <button id="ctx-delete" class="w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700">🗑️ Delete for everyone</button>
-        <button id="ctx-delete-self" class="w-full text-left px-4 py-2 text-orange-600 hover:bg-gray-100 dark:hover:bg-gray-700">❌ Delete for me</button>
-    </div>
-
-    <!-- ================= ALL MODALS ================= -->
-
-    <!-- TEAM MODAL (advanced stats) -->
-    <div id="team-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-gray-200 overflow-y-auto max-h-[90vh] animate-fadeInUp">
-            <div class="p-5 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white">
-                <h3 id="team-modal-name" class="text-xl font-bold text-gray-800"></h3>
-                <button onclick="closeTeamModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button>
-            </div>
-            <div class="p-5 space-y-5">
-                <div class="grid grid-cols-2 gap-3 text-sm">
-                    <div class="bg-gray-50 p-3 rounded-xl text-center"><p class="text-gray-500 text-xs">Matches</p><p class="text-2xl font-bold" id="modal-mp">-</p></div>
-                    <div class="bg-gray-50 p-3 rounded-xl text-center"><p class="text-gray-500 text-xs">Points</p><p class="text-2xl font-bold text-indigo-600" id="modal-pts">-</p></div>
-                </div>
-                <div class="grid grid-cols-3 gap-2 text-center">
-                    <div><p class="text-emerald-600 font-bold text-lg" id="modal-w">-</p><p class="text-[10px] text-gray-500">Wins</p></div>
-                    <div><p class="text-amber-600 font-bold text-lg" id="modal-d">-</p><p class="text-[10px] text-gray-500">Draws</p></div>
-                    <div><p class="text-rose-600 font-bold text-lg" id="modal-l">-</p><p class="text-[10px] text-gray-500">Losses</p></div>
-                </div>
-                <div class="grid grid-cols-2 gap-2 text-center">
-                    <div><span class="text-gray-700 font-medium">GF:</span> <span id="modal-gf">-</span></div>
-                    <div><span class="text-gray-700 font-medium">GA:</span> <span id="modal-ga">-</span></div>
-                    <div><span class="text-gray-700 font-medium">GD:</span> <span id="modal-gd" class="font-bold">-</span></div>
-                    <div><span class="text-gray-700 font-medium">Penalty:</span> <span id="modal-penalty" class="text-rose-500">-</span></div>
-                </div>
-                <div class="border-t pt-3 mt-2">
-                    <p class="text-xs font-bold text-gray-500 mb-2">📊 Advanced Stats</p>
-                    <div class="grid grid-cols-2 gap-2 text-sm">
-                        <div class="bg-indigo-50/30 p-2 rounded-lg text-center"><span class="text-gray-600 text-xs">Clean sheets</span><br><span id="modal-clean-sheets" class="font-bold text-indigo-600">-</span></div>
-                        <div class="bg-indigo-50/30 p-2 rounded-lg text-center"><span class="text-gray-600 text-xs">Avg GF/match</span><br><span id="modal-avg-gf" class="font-bold">-</span></div>
-                    </div>
-                    <div class="mt-2">
-                        <p class="text-xs text-gray-500">🏠 Home record (W-D-L): <span id="modal-home-record" class="font-mono">-</span></p>
-                        <p class="text-xs text-gray-500">✈️ Away record (W-D-L): <span id="modal-away-record" class="font-mono">-</span></p>
-                    </div>
-                </div>
-                <div><p class="text-xs font-semibold text-gray-500 mb-2">Recent Form (last 5)</p><div id="modal-form" class="flex gap-2 justify-center"></div></div>
-                <p id="modal-summary" class="text-xs text-gray-600 italic bg-gray-50 p-3 rounded-xl"></p>
-            </div>
-            <div class="p-4 bg-gray-50 text-right rounded-b-2xl"><button onclick="closeTeamModal()" class="px-5 py-2 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition">Close</button></div>
-        </div>
-    </div>
-
-    <!-- PREDICTIONS MODAL -->
-    <div id="predictions-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-gray-200 overflow-hidden animate-fadeInUp">
-            <div class="p-5 border-b border-gray-200 flex justify-between items-center">
-                <div><h3 class="font-bold text-lg text-gray-800">🔮 Match Predictions</h3><p class="text-xs text-gray-500" id="prediction-match-name"></p></div>
-                <button onclick="closePredictionsModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button>
-            </div>
-            <div class="p-5 space-y-5">
-                <div class="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                    <p class="text-xs font-semibold text-gray-600 mb-2">📝 Submit your prediction</p>
-                    <div class="flex items-center gap-2 mb-3"><input type="text" id="prediction-nickname" placeholder="Your name" maxlength="20" class="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm"></div>
-                    <div class="flex items-center justify-center gap-3 mb-3"><input type="number" id="prediction-home-score" min="0" placeholder="0" class="w-16 h-10 text-center bg-white border border-gray-200 rounded-xl font-mono font-bold text-indigo-600"><span class="text-gray-400 font-bold">:</span><input type="number" id="prediction-away-score" min="0" placeholder="0" class="w-16 h-10 text-center bg-white border border-gray-200 rounded-xl font-mono font-bold text-indigo-600"></div>
-                    <button onclick="submitPrediction()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 rounded-xl text-sm">📢 Submit Prediction</button>
-                </div>
-                <div><p class="text-xs font-semibold text-gray-600 mb-2">🗣️ Fan Predictions</p><div id="predictions-list" class="space-y-2 max-h-60 overflow-y-auto"></div></div>
-            </div>
-            <div class="p-4 bg-gray-50 text-right rounded-b-2xl"><button onclick="closePredictionsModal()" class="px-5 py-2 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-100">Close</button></div>
-        </div>
-    </div>
-
-    <!-- BANTER MODAL (WhatsApp style) -->
-    <div id="banter-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-gray-200 overflow-hidden animate-fadeInUp flex flex-col" style="max-height: 85vh;">
-            <div class="p-4 border-b border-gray-200 bg-gradient-to-r from-emerald-600 to-teal-600 text-white">
-                <div class="flex justify-between items-center">
-                    <div>
-                        <h3 class="font-bold text-lg flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clip-rule="evenodd" />
-                            </svg>
-                            Banter Corner
-                        </h3>
-                        <p class="text-xs text-white/80" id="banter-match-name">Loading...</p>
-                    </div>
-                    <button onclick="closeBanterModal()" class="text-white/80 hover:text-white text-2xl leading-5">&times;</button>
-                </div>
-            </div>
-            <div id="banter-messages-container" class="flex-1 overflow-y-auto p-4 space-y-3 bg-[#e5ddd5] bg-opacity-40" style="background-image: radial-gradient(circle at 10% 20%, rgba(0,0,0,0.02) 1%, transparent 1%); background-size: 12px 12px;"></div>
-            <div class="p-4 bg-white border-t border-gray-200">
-                <div class="flex gap-2">
-                    <input type="text" id="banter-input" placeholder="Write your banter..." class="flex-1 bg-gray-100 border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
-                    <button onclick="postBanter()" class="bg-emerald-600 hover:bg-emerald-700 text-white rounded-full px-5 py-2 text-sm font-semibold transition shadow-md flex items-center gap-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clip-rule="evenodd" />
-                        </svg>
-                        Send
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- COMMENT MODAL (edit report) -->
-    <div id="comment-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-gray-200 overflow-hidden animate-fadeInUp">
-            <div class="p-5 border-b border-gray-200 flex justify-between items-center"><h3 class="font-bold text-gray-800">✏️ Edit Match Report</h3><button onclick="closeCommentModal(false)" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button></div>
-            <div class="p-5"><p class="text-sm text-gray-600 mb-2">Match: <span id="comment-match-name"></span></p><textarea id="comment-text" rows="4" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm"></textarea></div>
-            <div class="p-4 bg-gray-50 flex gap-3 justify-end rounded-b-2xl"><button onclick="closeCommentModal(false)" class="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100">Cancel</button><button onclick="confirmComment()" class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-500">Confirm & Save</button></div>
-        </div>
-    </div>
-
-    <!-- MATCH VIEWER MODAL (with events timeline) -->
-    <div id="comment-viewer-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-gray-200 overflow-hidden animate-fadeInUp">
-        <div class="p-5 border-b border-gray-200 flex justify-between items-center">
-            <h3 class="font-bold text-gray-800">📝 Match Details</h3>
-            <button onclick="closeCommentViewer(); return false;" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button>
-        </div>
-        <div class="p-5 space-y-4">
-            <p class="text-sm font-semibold" id="viewer-match-name"></p>
-            <p class="text-xs text-gray-500">Score: <span id="viewer-score"></span></p>
-            <div class="bg-gray-50 p-3 rounded-xl">
-                <p class="text-xs font-medium text-gray-700 mb-1">📖 Match Report</p>
-                <p id="viewer-comment" class="text-sm text-gray-800 italic"></p>
-            </div>
-            <div id="viewer-events-container" class="hidden border-t pt-2">
-                <p class="text-xs font-bold text-gray-600">⚽ Timeline</p>
-                <div id="viewer-events" class="max-h-40 overflow-y-auto text-xs space-y-1 mt-1"></div>
-            </div>
-        </div>
-        <div class="p-4 bg-gray-50 flex flex-wrap gap-2 justify-end rounded-b-2xl">
-            <button onclick="closeCommentViewer(); return false;" class="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100">Close</button>
-            <button id="viewer-edit-btn" onclick="editViewerComment()" class="hidden px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-500">Edit Report</button>
-            <button id="viewer-edit-events-btn" onclick="editViewerEvents()" class="hidden px-4 py-2 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-500">⏱️ Edit Events</button>
-        </div>
-    </div>
-</div>
-
-    <!-- TEAM SELECT MODAL -->
-    <div id="team-select-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full border border-gray-200 overflow-hidden animate-fadeInUp">
-            <div class="p-5 border-b border-gray-200 flex justify-between items-center"><h3 class="font-bold text-gray-800">Select Team</h3><button onclick="closeTeamSelectModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button></div>
-            <div class="p-5"><p class="text-sm text-gray-600 mb-3">Choose the correct team for this fixture:</p><select id="team-select-dropdown" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm"></select></div>
-            <div class="p-4 bg-gray-50 flex gap-3 justify-end rounded-b-2xl"><button onclick="closeTeamSelectModal()" class="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100">Cancel</button><button onclick="confirmTeamSelection()" class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-500">Confirm</button></div>
-        </div>
-    </div>
-
-    <!-- PASSWORD MODAL -->
-    <div id="password-modal" class="fixed inset-0 z-50 hidden bg-gray-900/50 backdrop-blur-sm items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4">
-            <div class="flex items-center gap-3 border-b border-gray-100 pb-3"><div class="bg-indigo-50 p-2 rounded-full">🔑</div><h3 class="font-bold text-gray-800">Admin Authentication</h3></div>
-            <input type="password" id="admin-password-input" placeholder="Enter master password" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-center font-mono text-lg tracking-widest">
-            <p id="password-error" class="hidden text-red-500 text-xs text-center">❌ Invalid passcode</p>
-            <div class="flex gap-3 pt-2"><button onclick="closePasswordModal()" class="flex-1 py-2 border border-gray-300 rounded-lg text-sm">Cancel</button><button onclick="verifyAdminPassword()" class="flex-1 bg-indigo-600 text-white rounded-lg py-2 text-sm font-bold">Unlock</button></div>
-        </div>
-    </div>
-
-    <!-- CHANGE PASSWORD MODAL -->
-    <div id="change-password-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full border border-gray-200 overflow-hidden animate-fadeInUp">
-            <div class="p-5 border-b border-gray-200 flex justify-between items-center"><h3 class="font-bold text-gray-800">🔐 Change Master Password</h3><button onclick="closeChangePasswordModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button></div>
-            <div class="p-5 space-y-3"><input type="password" id="new-password" placeholder="New password" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-center font-mono text-sm"><input type="password" id="confirm-password" placeholder="Confirm new password" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-center font-mono text-sm"><p id="password-match-error" class="hidden text-red-500 text-xs text-center">Passwords do not match</p></div>
-            <div class="p-4 bg-gray-50 flex gap-3 justify-end rounded-b-2xl"><button onclick="closeChangePasswordModal()" class="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100">Cancel</button><button onclick="updateMasterPassword()" class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-500">Update</button></div>
-        </div>
-    </div>
-
-    <!-- PENALTY MODAL -->
-    <div id="penalty-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full border border-gray-200 overflow-hidden animate-fadeInUp">
-            <div class="p-5 border-b border-gray-200 flex justify-between items-center"><h3 class="font-bold text-gray-800">⚖️ Penalty Points</h3><button onclick="closePenaltyModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button></div>
-            <div class="p-5 text-center space-y-4">
-                <p class="text-sm text-gray-600" id="penalty-team-name"></p>
-                <div class="flex items-center justify-center gap-3">
-                    <button onclick="adjustPenalty(-3)" class="bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm font-bold">-3</button>
-                    <button onclick="adjustPenalty(-1)" class="bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm font-bold">-1</button>
-                    <span class="text-xl font-mono font-bold" id="current-penalty">0</span>
-                    <button onclick="adjustPenalty(1)" class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-bold">+1</button>
-                    <button onclick="adjustPenalty(3)" class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-bold">+3</button>
-                </div>
-                <button onclick="clearPenaltyPoints()" class="w-full bg-amber-100 hover:bg-amber-200 text-amber-700 font-bold py-2 px-4 rounded-full transition text-sm">Set to 0</button>
-            </div>
-            <div class="p-4 bg-gray-50 text-right rounded-b-2xl"><button onclick="closePenaltyModal()" class="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100">Close</button></div>
-        </div>
-    </div>
-
-<!-- Nickname input modal (appears once for new users) -->
-<div id="nickname-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
-    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full border border-gray-200 overflow-hidden animate-fadeInUp">
-        <div class="p-5 border-b border-gray-200 dark:border-gray-700">
-            <h3 class="font-bold text-lg text-gray-800 dark:text-white">Welcome to the Group Chat! 🎉</h3>
-            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Choose a nickname to join the conversation</p>
-        </div>
-        <div class="p-5 space-y-4">
-            <input type="text" id="nickname-input" maxlength="20" placeholder="Enter your nickname" class="w-full bg-gray-100 dark:bg-gray-700 border-0 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500">
-            <p class="text-xs text-gray-400">This name will be shown next to your messages.</p>
-        </div>
-        <div class="p-4 bg-gray-50 dark:bg-gray-900 flex justify-end rounded-b-2xl">
-            <button onclick="saveNicknameAndJoin()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition">Join Chat</button>
-        </div>
-    </div>
-</div>
-
-<!-- Admin: Edit Group Info Modal -->
-<div id="group-info-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
-    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full border border-gray-200 overflow-hidden animate-fadeInUp">
-        <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-            <h3 class="font-bold text-lg text-gray-800 dark:text-white">Edit Group Info</h3>
-            <button onclick="closeGroupInfoModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button>
-        </div>
-        <div class="p-5 space-y-4">
-            <div>
-                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Group Name</label>
-                <input type="text" id="group-name-input" class="w-full mt-1 bg-gray-100 dark:bg-gray-700 border-0 rounded-xl px-4 py-2 text-sm" placeholder="e.g., DLS Vawulence Academy">
-            </div>
-            <div>
-                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
-                <textarea id="group-description-input" rows="2" class="w-full mt-1 bg-gray-100 dark:bg-gray-700 border-0 rounded-xl px-4 py-2 text-sm" placeholder="Brief info about the group"></textarea>
-            </div>
-            <div>
-                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Avatar URL (optional)</label>
-                <input type="url" id="group-avatar-input" class="w-full mt-1 bg-gray-100 dark:bg-gray-700 border-0 rounded-xl px-4 py-2 text-sm" placeholder="https://example.com/avatar.png">
-            </div>
-        </div>
-        <div class="p-4 bg-gray-50 dark:bg-gray-900 flex justify-end gap-3 rounded-b-2xl">
-            <button onclick="closeGroupInfoModal()" class="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
-            <button onclick="saveGroupInfo()" class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700">Save</button>
-        </div>
-    </div>
-</div>
-
-<!-- MAIN CONTENT -->
-    <main class="max-w-6xl mx-auto px-4 py-8 space-y-10">
-        <!-- Setup Section (only visible to admin when no tournament) -->
-        <section id="setup-section" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-6 hidden">
-            <h2 class="text-lg font-bold flex items-center gap-2"><span class="text-indigo-500">📋</span> League Initialization</h2>
-            <div id="step-1" class="space-y-3"><label class="text-xs font-semibold text-gray-500 uppercase">Number of teams</label><div class="flex gap-3"><input type="number" id="team-count" min="2" placeholder="e.g., 30" class="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 w-32"><button onclick="generateTeamInputs()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 rounded-xl text-sm font-bold transition">Configure Teams</button></div></div>
-            <div id="step-2" class="hidden space-y-5"><div class="flex flex-wrap gap-4 items-center justify-between bg-gray-50 p-3 rounded-xl"><span class="text-xs font-mono text-gray-500">Admin Security Code</span><input type="text" id="tournament-password" value="1234" class="border border-gray-300 rounded-lg px-3 py-1 w-32 text-center font-mono"></div><div id="team-inputs-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div><button onclick="initializeTournament()" class="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 text-white py-3 rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition">🚀 Launch League</button></div>
-        </section>
-
-        <!-- Dashboard Section (visible after role selection if tournament exists) -->
-        <section id="dashboard-section" class="hidden space-y-8">
-
-            <!-- League Table (glassmorphism) -->
-            <div class="rounded-2xl border border-gray-200 shadow-sm overflow-hidden league-table-container">
-                <div class="px-5 py-3 bg-gray-50/80 border-b border-gray-200 flex justify-between items-center">
-                    <h2 class="font-bold text-gray-700 flex items-center gap-2"><span>🏆</span> League Table</h2>
-                    <div id="phase-indicator" class="text-xs font-mono text-indigo-500"></div>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-xs min-w-[650px]">
-                        <thead class="bg-gray-100 text-gray-500 text-[10px] font-mono uppercase">
-                            <tr><th class="py-2 px-2 text-center">Pos</th><th class="py-2 px-2 text-left">Team</th><th class="py-2 px-1 text-center">MP</th><th class="py-2 px-1 text-center">W</th><th class="py-2 px-1 text-center">D</th><th class="py-2 px-1 text-center">L</th><th class="py-2 px-1 text-center">GF</th><th class="py-2 px-1 text-center">GA</th><th class="py-2 px-1 text-center">GD</th><th class="py-2 px-2 text-center">PTS</th><th class="py-2 px-2 text-center">Form</th><th id="th-admin-actions" class="hidden py-2 px-2 text-center">Actions</th></tr>
-                        </thead>
-                        <tbody id="league-table-body"></tbody>
-                    </table>
-                </div>
-                <div id="admin-table-hint" class="hidden text-center text-[11px] text-indigo-500 bg-indigo-50 py-2 border-t border-indigo-100">✋ Admin: click team name in fixture to assign | 📖 for report & events</div>
-            </div>
-
-            <!-- Knockout Bracket (gradient border) -->
-            <div id="knockout-section" class="hidden rounded-2xl border-2 border-transparent bg-gradient-to-r from-amber-50 via-white to-pink-50 p-5 shadow-sm">
-                <h2 class="font-bold text-indigo-700 flex items-center gap-2">🏆 Knockout Stage</h2>
-                <div id="knockout-bracket" class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-3"></div>
-            </div>
-
-            <!-- Match Schedule -->
-            <div id="schedule-section" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-4">
-                <div class="flex flex-wrap justify-between items-center gap-3">
-                    <h2 class="font-bold text-gray-700">📅 Match Schedule</h2>
-                    <div id="gameweek-tabs" class="flex gap-1 overflow-x-auto pb-1"></div>
-                </div>
-                <!-- Auto‑start toggle (admin only) -->
-                <div id="auto-start-container" class="hidden flex justify-end">
-                    <div class="flex items-center gap-2 text-xs bg-gray-50 px-3 py-1.5 rounded-full">
-                        <label class="text-gray-600">⚡ Auto‑start next round:</label>
-                        <button id="auto-start-toggle" onclick="toggleAutoStart()" class="relative inline-flex h-5 w-9 rounded-full transition-colors duration-200 bg-gray-300">
-                            <span id="auto-start-dot" class="translate-x-0 inline-block h-4 w-4 rounded-full bg-white shadow transform transition duration-200 mt-0.5 ml-0.5"></span>
-                        </button>
-                    </div>
-                </div>
-                <!-- Fixtures container -->
-                <div id="fixtures-container" class="flex flex-col gap-3">
-                    <div class="skeleton h-24 w-full rounded-xl"></div>
-                    <div class="skeleton h-24 w-full rounded-xl"></div>
-                    <div class="skeleton h-24 w-full rounded-xl"></div>
-                </div>
-            </div>
-
-            <!-- Relegation Zone -->
-            <div id="relegation-zone" class="hidden bg-white rounded-2xl border border-red-200 shadow-sm p-5 space-y-4">
-                <div class="flex items-center justify-between"><h2 class="font-bold text-red-600 flex items-center gap-2">⚠️ Relegation Zone</h2><span class="text-xs text-gray-400">Admin only</span></div>
-                <div id="relegated-teams-list" class="flex flex-wrap gap-2"><p class="text-sm text-gray-400 italic">No relegated teams</p></div>
-                <p class="text-xs text-gray-500">Relegated teams are removed from the league table and future fixtures, but past results stay.</p>
-            </div>
-
-            <div id="admin-reset-container" class="text-center hidden pt-4 space-x-3">
-                <button onclick="openChangePasswordModal()" class="text-xs text-indigo-600 hover:text-indigo-800 underline decoration-dotted">🔑 Change Master Password</button>
-                <button onclick="resetTournament()" class="text-xs text-rose-500 hover:text-rose-700 underline decoration-dotted">⚠️ Wipe entire league data (irreversible)</button>
-            </div>
-        </section>
+    <main class="main-content" id="mainContent">
+      <!-- DYNAMIC VIEWS (all pages as sections) -->
+      <div id="home-view" class="page-view active">Loading home...</div>
+      <div id="fixtures-view" class="page-view">Loading fixtures...</div>
+      <div id="results-view" class="page-view">Loading results...</div>
+      <div id="table-view" class="page-view">Loading league table...</div>
+      <div id="clubs-view" class="page-view">Loading clubs...</div>
+      <div id="news-view" class="page-view">Loading news...</div>
+      <div id="match-center-view" class="page-view">Loading match center...</div>
+      <div id="stats-view" class="page-view">Loading stats...</div>
+      <div id="admin-dashboard-view" class="page-view">Admin dashboard...</div>
+      <div id="login-register-view" class="page-view">Login / Register...</div>
+      <div id="profile-settings-view" class="page-view">Profile settings...</div>
+      <div id="contact-about-view" class="page-view">About DLS PRO...</div>
+      <div id="club-detail-view" class="page-view">Club details...</div>
     </main>
+  </div>
 
+  <!-- BOTTOM NAVIGATION (MOBILE) -->
+  <div class="bottom-nav" id="bottomNav">
+    <a href="#" data-page="home" class="bottom-nav-item"><i class="fas fa-home"></i><span>Home</span></a>
+    <a href="#" data-page="fixtures" class="bottom-nav-item"><i class="fas fa-calendar"></i><span>Matches</span></a>
+    <a href="#" data-page="table" class="bottom-nav-item"><i class="fas fa-table"></i><span>Table</span></a>
+    <a href="#" data-page="clubs" class="bottom-nav-item"><i class="fas fa-users"></i><span>Clubs</span></a>
+    <a href="#" data-page="profile-settings" class="bottom-nav-item"><i class="fas fa-user"></i><span>Profile</span></a>
+  </div>
 
+  <!-- TOAST NOTIFICATIONS -->
+  <div id="toast-container" class="toast-container"></div>
 
-    <!-- Floating Chat Button & Admin Menu -->
-    <div class="fixed bottom-24 right-5 z-50 flex flex-col-reverse items-end gap-2">
-        <button id="chat-toggle" onclick="openChatModal()" class="bg-emerald-600/40 hover:bg-emerald-600/80 text-white rounded-full px-4 py-3 shadow-lg transition-all duration-200 flex items-center gap-1 backdrop-blur-sm text-xs sm:text-sm">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.338-3.123C2.493 12.767 2 11.434 2 10c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-            <span>Chat</span>
-            <span id="chat-unread-badge" class="hidden absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[22px] text-center">0</span>
-        </button>
-        <div id="floating-admin-menu" class="hidden"><div class="bg-white rounded-full shadow-lg p-2 flex gap-2 border border-gray-200"><button onclick="openChangePasswordModal()" class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600">🔑</button><button onclick="resetTournament()" class="w-10 h-10 rounded-full bg-rose-100 text-rose-600">⚠️</button></div></div>
-    </div>
-    <button id="backToTop" class="fixed bottom-5 left-1/2 transform -translate-x-1/2 z-50 bg-indigo-600/60 hover:bg-indigo-600 text-white rounded-full p-2 shadow-lg hidden">↑</button>
-
-    <div id="toast-container" class="fixed bottom-5 right-5 z-50 space-y-2"></div>
-
-    <script src="app.js"></script>
-    <script type="module">
-        import * as EmojiPicker from 'https://unpkg.com/emoji-picker-element@1.18.3/dist/index.js';
-        window.EmojiPicker = EmojiPicker;
-    </script>
+  <!-- JS MODULES -->
+  <script type="module" src="firebase.js"></script>
+  <script type="module" src="auth.js"></script>
+  <script type="module" src="components.js"></script>
+  <script type="module" src="animations.js"></script>
+  <script type="module" src="admin.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>
