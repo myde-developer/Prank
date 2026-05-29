@@ -19,6 +19,7 @@ let currentPredictionFixtureId = null, currentBanterFixtureId = null;
 let chatMessagesRef = null;
 let autoStartNextRound = false;
 let roundStartTimes = {};
+let roundPaused = {};
 let typingTimeout = null;
 let isTyping = false;
 let unreadMessagesCount = 0;
@@ -143,6 +144,7 @@ function loadTournamentData(data) {
     knockoutMatches = data.knockoutMatches || [];
     tournamentPhase = data.tournamentPhase || 'league';
     roundStartTimes = data.roundStartTimes || {};
+roundPaused = data.roundPaused || {};
     autoStartNextRound = data.autoStartNextRound || false;
     updateTableCalculations();
     renderTable();
@@ -169,7 +171,7 @@ function showToast(msg) {
     if (c) { let t = document.createElement("div"); t.className = "toast"; t.innerText = msg; c.appendChild(t); setTimeout(() => t.remove(), 2500); }
 }
 function saveToStorage() { 
-    db.ref('tournament_data').set({ teams, fixtures, knockoutMatches, tournamentPhase, password: tournamentPassword, roundStartTimes, autoStartNextRound }); 
+    db.ref('tournament_data').set({ teams, fixtures, knockoutMatches, tournamentPhase, password: tournamentPassword, roundStartTimes, autoStartNextRound, roundPaused });
 }
 function getCurrentUserId() {
     let id = localStorage.getItem('chatUserId');
@@ -183,41 +185,64 @@ function getCurrentUserId() {
 // ==================== RANDOMIZED FIXTURE GENERATION ====================
 function generateRandomRoundRobin(teamNames) {
     let n = teamNames.length;
+    // Add BYE only if odd number of teams (keeps algorithm working)
     if (n % 2 !== 0) {
         teamNames.push("BYE");
         n++;
     }
+    
+    // Shuffle teams initially for randomness
     let shuffled = [...teamNames];
     for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
-    const numRounds = n - 1;
+    
+    const numRounds = n - 1;          // rounds in a single round-robin
     const halfSize = n / 2;
-    const rounds = [];
+    let firstHalfRounds = [];
+    
+    // Generate first half (each pair meets once, random home/away)
     for (let round = 0; round < numRounds; round++) {
         const roundFixtures = [];
         for (let i = 0; i < halfSize; i++) {
             const home = shuffled[i];
             const away = shuffled[n - 1 - i];
             if (home !== "BYE" && away !== "BYE") {
-                if (Math.random() < 0.5) roundFixtures.push({ home, away });
-                else roundFixtures.push({ home: away, away: home });
+                // Randomize which team is home for this meeting
+                if (Math.random() < 0.5) {
+                    roundFixtures.push({ home, away });
+                } else {
+                    roundFixtures.push({ home: away, away: home });
+                }
             }
         }
-        rounds.push(roundFixtures);
+        firstHalfRounds.push(roundFixtures);
+        // Rotate (circle method) for next round
         const last = shuffled.pop();
         shuffled.splice(1, 0, last);
     }
-    for (let i = rounds.length - 1; i > 0; i--) {
+    
+    // Shuffle the order of first half rounds for more variety
+    for (let i = firstHalfRounds.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [rounds[i], rounds[j]] = [rounds[j], rounds[i]];
+        [firstHalfRounds[i], firstHalfRounds[j]] = [firstHalfRounds[j], firstHalfRounds[i]];
     }
-    return rounds;
+    
+    // Second half: same fixtures but with home/away swapped
+    const secondHalfRounds = firstHalfRounds.map(roundFixtures => {
+        return roundFixtures.map(fixture => ({
+            home: fixture.away,
+            away: fixture.home
+        }));
+    });
+    
+    // Combine first and second halves
+    const allRounds = [...firstHalfRounds, ...secondHalfRounds];
+    return allRounds;
 }
 
 // ==================== GLOBAL CHAT ROOM ====================
-// ==================== GLOBAL CHAT ROOM (with unread badge & typing) ====================
 function initChatListener() {
     chatMessagesRef = db.ref('chat_messages');
     chatMessagesRef.off();
@@ -609,9 +634,13 @@ function deletePoll(pollId) {
 function expireOldFixtures() {
     const now = Date.now();
     let changed = false;
+    
+    // Check league fixtures for expiry (skip if round is paused)
     fixtures.forEach(f => {
         if (!f.played && !f.cancelled) {
             const startTime = roundStartTimes[f.round];
+            // Skip expiry if this round is paused
+            if (roundPaused[f.round]) return;
             if (startTime) {
                 const deadline = startTime + 2 * 24 * 60 * 60 * 1000;
                 if (now > deadline) {
@@ -622,6 +651,8 @@ function expireOldFixtures() {
             }
         }
     });
+    
+    // Check knockout matches (no pause functionality for knockout yet – but keep as is)
     knockoutMatches.forEach(k => {
         if (!k.played && !k.cancelled && k.deadline && now > k.deadline) {
             k.cancelled = true;
@@ -629,6 +660,7 @@ function expireOldFixtures() {
             showToast(`⏰ Knockout match cancelled: ${k.home} vs ${k.away} (time limit exceeded)`);
         }
     });
+    
     if (changed) {
         updateTableCalculations();
         renderTable();
@@ -636,18 +668,24 @@ function expireOldFixtures() {
         renderKnockoutBracket();
         saveToStorage();
     }
-    // Auto‑start next round if enabled
+    
+    // Auto‑start next round if enabled (skipping paused rounds)
     if (autoStartNextRound && tournamentPhase === 'league') {
         let highestResolvedRound = 0;
         const maxRound = Math.max(...fixtures.map(f => f.round));
         for (let r = 1; r <= maxRound; r++) {
+            // If round is paused, stop considering further rounds
+            if (roundPaused[r]) break;
             const roundFixtures = fixtures.filter(f => f.round === r && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
-            if (roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled)) highestResolvedRound = r;
-            else break;
+            if (roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled)) {
+                highestResolvedRound = r;
+            } else {
+                break;
+            }
         }
         const nextRound = highestResolvedRound + 1;
         const nextRoundExists = fixtures.some(f => f.round === nextRound);
-        if (nextRoundExists && !roundStartTimes[nextRound]) {
+        if (nextRoundExists && !roundStartTimes[nextRound] && !roundPaused[nextRound]) {
             startRound(nextRound);
         }
     }
@@ -863,18 +901,29 @@ function startRound(roundNumber) {
     showToast(`⏱️ Round ${roundNumber} started! 2‑day deadline begins now.`);
 }
 
-// ==================== ADMIN: STOP ROUND TIMER ====================
-function stopRound(roundNumber) {
+// ==================== ADMIN: PAUSE ROUND TIMER ====================
+function pauseRound(roundNumber) {
     if (!isAdmin) return;
     if (!roundStartTimes[roundNumber]) {
         showToast(`Round ${roundNumber} hasn't started yet.`);
         return;
     }
-    delete roundStartTimes[roundNumber];
+    roundPaused[roundNumber] = true;
     saveToStorage();
     renderGameweekTabs();
     renderFixtures();
-    showToast(`⏹️ Round ${roundNumber} timer stopped. You can start it again later.`);
+    showToast(`⏸ Round ${roundNumber} paused. Timer frozen.`);
+}
+
+function resumeRound(roundNumber) {
+    if (!isAdmin) return;
+    // Clear paused flag and set a fresh start time (deadline resets)
+    delete roundPaused[roundNumber];
+    roundStartTimes[roundNumber] = Date.now();
+    saveToStorage();
+    renderGameweekTabs();
+    renderFixtures();
+    showToast(`▶️ Round ${roundNumber} resumed! New 2‑day deadline starts now.`);
 }
 
 // ==================== FIXTURE MANAGEMENT ====================
@@ -1145,12 +1194,18 @@ function renderGameweekTabs() {
     container.innerHTML = "";
     for (let r = 1; r <= total; r++) {
         const startTime = roundStartTimes[r];
+        const isPaused = roundPaused && roundPaused[r];
         const roundFixtures = fixtures.filter(f => f.round === r && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
         const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
-        let statusHtml = '', startBtnHtml = '', stopBtnHtml = '';
+        let statusHtml = '', actionBtnHtml = '';
 
         if (allResolved) {
             statusHtml = `<span class="text-[9px] font-mono text-green-600 ml-1">✅ Completed</span>`;
+        } else if (isPaused) {
+            statusHtml = `<span class="text-[9px] font-mono text-amber-600 ml-1">⏸ Paused</span>`;
+            if (isAdmin && tournamentPhase === 'league') {
+                actionBtnHtml = `<button onclick="resumeRound(${r})" class="ml-1 text-[9px] bg-green-100 text-green-700 px-1 py-0.5 rounded-full hover:bg-green-200">▶ Resume</button>`;
+            }
         } else if (startTime) {
             const deadline = startTime + 2 * 24 * 60 * 60 * 1000;
             const now = Date.now();
@@ -1158,16 +1213,15 @@ function renderGameweekTabs() {
                 const hoursLeft = Math.max(0, Math.floor((deadline - now) / (1000 * 60 * 60)));
                 const minutesLeft = Math.floor(((deadline - now) % (1000 * 60 * 60)) / (1000 * 60));
                 statusHtml = `<span class="text-[9px] font-mono text-green-600 ml-1">⏳ ${hoursLeft}h ${minutesLeft}m</span>`;
-                // ✅ Only admins see the stop button
                 if (isAdmin) {
-                    stopBtnHtml = `<button onclick="stopRound(${r})" class="ml-1 text-[9px] bg-red-100 text-red-700 px-1 py-0.5 rounded-full hover:bg-red-200">⏹️ Stop</button>`;
+                    actionBtnHtml = `<button onclick="pauseRound(${r})" class="ml-1 text-[9px] bg-red-100 text-red-700 px-1 py-0.5 rounded-full hover:bg-red-200">⏸ Pause</button>`;
                 }
             } else {
                 statusHtml = `<span class="text-[9px] font-mono text-red-500 ml-1">⌛ Expired</span>`;
             }
         } else {
             if (isAdmin && tournamentPhase === 'league') {
-                startBtnHtml = `<button onclick="startRound(${r})" class="ml-1 text-[9px] bg-green-100 text-green-700 px-1 py-0.5 rounded-full hover:bg-green-200">▶ Start</button>`;
+                actionBtnHtml = `<button onclick="startRound(${r})" class="ml-1 text-[9px] bg-green-100 text-green-700 px-1 py-0.5 rounded-full hover:bg-green-200">▶ Start</button>`;
             } else {
                 statusHtml = `<span class="text-[9px] font-mono text-gray-400 ml-1">⏸ Not started</span>`;
             }
@@ -1176,7 +1230,7 @@ function renderGameweekTabs() {
         const active = r === currentSelectedRound;
         const btn = document.createElement('button');
         btn.className = `px-3 py-1 text-[11px] font-mono rounded-full transition shrink-0 flex items-center gap-1 ${active ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
-        btn.innerHTML = `GW ${r} ${statusHtml} ${startBtnHtml} ${stopBtnHtml}`;
+        btn.innerHTML = `GW ${r} ${statusHtml} ${actionBtnHtml}`;
         btn.onclick = () => { currentSelectedRound = r; renderGameweekTabs(); renderFixtures(); };
         container.appendChild(btn);
     }
