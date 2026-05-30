@@ -27,6 +27,8 @@ let lastReadTimestamp = localStorage.getItem('chatLastRead') ? parseInt(localSto
 let isChatModalOpen = false;
 let currentMentionText = '';
 let mentionTimeout = null;
+let pendingReplaceOldTeam = null;
+
 
 // ==================== ROLE SELECTION ====================
 let userRole = null; // 'viewer' or 'admin'
@@ -870,6 +872,79 @@ function initializeTournament() {
     showToast(`Tournament launched with ${count} teams!`);
 }
 
+function openReplaceTeamModal(teamName) {
+    if (!isAdmin) return;
+    pendingReplaceOldTeam = teamName;
+    document.getElementById('replace-old-team-name').innerText = teamName;
+    document.getElementById('replace-new-team-name').value = '';
+    document.getElementById('replace-team-modal').classList.remove('hidden');
+    document.getElementById('replace-team-modal').classList.add('flex');
+}
+
+function closeReplaceTeamModal() {
+    document.getElementById('replace-team-modal').classList.add('hidden');
+    document.getElementById('replace-team-modal').classList.remove('flex');
+    pendingReplaceOldTeam = null;
+}
+
+function confirmReplaceTeam() {
+    if (!pendingReplaceOldTeam) return;
+    const newName = document.getElementById('replace-new-team-name').value.trim();
+    if (newName === "") {
+        alert("Please enter a new team name");
+        return;
+    }
+    if (teams[newName] && !teams[newName].relegated) {
+        alert(`Team "${newName}" already exists. Choose a different name.`);
+        return;
+    }
+    if (newName.length > 30) {
+        alert("Team name too long (max 30 characters)");
+        return;
+    }
+    
+    const oldName = pendingReplaceOldTeam;
+    const oldTeamData = teams[oldName];
+    if (!oldTeamData) return;
+    
+    // Create new team entry with all stats from old team
+    teams[newName] = { ...oldTeamData, name: newName };
+    // Delete old team
+    delete teams[oldName];
+    
+    // Update all fixtures (league)
+    fixtures.forEach(f => {
+        if (f.home === oldName) f.home = newName;
+        if (f.away === oldName) f.away = newName;
+    });
+    
+    // Update knockout matches
+    knockoutMatches.forEach(k => {
+        if (k.home === oldName) k.home = newName;
+        if (k.away === oldName) k.away = newName;
+    });
+    
+    // If there's a stored champion, update that too
+    db.ref('tournament_data/champion').once('value', (snapshot) => {
+        const champ = snapshot.val();
+        if (champ && champ.name === oldName) {
+            db.ref('tournament_data/champion').set({ name: newName, date: champ.date });
+        }
+    });
+    
+    // Save and refresh
+    saveToStorage();
+    updateTableCalculations();
+    renderTable();
+    renderGameweekTabs();
+    renderFixtures();
+    renderKnockoutBracket();
+    renderRelegatedTeams();
+    generateTickerFacts();
+    showToast(`Team "${oldName}" replaced with "${newName}"`);
+    closeReplaceTeamModal();
+}
+
 // ==================== ADMIN: START ROUND ====================
 function startRound(roundNumber) {
     if (!isAdmin) return;
@@ -1178,7 +1253,11 @@ function renderTable() {
         while (recent.length < 5) recent.unshift('-');
         const formHtml = `<div class="flex gap-1 justify-center">${recent.map(r => r === 'W' ? '<span class="w-4 h-4 bg-emerald-100 text-emerald-700 rounded-full text-[8px] font-bold flex items-center justify-center">W</span>' : r === 'L' ? '<span class="w-4 h-4 bg-rose-100 text-rose-600 rounded-full text-[8px] font-bold flex items-center justify-center">L</span>' : r === 'D' ? '<span class="w-4 h-4 bg-amber-100 text-amber-700 rounded-full text-[8px] font-bold flex items-center justify-center">D</span>' : '<span class="w-4 h-4 bg-gray-100 text-gray-400 rounded-full text-[8px] flex items-center justify-center">-</span>').join('')}</div>`;
         const penaltyBadge = team.deductedPoints > 0 ? `<span class="ml-1 text-[8px] bg-rose-50 text-rose-600 px-1 rounded-full">-${team.deductedPoints}</span>` : "";
-        const actionBtn = isAdmin ? `<td class="py-2 px-1 text-center"><button onclick="event.stopPropagation(); openPenaltyModal('${team.name}')" class="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-full hover:bg-amber-100">⚖️</button> <button onclick="event.stopPropagation(); relegateTeam('${team.name}')" class="text-[9px] bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded-full hover:bg-orange-100">⬇️ Relegate</button></td>` : "";
+        const actionBtn = isAdmin ? `<td class="py-2 px-1 text-center">
+    <button onclick="event.stopPropagation(); openPenaltyModal('${team.name}')" class="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-full hover:bg-amber-100">⚖️</button>
+    <button onclick="event.stopPropagation(); relegateTeam('${team.name}')" class="text-[9px] bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded-full hover:bg-orange-100">⬇️ Relegate</button>
+    <button onclick="event.stopPropagation(); openReplaceTeamModal('${team.name}')" class="text-[9px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full hover:bg-blue-100">🔄 Replace</button>
+</td>` : "";
         tbody.innerHTML += `<tr class="hover:bg-gray-50 transition ${pos === 1 ? 'champions-row' : (pos > sorted.length - 2 ? 'relegation-row' : '')}" onclick="showTeamDetails('${team.name}')"><td class="py-2 px-2 text-center font-bold text-xs ${pos === 1 ? 'text-indigo-600' : ''}">${pos}</td><td class="py-2 px-2"><span class="font-semibold text-xs">${team.name}</span>${penaltyBadge}</td><td class="py-2 px-1 text-center text-xs">${team.mp}</td><td class="py-2 px-1 text-center text-emerald-600 text-xs">${team.w}</td><td class="py-2 px-1 text-center text-xs">${team.d}</td><td class="py-2 px-1 text-center text-rose-500 text-xs">${team.l}</td><td class="py-2 px-1 text-center text-xs">${team.gf}</td><td class="py-2 px-1 text-center text-xs">${team.ga}</td><td class="py-2 px-1 text-center font-mono text-xs ${team.gd >= 0 ? 'text-emerald-600' : 'text-rose-500'}">${team.gd > 0 ? '+' + team.gd : team.gd}</td><td class="py-2 px-2 text-center font-black text-indigo-600 text-xs">${team.pts}</td><td class="py-2 px-2 text-center">${formHtml}<td>${actionBtn}</tr>`;
     });
     const phaseIndicator = document.getElementById('phase-indicator');
@@ -1871,6 +1950,9 @@ window.openPenaltyModal = openPenaltyModal;
 window.closePenaltyModal = closePenaltyModal;
 window.adjustPenalty = adjustPenalty;
 window.clearPenaltyPoints = clearPenaltyPoints;
+window.openReplaceTeamModal = openReplaceTeamModal;
+window.closeReplaceTeamModal = closeReplaceTeamModal;
+window.confirmReplaceTeam = confirmReplaceTeam;
 window.generateTeamInputs = generateTeamInputs;
 window.initializeTournament = initializeTournament;
 window.shuffleRound = shuffleRound;

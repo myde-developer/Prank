@@ -244,6 +244,25 @@
         </div>
     </div>
 
+<!-- Replace Team Modal -->
+<div id="replace-team-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-gray-200 overflow-hidden animate-fadeInUp">
+        <div class="p-5 border-b border-gray-200 flex justify-between items-center">
+            <h3 class="font-bold text-gray-800">🔄 Replace Team</h3>
+            <button onclick="closeReplaceTeamModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-5">&times;</button>
+        </div>
+        <div class="p-5 space-y-4">
+            <p class="text-sm text-gray-600">Replace <span id="replace-old-team-name" class="font-bold text-indigo-600"></span> with a new team.</p>
+            <input type="text" id="replace-new-team-name" placeholder="Enter new team name" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm">
+            <p class="text-xs text-amber-600">⚠️ This will update ALL fixtures (past and future) and keep all stats (points, goals, form). Old name will be removed.</p>
+            <div class="flex gap-3 pt-2">
+                <button onclick="closeReplaceTeamModal()" class="flex-1 py-2 border border-gray-300 rounded-lg text-sm">Cancel</button>
+                <button onclick="confirmReplaceTeam()" class="flex-1 bg-indigo-600 text-white rounded-lg py-2 text-sm font-bold">Confirm Replace</button>
+            </div>
+        </div>
+    </div>
+</div>
+
     <!-- MAIN CONTENT -->
     <main class="max-w-6xl mx-auto px-4 py-8 space-y-10">
         <!-- Setup Section (only visible to admin when no tournament) -->
