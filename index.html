@@ -271,27 +271,56 @@
 
     <!-- MAIN CONTENT -->
     <main class="max-w-6xl mx-auto px-4 py-8 space-y-10">
-       <!-- Setup Section (only visible to admin when no tournament) -->
+   <!-- Setup Section (only visible to admin when no tournament) -->
 <section id="setup-section" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-6 hidden">
-    <h2 class="text-lg font-bold flex items-center gap-2"><span class="text-indigo-500">📋</span> League Initialization</h2>
-    <div id="step-1" class="space-y-3">
-        <label class="text-xs font-semibold text-gray-500 uppercase">Number of teams</label>
-        <div class="flex gap-3">
-            <input type="number" id="team-count" min="2" placeholder="e.g., 30" class="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 w-32">
-            <button onclick="generateTeamInputs()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 rounded-xl text-sm font-bold transition">Configure Teams</button>
+    <h2 class="text-lg font-bold flex items-center gap-2"><span class="text-indigo-500">📋</span> Create Both Leagues Simultaneously</h2>
+    
+    <!-- Two-column layout for both leagues -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- PREMIER LEAGUE -->
+        <div class="bg-gradient-to-br from-indigo-50 to-white rounded-xl border border-indigo-200 p-5 space-y-4">
+            <div class="flex items-center gap-2 border-b border-indigo-200 pb-2">
+                <span class="text-2xl">🏆</span>
+                <h3 class="font-bold text-indigo-700">DLS Vawulence Premier League</h3>
+            </div>
+            <div>
+                <label class="text-xs font-semibold text-gray-500 uppercase">Number of teams</label>
+                <input type="number" id="prem-team-count" min="2" placeholder="e.g., 20" class="mt-1 w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm">
+            </div>
+            <div id="prem-teams-container" class="space-y-2 max-h-96 overflow-y-auto">
+                <p class="text-xs text-gray-400 italic">Set number of teams first, then configure team names</p>
+            </div>
+            <button id="prem-generate-btn" onclick="generatePremierTeams()" class="w-full bg-indigo-100 hover:bg-indigo-200 text-indigo-700 py-2 rounded-xl text-sm font-semibold transition">⚙️ Configure Premier League Teams</button>
+        </div>
+        
+        <!-- CHAMPIONSHIP -->
+        <div class="bg-gradient-to-br from-emerald-50 to-white rounded-xl border border-emerald-200 p-5 space-y-4">
+            <div class="flex items-center gap-2 border-b border-emerald-200 pb-2">
+                <span class="text-2xl">📈</span>
+                <h3 class="font-bold text-emerald-700">DLS Vawulence Championship</h3>
+            </div>
+            <div>
+                <label class="text-xs font-semibold text-gray-500 uppercase">Number of teams</label>
+                <input type="number" id="champ-team-count" min="2" placeholder="e.g., 24" class="mt-1 w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm">
+            </div>
+            <div id="champ-teams-container" class="space-y-2 max-h-96 overflow-y-auto">
+                <p class="text-xs text-gray-400 italic">Set number of teams first, then configure team names</p>
+            </div>
+            <button id="champ-generate-btn" onclick="generateChampionshipTeams()" class="w-full bg-emerald-100 hover:bg-emerald-200 text-emerald-700 py-2 rounded-xl text-sm font-semibold transition">⚙️ Configure Championship Teams</button>
         </div>
     </div>
-    <div id="step-2" class="hidden space-y-5">
+    
+    <!-- Password & Launch -->
+    <div class="border-t border-gray-200 pt-5 mt-2 space-y-4">
         <div class="flex flex-wrap gap-4 items-center justify-between bg-gray-50 p-3 rounded-xl">
-            <span class="text-xs font-mono text-gray-500">Admin Security Code</span>
-            <input type="text" id="tournament-password" value="1234" class="border border-gray-300 rounded-lg px-3 py-1 w-32 text-center font-mono">
+            <span class="text-xs font-mono text-gray-500">🔐 Master Password (for both leagues)</span>
+            <input type="text" id="both-leagues-password" value="090541" class="border border-gray-300 rounded-lg px-3 py-1 w-32 text-center font-mono">
         </div>
-        <div id="team-inputs-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
-        <button onclick="initializeTournament()" class="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 text-white py-3 rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition">🚀 Launch League</button>
-        <button id="create-both-leagues-btn" onclick="initializeBothLeagues()" class="w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white py-3 rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition">⚡ Create Both Leagues (Premier & Championship)</button>
+        <button id="create-both-leagues-btn" onclick="createBothLeaguesNow()" class="w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white py-3 rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition">
+            🚀 Create Both Leagues Simultaneously
+        </button>
     </div>
 </section>
-
         <!-- Dashboard Section (visible after role selection if tournament exists) -->
         <section id="dashboard-section" class="hidden space-y-8">
 

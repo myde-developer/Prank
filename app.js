@@ -134,6 +134,8 @@ let currentPredictionFixtureId = null, currentBanterFixtureId = null;
 let chatMessagesRef = null;
 let autoStartNextRound = false;
 let roundStartTimes = {};
+let premTeamInputs = [];
+let champTeamInputs = [];
 let roundPaused = {};
 let typingTimeout = null;
 let isTyping = false;
@@ -1008,95 +1010,103 @@ function initializeTournament() {
     showToast(`Tournament launched with ${count} teams!`);
 }
 
-async function createLeague(leagueId, teamNamesArray, password) {
-    const originalLeague = currentLeague;
-    currentLeague = leagueId;
-    
-    // Build teams object
-    const newTeams = {};
-    teamNamesArray.forEach(name => {
-        if (name !== "BYE") {
-            newTeams[name] = {
-                name: name,
-                mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0,
-                deductedPoints: 0, formHistory: [], relegated: false
-            };
-        }
-    });
-    const teamNames = Object.keys(newTeams);
-    const rounds = generateRandomRoundRobin(teamNames);
-    let fixtures = [];
-    let fixtureId = 0;
-    rounds.forEach((roundFixtures, roundIndex) => {
-        roundFixtures.forEach(({ home, away }) => {
-            fixtures.push({
-                id: fixtureId++, round: roundIndex + 1, home, away,
-                homeScore: null, awayScore: null, played: false, cancelled: false,
-                comment: null, predictions: [], banter: [], events: [], report: null, deadline: null
-            });
-        });
-    });
-    
-    await getTournamentRef().set({
-        teams: newTeams,
-        fixtures: fixtures,
-        knockoutMatches: [],
-        tournamentPhase: 'league',
-        password: password,
-        roundStartTimes: {},
-        autoStartNextRound: false,
-        roundPaused: {}
-    });
-    
-    currentLeague = originalLeague;
+function generatePremierTeams() {
+    const count = parseInt(document.getElementById('prem-team-count').value);
+    if (isNaN(count) || count < 2) {
+        alert("Please enter a valid number of teams (at least 2)");
+        return;
+    }
+    const container = document.getElementById('prem-teams-container');
+    container.innerHTML = '<p class="text-xs font-semibold text-gray-600 mb-2">Enter team names:</p>';
+    premTeamInputs = [];
+    for (let i = 1; i <= count; i++) {
+        const inputId = `prem-team-${i}`;
+        container.innerHTML += `
+            <div class="flex items-center gap-2">
+                <span class="bg-indigo-100 text-indigo-700 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">${i}</span>
+                <input type="text" id="${inputId}" placeholder="Team name" class="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm">
+            </div>
+        `;
+        premTeamInputs.push(inputId);
+    }
+    showToast(`Premier League: Enter ${count} team names below`);
 }
 
+function generateChampionshipTeams() {
+    const count = parseInt(document.getElementById('champ-team-count').value);
+    if (isNaN(count) || count < 2) {
+        alert("Please enter a valid number of teams (at least 2)");
+        return;
+    }
+    const container = document.getElementById('champ-teams-container');
+    container.innerHTML = '<p class="text-xs font-semibold text-gray-600 mb-2">Enter team names:</p>';
+    champTeamInputs = [];
+    for (let i = 1; i <= count; i++) {
+        const inputId = `champ-team-${i}`;
+        container.innerHTML += `
+            <div class="flex items-center gap-2">
+                <span class="bg-emerald-100 text-emerald-700 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">${i}</span>
+                <input type="text" id="${inputId}" placeholder="Team name" class="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm">
+            </div>
+        `;
+        champTeamInputs.push(inputId);
+    }
+    showToast(`Championship: Enter ${count} team names below`);
+}
 
-async function initializeBothLeagues() {
+async function createBothLeaguesNow() {
     if (!isAdmin) {
         showToast("Only admin can create leagues");
         return;
     }
     
-    // Step 1: Ask for number of teams (same for both leagues)
-    let teamCount = parseInt(prompt("Enter number of teams for Premier League (Championship will have same count):", "20"));
-    if (isNaN(teamCount) || teamCount < 2) {
-        alert("Please enter a valid number (at least 2)");
+    // Get Premier League teams
+    const premCount = parseInt(document.getElementById('prem-team-count').value);
+    if (isNaN(premCount) || premCount < 2) {
+        alert("Please set Premier League number of teams first and click 'Configure'");
         return;
     }
     
-    // Step 2: Collect team names
-    let teamNames = [];
-    for (let i = 1; i <= teamCount; i++) {
-        let name = prompt(`Enter name for Team ${i} (Premier & Championship will both use this name):`, `Team ${i}`);
-        if (!name || name.trim() === "") name = `Team ${i}`;
-        teamNames.push(name.trim());
+    let premTeamNames = [];
+    for (let i = 1; i <= premCount; i++) {
+        let name = document.getElementById(`prem-team-${i}`)?.value.trim();
+        if (!name) name = `Premier Team ${i}`;
+        premTeamNames.push(name);
     }
     
-    // Optional: add a BYE if odd number (though round-robin generator handles it)
-    if (teamNames.length % 2 !== 0) {
-        teamNames.push("BYE");
-        showToast("Odd number of teams – added BYE placeholder");
+    // Get Championship teams
+    const champCount = parseInt(document.getElementById('champ-team-count').value);
+    if (isNaN(champCount) || champCount < 2) {
+        alert("Please set Championship number of teams first and click 'Configure'");
+        return;
     }
     
-    // Ask for master password (will be same for both leagues)
-    let password = prompt("Set master password for both leagues (leave blank for default 090541):", "090541");
-    if (password === null) password = "090541";
-    if (password.trim() === "") password = "090541";
+    let champTeamNames = [];
+    for (let i = 1; i <= champCount; i++) {
+        let name = document.getElementById(`champ-team-${i}`)?.value.trim();
+        if (!name) name = `Championship Team ${i}`;
+        champTeamNames.push(name);
+    }
     
-    const confirmMsg = `Create Premier League and Championship with ${teamCount} teams each?\nTeams: ${teamNames.filter(n => n !== "BYE").join(", ")}`;
+    // Get password
+    let password = document.getElementById('both-leagues-password').value.trim();
+    if (!password) password = "090541";
+    
+    const confirmMsg = `Create both leagues?\n\n🏆 Premier League: ${premTeamNames.length} teams\n📈 Championship: ${champTeamNames.length} teams\n\nProceed?`;
     if (!confirm(confirmMsg)) return;
     
-    showToast("Creating both leagues... Please wait.");
+    showToast("Creating both leagues simultaneously... Please wait.");
     
     try {
-        await createLeague('premier', teamNames, password);
-        showToast("Premier League created.");
+        // Create Premier League
+        await createLeague('premier', premTeamNames, password);
+        showToast("✅ Premier League created");
         
-        await createLeague('championship', teamNames, password);
-        showToast("Championship created.");
+        // Create Championship
+        await createLeague('championship', champTeamNames, password);
+        showToast("✅ Championship created");
         
-        showToast("✅ Both leagues created successfully!");
+        showToast("🎉 Both leagues created successfully!");
         
         // Switch to Premier view and reload
         currentLeague = 'premier';
@@ -2309,6 +2319,9 @@ window.onload = () => {
 // ==================== EXPOSE FUNCTIONS ====================
 window.handleAdminToggleClick = handleAdminToggleClick;
 window.initializeBothLeagues = initializeBothLeagues;
+window.generatePremierTeams = generatePremierTeams;
+window.generateChampionshipTeams = generateChampionshipTeams;
+window.createBothLeaguesNow = createBothLeaguesNow;
 window.verifyAdminPassword = verifyAdminPassword;
 window.closePasswordModal = closePasswordModal;
 window.openChangePasswordModal = openChangePasswordModal;
