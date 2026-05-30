@@ -9,121 +9,6 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-function checkAndLoadTournament() {
-    db.ref('tournament_data').once('value', (snapshot) => {
-        const data = snapshot.val();
-        if (data && data.teams && data.fixtures) {
-            // Tournament exists – load it
-            loadTournamentData(data);
-            if (userRole === 'viewer') {
-                // Hide admin UI
-                document.getElementById('admin-toggle-container')?.classList.add('hidden');
-                document.getElementById('admin-reset-container')?.classList.add('hidden');
-                document.getElementById('floating-admin-menu')?.classList.add('hidden');
-                document.getElementById('auto-start-container')?.classList.add('hidden');
-                document.getElementById('th-admin-actions')?.classList.add('hidden');
-           function initRealtimeDatabaseSync() {
-    // Listen for changes to tournament data to keep UI updated
-    db.ref('tournament_data').on('value', (snapshot) => {
-        if (snapshot.exists() && userRole) {
-            loadTournamentData(snapshot.val());
-        } else if (!snapshot.exists() && userRole === 'admin') {
-            // No tournament exists – show setup for admin
-            document.getElementById('setup-section')?.classList.remove('hidden');
-            document.getElementById('dashboard-section')?.classList.add('hidden');
-            document.getElementById('deadline-clock')?.classList.add('hidden');
-        } else if (!snapshot.exists() && userRole === 'viewer') {
-            // No tournament exists – show friendly message
-            document.getElementById('dashboard-section')?.classList.add('hidden');
-            document.getElementById('setup-section')?.classList.add('hidden');
-            document.getElementById('role-selector').innerHTML = `
-                <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center">
-                    <div class="mb-4">
-                        <div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <span class="text-3xl">🏆</span>
-                        </div>
-                        <h2 class="text-2xl font-bold text-gray-800">No Tournament Yet</h2>
-                        <p class="text-gray-500 text-sm mt-1">An admin hasn't started a tournament.</p>
-                    </div>
-                    <button onclick="selectRole('admin')" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition">
-                        🔑 Switch to Admin to Create
-                    </button>
-                </div>
-            `;
-        }
-    });
-
-    // Live alerts for fixture changes (only for admin or if you want viewers to see results)
-    db.ref('tournament_data/fixtures').on('child_changed', (snapshot) => {
-        const updated = snapshot.val();
-        if (updated && updated.played === true && updated.homeScore !== null) {
-            showToast(`📢 Result: ${updated.home} ${updated.homeScore}-${updated.awayScore} ${updated.away}`);
-        }
-    });
-
-    // Global chat listener (only if user role is selected)
-    if (userRole) {
-        initChatListener();
-    }
-}     document.getElementById('admin-table-hint')?.classList.add('hidden');
-                document.getElementById('relegation-zone')?.classList.add('hidden');
-            } else if (userRole === 'admin') {
-                document.getElementById('admin-toggle-container')?.classList.remove('hidden');
-                // Other admin elements shown via updateAdminUIElements later
-            }
-        } else {
-            // No tournament exists
-            if (userRole === 'viewer') {
-                // Show friendly message in role selector
-                document.getElementById('dashboard-section')?.classList.add('hidden');
-                document.getElementById('setup-section')?.classList.add('hidden');
-                const roleSelector = document.getElementById('role-selector');
-                if (roleSelector) {
-                    roleSelector.innerHTML = `
-                        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center">
-                            <div class="mb-4">
-                                <div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                                    <span class="text-3xl">🏆</span>
-                                </div>
-                                <h2 class="text-2xl font-bold text-gray-800">No Tournament Yet</h2>
-                                <p class="text-gray-500 text-sm mt-1">An admin hasn't started a tournament.</p>
-                            </div>
-                            <button onclick="selectRole('admin')" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition">
-                                🔑 Switch to Admin to Create
-                            </button>
-                        </div>
-                    `;
-                    roleSelector.style.display = 'flex';
-                }
-            } else if (userRole === 'admin') {
-                // Show setup page for admin
-                const setupSection = document.getElementById('setup-section');
-                const dashboardSection = document.getElementById('dashboard-section');
-                const roleSelector = document.getElementById('role-selector');
-                if (setupSection) {
-                    setupSection.classList.remove('hidden');
-                    console.log('Setup section shown');
-                } else {
-                    console.error('Setup section not found');
-                }
-                if (dashboardSection) dashboardSection.classList.add('hidden');
-                if (roleSelector) roleSelector.remove();
-                // Ensure step-1 is visible and step-2 hidden
-                const step1 = document.getElementById('step-1');
-                const step2 = document.getElementById('step-2');
-                if (step1) step1.classList.remove('hidden');
-                if (step2) step2.classList.add('hidden');
-                // Clear any leftover team inputs
-                const container = document.getElementById('team-inputs-container');
-                if (container) container.innerHTML = '';
-                // Hide admin-only floating elements
-                document.getElementById('admin-toggle-container')?.classList.add('hidden');
-                document.getElementById('floating-admin-menu')?.classList.add('hidden');
-                showToast("Setup mode – create your tournament");
-            }
-        }
-    });
-}
 
 let teams = {}, fixtures = [], knockoutMatches = [], tournamentPhase = 'league';
 let currentSelectedRound = 1, isAdmin = false, tournamentPassword = "";
@@ -161,16 +46,14 @@ function getTypingRef() {
     return db.ref(`${currentLeague}/chat_typing`);
 }
 
-
 // ==================== ROLE SELECTION ====================
-let userRole = null; // 'viewer' or 'admin'
+let userRole = null;
 
 function selectRole(role) {
     userRole = role;
     sessionStorage.setItem('tournamentRole', role);
     document.getElementById('role-selector').style.display = 'none';
     
-    // Set league from stored or default
     const savedLeague = sessionStorage.getItem('desiredLeague');
     if (savedLeague && (savedLeague === 'premier' || savedLeague === 'championship')) {
         currentLeague = savedLeague;
@@ -204,10 +87,8 @@ function checkAndLoadTournament() {
     getTournamentRef().once('value', (snapshot) => {
         const data = snapshot.val();
         if (data && data.teams && data.fixtures) {
-            // Tournament exists – load it
             loadTournamentData(data);
             if (userRole === 'viewer') {
-                // Hide admin UI
                 document.getElementById('admin-toggle-container')?.classList.add('hidden');
                 document.getElementById('admin-reset-container')?.classList.add('hidden');
                 document.getElementById('floating-admin-menu')?.classList.add('hidden');
@@ -217,12 +98,9 @@ function checkAndLoadTournament() {
                 document.getElementById('relegation-zone')?.classList.add('hidden');
             } else if (userRole === 'admin') {
                 document.getElementById('admin-toggle-container')?.classList.remove('hidden');
-                // Other admin elements shown via updateAdminUIElements later
             }
         } else {
-            // No tournament exists
             if (userRole === 'viewer') {
-                // Show friendly message in role selector
                 document.getElementById('dashboard-section')?.classList.add('hidden');
                 document.getElementById('setup-section')?.classList.add('hidden');
                 const roleSelector = document.getElementById('role-selector');
@@ -244,27 +122,14 @@ function checkAndLoadTournament() {
                     roleSelector.style.display = 'flex';
                 }
             } else if (userRole === 'admin') {
-                // Show setup page for admin
                 const setupSection = document.getElementById('setup-section');
                 const dashboardSection = document.getElementById('dashboard-section');
                 const roleSelector = document.getElementById('role-selector');
                 if (setupSection) {
                     setupSection.classList.remove('hidden');
-                    console.log('Setup section shown');
-                } else {
-                    console.error('Setup section not found');
                 }
                 if (dashboardSection) dashboardSection.classList.add('hidden');
                 if (roleSelector) roleSelector.remove();
-                // Ensure step-1 is visible and step-2 hidden
-                const step1 = document.getElementById('step-1');
-                const step2 = document.getElementById('step-2');
-                if (step1) step1.classList.remove('hidden');
-                if (step2) step2.classList.add('hidden');
-                // Clear any leftover team inputs
-                const container = document.getElementById('team-inputs-container');
-                if (container) container.innerHTML = '';
-                // Hide admin-only floating elements
                 document.getElementById('admin-toggle-container')?.classList.add('hidden');
                 document.getElementById('floating-admin-menu')?.classList.add('hidden');
                 showToast("Setup mode – create your tournament");
@@ -297,9 +162,9 @@ function loadTournamentData(data) {
     startDeadlineClock();
     initChatListener();
     if (userRole === 'admin') {
-        updateAdminUIElements(); // shows admin buttons etc.
+        updateAdminUIElements();
     }
-    checkAndShowPromotionButton(); // check if both leagues finished
+    checkAndShowPromotionButton();
 }
 
 // ==================== HELPERS ====================
@@ -322,31 +187,24 @@ function getCurrentUserId() {
 // ==================== RANDOMIZED FIXTURE GENERATION ====================
 function generateRandomRoundRobin(teamNames) {
     let n = teamNames.length;
-    // Add BYE only if odd number of teams (keeps algorithm working)
     if (n % 2 !== 0) {
         teamNames.push("BYE");
         n++;
     }
-    
-    // Shuffle teams initially for randomness
     let shuffled = [...teamNames];
     for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
-    
-    const numRounds = n - 1;          // rounds in a single round-robin
+    const numRounds = n - 1;
     const halfSize = n / 2;
     let firstHalfRounds = [];
-    
-    // Generate first half (each pair meets once, random home/away)
     for (let round = 0; round < numRounds; round++) {
         const roundFixtures = [];
         for (let i = 0; i < halfSize; i++) {
             const home = shuffled[i];
             const away = shuffled[n - 1 - i];
             if (home !== "BYE" && away !== "BYE") {
-                // Randomize which team is home for this meeting
                 if (Math.random() < 0.5) {
                     roundFixtures.push({ home, away });
                 } else {
@@ -355,31 +213,24 @@ function generateRandomRoundRobin(teamNames) {
             }
         }
         firstHalfRounds.push(roundFixtures);
-        // Rotate (circle method) for next round
         const last = shuffled.pop();
         shuffled.splice(1, 0, last);
     }
-    
-    // Shuffle the order of first half rounds for more variety
     for (let i = firstHalfRounds.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [firstHalfRounds[i], firstHalfRounds[j]] = [firstHalfRounds[j], firstHalfRounds[i]];
     }
-    
-    // Second half: same fixtures but with home/away swapped
     const secondHalfRounds = firstHalfRounds.map(roundFixtures => {
         return roundFixtures.map(fixture => ({
             home: fixture.away,
             away: fixture.home
         }));
     });
-    
-    // Combine first and second halves
     const allRounds = [...firstHalfRounds, ...secondHalfRounds];
     return allRounds;
 }
 
-// ==================== GLOBAL CHAT ROOM ====================
+// ==================== CHAT ====================
 function initChatListener() {
     chatMessagesRef = getChatRef();
     chatMessagesRef.off();
@@ -401,15 +252,11 @@ function openChatModal() {
         if (savedName) document.getElementById('chat-nickname').value = savedName;
         const container = document.getElementById('chat-messages-container');
         if (container) container.scrollTop = container.scrollHeight;
-        
-        // Mark all messages as read
         isChatModalOpen = true;
         lastReadTimestamp = Date.now();
         localStorage.setItem('chatLastRead', lastReadTimestamp);
         unreadMessagesCount = 0;
         updateUnreadBadge();
-        
-        // Show poll create button for admin
         const pollBtn = document.getElementById('create-poll-btn');
         if (pollBtn) {
             if (isAdmin) pollBtn.classList.remove('hidden');
@@ -472,28 +319,18 @@ function appendChatMessage(msg) {
     if (container.children.length === 1 && container.children[0].innerText.includes('Loading')) {
         container.innerHTML = '';
     }
-    
-    // Handle poll messages (unchanged)
     if (msg.isPoll && msg.pollId) {
         renderPollMessage(msg.pollId);
         return;
     }
-    
     const date = new Date(msg.timestamp).toLocaleString();
-    const currentNick = localStorage.getItem('chatNickname') || '';
     const currentUserId = getCurrentUserId();
     const isCurrentUser = (msg.userId === currentUserId);
     const bubbleClass = isCurrentUser ? 'sent' : 'received';
-    
-    // Highlight mentions in message text
     let formattedText = escapeHtml(msg.text);
-    // Replace @username with highlighted span (simple regex)
     formattedText = formattedText.replace(/@(\w+)/g, '<span class="text-blue-600 font-semibold">@$1</span>');
-    
-    // Delete button: visible to admin or message owner
     const canDelete = (isAdmin || isCurrentUser);
     const deleteBtn = canDelete ? `<button onclick="deleteChatMessage('${msg.messageId}', '${msg.userId}')" class="chat-delete-btn" title="Delete">🗑️</button>` : '';
-    
     const messageDiv = document.createElement('div');
     messageDiv.className = `chat-message ${bubbleClass}`;
     messageDiv.innerHTML = `
@@ -508,25 +345,20 @@ function appendChatMessage(msg) {
     `;
     container.appendChild(messageDiv);
     container.scrollTop = container.scrollHeight;
-    
-    // Unread logic (unchanged)
     if (!isChatModalOpen && !isCurrentUser && msg.timestamp > lastReadTimestamp) {
         unreadMessagesCount++;
         updateUnreadBadge();
     }
 }
 
-// Keep your existing sendChatMessage, deleteChatMessage, etc. unchanged
 function sendChatMessage() {
     const nicknameInput = document.getElementById('chat-nickname');
     let nickname = nicknameInput.value.trim();
     if (nickname === "") { alert("Please enter your name"); return; }
     const text = document.getElementById('chat-input').value.trim();
     if (text === "") return;
-    
     localStorage.setItem('chatNickname', nickname);
     const userId = getCurrentUserId();
-    
     const message = {
         nickname: nickname.slice(0,20),
         text: text.slice(0,200),
@@ -534,7 +366,6 @@ function sendChatMessage() {
         userId: userId,
         messageId: Date.now() + '_' + Math.random().toString(36).substr(2, 6)
     };
-    
     if (chatMessagesRef) {
         chatMessagesRef.push(message);
         document.getElementById('chat-input').value = '';
@@ -564,28 +395,22 @@ function onChatInput() {
     const cursorPos = input.selectionStart;
     const textBeforeCursor = value.slice(0, cursorPos);
     const lastAtIndex = textBeforeCursor.lastIndexOf('@');
-    
     if (lastAtIndex !== -1 && (lastAtIndex === 0 || value[lastAtIndex-1] === ' ')) {
         currentMentionText = textBeforeCursor.slice(lastAtIndex + 1);
         showMentionSuggestions(currentMentionText);
     } else {
         hideMentionDropdown();
     }
-    
-    // Typing indicator (existing)
     sendTypingStatus();
 }
 
 function showMentionSuggestions(query) {
-    const allNicknames = new Set();
-    allNicknames.add(localStorage.getItem('chatNickname') || '');
-    const container = document.getElementById('chat-messages-container');
     const nicknames = new Set();
     document.querySelectorAll('#chat-messages-container .message-author').forEach(el => {
         nicknames.add(el.innerText);
     });
     nicknames.add(localStorage.getItem('chatNickname'));
-    const filtered = Array.from(nicknames).filter(n => n.toLowerCase().includes(query.toLowerCase()));
+    const filtered = Array.from(nicknames).filter(n => n && n.toLowerCase().includes(query.toLowerCase()));
     const dropdown = document.getElementById('mention-dropdown');
     if (filtered.length === 0) {
         dropdown.classList.add('hidden');
@@ -593,13 +418,10 @@ function showMentionSuggestions(query) {
     }
     dropdown.innerHTML = filtered.map(n => `<div class="mention-item px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm" data-name="${n}">@${n}</div>`).join('');
     dropdown.classList.remove('hidden');
-    // Position dropdown near cursor (simplified: below input)
     const input = document.getElementById('chat-input');
     const rect = input.getBoundingClientRect();
     dropdown.style.bottom = `${window.innerHeight - rect.top + 5}px`;
     dropdown.style.left = `${rect.left}px`;
-    
-    // Attach click handlers
     document.querySelectorAll('.mention-item').forEach(item => {
         item.onclick = () => {
             const name = item.dataset.name;
@@ -672,7 +494,6 @@ function createPoll() {
         createdAt: Date.now()
     };
     getPollsRef().child(`${pollId}`).set(poll);
-    // Announce poll in chat
     const msg = {
         nickname: "System",
         text: `📊 New poll: ${question}`,
@@ -710,9 +531,7 @@ function renderPollMessage(pollId) {
         const pollDiv = document.createElement('div');
         pollDiv.className = 'poll-card bg-white rounded-lg p-3 shadow my-2 border relative';
         pollDiv.id = `poll-${poll.id}`;
-        
         const deleteBtn = isAdmin ? `<button onclick="deletePoll('${poll.id}')" class="absolute top-2 right-2 text-red-500 hover:text-red-700 text-xs bg-white rounded-full p-1 shadow">🗑️</button>` : '';
-        
         pollDiv.innerHTML = `
             ${deleteBtn}
             <p class="font-bold">📊 ${escapeHtml(poll.question)}</p>
@@ -753,30 +572,25 @@ function updatePollUI(pollId) {
 function deletePoll(pollId) {
     if (!isAdmin) return;
     if (confirm("Delete this poll permanently?")) {
-        // Remove poll data
         getPollsRef().child(`${pollId}`).remove();
-        // Also remove the corresponding announcement message in chat_messages
         getChatRef().orderByChild('pollId').equalTo(pollId).once('value', (snapshot) => {
             snapshot.forEach(child => {
                 child.ref.remove();
             });
         });
-        // Remove the poll card from UI
         const pollCard = document.getElementById(`poll-${pollId}`);
         if (pollCard) pollCard.remove();
         showToast("Poll deleted");
     }
 }
-// ==================== TIME LIMIT (ADMIN‑CONTROLLED) ====================
+
+// ==================== TIME LIMIT ====================
 function expireOldFixtures() {
     const now = Date.now();
     let changed = false;
-    
-    // Check league fixtures for expiry (skip if round is paused)
     fixtures.forEach(f => {
         if (!f.played && !f.cancelled) {
             const startTime = roundStartTimes[f.round];
-            // Skip expiry if this round is paused
             if (roundPaused[f.round]) return;
             if (startTime) {
                 const deadline = startTime + 2 * 24 * 60 * 60 * 1000;
@@ -788,8 +602,6 @@ function expireOldFixtures() {
             }
         }
     });
-    
-    // Check knockout matches (no pause functionality for knockout yet – but keep as is)
     knockoutMatches.forEach(k => {
         if (!k.played && !k.cancelled && k.deadline && now > k.deadline) {
             k.cancelled = true;
@@ -797,7 +609,6 @@ function expireOldFixtures() {
             showToast(`⏰ Knockout match cancelled: ${k.home} vs ${k.away} (time limit exceeded)`);
         }
     });
-    
     if (changed) {
         updateTableCalculations();
         renderTable();
@@ -805,13 +616,10 @@ function expireOldFixtures() {
         renderKnockoutBracket();
         saveToStorage();
     }
-    
-    // Auto‑start next round if enabled (skipping paused rounds)
     if (autoStartNextRound && tournamentPhase === 'league') {
         let highestResolvedRound = 0;
         const maxRound = Math.max(...fixtures.map(f => f.round));
         for (let r = 1; r <= maxRound; r++) {
-            // If round is paused, stop considering further rounds
             if (roundPaused[r]) break;
             const roundFixtures = fixtures.filter(f => f.round === r && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
             if (roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled)) {
@@ -826,24 +634,19 @@ function expireOldFixtures() {
             startRound(nextRound);
         }
     }
-    
-    // Check if both leagues completed to show promotion button
     checkAndShowPromotionButton();
 }
 
-// ==================== DATABASE + LIVE ALERTS + CHAT ====================
+// ==================== DATABASE + LIVE ALERTS ====================
 function initRealtimeDatabaseSync() {
-    // Listen for changes to tournament data to keep UI updated
     getTournamentRef().on('value', (snapshot) => {
         if (snapshot.exists() && userRole) {
             loadTournamentData(snapshot.val());
         } else if (!snapshot.exists() && userRole === 'admin') {
-            // No tournament exists – show setup for admin
             document.getElementById('setup-section')?.classList.remove('hidden');
             document.getElementById('dashboard-section')?.classList.add('hidden');
             document.getElementById('deadline-clock')?.classList.add('hidden');
         } else if (!snapshot.exists() && userRole === 'viewer') {
-            // No tournament exists – show friendly message
             document.getElementById('dashboard-section')?.classList.add('hidden');
             document.getElementById('setup-section')?.classList.add('hidden');
             document.getElementById('role-selector').innerHTML = `
@@ -862,16 +665,12 @@ function initRealtimeDatabaseSync() {
             `;
         }
     });
-
-    // Live alerts for fixture changes (only for admin or if you want viewers to see results)
     getTournamentRef().child('fixtures').on('child_changed', (snapshot) => {
         const updated = snapshot.val();
         if (updated && updated.played === true && updated.homeScore !== null) {
             showToast(`📢 Result: ${updated.home} ${updated.homeScore}-${updated.awayScore} ${updated.away}`);
         }
     });
-
-    // Global chat listener (only if user role is selected)
     if (userRole) {
         initChatListener();
     }
@@ -902,6 +701,7 @@ function updateTickerFacts() {
         setTimeout(() => el.classList.remove('slide-in'), 500);
     }, 500);
 }
+
 function generateTickerFacts() {
     const activeTeams = Object.values(teams).filter(t => !t.relegated);
     const totalTeams = activeTeams.length;
@@ -983,6 +783,7 @@ function generateTeamInputs() {
     document.getElementById('step-1').classList.add('hidden');
     document.getElementById('step-2').classList.remove('hidden');
 }
+
 function initializeTournament() {
     const count = parseInt(document.getElementById('team-count').value);
     const pass = document.getElementById('tournament-password').value.trim();
@@ -1008,6 +809,60 @@ function initializeTournament() {
     currentSelectedRound = 1;
     saveToStorage();
     showToast(`Tournament launched with ${count} teams!`);
+}
+
+async function createLeague(leagueId, teamNamesArray, password) {
+    const originalLeague = currentLeague;
+    currentLeague = leagueId;
+    let filteredTeams = teamNamesArray.filter(name => name !== "BYE" && name !== "");
+    if (filteredTeams.length < 2) {
+        throw new Error(`${leagueId} needs at least 2 teams`);
+    }
+    const newTeams = {};
+    filteredTeams.forEach(name => {
+        newTeams[name] = {
+            name: name,
+            mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0,
+            deductedPoints: 0, formHistory: [], relegated: false
+        };
+    });
+    const teamNames = Object.keys(newTeams);
+    const rounds = generateRandomRoundRobin([...teamNames]);
+    let fixturesList = [];
+    let fixtureId = 0;
+    rounds.forEach((roundFixtures, roundIndex) => {
+        roundFixtures.forEach(({ home, away }) => {
+            if (home !== "BYE" && away !== "BYE") {
+                fixturesList.push({
+                    id: fixtureId++,
+                    round: roundIndex + 1,
+                    home: home,
+                    away: away,
+                    homeScore: null,
+                    awayScore: null,
+                    played: false,
+                    cancelled: false,
+                    comment: null,
+                    predictions: [],
+                    banter: [],
+                    events: [],
+                    report: null,
+                    deadline: null
+                });
+            }
+        });
+    });
+    await getTournamentRef().set({
+        teams: newTeams,
+        fixtures: fixturesList,
+        knockoutMatches: [],
+        tournamentPhase: 'league',
+        password: password,
+        roundStartTimes: {},
+        autoStartNextRound: false,
+        roundPaused: {}
+    });
+    currentLeague = originalLeague;
 }
 
 function generatePremierTeams() {
@@ -1059,56 +914,39 @@ async function createBothLeaguesNow() {
         showToast("Only admin can create leagues");
         return;
     }
-    
-    // Get Premier League teams
     const premCount = parseInt(document.getElementById('prem-team-count').value);
     if (isNaN(premCount) || premCount < 2) {
         alert("Please set Premier League number of teams first and click 'Configure'");
         return;
     }
-    
     let premTeamNames = [];
     for (let i = 1; i <= premCount; i++) {
         let name = document.getElementById(`prem-team-${i}`)?.value.trim();
         if (!name) name = `Premier Team ${i}`;
         premTeamNames.push(name);
     }
-    
-    // Get Championship teams
     const champCount = parseInt(document.getElementById('champ-team-count').value);
     if (isNaN(champCount) || champCount < 2) {
         alert("Please set Championship number of teams first and click 'Configure'");
         return;
     }
-    
     let champTeamNames = [];
     for (let i = 1; i <= champCount; i++) {
         let name = document.getElementById(`champ-team-${i}`)?.value.trim();
         if (!name) name = `Championship Team ${i}`;
         champTeamNames.push(name);
     }
-    
-    // Get password
     let password = document.getElementById('both-leagues-password').value.trim();
     if (!password) password = "090541";
-    
     const confirmMsg = `Create both leagues?\n\n🏆 Premier League: ${premTeamNames.length} teams\n📈 Championship: ${champTeamNames.length} teams\n\nProceed?`;
     if (!confirm(confirmMsg)) return;
-    
     showToast("Creating both leagues simultaneously... Please wait.");
-    
     try {
-        // Create Premier League
         await createLeague('premier', premTeamNames, password);
         showToast("✅ Premier League created");
-        
-        // Create Championship
         await createLeague('championship', champTeamNames, password);
         showToast("✅ Championship created");
-        
         showToast("🎉 Both leagues created successfully!");
-        
-        // Switch to Premier view and reload
         currentLeague = 'premier';
         sessionStorage.setItem('desiredLeague', 'premier');
         document.getElementById('league-selector').value = 'premier';
@@ -1137,49 +975,28 @@ function closeReplaceTeamModal() {
 function confirmReplaceTeam() {
     if (!pendingReplaceOldTeam) return;
     const newName = document.getElementById('replace-new-team-name').value.trim();
-    if (newName === "") {
-        alert("Please enter a new team name");
-        return;
-    }
-    if (teams[newName] && !teams[newName].relegated) {
-        alert(`Team "${newName}" already exists. Choose a different name.`);
-        return;
-    }
-    if (newName.length > 30) {
-        alert("Team name too long (max 30 characters)");
-        return;
-    }
-    
+    if (newName === "") { alert("Please enter a new team name"); return; }
+    if (teams[newName] && !teams[newName].relegated) { alert(`Team "${newName}" already exists.`); return; }
+    if (newName.length > 30) { alert("Team name too long"); return; }
     const oldName = pendingReplaceOldTeam;
     const oldTeamData = teams[oldName];
     if (!oldTeamData) return;
-    
-    // Create new team entry with all stats from old team
     teams[newName] = { ...oldTeamData, name: newName };
-    // Delete old team
     delete teams[oldName];
-    
-    // Update all fixtures (league)
     fixtures.forEach(f => {
         if (f.home === oldName) f.home = newName;
         if (f.away === oldName) f.away = newName;
     });
-    
-    // Update knockout matches
     knockoutMatches.forEach(k => {
         if (k.home === oldName) k.home = newName;
         if (k.away === oldName) k.away = newName;
     });
-    
-    // If there's a stored champion, update that too
     db.ref('tournament_data/champion').once('value', (snapshot) => {
         const champ = snapshot.val();
         if (champ && champ.name === oldName) {
             db.ref('tournament_data/champion').set({ name: newName, date: champ.date });
         }
     });
-    
-    // Save and refresh
     saveToStorage();
     updateTableCalculations();
     renderTable();
@@ -1192,7 +1009,7 @@ function confirmReplaceTeam() {
     closeReplaceTeamModal();
 }
 
-// ==================== ADMIN: START ROUND ====================
+// ==================== ADMIN: ROUND CONTROLS ====================
 function startRound(roundNumber) {
     if (!isAdmin) return;
     const now = Date.now();
@@ -1223,7 +1040,6 @@ function startRound(roundNumber) {
     showToast(`⏱️ Round ${roundNumber} started! 2‑day deadline begins now.`);
 }
 
-// ==================== ADMIN: PAUSE ROUND TIMER ====================
 function pauseRound(roundNumber) {
     if (!isAdmin) return;
     if (!roundStartTimes[roundNumber]) {
@@ -1239,7 +1055,6 @@ function pauseRound(roundNumber) {
 
 function resumeRound(roundNumber) {
     if (!isAdmin) return;
-    // Clear paused flag and set a fresh start time (deadline resets)
     delete roundPaused[roundNumber];
     roundStartTimes[roundNumber] = Date.now();
     saveToStorage();
@@ -1262,9 +1077,13 @@ function shuffleRound(roundNumber) {
     roundFixtures.forEach((f, idx) => { if (idx < newPairs.length) { f.home = newPairs[idx].home; f.away = newPairs[idx].away; f.homeScore = null; f.awayScore = null; f.played = false; f.comment = null; f.cancelled = false; } });
     saveToStorage(); showToast(`Round ${roundNumber} shuffled!`); renderGameweekTabs(); renderFixtures(); renderTable(); generateTickerFacts();
 }
+
 function swapFixture(fixtureId) { if (!isAdmin) return; const f = fixtures.find(f => f.id === fixtureId); [f.home, f.away] = [f.away, f.home]; f.homeScore = null; f.awayScore = null; f.played = false; f.comment = null; f.cancelled = false; saveToStorage(); showToast(`Swapped ${f.home} vs ${f.away}`); renderFixtures(); renderTable(); generateTickerFacts(); }
+
 function editFixtureTeamName(fixtureId, side) { if (!isAdmin) return; const fixture = fixtures.find(f => f.id === fixtureId); const dropdown = document.getElementById('team-select-dropdown'); dropdown.innerHTML = '<option value="">— Cancel / No change —</option>'; const otherSide = side === 'home' ? fixture.away : fixture.home; const teamNames = Object.values(teams).filter(t => !t.relegated).map(t => t.name).sort(); teamNames.forEach(name => { if (name !== otherSide) { const opt = document.createElement('option'); opt.value = name; opt.textContent = name; dropdown.appendChild(opt); } }); const byeOpt = document.createElement('option'); byeOpt.value = 'BYE_REMOVE'; byeOpt.textContent = '— Remove team (set to BYE) —'; dropdown.appendChild(byeOpt); pendingAssignFixtureId = fixtureId; pendingAssignSide = side; document.getElementById('team-select-modal').classList.remove('hidden'); }
+
 function closeTeamSelectModal() { document.getElementById('team-select-modal').classList.add('hidden'); pendingAssignFixtureId = null; pendingAssignSide = null; }
+
 function confirmTeamSelection() {
     if (pendingAssignFixtureId === null) return;
     const selected = document.getElementById('team-select-dropdown').value;
@@ -1291,7 +1110,7 @@ function confirmTeamSelection() {
     saveToStorage(); showToast(`Assigned ${newTeam} to ${side} side.`); renderFixtures(); renderTable(); generateTickerFacts(); closeTeamSelectModal();
 }
 
-// ==================== STANDINGS & KNOCKOUT TRIGGER ====================
+// ==================== STANDINGS & KNOCKOUT ====================
 function updateTableCalculations() {
     for (let t in teams) { if (!teams[t].relegated) { teams[t] = { ...teams[t], mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0, formHistory: [] }; } }
     fixtures.forEach(f => {
@@ -1312,11 +1131,13 @@ function updateTableCalculations() {
         startKnockoutStage(activeTeams);
     }
 }
+
 function startKnockoutStage(activeTeams) {
     const sorted = [...activeTeams].sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
     const now = Date.now();
     generateSemiFinalLegs(sorted[0].name, sorted[3].name, sorted[1].name, sorted[2].name, now);
 }
+
 function generateSemiFinalLegs(team1, team4, team2, team3, baseTime) {
     const leg1Deadline = baseTime + 2 * 24 * 60 * 60 * 1000;
     const leg2Deadline = baseTime + 4 * 24 * 60 * 60 * 1000;
@@ -1333,6 +1154,7 @@ function generateSemiFinalLegs(team1, team4, team2, team3, baseTime) {
     renderKnockoutBracket();
     showToast("🏆 Only 4 teams left! Two‑leg semi‑finals begin.");
 }
+
 function checkSemiFinalsCompletion() {
     const semis = knockoutMatches.filter(k => k.round === 'semi_leg1' || k.round === 'semi_leg2');
     if (semis.length !== 4) return;
@@ -1355,6 +1177,7 @@ function checkSemiFinalsCompletion() {
     if (winners.length === 2 && winners[0] && winners[1]) generateFinalLegs(winners[0], winners[1]);
     else showToast("Semi‑finals incomplete or cancelled. Cannot generate final.");
 }
+
 function generateFinalLegs(teamA, teamB) {
     const now = Date.now();
     const leg1Deadline = now + 2 * 24 * 60 * 60 * 1000;
@@ -1370,6 +1193,7 @@ function generateFinalLegs(teamA, teamB) {
     renderKnockoutBracket();
     showToast("🏆 Final set! Two legs to decide the champion.");
 }
+
 function checkFinalCompletion() {
     const legs = knockoutMatches.filter(k => k.round === 'final_leg1' || k.round === 'final_leg2');
     if (legs.length !== 2) return;
@@ -1388,7 +1212,8 @@ function checkFinalCompletion() {
     if (typeof confetti === 'function') confetti({ particleCount: 300, spread: 100, origin: { y: 0.6 } });
     showToast(`🏆 ${champion} are the ultimate champions! 🏆`);
 }
-function checkAndCelebrateChampion() { /* handled in checkFinalCompletion */ }
+
+function checkAndCelebrateChampion() {}
 
 // ==================== RENDER KNOCKOUT BRACKET ====================
 function renderKnockoutBracket() {
@@ -1423,6 +1248,7 @@ function renderKnockoutBracket() {
         container.appendChild(finalDiv);
     }
 }
+
 function renderKnockoutMatchCard(m) {
     const played = m.played;
     const cancelled = m.cancelled;
@@ -1460,6 +1286,7 @@ function saveKnockoutResult(matchId) {
     if (match.round === 'final_leg1' || match.round === 'final_leg2') checkFinalCompletion();
     if (typeof confetti === 'function') confetti({ particleCount: 60, spread: 45, origin: { y: 0.7 }, startVelocity: 12, colors: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'] });
 }
+
 function showMatchCommentForKnockout(matchId) {
     const match = knockoutMatches.find(m => m.id === matchId);
     if (!match || !match.played) return;
@@ -1475,6 +1302,7 @@ function showMatchCommentForKnockout(matchId) {
     } else eventsContainer.classList.add('hidden');
     document.getElementById('comment-viewer-modal').classList.remove('hidden');
 }
+
 function editKnockoutResult(matchId) {
     if (!isAdmin) return;
     const match = knockoutMatches.find(m => m.id === matchId);
@@ -1629,7 +1457,7 @@ function renderFixtures() {
     window.deadlineInterval = setInterval(() => { expireOldFixtures(); renderFixtures(); }, 60000);
 }
 
-// ==================== TEAM DETAILS (ADVANCED STATS) ====================
+// ==================== TEAM DETAILS ====================
 function showTeamDetails(teamName) {
     const team = teams[teamName];
     if (!team) return;
@@ -1678,6 +1506,7 @@ function showTeamDetails(teamName) {
     document.getElementById('modal-summary').innerText = summary;
     document.getElementById('team-modal').classList.remove('hidden');
 }
+
 function closeTeamModal() { document.getElementById('team-modal').classList.add('hidden'); }
 
 // ==================== RICH REPORT FROM EVENTS ====================
@@ -1819,8 +1648,6 @@ function saveGoalsAndFinish() {
     renderFixtures();
     generateTickerFacts();
     if (typeof confetti === 'function') confetti({ particleCount: 60, spread: 45, origin: { y: 0.7 }, startVelocity: 12, colors: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'] });
-    
-    // Check if both leagues completed to show promotion button
     checkAndShowPromotionButton();
 }
 
@@ -1892,24 +1719,13 @@ function openGoalEditorForEdit(existingEvents) {
 
 function showMatchComment(fixtureId) {
     const f = fixtures.find(f => f.id === fixtureId);
-    if (!f) {
-        showToast("Fixture not found");
-        return;
-    }
+    if (!f) { showToast("Fixture not found"); return; }
     currentViewerFixtureId = fixtureId;
-    
     const modal = document.getElementById('comment-viewer-modal');
-    if (!modal) {
-        console.error("Modal not found");
-        showToast("Error opening match details");
-        return;
-    }
-    
-    // Force display flex to override any previous inline none
+    if (!modal) { showToast("Error opening match details"); return; }
     modal.style.display = 'flex';
     modal.classList.remove('hidden');
     modal.classList.add('flex');
-    
     const nameEl = document.getElementById('viewer-match-name');
     const scoreEl = document.getElementById('viewer-score');
     const commentEl = document.getElementById('viewer-comment');
@@ -1917,11 +1733,9 @@ function showMatchComment(fixtureId) {
     const eventsDiv = document.getElementById('viewer-events');
     const editBtn = document.getElementById('viewer-edit-btn');
     const editEventsBtn = document.getElementById('viewer-edit-events-btn');
-    
     if (nameEl) nameEl.innerHTML = `${f.home} vs ${f.away}`;
     if (scoreEl) scoreEl.innerText = f.played ? `${f.homeScore} - ${f.awayScore}` : 'Not played yet';
     if (commentEl) commentEl.innerText = f.report || (f.played ? 'No report available.' : 'Match not played.');
-    
     if (eventsContainer && eventsDiv) {
         if (f.events && f.events.length > 0) {
             eventsContainer.classList.remove('hidden');
@@ -1937,7 +1751,6 @@ function showMatchComment(fixtureId) {
             eventsContainer.classList.add('hidden');
         }
     }
-    
     if (editBtn && editEventsBtn) {
         if (isAdmin && f.played) {
             editBtn.classList.remove('hidden');
@@ -1950,14 +1763,11 @@ function showMatchComment(fixtureId) {
 }
 
 function closeCommentViewer() {
-    console.log("closeCommentViewer called");
     const modal = document.getElementById('comment-viewer-modal');
     if (modal) {
         modal.style.display = 'none';
         modal.classList.add('hidden');
         modal.classList.remove('flex');
-    } else {
-        console.error("Modal element not found");
     }
     currentViewerFixtureId = null;
 }
@@ -1987,6 +1797,7 @@ function relegateTeam(teamName) {
         generateTickerFacts();
     }
 }
+
 function restoreTeam(teamName) {
     if (!isAdmin) return;
     if (tournamentPhase !== 'league') { showToast("Cannot restore during knockout stage."); return; }
@@ -2004,6 +1815,7 @@ function restoreTeam(teamName) {
         generateTickerFacts();
     }
 }
+
 function renderRelegatedTeams() {
     const container = document.getElementById('relegated-teams-list');
     if (!container) return;
@@ -2025,7 +1837,9 @@ function openPredictionsModal(fixtureId) {
     document.getElementById('predictions-modal').classList.remove('hidden');
     renderPredictions(fixtureId);
 }
+
 function closePredictionsModal() { document.getElementById('predictions-modal').classList.add('hidden'); currentPredictionFixtureId = null; }
+
 function renderPredictions(fixtureId) {
     const f = fixtures.find(f => f.id === fixtureId);
     const container = document.getElementById('predictions-list');
@@ -2038,6 +1852,7 @@ function renderPredictions(fixtureId) {
         container.innerHTML += `<div class="prediction-item"><div class="flex justify-between items-start"><div class="flex-1"><div class="flex items-center gap-2 flex-wrap"><span class="font-semibold text-sm text-gray-800">${escapeHtml(pred.nickname || 'Anonymous')}</span><span class="text-xs font-mono bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full">${pred.homeScore} - ${pred.awayScore}</span></div><p class="text-[10px] text-gray-400 mt-1">${date}</p></div>${deleteBtn}</div></div>`;
     });
 }
+
 function submitPrediction() {
     if (!currentPredictionFixtureId) return;
     const nickname = document.getElementById('prediction-nickname').value.trim();
@@ -2056,13 +1871,14 @@ function submitPrediction() {
     document.getElementById('prediction-away-score').value = '';
     showToast("Prediction submitted!");
 }
+
 function deletePrediction(fixtureId, index) {
     if (!isAdmin) return;
     const f = fixtures.find(f => f.id === fixtureId);
     if (f && f.predictions && f.predictions[index]) { f.predictions.splice(index,1); saveToStorage(); renderPredictions(fixtureId); showToast("Prediction deleted"); }
 }
 
-// ==================== EDIT REPORT ONLY (for admin) ====================
+// ==================== EDIT REPORT ONLY ====================
 function editViewerComment() {
     if (!isAdmin || currentViewerFixtureId === null) return;
     const f = fixtures.find(f => f.id === currentViewerFixtureId);
@@ -2102,7 +1918,7 @@ function closeCommentModal(save = false) {
     if (!save) pendingFixtureId = null;
 }
 
-// ==================== BANTER (WHATSAPP STYLE) ====================
+// ==================== BANTER ====================
 function openBanterModal(fixtureId) {
     const f = fixtures.find(f => f.id === fixtureId);
     if (!f) return;
@@ -2113,7 +1929,9 @@ function openBanterModal(fixtureId) {
     document.getElementById('banter-modal').classList.remove('hidden');
     renderBanterMessages(fixtureId);
 }
+
 function closeBanterModal() { document.getElementById('banter-modal').classList.add('hidden'); currentBanterFixtureId = null; }
+
 function postBanter() {
     if (!currentBanterFixtureId) { showToast("No fixture selected"); return; }
     const input = document.getElementById('banter-input');
@@ -2128,6 +1946,7 @@ function postBanter() {
     renderBanterMessages(currentBanterFixtureId);
     showToast("Banter posted!");
 }
+
 function renderBanterMessages(fixtureId) {
     const f = fixtures.find(f => f.id === fixtureId);
     const container = document.getElementById('banter-messages-container');
@@ -2143,20 +1962,20 @@ function renderBanterMessages(fixtureId) {
     });
     container.scrollTop = container.scrollHeight;
 }
+
 function deleteBanter(fixtureId, index) {
     if (!isAdmin) return;
     const f = fixtures.find(f => f.id === fixtureId);
     if (f && f.banter && f.banter[index]) { f.banter.splice(index,1); saveToStorage(); renderBanterMessages(fixtureId); showToast("Banter deleted"); }
 }
+
 function escapeHtml(str) { return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m] || m)); }
 
+// ==================== PROMOTION/RELEGATION ====================
 async function processPromotionRelegation() {
     if (!isAdmin) return;
     if (!confirm("⚠️ End season: Relegate bottom 3 from Premier, promote top 3 from Championship, reset both leagues?")) return;
-    
     const originalLeague = currentLeague;
-    
-    // Load Premier data
     currentLeague = 'premier';
     const premierSnap = await getTournamentRef().once('value');
     const premierData = premierSnap.val();
@@ -2165,8 +1984,6 @@ async function processPromotionRelegation() {
     const premierFixtures = premierData.fixtures || [];
     const premierComplete = premierFixtures.length > 0 && premierFixtures.every(f => f.played || f.cancelled);
     if (!premierComplete) { showToast("Premier League season not finished!"); currentLeague = originalLeague; return; }
-    
-    // Load Championship data
     currentLeague = 'championship';
     const champSnap = await getTournamentRef().once('value');
     const champData = champSnap.val();
@@ -2175,28 +1992,22 @@ async function processPromotionRelegation() {
     const champFixtures = champData.fixtures || [];
     const champComplete = champFixtures.length > 0 && champFixtures.every(f => f.played || f.cancelled);
     if (!champComplete) { showToast("Championship season not finished!"); currentLeague = originalLeague; return; }
-    
     const sortFn = (a,b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf;
     const sortedPremier = [...premierTeams].sort(sortFn);
     const sortedChamp = [...champTeams].sort(sortFn);
-    
     if (sortedPremier.length < 3 || sortedChamp.length < 3) {
         showToast("Need at least 3 teams in each league");
         currentLeague = originalLeague;
         return;
     }
-    
     const relegated = sortedPremier.slice(-3).map(t => t.name);
     const promoted = sortedChamp.slice(0,3).map(t => t.name);
-    
     let newPremierNames = sortedPremier.filter(t => !relegated.includes(t.name)).map(t => t.name);
     newPremierNames.push(...promoted);
     let newChampNames = sortedChamp.filter(t => !promoted.includes(t.name)).map(t => t.name);
     newChampNames.push(...relegated);
-    
     await resetLeagueWithTeams('premier', newPremierNames);
     await resetLeagueWithTeams('championship', newChampNames);
-    
     showToast(`✅ Promotion/Relegation done!\nRelegated: ${relegated.join(', ')}\nPromoted: ${promoted.join(', ')}`);
     currentLeague = originalLeague;
     checkAndLoadTournament();
@@ -2215,15 +2026,15 @@ async function resetLeagueWithTeams(leagueId, teamNames) {
     });
     const teamNameList = Object.keys(newTeams);
     const rounds = generateRandomRoundRobin(teamNameList);
-    let fixtures = [], id = 0;
+    let fixturesList = [], id = 0;
     rounds.forEach((round, idx) => {
         round.forEach(({home, away}) => {
-            fixtures.push({ id: id++, round: idx+1, home, away, homeScore:null, awayScore:null, played:false, cancelled:false, comment:null, predictions:[], banter:[], events:[], report:null, deadline:null });
+            fixturesList.push({ id: id++, round: idx+1, home, away, homeScore:null, awayScore:null, played:false, cancelled:false, comment:null, predictions:[], banter:[], events:[], report:null, deadline:null });
         });
     });
     await getTournamentRef().set({
         teams: newTeams,
-        fixtures,
+        fixtures: fixturesList,
         knockoutMatches: [],
         tournamentPhase: 'league',
         password: tournamentPassword,
@@ -2273,6 +2084,7 @@ function updateDeadlineClock() {
     const minutes = Math.floor((diff % (1000*60*60)) / (1000*60));
     document.getElementById('next-deadline-countdown').innerText = `${hours}h ${minutes}m`;
 }
+
 function startDeadlineClock() {
     updateDeadlineClock();
     if (window.deadlineClockInterval) clearInterval(window.deadlineClockInterval);
@@ -2284,9 +2096,9 @@ function resetTournament() {
     if (confirm("Wipe ALL data for this league? Cannot be undone.")) 
         getTournamentRef().remove().then(() => location.reload()); 
 }
+
 // ==================== INIT ====================
 window.onload = () => {
-    // Load saved league preference
     const savedLeague = sessionStorage.getItem('desiredLeague');
     if (savedLeague && (savedLeague === 'premier' || savedLeague === 'championship')) {
         currentLeague = savedLeague;
@@ -2295,16 +2107,11 @@ window.onload = () => {
     } else {
         currentLeague = 'premier';
     }
-
     const savedRole = sessionStorage.getItem('tournamentRole');
     if (savedRole === 'viewer' || savedRole === 'admin') {
         selectRole(savedRole);
-    } else {
-        // Show role selector modal (already visible)
     }
     initRealtimeDatabaseSync();
-
-    // League switcher event listener
     const leagueSelector = document.getElementById('league-selector');
     if (leagueSelector) {
         leagueSelector.addEventListener('change', (e) => {
@@ -2316,9 +2123,10 @@ window.onload = () => {
         });
     }
 };
+
 // ==================== EXPOSE FUNCTIONS ====================
 window.handleAdminToggleClick = handleAdminToggleClick;
-window.initializeBothLeagues = initializeBothLeagues;
+window.initializeBothLeagues = createBothLeaguesNow;
 window.generatePremierTeams = generatePremierTeams;
 window.generateChampionshipTeams = generateChampionshipTeams;
 window.createBothLeaguesNow = createBothLeaguesNow;
@@ -2364,11 +2172,11 @@ window.saveKnockoutResult = saveKnockoutResult;
 window.showMatchCommentForKnockout = showMatchCommentForKnockout;
 window.editKnockoutResult = editKnockoutResult;
 window.startRound = startRound;
-window.stopRound = stopRound;
+window.pauseRound = pauseRound;
+window.resumeRound = resumeRound;
 window.openChatModal = openChatModal;
 window.closeChatModal = closeChatModal;
 window.sendChatMessage = sendChatMessage;
-window.deleteChatMessage = deleteChatMessage;
 window.deleteChatMessage = deleteChatMessage;
 window.onChatInput = onChatInput;
 window.toggleAutoStart = toggleAutoStart;
@@ -2381,5 +2189,3 @@ window.deletePoll = deletePoll;
 window.votePoll = votePoll;
 window.sendTypingStatus = sendTypingStatus;
 window.processPromotionRelegation = processPromotionRelegation;
-window.pauseRound = pauseRound;
-window.resumeRound = resumeRound;
