@@ -271,12 +271,26 @@
 
     <!-- MAIN CONTENT -->
     <main class="max-w-6xl mx-auto px-4 py-8 space-y-10">
-        <!-- Setup Section (only visible to admin when no tournament) -->
-        <section id="setup-section" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-6 hidden">
-            <h2 class="text-lg font-bold flex items-center gap-2"><span class="text-indigo-500">📋</span> League Initialization</h2>
-            <div id="step-1" class="space-y-3"><label class="text-xs font-semibold text-gray-500 uppercase">Number of teams</label><div class="flex gap-3"><input type="number" id="team-count" min="2" placeholder="e.g., 30" class="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 w-32"><button onclick="generateTeamInputs()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 rounded-xl text-sm font-bold transition">Configure Teams</button></div></div>
-            <div id="step-2" class="hidden space-y-5"><div class="flex flex-wrap gap-4 items-center justify-between bg-gray-50 p-3 rounded-xl"><span class="text-xs font-mono text-gray-500">Admin Security Code</span><input type="text" id="tournament-password" value="1234" class="border border-gray-300 rounded-lg px-3 py-1 w-32 text-center font-mono"></div><div id="team-inputs-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div><button onclick="initializeTournament()" class="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 text-white py-3 rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition">🚀 Launch League</button></div>
-        </section>
+       <!-- Setup Section (only visible to admin when no tournament) -->
+<section id="setup-section" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-6 hidden">
+    <h2 class="text-lg font-bold flex items-center gap-2"><span class="text-indigo-500">📋</span> League Initialization</h2>
+    <div id="step-1" class="space-y-3">
+        <label class="text-xs font-semibold text-gray-500 uppercase">Number of teams</label>
+        <div class="flex gap-3">
+            <input type="number" id="team-count" min="2" placeholder="e.g., 30" class="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 w-32">
+            <button onclick="generateTeamInputs()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 rounded-xl text-sm font-bold transition">Configure Teams</button>
+        </div>
+    </div>
+    <div id="step-2" class="hidden space-y-5">
+        <div class="flex flex-wrap gap-4 items-center justify-between bg-gray-50 p-3 rounded-xl">
+            <span class="text-xs font-mono text-gray-500">Admin Security Code</span>
+            <input type="text" id="tournament-password" value="1234" class="border border-gray-300 rounded-lg px-3 py-1 w-32 text-center font-mono">
+        </div>
+        <div id="team-inputs-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        <button onclick="initializeTournament()" class="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 text-white py-3 rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition">🚀 Launch League</button>
+        <button id="create-both-leagues-btn" onclick="initializeBothLeagues()" class="w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white py-3 rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition">⚡ Create Both Leagues (Premier & Championship)</button>
+    </div>
+</section>
 
         <!-- Dashboard Section (visible after role selection if tournament exists) -->
         <section id="dashboard-section" class="hidden space-y-8">
