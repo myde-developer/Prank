@@ -9,6 +9,121 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+function checkAndLoadTournament() {
+    db.ref('tournament_data').once('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data && data.teams && data.fixtures) {
+            // Tournament exists – load it
+            loadTournamentData(data);
+            if (userRole === 'viewer') {
+                // Hide admin UI
+                document.getElementById('admin-toggle-container')?.classList.add('hidden');
+                document.getElementById('admin-reset-container')?.classList.add('hidden');
+                document.getElementById('floating-admin-menu')?.classList.add('hidden');
+                document.getElementById('auto-start-container')?.classList.add('hidden');
+                document.getElementById('th-admin-actions')?.classList.add('hidden');
+           function initRealtimeDatabaseSync() {
+    // Listen for changes to tournament data to keep UI updated
+    db.ref('tournament_data').on('value', (snapshot) => {
+        if (snapshot.exists() && userRole) {
+            loadTournamentData(snapshot.val());
+        } else if (!snapshot.exists() && userRole === 'admin') {
+            // No tournament exists – show setup for admin
+            document.getElementById('setup-section')?.classList.remove('hidden');
+            document.getElementById('dashboard-section')?.classList.add('hidden');
+            document.getElementById('deadline-clock')?.classList.add('hidden');
+        } else if (!snapshot.exists() && userRole === 'viewer') {
+            // No tournament exists – show friendly message
+            document.getElementById('dashboard-section')?.classList.add('hidden');
+            document.getElementById('setup-section')?.classList.add('hidden');
+            document.getElementById('role-selector').innerHTML = `
+                <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center">
+                    <div class="mb-4">
+                        <div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <span class="text-3xl">🏆</span>
+                        </div>
+                        <h2 class="text-2xl font-bold text-gray-800">No Tournament Yet</h2>
+                        <p class="text-gray-500 text-sm mt-1">An admin hasn't started a tournament.</p>
+                    </div>
+                    <button onclick="selectRole('admin')" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition">
+                        🔑 Switch to Admin to Create
+                    </button>
+                </div>
+            `;
+        }
+    });
+
+    // Live alerts for fixture changes (only for admin or if you want viewers to see results)
+    db.ref('tournament_data/fixtures').on('child_changed', (snapshot) => {
+        const updated = snapshot.val();
+        if (updated && updated.played === true && updated.homeScore !== null) {
+            showToast(`📢 Result: ${updated.home} ${updated.homeScore}-${updated.awayScore} ${updated.away}`);
+        }
+    });
+
+    // Global chat listener (only if user role is selected)
+    if (userRole) {
+        initChatListener();
+    }
+}     document.getElementById('admin-table-hint')?.classList.add('hidden');
+                document.getElementById('relegation-zone')?.classList.add('hidden');
+            } else if (userRole === 'admin') {
+                document.getElementById('admin-toggle-container')?.classList.remove('hidden');
+                // Other admin elements shown via updateAdminUIElements later
+            }
+        } else {
+            // No tournament exists
+            if (userRole === 'viewer') {
+                // Show friendly message in role selector
+                document.getElementById('dashboard-section')?.classList.add('hidden');
+                document.getElementById('setup-section')?.classList.add('hidden');
+                const roleSelector = document.getElementById('role-selector');
+                if (roleSelector) {
+                    roleSelector.innerHTML = `
+                        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center">
+                            <div class="mb-4">
+                                <div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <span class="text-3xl">🏆</span>
+                                </div>
+                                <h2 class="text-2xl font-bold text-gray-800">No Tournament Yet</h2>
+                                <p class="text-gray-500 text-sm mt-1">An admin hasn't started a tournament.</p>
+                            </div>
+                            <button onclick="selectRole('admin')" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition">
+                                🔑 Switch to Admin to Create
+                            </button>
+                        </div>
+                    `;
+                    roleSelector.style.display = 'flex';
+                }
+            } else if (userRole === 'admin') {
+                // Show setup page for admin
+                const setupSection = document.getElementById('setup-section');
+                const dashboardSection = document.getElementById('dashboard-section');
+                const roleSelector = document.getElementById('role-selector');
+                if (setupSection) {
+                    setupSection.classList.remove('hidden');
+                    console.log('Setup section shown');
+                } else {
+                    console.error('Setup section not found');
+                }
+                if (dashboardSection) dashboardSection.classList.add('hidden');
+                if (roleSelector) roleSelector.remove();
+                // Ensure step-1 is visible and step-2 hidden
+                const step1 = document.getElementById('step-1');
+                const step2 = document.getElementById('step-2');
+                if (step1) step1.classList.remove('hidden');
+                if (step2) step2.classList.add('hidden');
+                // Clear any leftover team inputs
+                const container = document.getElementById('team-inputs-container');
+                if (container) container.innerHTML = '';
+                // Hide admin-only floating elements
+                document.getElementById('admin-toggle-container')?.classList.add('hidden');
+                document.getElementById('floating-admin-menu')?.classList.add('hidden');
+                showToast("Setup mode – create your tournament");
+            }
+        }
+    });
+}
 
 let teams = {}, fixtures = [], knockoutMatches = [], tournamentPhase = 'league';
 let currentSelectedRound = 1, isAdmin = false, tournamentPassword = "";
@@ -29,6 +144,21 @@ let currentMentionText = '';
 let mentionTimeout = null;
 let pendingReplaceOldTeam = null;
 
+let currentLeague = 'premier';   // 'premier' or 'championship'
+
+function getTournamentRef() {
+    return db.ref(`${currentLeague}/tournament_data`);
+}
+function getChatRef() {
+    return db.ref(`${currentLeague}/chat_messages`);
+}
+function getPollsRef() {
+    return db.ref(`${currentLeague}/chat_polls`);
+}
+function getTypingRef() {
+    return db.ref(`${currentLeague}/chat_typing`);
+}
+
 
 // ==================== ROLE SELECTION ====================
 let userRole = null; // 'viewer' or 'admin'
@@ -38,22 +168,24 @@ function selectRole(role) {
     sessionStorage.setItem('tournamentRole', role);
     document.getElementById('role-selector').style.display = 'none';
     
+    // Set league from stored or default
+    const savedLeague = sessionStorage.getItem('desiredLeague');
+    if (savedLeague && (savedLeague === 'premier' || savedLeague === 'championship')) {
+        currentLeague = savedLeague;
+        document.getElementById('league-selector').value = currentLeague;
+    } else {
+        currentLeague = 'premier';
+    }
+    
     if (role === 'admin') {
-        // Always request password, even if no tournament exists yet
         const entered = prompt("Enter admin master password:");
-        if (entered === null) {
-            // User cancelled – reload to show role selector again
-            location.reload();
-            return;
-        }
-        // First, check if a tournament exists to get the stored password
-        db.ref('tournament_data/password').once('value', (snapshot) => {
+        if (entered === null) { location.reload(); return; }
+        getTournamentRef().child('password').once('value', (snapshot) => {
             const storedPass = snapshot.val();
             const validPassword = storedPass ? entered === storedPass : entered === "090541";
             if (validPassword) {
                 isAdmin = true;
                 showToast("Admin access granted");
-                // Now load or show setup
                 checkAndLoadTournament();
             } else {
                 alert("Wrong password. Reload to try again.");
@@ -67,7 +199,7 @@ function selectRole(role) {
 }
 
 function checkAndLoadTournament() {
-    db.ref('tournament_data').once('value', (snapshot) => {
+    getTournamentRef().once('value', (snapshot) => {
         const data = snapshot.val();
         if (data && data.teams && data.fixtures) {
             // Tournament exists – load it
@@ -146,7 +278,7 @@ function loadTournamentData(data) {
     knockoutMatches = data.knockoutMatches || [];
     tournamentPhase = data.tournamentPhase || 'league';
     roundStartTimes = data.roundStartTimes || {};
-roundPaused = data.roundPaused || {};
+    roundPaused = data.roundPaused || {};
     autoStartNextRound = data.autoStartNextRound || false;
     updateTableCalculations();
     renderTable();
@@ -165,6 +297,7 @@ roundPaused = data.roundPaused || {};
     if (userRole === 'admin') {
         updateAdminUIElements(); // shows admin buttons etc.
     }
+    checkAndShowPromotionButton(); // check if both leagues finished
 }
 
 // ==================== HELPERS ====================
@@ -173,7 +306,7 @@ function showToast(msg) {
     if (c) { let t = document.createElement("div"); t.className = "toast"; t.innerText = msg; c.appendChild(t); setTimeout(() => t.remove(), 2500); }
 }
 function saveToStorage() { 
-    db.ref('tournament_data').set({ teams, fixtures, knockoutMatches, tournamentPhase, password: tournamentPassword, roundStartTimes, autoStartNextRound, roundPaused });
+    getTournamentRef().set({ teams, fixtures, knockoutMatches, tournamentPhase, password: tournamentPassword, roundStartTimes, autoStartNextRound, roundPaused });
 }
 function getCurrentUserId() {
     let id = localStorage.getItem('chatUserId');
@@ -246,7 +379,7 @@ function generateRandomRoundRobin(teamNames) {
 
 // ==================== GLOBAL CHAT ROOM ====================
 function initChatListener() {
-    chatMessagesRef = db.ref('chat_messages');
+    chatMessagesRef = getChatRef();
     chatMessagesRef.off();
     chatMessagesRef.on('child_added', (snapshot) => {
         const msg = snapshot.val();
@@ -309,17 +442,17 @@ function sendTypingStatus() {
     if (!userRole) return;
     if (!isTyping) {
         isTyping = true;
-        db.ref('chat_typing').set({ user: userRole === 'admin' ? 'Admin' : (localStorage.getItem('chatNickname') || 'Fan'), timestamp: Date.now() });
+        getTypingRef().set({ user: userRole === 'admin' ? 'Admin' : (localStorage.getItem('chatNickname') || 'Fan'), timestamp: Date.now() });
     }
     clearTimeout(typingTimeout);
     typingTimeout = setTimeout(() => {
         isTyping = false;
-        db.ref('chat_typing').remove();
+        getTypingRef().remove();
     }, 1500);
 }
 
 function initTypingListener() {
-    db.ref('chat_typing').on('value', (snapshot) => {
+    getTypingRef().on('value', (snapshot) => {
         const data = snapshot.val();
         const typingDiv = document.getElementById('chat-typing-indicator');
         if (data && data.user) {
@@ -493,7 +626,7 @@ function hideMentionDropdown() {
 
 // ==================== POLLS ====================
 function initPollListener() {
-    db.ref('chat_polls').on('child_changed', (snapshot) => {
+    getPollsRef().on('child_changed', (snapshot) => {
         const poll = snapshot.val();
         if (poll) updatePollUI(poll.id);
     });
@@ -536,7 +669,7 @@ function createPoll() {
         voters: {},
         createdAt: Date.now()
     };
-    db.ref(`chat_polls/${pollId}`).set(poll);
+    getPollsRef().child(`${pollId}`).set(poll);
     // Announce poll in chat
     const msg = {
         nickname: "System",
@@ -546,7 +679,7 @@ function createPoll() {
         isPoll: true,
         pollId: pollId
     };
-    db.ref('chat_messages').push(msg);
+    getChatRef().push(msg);
     closePollModal();
     document.getElementById('poll-question').value = '';
     document.getElementById('poll-options-container').innerHTML = `
@@ -557,17 +690,18 @@ function createPoll() {
 
 function votePoll(pollId, optionIndex) {
     const nickname = localStorage.getItem('chatNickname') || 'Fan';
-    db.ref(`chat_polls/${pollId}/voters/${nickname}`).once('value', snap => {
+    const pollRef = getPollsRef().child(`${pollId}`);
+    pollRef.child(`voters/${nickname}`).once('value', snap => {
         if (snap.exists()) { showToast("You already voted"); return; }
-        db.ref(`chat_polls/${pollId}/options/${optionIndex}/votes`).transaction(votes => (votes || 0) + 1);
-        db.ref(`chat_polls/${pollId}/totalVotes`).transaction(total => (total || 0) + 1);
-        db.ref(`chat_polls/${pollId}/voters/${nickname}`).set(true);
+        pollRef.child(`options/${optionIndex}/votes`).transaction(votes => (votes || 0) + 1);
+        pollRef.child('totalVotes').transaction(total => (total || 0) + 1);
+        pollRef.child(`voters/${nickname}`).set(true);
         showToast("Vote cast!");
     });
 }
 
 function renderPollMessage(pollId) {
-    db.ref(`chat_polls/${pollId}`).once('value', (snapshot) => {
+    getPollsRef().child(`${pollId}`).once('value', (snapshot) => {
         const poll = snapshot.val();
         if (!poll) return;
         const container = document.getElementById('chat-messages-container');
@@ -575,7 +709,6 @@ function renderPollMessage(pollId) {
         pollDiv.className = 'poll-card bg-white rounded-lg p-3 shadow my-2 border relative';
         pollDiv.id = `poll-${poll.id}`;
         
-        // Delete button for admin
         const deleteBtn = isAdmin ? `<button onclick="deletePoll('${poll.id}')" class="absolute top-2 right-2 text-red-500 hover:text-red-700 text-xs bg-white rounded-full p-1 shadow">🗑️</button>` : '';
         
         pollDiv.innerHTML = `
@@ -590,7 +723,7 @@ function renderPollMessage(pollId) {
 }
 
 function updatePollUI(pollId) {
-    db.ref(`chat_polls/${pollId}`).once('value', (snapshot) => {
+    getPollsRef().child(`${pollId}`).once('value', (snapshot) => {
         const poll = snapshot.val();
         if (!poll) return;
         const optionsContainer = document.getElementById(`poll-options-${pollId}`);
@@ -619,9 +752,9 @@ function deletePoll(pollId) {
     if (!isAdmin) return;
     if (confirm("Delete this poll permanently?")) {
         // Remove poll data
-        db.ref(`chat_polls/${pollId}`).remove();
+        getPollsRef().child(`${pollId}`).remove();
         // Also remove the corresponding announcement message in chat_messages
-        db.ref('chat_messages').orderByChild('pollId').equalTo(pollId).once('value', (snapshot) => {
+        getChatRef().orderByChild('pollId').equalTo(pollId).once('value', (snapshot) => {
             snapshot.forEach(child => {
                 child.ref.remove();
             });
@@ -691,12 +824,15 @@ function expireOldFixtures() {
             startRound(nextRound);
         }
     }
+    
+    // Check if both leagues completed to show promotion button
+    checkAndShowPromotionButton();
 }
 
 // ==================== DATABASE + LIVE ALERTS + CHAT ====================
 function initRealtimeDatabaseSync() {
     // Listen for changes to tournament data to keep UI updated
-    db.ref('tournament_data').on('value', (snapshot) => {
+    getTournamentRef().on('value', (snapshot) => {
         if (snapshot.exists() && userRole) {
             loadTournamentData(snapshot.val());
         } else if (!snapshot.exists() && userRole === 'admin') {
@@ -726,7 +862,7 @@ function initRealtimeDatabaseSync() {
     });
 
     // Live alerts for fixture changes (only for admin or if you want viewers to see results)
-    db.ref('tournament_data/fixtures').on('child_changed', (snapshot) => {
+    getTournamentRef().child('fixtures').on('child_changed', (snapshot) => {
         const updated = snapshot.val();
         if (updated && updated.played === true && updated.homeScore !== null) {
             showToast(`📢 Result: ${updated.home} ${updated.homeScore}-${updated.awayScore} ${updated.away}`);
@@ -1572,6 +1708,9 @@ function saveGoalsAndFinish() {
     renderFixtures();
     generateTickerFacts();
     if (typeof confetti === 'function') confetti({ particleCount: 60, spread: 45, origin: { y: 0.7 }, startVelocity: 12, colors: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'] });
+    
+    // Check if both leagues completed to show promotion button
+    checkAndShowPromotionButton();
 }
 
 // ==================== EDIT EXISTING MATCH EVENTS ====================
@@ -1900,6 +2039,110 @@ function deleteBanter(fixtureId, index) {
 }
 function escapeHtml(str) { return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m] || m)); }
 
+async function processPromotionRelegation() {
+    if (!isAdmin) return;
+    if (!confirm("⚠️ End season: Relegate bottom 3 from Premier, promote top 3 from Championship, reset both leagues?")) return;
+    
+    const originalLeague = currentLeague;
+    
+    // Load Premier data
+    currentLeague = 'premier';
+    const premierSnap = await getTournamentRef().once('value');
+    const premierData = premierSnap.val();
+    if (!premierData?.teams) { showToast("Premier League data missing"); currentLeague = originalLeague; return; }
+    const premierTeams = Object.values(premierData.teams).filter(t => !t.relegated);
+    const premierFixtures = premierData.fixtures || [];
+    const premierComplete = premierFixtures.length > 0 && premierFixtures.every(f => f.played || f.cancelled);
+    if (!premierComplete) { showToast("Premier League season not finished!"); currentLeague = originalLeague; return; }
+    
+    // Load Championship data
+    currentLeague = 'championship';
+    const champSnap = await getTournamentRef().once('value');
+    const champData = champSnap.val();
+    if (!champData?.teams) { showToast("Championship data missing"); currentLeague = originalLeague; return; }
+    const champTeams = Object.values(champData.teams).filter(t => !t.relegated);
+    const champFixtures = champData.fixtures || [];
+    const champComplete = champFixtures.length > 0 && champFixtures.every(f => f.played || f.cancelled);
+    if (!champComplete) { showToast("Championship season not finished!"); currentLeague = originalLeague; return; }
+    
+    const sortFn = (a,b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf;
+    const sortedPremier = [...premierTeams].sort(sortFn);
+    const sortedChamp = [...champTeams].sort(sortFn);
+    
+    if (sortedPremier.length < 3 || sortedChamp.length < 3) {
+        showToast("Need at least 3 teams in each league");
+        currentLeague = originalLeague;
+        return;
+    }
+    
+    const relegated = sortedPremier.slice(-3).map(t => t.name);
+    const promoted = sortedChamp.slice(0,3).map(t => t.name);
+    
+    let newPremierNames = sortedPremier.filter(t => !relegated.includes(t.name)).map(t => t.name);
+    newPremierNames.push(...promoted);
+    let newChampNames = sortedChamp.filter(t => !promoted.includes(t.name)).map(t => t.name);
+    newChampNames.push(...relegated);
+    
+    await resetLeagueWithTeams('premier', newPremierNames);
+    await resetLeagueWithTeams('championship', newChampNames);
+    
+    showToast(`✅ Promotion/Relegation done!\nRelegated: ${relegated.join(', ')}\nPromoted: ${promoted.join(', ')}`);
+    currentLeague = originalLeague;
+    checkAndLoadTournament();
+}
+
+async function resetLeagueWithTeams(leagueId, teamNames) {
+    const originalLeague = currentLeague;
+    currentLeague = leagueId;
+    let finalNames = [...teamNames];
+    if (finalNames.length % 2 !== 0) finalNames.push("BYE");
+    const newTeams = {};
+    finalNames.forEach(name => {
+        if (name !== "BYE") {
+            newTeams[name] = { name, mp:0, w:0, d:0, l:0, gf:0, ga:0, gd:0, pts:0, deductedPoints:0, formHistory:[], relegated:false };
+        }
+    });
+    const teamNameList = Object.keys(newTeams);
+    const rounds = generateRandomRoundRobin(teamNameList);
+    let fixtures = [], id = 0;
+    rounds.forEach((round, idx) => {
+        round.forEach(({home, away}) => {
+            fixtures.push({ id: id++, round: idx+1, home, away, homeScore:null, awayScore:null, played:false, cancelled:false, comment:null, predictions:[], banter:[], events:[], report:null, deadline:null });
+        });
+    });
+    await getTournamentRef().set({
+        teams: newTeams,
+        fixtures,
+        knockoutMatches: [],
+        tournamentPhase: 'league',
+        password: tournamentPassword,
+        roundStartTimes: {},
+        autoStartNextRound: false,
+        roundPaused: {}
+    });
+    currentLeague = originalLeague;
+}
+
+async function checkAndShowPromotionButton() {
+    const btn = document.getElementById('promote-relegate-btn');
+    if (!btn || !isAdmin) { if(btn) btn.classList.add('hidden'); return; }
+    const original = currentLeague;
+    let premierDone = false, champDone = false;
+    try {
+        currentLeague = 'premier';
+        const pSnap = await getTournamentRef().once('value');
+        const pData = pSnap.val();
+        if (pData?.fixtures?.length) premierDone = pData.fixtures.every(f => f.played || f.cancelled);
+        currentLeague = 'championship';
+        const cSnap = await getTournamentRef().once('value');
+        const cData = cSnap.val();
+        if (cData?.fixtures?.length) champDone = cData.fixtures.every(f => f.played || f.cancelled);
+    } catch(e) { console.warn(e); }
+    currentLeague = original;
+    if (premierDone && champDone) btn.classList.remove('hidden');
+    else btn.classList.add('hidden');
+}
+
 // ==================== DEADLINE CLOCK ====================
 function updateDeadlineClock() {
     const now = Date.now();
@@ -1926,10 +2169,22 @@ function startDeadlineClock() {
 }
 
 // ==================== RESET ====================
-function resetTournament() { if (confirm("Wipe ALL data? This cannot be undone.")) db.ref('tournament_data').remove().then(() => location.reload()); }
-
+function resetTournament() { 
+    if (confirm("Wipe ALL data for this league? Cannot be undone.")) 
+        getTournamentRef().remove().then(() => location.reload()); 
+}
 // ==================== INIT ====================
 window.onload = () => {
+    // Load saved league preference
+    const savedLeague = sessionStorage.getItem('desiredLeague');
+    if (savedLeague && (savedLeague === 'premier' || savedLeague === 'championship')) {
+        currentLeague = savedLeague;
+        const selector = document.getElementById('league-selector');
+        if (selector) selector.value = currentLeague;
+    } else {
+        currentLeague = 'premier';
+    }
+
     const savedRole = sessionStorage.getItem('tournamentRole');
     if (savedRole === 'viewer' || savedRole === 'admin') {
         selectRole(savedRole);
@@ -1937,8 +2192,19 @@ window.onload = () => {
         // Show role selector modal (already visible)
     }
     initRealtimeDatabaseSync();
-};
 
+    // League switcher event listener
+    const leagueSelector = document.getElementById('league-selector');
+    if (leagueSelector) {
+        leagueSelector.addEventListener('change', (e) => {
+            currentLeague = e.target.value;
+            sessionStorage.setItem('desiredLeague', currentLeague);
+            if (userRole) {
+                checkAndLoadTournament();
+            }
+        });
+    }
+};
 // ==================== EXPOSE FUNCTIONS ====================
 window.handleAdminToggleClick = handleAdminToggleClick;
 window.verifyAdminPassword = verifyAdminPassword;
@@ -1999,3 +2265,6 @@ window.createPoll = createPoll;
 window.deletePoll = deletePoll;
 window.votePoll = votePoll;
 window.sendTypingStatus = sendTypingStatus;
+window.processPromotionRelegation = processPromotionRelegation;
+window.pauseRound = pauseRound;
+window.resumeRound = resumeRound;
