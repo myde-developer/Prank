@@ -2126,6 +2126,9 @@ function resetTournament() {
 
 // ==================== INIT ====================
 window.onload = () => {
+    console.log("Window loaded - initializing...");
+    
+    // Load saved league preference
     const savedLeague = sessionStorage.getItem('desiredLeague');
     if (savedLeague && (savedLeague === 'premier' || savedLeague === 'championship')) {
         currentLeague = savedLeague;
@@ -2134,46 +2137,63 @@ window.onload = () => {
     } else {
         currentLeague = 'premier';
     }
+    
+    // Initialize realtime sync first
+    initRealtimeDatabaseSync();
+    
+    // Then load role
     const savedRole = sessionStorage.getItem('tournamentRole');
     if (savedRole === 'viewer' || savedRole === 'admin') {
         selectRole(savedRole);
     }
-    initRealtimeDatabaseSync();
+    
+    // Set up league switcher event listener
     const leagueSelector = document.getElementById('league-selector');
-if (leagueSelector) {
-    leagueSelector.addEventListener('change', async (e) => {
-        const newLeague = e.target.value;
-        if (newLeague === currentLeague) return; // No change
+    if (leagueSelector) {
+        console.log("League selector found, attaching event listener");
         
-        currentLeague = newLeague;
-        sessionStorage.setItem('desiredLeague', currentLeague);
+        // Remove any existing listeners by cloning and replacing
+        const newSelector = leagueSelector.cloneNode(true);
+        leagueSelector.parentNode.replaceChild(newSelector, leagueSelector);
         
-        if (userRole) {
-            // Clear current data first
-            teams = {};
-            fixtures = [];
-            knockoutMatches = [];
-            tournamentPhase = 'league';
-            roundStartTimes = {};
-            roundPaused = {};
+        newSelector.addEventListener('change', function(e) {
+            const newLeague = e.target.value;
+            console.log("League changed to:", newLeague);
             
-            // Clear UI
-            document.getElementById('league-table-body').innerHTML = '';
-            document.getElementById('fixtures-container').innerHTML = '';
-            document.getElementById('knockout-bracket').innerHTML = '';
-            document.getElementById('knockout-section')?.classList.add('hidden');
-            document.getElementById('schedule-section')?.classList.add('hidden');
+            if (newLeague === currentLeague) return;
             
-            // Reload data for new league
-            await checkAndLoadTournament();
+            currentLeague = newLeague;
+            sessionStorage.setItem('desiredLeague', currentLeague);
             
-            // Force clock refresh
-            startDeadlineClock();
-            
-            showToast(`Switched to ${newLeague === 'premier' ? 'Premier League' : 'Championship'}`);
-        }
-    });
-}
+            if (userRole) {
+                // Clear current data
+                teams = {};
+                fixtures = [];
+                knockoutMatches = [];
+                tournamentPhase = 'league';
+                roundStartTimes = {};
+                roundPaused = {};
+                
+                // Clear UI
+                const tbody = document.getElementById('league-table-body');
+                if (tbody) tbody.innerHTML = '<tr><td colspan="12" class="text-center py-8 text-gray-400">Loading...</td></tr>';
+                const fixturesContainer = document.getElementById('fixtures-container');
+                if (fixturesContainer) fixturesContainer.innerHTML = '<div class="skeleton h-24 w-full rounded-xl"></div>';
+                const knockoutBracket = document.getElementById('knockout-bracket');
+                if (knockoutBracket) knockoutBracket.innerHTML = '';
+                document.getElementById('knockout-section')?.classList.add('hidden');
+                document.getElementById('schedule-section')?.classList.add('hidden');
+                
+                // Reload
+                checkAndLoadTournament();
+                startDeadlineClock();
+                
+                showToast(`Switched to ${newLeague === 'premier' ? 'Premier League' : 'Championship'}`);
+            }
+        });
+    } else {
+        console.error("League selector element not found!");
+    }
 };
 
 // ==================== EXPOSE FUNCTIONS ====================
