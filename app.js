@@ -199,7 +199,6 @@ function loadTournamentData(data) {
     document.getElementById('deadline-clock')?.classList.remove('hidden');
     
     initBackToTop();
-    startDeadlineClock();
     initChatListener();
     
     if (userRole === 'admin') {
@@ -627,59 +626,6 @@ function deletePoll(pollId) {
     }
 }
 
-// ==================== TIME LIMIT ====================
-function expireOldFixtures() {
-    const now = Date.now();
-    let changed = false;
-    fixtures.forEach(f => {
-        if (!f.played && !f.cancelled) {
-            const startTime = roundStartTimes[f.round];
-            if (roundPaused[f.round]) return;
-            if (startTime) {
-                const deadline = startTime + 2 * 24 * 60 * 60 * 1000;
-                if (now > deadline) {
-                    f.cancelled = true;
-                    changed = true;
-                    showToast(`⏰ Round ${f.round} match cancelled: ${f.home} vs ${f.away} (time limit exceeded)`);
-                }
-            }
-        }
-    });
-    knockoutMatches.forEach(k => {
-        if (!k.played && !k.cancelled && k.deadline && now > k.deadline) {
-            k.cancelled = true;
-            changed = true;
-            showToast(`⏰ Knockout match cancelled: ${k.home} vs ${k.away} (time limit exceeded)`);
-        }
-    });
-    if (changed) {
-        updateTableCalculations();
-        renderTable();
-        renderFixtures();
-        renderKnockoutBracket();
-        saveToStorage();
-    }
-    if (autoStartNextRound && tournamentPhase === 'league') {
-        let highestResolvedRound = 0;
-        const maxRound = Math.max(...fixtures.map(f => f.round));
-        for (let r = 1; r <= maxRound; r++) {
-            if (roundPaused[r]) break;
-            const roundFixtures = fixtures.filter(f => f.round === r && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
-            if (roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled)) {
-                highestResolvedRound = r;
-            } else {
-                break;
-            }
-        }
-        const nextRound = highestResolvedRound + 1;
-        const nextRoundExists = fixtures.some(f => f.round === nextRound);
-        if (nextRoundExists && !roundStartTimes[nextRound] && !roundPaused[nextRound]) {
-            startRound(nextRound);
-        }
-    }
-    checkAndShowPromotionButton();
-}
-
 // ==================== DATABASE + LIVE ALERTS ====================
 function initRealtimeDatabaseSync() {
     getTournamentRef().on('value', (snapshot) => {
@@ -1105,60 +1051,6 @@ function confirmReplaceTeam() {
     closeReplaceTeamModal();
 }
 
-// ==================== ADMIN: ROUND CONTROLS ====================
-function startRound(roundNumber) {
-    if (!isAdmin) return;
-    const now = Date.now();
-    let activeRoundExists = false;
-    for (let r in roundStartTimes) {
-        if (roundStartTimes[r] && parseInt(r) !== roundNumber) {
-            const deadline = roundStartTimes[r] + 2 * 24 * 60 * 60 * 1000;
-            const roundFixtures = fixtures.filter(f => f.round === parseInt(r) && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
-            const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
-            if (!allResolved && now < deadline) {
-                activeRoundExists = true;
-                break;
-            }
-        }
-    }
-    if (activeRoundExists) {
-        showToast("Cannot start a new round – another round is still active!");
-        return;
-    }
-    if (roundStartTimes[roundNumber] && roundStartTimes[roundNumber] !== null) {
-        showToast(`Round ${roundNumber} already started!`);
-        return;
-    }
-    roundStartTimes[roundNumber] = Date.now();
-    saveToStorage();
-    renderGameweekTabs();
-    renderFixtures();
-    showToast(`⏱️ Round ${roundNumber} started! 2‑day deadline begins now.`);
-}
-
-function pauseRound(roundNumber) {
-    if (!isAdmin) return;
-    if (!roundStartTimes[roundNumber]) {
-        showToast(`Round ${roundNumber} hasn't started yet.`);
-        return;
-    }
-    roundPaused[roundNumber] = true;
-    saveToStorage();
-    renderGameweekTabs();
-    renderFixtures();
-    showToast(`⏸ Round ${roundNumber} paused. Timer frozen.`);
-}
-
-function resumeRound(roundNumber) {
-    if (!isAdmin) return;
-    delete roundPaused[roundNumber];
-    roundStartTimes[roundNumber] = Date.now();
-    saveToStorage();
-    renderGameweekTabs();
-    renderFixtures();
-    showToast(`▶️ Round ${roundNumber} resumed! New 2‑day deadline starts now.`);
-}
-
 // ==================== FIXTURE MANAGEMENT ====================
 function shuffleRound(roundNumber) {
     if (!isAdmin) return;
@@ -1252,6 +1144,9 @@ async function confirmTeamSelection() {
     const oldHome = fixture.home;
     const oldAway = fixture.away;
     const currentRound = fixture.round;
+    const totalRounds = Math.max(...fixtures.map(f => f.round));
+    const halfRounds = totalRounds / 2;
+    const isFirstHalf = currentRound <= halfRounds;
     
     if (selected === 'BYE_REMOVE') {
         if (side === 'home') fixture.home = 'BYE'; else fixture.away = 'BYE';
@@ -1259,8 +1154,7 @@ async function confirmTeamSelection() {
         delete fixture.vacantHome; delete fixture.vacantAway;
         saveToStorage(); showToast(`Removed team, set to BYE`); renderFixtures(); renderTable(); generateTickerFacts(); closeTeamSelectModal();
         
-        // Ask to sync with second half
-        if (confirm("This fixture has a corresponding second-leg match. Update that match as well?")) {
+        if (isFirstHalf && confirm("This fixture has a corresponding second-leg match. Update that match as well?")) {
             syncWithSecondHalf(pendingAssignFixtureId, currentRound, oldHome, oldAway, fixture.home, fixture.away);
             saveToStorage();
             renderFixtures();
@@ -1273,11 +1167,46 @@ async function confirmTeamSelection() {
     const oldTeam = side === 'home' ? fixture.home : fixture.away;
     if (newTeam === oldTeam) { closeTeamSelectModal(); return; }
     if (teams[newTeam]?.relegated) { showToast(`Cannot assign a relegated team.`); closeTeamSelectModal(); return; }
-    const round = fixture.round;
-    const otherFixtures = fixtures.filter(f => f.round === round && f.id !== fixture.id);
-    if (otherFixtures.some(f => f.home === newTeam || f.away === newTeam)) { showToast(`Team "${newTeam}" already has a fixture in this round!`); closeTeamSelectModal(); return; }
     
-    const oldValue = side === 'home' ? fixture.home : fixture.away;
+    // Get the new matchup (home vs away after edit)
+    let newHome = fixture.home;
+    let newAway = fixture.away;
+    if (side === 'home') { newHome = newTeam; }
+    else { newAway = newTeam; }
+    
+    // Check for duplicate matchup in the same half (excluding current fixture)
+    const conflictingFixture = fixtures.find(f => {
+        if (f.id === pendingAssignFixtureId) return false;
+        if (isFirstHalf && f.round > halfRounds) return false; // Only check same half
+        if (!isFirstHalf && f.round <= halfRounds) return false;
+        return (f.home === newHome && f.away === newAway) || (f.home === newAway && f.away === newHome);
+    });
+    
+    if (conflictingFixture) {
+        // Conflict found! Swap the conflicting fixture to play against the original opponent
+        showToast(`⚠️ Matchup ${newHome} vs ${newAway} already exists in ${conflictingFixture.round <= halfRounds ? 'first' : 'second'} half! Auto-adjusting...`);
+        
+        // Determine which team to swap out in the conflicting fixture
+        let teamToReplace, replacementTeam;
+        if (conflictingFixture.home === newHome || conflictingFixture.home === newAway) {
+            teamToReplace = conflictingFixture.home;
+            replacementTeam = oldTeam;
+        } else {
+            teamToReplace = conflictingFixture.away;
+            replacementTeam = oldTeam;
+        }
+        
+        // Update the conflicting fixture
+        if (conflictingFixture.home === teamToReplace) {
+            conflictingFixture.home = replacementTeam;
+        } else {
+            conflictingFixture.away = replacementTeam;
+        }
+        
+        showToast(`🔄 Adjusted conflicting fixture: ${conflictingFixture.home} vs ${conflictingFixture.away}`);
+    }
+    
+    // Apply the edit
     if (side === 'home') { fixture.home = newTeam; delete fixture.vacantHome; }
     else { fixture.away = newTeam; delete fixture.vacantAway; }
     fixture.homeScore = null; fixture.awayScore = null; fixture.played = false; fixture.comment = null; fixture.cancelled = false;
@@ -1289,14 +1218,10 @@ async function confirmTeamSelection() {
     generateTickerFacts();
     
     // Ask to sync with second half
-    const totalRounds = Math.max(...fixtures.map(f => f.round));
-    const halfRounds = totalRounds / 2;
-    const isFirstHalf = currentRound <= halfRounds;
-    
     if (isFirstHalf && confirm(`This is a first-leg fixture. Update the corresponding second-leg fixture (Round ${currentRound + halfRounds}) with home/away swapped?`)) {
-        const newHome = side === 'home' ? newTeam : fixture.home;
-        const newAway = side === 'away' ? newTeam : fixture.away;
-        await syncWithSecondHalf(pendingAssignFixtureId, currentRound, oldHome, oldAway, newHome, newAway);
+        const newHomeFinal = side === 'home' ? newTeam : fixture.home;
+        const newAwayFinal = side === 'away' ? newTeam : fixture.away;
+        await syncWithSecondHalf(pendingAssignFixtureId, currentRound, oldHome, oldAway, newHomeFinal, newAwayFinal);
         saveToStorage();
         renderFixtures();
         renderTable();
@@ -1543,44 +1468,20 @@ function renderGameweekTabs() {
     const total = Math.max(...fixtures.map(f => f.round));
     container.innerHTML = "";
     for (let r = 1; r <= total; r++) {
-        const startTime = roundStartTimes[r];
-        const isPaused = roundPaused && roundPaused[r];
         const roundFixtures = fixtures.filter(f => f.round === r && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
         const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
-        let statusHtml = '', actionBtnHtml = '';
+        let statusHtml = '';
 
         if (allResolved) {
             statusHtml = `<span class="text-[9px] font-mono text-green-600 ml-1">✅ Completed</span>`;
-        } else if (isPaused) {
-            statusHtml = `<span class="text-[9px] font-mono text-amber-600 ml-1">⏸ Paused</span>`;
-            if (isAdmin && tournamentPhase === 'league') {
-                actionBtnHtml = `<button onclick="resumeRound(${r})" class="ml-1 text-[9px] bg-green-100 text-green-700 px-1 py-0.5 rounded-full hover:bg-green-200">▶ Resume</button>`;
-            }
-        } else if (startTime) {
-            const deadline = startTime + 2 * 24 * 60 * 60 * 1000;
-            const now = Date.now();
-            if (now < deadline) {
-                const hoursLeft = Math.max(0, Math.floor((deadline - now) / (1000 * 60 * 60)));
-                const minutesLeft = Math.floor(((deadline - now) % (1000 * 60 * 60)) / (1000 * 60));
-                statusHtml = `<span class="text-[9px] font-mono text-green-600 ml-1">⏳ ${hoursLeft}h ${minutesLeft}m</span>`;
-                if (isAdmin) {
-                    actionBtnHtml = `<button onclick="pauseRound(${r})" class="ml-1 text-[9px] bg-red-100 text-red-700 px-1 py-0.5 rounded-full hover:bg-red-200">⏸ Pause</button>`;
-                }
-            } else {
-                statusHtml = `<span class="text-[9px] font-mono text-red-500 ml-1">⌛ Expired</span>`;
-            }
         } else {
-            if (isAdmin && tournamentPhase === 'league') {
-                actionBtnHtml = `<button onclick="startRound(${r})" class="ml-1 text-[9px] bg-green-100 text-green-700 px-1 py-0.5 rounded-full hover:bg-green-200">▶ Start</button>`;
-            } else {
-                statusHtml = `<span class="text-[9px] font-mono text-gray-400 ml-1">⏸ Not started</span>`;
-            }
+            statusHtml = `<span class="text-[9px] font-mono text-gray-400 ml-1">⏸ Not started</span>`;
         }
 
         const active = r === currentSelectedRound;
         const btn = document.createElement('button');
         btn.className = `px-3 py-1 text-[11px] font-mono rounded-full transition shrink-0 flex items-center gap-1 ${active ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
-        btn.innerHTML = `GW ${r} ${statusHtml} ${actionBtnHtml}`;
+        btn.innerHTML = `GW ${r} ${statusHtml}`;
         btn.onclick = () => { currentSelectedRound = r; renderGameweekTabs(); renderFixtures(); };
         container.appendChild(btn);
     }
@@ -1608,49 +1509,23 @@ function renderFixtures() {
     fixtures.filter(f => f.round === currentSelectedRound && !teams[f.home]?.relegated && !teams[f.away]?.relegated).forEach(f => {
         const played = f.played;
         const cancelled = f.cancelled;
-        const roundStart = roundStartTimes[f.round];
-        let roundActive = false;
-        let deadlineWarning = '';
 
         if (cancelled) {
             container.innerHTML += `<div class="bg-gray-100 p-3 rounded-xl border border-red-200"><div class="flex justify-between items-center"><span class="line-through">${f.home}</span><span class="text-red-500 text-xs">CANCELLED</span><span class="line-through">${f.away}</span></div></div>`;
             return;
         }
 
-        if (roundStart) {
-            const deadline = roundStart + 2 * 24 * 60 * 60 * 1000;
-            if (Date.now() < deadline) {
-                roundActive = true;
-                const hoursLeft = Math.max(0, Math.floor((deadline - Date.now()) / (1000 * 60 * 60)));
-                if (hoursLeft < 24) deadlineWarning = `<span class="text-amber-500 text-[9px] ml-1">⏰ ${hoursLeft}h left</span>`;
-            } else {
-                deadlineWarning = `<span class="text-red-500 text-[9px] ml-1">⌛ Expired</span>`;
-            }
-        } else {
-            deadlineWarning = `<span class="text-gray-400 text-[9px] ml-1">⏸ Not started</span>`;
-        }
-
         if (isAdmin) {
             let homeDisplay = f.home === "VACANT" ? `<span class="font-semibold text-sm text-red-500 cursor-pointer" onclick="editFixtureTeamName(${f.id}, 'home')">[VACANT]</span>` : `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'home')">${f.home}</span>`;
             let awayDisplay = f.away === "VACANT" ? `<span class="font-semibold text-sm text-red-500 cursor-pointer" onclick="editFixtureTeamName(${f.id}, 'away')">[VACANT]</span>` : `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'away')">${f.away}</span>`;
-            const saveDisabled = !roundActive ? 'disabled' : '';
-            const saveOpacity = !roundActive ? 'opacity-50' : '';
-            container.innerHTML += `<div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div class="flex-1 flex items-center justify-center gap-2 text-center">${homeDisplay}</div><div class="flex items-center justify-center"><div class="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full"><input type="number" id="home-score-${f.id}" value="${played ? f.homeScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm"><span class="text-gray-400">:</span><input type="number" id="away-score-${f.id}" value="${played ? f.awayScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm"></div>${deadlineWarning}</div><div class="flex-1 flex items-center justify-center gap-2 text-center">${awayDisplay}</div></div><div class="mt-2 flex justify-center gap-1"><button onclick="swapFixture(${f.id})" class="text-[10px] font-bold bg-amber-50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100">🔄 Swap</button><button onclick="saveResult(${f.id})" class="text-[10px] font-bold ${saveOpacity} bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full hover:bg-indigo-100" ${saveDisabled}>💾 Save</button><button onclick="showMatchComment(${f.id})" class="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-full hover:bg-gray-200">📖</button><button onclick="openBanterModal(${f.id})" class="text-[10px] font-bold bg-purple-50 text-purple-600 px-2 py-1 rounded-full hover:bg-purple-100">🤣 Banter</button></div></div>`;
+            container.innerHTML += `<div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div class="flex-1 flex items-center justify-center gap-2 text-center">${homeDisplay}</div><div class="flex items-center justify-center"><div class="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full"><input type="number" id="home-score-${f.id}" value="${played ? f.homeScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm"><span class="text-gray-400">:</span><input type="number" id="away-score-${f.id}" value="${played ? f.awayScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm"></div></div><div class="flex-1 flex items-center justify-center gap-2 text-center">${awayDisplay}</div></div><div class="mt-2 flex justify-center gap-1"><button onclick="swapFixture(${f.id})" class="text-[10px] font-bold bg-amber-50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100">🔄 Swap</button><button onclick="saveResult(${f.id})" class="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full hover:bg-indigo-100">💾 Save</button><button onclick="showMatchComment(${f.id})" class="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-full hover:bg-gray-200">📖</button><button onclick="openBanterModal(${f.id})" class="text-[10px] font-bold bg-purple-50 text-purple-600 px-2 py-1 rounded-full hover:bg-purple-100">🤣 Banter</button></div></div>`;
         } else {
-            let homeName, awayName;
-            if (roundStart) {
-                homeName = f.home === "VACANT" ? "TBD" : f.home;
-                awayName = f.away === "VACANT" ? "TBD" : f.away;
-            } else {
-                homeName = "TBD";
-                awayName = "TBD";
-            }
-            const predictionBtn = (!played && !roundActive) ? `<span class="text-[11px] text-gray-400 px-3 py-1 rounded-full bg-gray-100">⏸ Not started</span>` : (played ? `<div class="bg-gray-100 px-3 py-1 rounded-full font-mono font-bold text-sm">${f.homeScore} - ${f.awayScore}</div>` : `<button onclick="openPredictionsModal(${f.id})" class="text-[11px] bg-gray-100 hover:bg-indigo-50 px-3 py-1 rounded-full">🔮 Predictions</button>`);
-            container.innerHTML += `<div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div class="flex-1 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${homeName}</div><div class="flex justify-center">${predictionBtn}${deadlineWarning}</div><div class="flex-1 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${awayName}</div></div><div class="mt-2 flex justify-center gap-1"><button onclick="showMatchComment(${f.id})" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full">📖</button><button onclick="openBanterModal(${f.id})" class="text-[11px] bg-purple-50 hover:bg-purple-100 px-3 py-1 rounded-full">🤣 Banter</button></div></div>`;
+            let homeName = f.home === "VACANT" ? "TBD" : f.home;
+            let awayName = f.away === "VACANT" ? "TBD" : f.away;
+            const predictionBtn = !played ? `<button onclick="openPredictionsModal(${f.id})" class="text-[11px] bg-gray-100 hover:bg-indigo-50 px-3 py-1 rounded-full">🔮 Predictions</button>` : `<div class="bg-gray-100 px-3 py-1 rounded-full font-mono font-bold text-sm">${f.homeScore} - ${f.awayScore}</div>`;
+            container.innerHTML += `<div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div class="flex-1 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${homeName}</div><div class="flex justify-center">${predictionBtn}</div><div class="flex-1 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${awayName}</div></div><div class="mt-2 flex justify-center gap-1"><button onclick="showMatchComment(${f.id})" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full">📖</button><button onclick="openBanterModal(${f.id})" class="text-[11px] bg-purple-50 hover:bg-purple-100 px-3 py-1 rounded-full">🤣 Banter</button></div></div>`;
         }
     });
-    if (window.deadlineInterval) clearInterval(window.deadlineInterval);
-    window.deadlineInterval = setInterval(() => { expireOldFixtures(); renderFixtures(); }, 60000);
 }
 
 // ==================== DOUBLE ROUND-ROBIN SYNC ====================
@@ -2477,44 +2352,6 @@ async function diagnoseLeagueDisplay() {
     }
 }
 
-// ==================== DEADLINE CLOCK ====================
-function updateDeadlineClock() {
-    const now = Date.now();
-    let nearestDeadline = Infinity;
-    
-    // Use current league's fixtures and roundStartTimes
-    fixtures.forEach(f => {
-        if (!f.played && !f.cancelled) {
-            const startTime = roundStartTimes[f.round];
-            if (startTime) {
-                const deadline = startTime + 2 * 24 * 60 * 60 * 1000;
-                if (deadline > now && deadline < nearestDeadline) nearestDeadline = deadline;
-            }
-        }
-    });
-    
-    if (nearestDeadline === Infinity) {
-        document.getElementById('next-deadline-countdown').innerText = 'No active';
-        return;
-    }
-    const diff = nearestDeadline - now;
-    const hours = Math.floor(diff / (1000*60*60));
-    const minutes = Math.floor((diff % (1000*60*60)) / (1000*60));
-    document.getElementById('next-deadline-countdown').innerText = `${hours}h ${minutes}m`;
-}
-
-function startDeadlineClock() {
-    // Clear any existing interval first
-    if (window.deadlineClockInterval) {
-        clearInterval(window.deadlineClockInterval);
-        window.deadlineClockInterval = null;
-    }
-    // Run immediately to show correct time
-    updateDeadlineClock();
-    // Set new interval
-    window.deadlineClockInterval = setInterval(updateDeadlineClock, 60000);
-}
-
 // ==================== RESET ====================
 function resetTournament() { 
     if (confirm("Wipe ALL data for this league? Cannot be undone.")) 
@@ -2596,7 +2433,6 @@ function switchLeague(league) {
     // Reload data for new league
     setTimeout(() => {
         checkAndLoadTournament();
-        startDeadlineClock();
     }, 50);
     
     showToast(`Switched to ${league === 'premier' ? 'Premier League' : 'Championship'}`);
@@ -2605,7 +2441,6 @@ function switchLeague(league) {
 function refreshCurrentLeague() {
     console.log("Refreshing league:", currentLeague);
     checkAndLoadTournament();
-    startDeadlineClock();
     showToast(`Refreshing ${currentLeague === 'premier' ? 'Premier League' : 'Championship'}...`);
 }
 
@@ -2670,9 +2505,6 @@ window.resetTournament = resetTournament;
 window.saveKnockoutResult = saveKnockoutResult;
 window.showMatchCommentForKnockout = showMatchCommentForKnockout;
 window.editKnockoutResult = editKnockoutResult;
-window.startRound = startRound;
-window.pauseRound = pauseRound;
-window.resumeRound = resumeRound;
 window.openChatModal = openChatModal;
 window.closeChatModal = closeChatModal;
 window.sendChatMessage = sendChatMessage;
