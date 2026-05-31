@@ -84,9 +84,14 @@ function selectRole(role) {
 }
 
 function checkAndLoadTournament() {
+    // Show loading state
+    const tbody = document.getElementById('league-table-body');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="12" class="text-center py-8 text-gray-400">Loading...</td></tr>';
+    
     getTournamentRef().once('value', (snapshot) => {
         const data = snapshot.val();
         if (data && data.teams && data.fixtures) {
+            // Tournament exists – load it
             loadTournamentData(data);
             if (userRole === 'viewer') {
                 document.getElementById('admin-toggle-container')?.classList.add('hidden');
@@ -100,6 +105,7 @@ function checkAndLoadTournament() {
                 document.getElementById('admin-toggle-container')?.classList.remove('hidden');
             }
         } else {
+            // No tournament exists
             if (userRole === 'viewer') {
                 document.getElementById('dashboard-section')?.classList.add('hidden');
                 document.getElementById('setup-section')?.classList.add('hidden');
@@ -132,9 +138,15 @@ function checkAndLoadTournament() {
                 if (roleSelector) roleSelector.remove();
                 document.getElementById('admin-toggle-container')?.classList.add('hidden');
                 document.getElementById('floating-admin-menu')?.classList.add('hidden');
+                // Clear dashboard content
+                document.getElementById('league-table-body').innerHTML = '';
+                document.getElementById('fixtures-container').innerHTML = '';
                 showToast("Setup mode – create your tournament");
             }
         }
+    }).catch(error => {
+        console.error("Error loading tournament:", error);
+        showToast("Error loading data. Check console.");
     });
 }
 
@@ -159,7 +171,10 @@ function loadTournamentData(data) {
     document.getElementById('dashboard-section')?.classList.remove('hidden');
     document.getElementById('deadline-clock')?.classList.remove('hidden');
     initBackToTop();
+    
+    // RESTART the deadline clock to refresh with new league data
     startDeadlineClock();
+    
     initChatListener();
     if (userRole === 'admin') {
         updateAdminUIElements();
@@ -2069,6 +2084,8 @@ async function checkAndShowPromotionButton() {
 function updateDeadlineClock() {
     const now = Date.now();
     let nearestDeadline = Infinity;
+    
+    // Use current league's fixtures and roundStartTimes
     fixtures.forEach(f => {
         if (!f.played && !f.cancelled) {
             const startTime = roundStartTimes[f.round];
@@ -2078,7 +2095,11 @@ function updateDeadlineClock() {
             }
         }
     });
-    if (nearestDeadline === Infinity) { document.getElementById('next-deadline-countdown').innerText = 'No active'; return; }
+    
+    if (nearestDeadline === Infinity) {
+        document.getElementById('next-deadline-countdown').innerText = 'No active';
+        return;
+    }
     const diff = nearestDeadline - now;
     const hours = Math.floor(diff / (1000*60*60));
     const minutes = Math.floor((diff % (1000*60*60)) / (1000*60));
@@ -2086,8 +2107,14 @@ function updateDeadlineClock() {
 }
 
 function startDeadlineClock() {
+    // Clear any existing interval first
+    if (window.deadlineClockInterval) {
+        clearInterval(window.deadlineClockInterval);
+        window.deadlineClockInterval = null;
+    }
+    // Run immediately to show correct time
     updateDeadlineClock();
-    if (window.deadlineClockInterval) clearInterval(window.deadlineClockInterval);
+    // Set new interval
     window.deadlineClockInterval = setInterval(updateDeadlineClock, 60000);
 }
 
@@ -2113,15 +2140,40 @@ window.onload = () => {
     }
     initRealtimeDatabaseSync();
     const leagueSelector = document.getElementById('league-selector');
-    if (leagueSelector) {
-        leagueSelector.addEventListener('change', (e) => {
-            currentLeague = e.target.value;
-            sessionStorage.setItem('desiredLeague', currentLeague);
-            if (userRole) {
-                checkAndLoadTournament();
-            }
-        });
-    }
+if (leagueSelector) {
+    leagueSelector.addEventListener('change', async (e) => {
+        const newLeague = e.target.value;
+        if (newLeague === currentLeague) return; // No change
+        
+        currentLeague = newLeague;
+        sessionStorage.setItem('desiredLeague', currentLeague);
+        
+        if (userRole) {
+            // Clear current data first
+            teams = {};
+            fixtures = [];
+            knockoutMatches = [];
+            tournamentPhase = 'league';
+            roundStartTimes = {};
+            roundPaused = {};
+            
+            // Clear UI
+            document.getElementById('league-table-body').innerHTML = '';
+            document.getElementById('fixtures-container').innerHTML = '';
+            document.getElementById('knockout-bracket').innerHTML = '';
+            document.getElementById('knockout-section')?.classList.add('hidden');
+            document.getElementById('schedule-section')?.classList.add('hidden');
+            
+            // Reload data for new league
+            await checkAndLoadTournament();
+            
+            // Force clock refresh
+            startDeadlineClock();
+            
+            showToast(`Switched to ${newLeague === 'premier' ? 'Premier League' : 'Championship'}`);
+        }
+    });
+}
 };
 
 // ==================== EXPOSE FUNCTIONS ====================
