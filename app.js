@@ -30,6 +30,7 @@ let isChatModalOpen = false;
 let currentMentionText = '';
 let mentionTimeout = null;
 let pendingReplaceOldTeam = null;
+let isLoadingLeague = false; 
 
 let currentLeague = 'premier';   // 'premier' or 'championship'
 
@@ -666,8 +667,13 @@ function expireOldFixtures() {
 // ==================== DATABASE + LIVE ALERTS ====================
 function initRealtimeDatabaseSync() {
     getTournamentRef().on('value', (snapshot) => {
+        // Prevent recursive loading
+        if (isLoadingLeague) return;
+        
         if (snapshot.exists() && userRole) {
+            isLoadingLeague = true;
             loadTournamentData(snapshot.val());
+            isLoadingLeague = false;
         } else if (!snapshot.exists() && userRole === 'admin') {
             document.getElementById('setup-section')?.classList.remove('hidden');
             document.getElementById('dashboard-section')?.classList.add('hidden');
@@ -675,28 +681,33 @@ function initRealtimeDatabaseSync() {
         } else if (!snapshot.exists() && userRole === 'viewer') {
             document.getElementById('dashboard-section')?.classList.add('hidden');
             document.getElementById('setup-section')?.classList.add('hidden');
-            document.getElementById('role-selector').innerHTML = `
-                <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center">
-                    <div class="mb-4">
-                        <div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <span class="text-3xl">🏆</span>
+            const roleSelector = document.getElementById('role-selector');
+            if (roleSelector) {
+                roleSelector.innerHTML = `
+                    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center">
+                        <div class="mb-4">
+                            <div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                <span class="text-3xl">🏆</span>
+                            </div>
+                            <h2 class="text-2xl font-bold text-gray-800">No Tournament Yet</h2>
+                            <p class="text-gray-500 text-sm mt-1">An admin hasn't started a tournament in ${currentLeague === 'premier' ? 'Premier League' : 'Championship'}.</p>
                         </div>
-                        <h2 class="text-2xl font-bold text-gray-800">No Tournament Yet</h2>
-                        <p class="text-gray-500 text-sm mt-1">An admin hasn't started a tournament.</p>
+                        <button onclick="selectRole('admin')" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition">
+                            🔑 Switch to Admin to Create
+                        </button>
                     </div>
-                    <button onclick="selectRole('admin')" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition">
-                        🔑 Switch to Admin to Create
-                    </button>
-                </div>
-            `;
+                `;
+            }
         }
     });
+    
     getTournamentRef().child('fixtures').on('child_changed', (snapshot) => {
         const updated = snapshot.val();
         if (updated && updated.played === true && updated.homeScore !== null) {
             showToast(`📢 Result: ${updated.home} ${updated.homeScore}-${updated.awayScore} ${updated.away}`);
         }
     });
+    
     if (userRole) {
         initChatListener();
     }
@@ -2091,6 +2102,66 @@ async function checkAndShowPromotionButton() {
     else btn.classList.add('hidden');
 }
 
+// ==================== DIAGNOSE AND FIX LEAGUE DISPLAY ====================
+async function diagnoseLeagueDisplay() {
+    if (!isAdmin) {
+        showToast("Only admin can run diagnostics");
+        return;
+    }
+    
+    console.log("=== LEAGUE DISPLAY DIAGNOSTIC ===");
+    console.log("Current league:", currentLeague);
+    console.log("User role:", userRole);
+    
+    // Check Premier League data
+    console.log("\n--- Checking Premier League ---");
+    const premierRef = db.ref('premier/tournament_data');
+    const premierSnap = await premierRef.once('value');
+    const premierData = premierSnap.val();
+    console.log("Premier data exists:", !!premierData);
+    if (premierData) {
+        console.log("Premier teams:", premierData.teams ? Object.keys(premierData.teams).length : 0);
+        console.log("Premier fixtures:", premierData.fixtures ? premierData.fixtures.length : 0);
+    }
+    
+    // Check Championship League data
+    console.log("\n--- Checking Championship League ---");
+    const champRef = db.ref('championship/tournament_data');
+    const champSnap = await champRef.once('value');
+    const champData = champSnap.val();
+    console.log("Championship data exists:", !!champData);
+    if (champData) {
+        console.log("Championship teams:", champData.teams ? Object.keys(champData.teams).length : 0);
+        console.log("Championship fixtures:", champData.fixtures ? champData.fixtures.length : 0);
+    }
+    
+    // Force reload current league
+    console.log("\n--- Forcing reload of current league ---");
+    await checkAndLoadTournament();
+    
+    // Show summary
+    let message = "";
+    if (!champData) {
+        message = "❌ Championship data is MISSING from Firebase!";
+    } else if (!champData.teams || Object.keys(champData.teams).length === 0) {
+        message = "⚠️ Championship has NO teams!";
+    } else if (!champData.fixtures || champData.fixtures.length === 0) {
+        message = "⚠️ Championship has NO fixtures!";
+    } else {
+        message = `✅ Championship has ${Object.keys(champData.teams).length} teams and ${champData.fixtures.length} fixtures. Try switching leagues again.`;
+    }
+    
+    showToast(message);
+    console.log("Diagnostic complete. Check console for details.");
+    
+    // If Championship is missing or corrupted, offer to restore
+    if (!champData || !champData.teams || Object.keys(champData.teams).length === 0) {
+        if (confirm("Championship data is missing or corrupted. Would you like to restore it with default teams?")) {
+            restoreMissingLeague();
+        }
+    }
+}
+
 // ==================== DEADLINE CLOCK ====================
 function updateDeadlineClock() {
     const now = Date.now();
@@ -2210,6 +2281,7 @@ window.onload = () => {
 // ==================== EXPOSE FUNCTIONS ====================
 window.handleAdminToggleClick = handleAdminToggleClick;
 window.initializeBothLeagues = createBothLeaguesNow;
+window.diagnoseLeagueDisplay = diagnoseLeagueDisplay;
 window.generatePremierTeams = generatePremierTeams;
 window.generateChampionshipTeams = generateChampionshipTeams;
 window.createBothLeaguesNow = createBothLeaguesNow;
