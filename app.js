@@ -84,15 +84,22 @@ function selectRole(role) {
 }
 
 function checkAndLoadTournament() {
+    console.log("Loading tournament for league:", currentLeague);
+    
     // Show loading state
     const tbody = document.getElementById('league-table-body');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="12" class="text-center py-8 text-gray-400">Loading...</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="12" class="text-center py-8 text-gray-400">Loading ' + (currentLeague === 'premier' ? 'Premier League' : 'Championship') + '...</td>' + '</tr>';
+    const fixturesContainer = document.getElementById('fixtures-container');
+    if (fixturesContainer) fixturesContainer.innerHTML = '<div class="skeleton h-24 w-full rounded-xl"></div>';
     
     getTournamentRef().once('value', (snapshot) => {
         const data = snapshot.val();
+        console.log("Data loaded for", currentLeague, data ? "found" : "not found");
+        
         if (data && data.teams && data.fixtures) {
             // Tournament exists – load it
             loadTournamentData(data);
+            
             if (userRole === 'viewer') {
                 document.getElementById('admin-toggle-container')?.classList.add('hidden');
                 document.getElementById('admin-reset-container')?.classList.add('hidden');
@@ -105,6 +112,7 @@ function checkAndLoadTournament() {
                 document.getElementById('admin-toggle-container')?.classList.remove('hidden');
             }
         } else {
+            console.log("No tournament exists for", currentLeague);
             // No tournament exists
             if (userRole === 'viewer') {
                 document.getElementById('dashboard-section')?.classList.add('hidden');
@@ -118,7 +126,7 @@ function checkAndLoadTournament() {
                                     <span class="text-3xl">🏆</span>
                                 </div>
                                 <h2 class="text-2xl font-bold text-gray-800">No Tournament Yet</h2>
-                                <p class="text-gray-500 text-sm mt-1">An admin hasn't started a tournament.</p>
+                                <p class="text-gray-500 text-sm mt-1">An admin hasn't started a tournament in ${currentLeague === 'premier' ? 'Premier League' : 'Championship'}.</p>
                             </div>
                             <button onclick="selectRole('admin')" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition">
                                 🔑 Switch to Admin to Create
@@ -138,10 +146,9 @@ function checkAndLoadTournament() {
                 if (roleSelector) roleSelector.remove();
                 document.getElementById('admin-toggle-container')?.classList.add('hidden');
                 document.getElementById('floating-admin-menu')?.classList.add('hidden');
-                // Clear dashboard content
                 document.getElementById('league-table-body').innerHTML = '';
                 document.getElementById('fixtures-container').innerHTML = '';
-                showToast("Setup mode – create your tournament");
+                showToast(`Setup mode – create ${currentLeague === 'premier' ? 'Premier League' : 'Championship'}`);
             }
         }
     }).catch(error => {
@@ -151,6 +158,9 @@ function checkAndLoadTournament() {
 }
 
 function loadTournamentData(data) {
+    console.log("Loading tournament data for league:", currentLeague);
+    console.log("Teams in loaded data:", data.teams ? Object.keys(data.teams).length : 0);
+    
     tournamentPassword = data.password || "090541";
     teams = data.teams;
     fixtures = data.fixtures;
@@ -159,6 +169,7 @@ function loadTournamentData(data) {
     roundStartTimes = data.roundStartTimes || {};
     roundPaused = data.roundPaused || {};
     autoStartNextRound = data.autoStartNextRound || false;
+    
     updateTableCalculations();
     renderTable();
     renderGameweekTabs();
@@ -167,15 +178,15 @@ function loadTournamentData(data) {
     renderRelegatedTeams();
     generateTickerFacts();
     checkAndCelebrateChampion();
+    
     document.getElementById('setup-section')?.classList.add('hidden');
     document.getElementById('dashboard-section')?.classList.remove('hidden');
     document.getElementById('deadline-clock')?.classList.remove('hidden');
+    
     initBackToTop();
-    
-    // RESTART the deadline clock to refresh with new league data
     startDeadlineClock();
-    
     initChatListener();
+    
     if (userRole === 'admin') {
         updateAdminUIElements();
     }
