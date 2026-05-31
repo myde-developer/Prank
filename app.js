@@ -86,10 +86,11 @@ function selectRole(role) {
 
 function checkAndLoadTournament() {
     console.log("Loading tournament for league:", currentLeague);
+    console.log("Firebase path:", `${currentLeague}/tournament_data`);
     
     // Show loading state
     const tbody = document.getElementById('league-table-body');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="12" class="text-center py-8 text-gray-400">Loading ' + (currentLeague === 'premier' ? 'Premier League' : 'Championship') + '...</td>' + '</tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="12" class="text-center py-8 text-gray-400">Loading ' + (currentLeague === 'premier' ? 'Premier League' : 'Championship') + '...</td></tr>';
     const fixturesContainer = document.getElementById('fixtures-container');
     if (fixturesContainer) fixturesContainer.innerHTML = '<div class="skeleton h-24 w-full rounded-xl"></div>';
     
@@ -98,6 +99,9 @@ function checkAndLoadTournament() {
         console.log("Data loaded for", currentLeague, data ? "found" : "not found");
         
         if (data && data.teams && data.fixtures) {
+            console.log("Teams in", currentLeague, ":", Object.keys(data.teams));
+            console.log("Fixtures count:", data.fixtures.length);
+            
             // Tournament exists – load it
             loadTournamentData(data);
             
@@ -111,9 +115,10 @@ function checkAndLoadTournament() {
                 document.getElementById('relegation-zone')?.classList.add('hidden');
             } else if (userRole === 'admin') {
                 document.getElementById('admin-toggle-container')?.classList.remove('hidden');
+                document.getElementById('admin-reset-container')?.classList.remove('hidden');
             }
         } else {
-            console.log("No tournament exists for", currentLeague);
+            console.log("No tournament exists for", currentLeague, data);
             // No tournament exists
             if (userRole === 'viewer') {
                 document.getElementById('dashboard-section')?.classList.add('hidden');
@@ -160,16 +165,25 @@ function checkAndLoadTournament() {
 
 function loadTournamentData(data) {
     console.log("Loading tournament data for league:", currentLeague);
-    console.log("Teams in loaded data:", data.teams ? Object.keys(data.teams).length : 0);
+    console.log("Teams in loaded data:", data.teams ? Object.keys(data.teams) : "NO TEAMS");
+    console.log("Fixtures:", data.fixtures ? data.fixtures.length : 0);
+    
+    if (!data.teams || Object.keys(data.teams).length === 0) {
+        console.error("No teams found in data for", currentLeague);
+        showToast(`Error: No teams found in ${currentLeague === 'premier' ? 'Premier League' : 'Championship'} data`);
+        return;
+    }
     
     tournamentPassword = data.password || "090541";
     teams = data.teams;
-    fixtures = data.fixtures;
+    fixtures = data.fixtures || [];
     knockoutMatches = data.knockoutMatches || [];
     tournamentPhase = data.tournamentPhase || 'league';
     roundStartTimes = data.roundStartTimes || {};
     roundPaused = data.roundPaused || {};
     autoStartNextRound = data.autoStartNextRound || false;
+    
+    console.log("Teams object loaded:", teams);
     
     updateTableCalculations();
     renderTable();
@@ -192,6 +206,8 @@ function loadTournamentData(data) {
         updateAdminUIElements();
     }
     checkAndShowPromotionButton();
+    
+    console.log("Finished loading", currentLeague);
 }
 
 // ==================== HELPERS ====================
@@ -2102,6 +2118,101 @@ async function checkAndShowPromotionButton() {
     else btn.classList.add('hidden');
 }
 
+async function recoverExistingLeague() {
+    if (!isAdmin) {
+        showToast("Only admin can recover leagues");
+        return;
+    }
+    
+    const leagueToRecover = prompt("Which league won't display?\nEnter 'premier' or 'championship'", "championship");
+    
+    if (!leagueToRecover || (leagueToRecover !== 'premier' && leagueToRecover !== 'championship')) {
+        showToast("Invalid league name");
+        return;
+    }
+    
+    const leagueName = leagueToRecover === 'premier' ? 'Premier League' : 'Championship';
+    showToast(`Checking ${leagueName} data...`);
+    
+    const checkRef = db.ref(`${leagueToRecover}/tournament_data`);
+    const snapshot = await checkRef.once('value');
+    const data = snapshot.val();
+    
+    if (data && data.teams && Object.keys(data.teams).length > 0) {
+        console.log(`${leagueName} data found:`, data);
+        showToast(`✅ ${leagueName} data exists! Loading...`);
+        
+        currentLeague = leagueToRecover;
+        sessionStorage.setItem('desiredLeague', currentLeague);
+        document.getElementById('league-selector').value = currentLeague;
+        
+        teams = {};
+        fixtures = [];
+        knockoutMatches = [];
+        
+        await checkAndLoadTournament();
+        showToast(`Loaded ${leagueName} successfully!`);
+    } else {
+        showToast(`❌ No ${leagueName} data found in Firebase`);
+        if (confirm(`${leagueName} data is missing. Create it with default teams?`)) {
+            restoreMissingLeague();
+        }
+    }
+}
+
+// ==================== RESTORE MISSING LEAGUE ====================
+async function restoreMissingLeague() {
+    if (!isAdmin) {
+        showToast("Only admin can restore leagues");
+        return;
+    }
+    
+    const leagueToRestore = prompt("Which league is missing?\nEnter 'premier' for Premier League\nEnter 'championship' for Championship", "championship");
+    
+    if (!leagueToRestore || (leagueToRestore !== 'premier' && leagueToRestore !== 'championship')) {
+        showToast("Invalid league name. Use 'premier' or 'championship'");
+        return;
+    }
+    
+    const leagueName = leagueToRestore === 'premier' ? 'Premier League' : 'Championship';
+    
+    if (!confirm(`⚠️ Warning: This will create a NEW ${leagueName} with DEFAULT teams (8 teams).\nAny existing data for this league will be LOST.\n\nContinue?`)) {
+        return;
+    }
+    
+    // Default teams (8 teams as example - admin can edit later using Replace button)
+    const defaultTeams = [
+        `${leagueName} FC`,
+        `${leagueName} United`,
+        `${leagueName} City`,
+        `${leagueName} Rovers`,
+        `${leagueName} Athletic`,
+        `${leagueName} Town`,
+        `${leagueName} Wanderers`,
+        `${leagueName} Albion`
+    ];
+    
+    const password = prompt("Set master password for this league:", "090541");
+    const finalPassword = password || "090541";
+    
+    showToast(`Creating new ${leagueName}... Please wait.`);
+    
+    try {
+        await createLeague(leagueToRestore, defaultTeams, finalPassword);
+        showToast(`✅ ${leagueName} restored successfully with 8 default teams!`);
+        
+        // If we're currently viewing the missing league, reload it
+        if (currentLeague === leagueToRestore) {
+            checkAndLoadTournament();
+        } else {
+            showToast(`Switch to ${leagueName} using the league selector to view it.`);
+        }
+    } catch (error) {
+        console.error(error);
+        showToast(`Error restoring ${leagueName}. Check console.`);
+    }
+}
+
 // ==================== DIAGNOSE AND FIX LEAGUE DISPLAY ====================
 async function diagnoseLeagueDisplay() {
     if (!isAdmin) {
@@ -2214,10 +2325,15 @@ window.onload = () => {
     const savedLeague = sessionStorage.getItem('desiredLeague');
     if (savedLeague && (savedLeague === 'premier' || savedLeague === 'championship')) {
         currentLeague = savedLeague;
-        const selector = document.getElementById('league-selector');
-        if (selector) selector.value = currentLeague;
     } else {
         currentLeague = 'premier';
+    }
+    
+    // Set the dropdown value to match currentLeague
+    const leagueSelector = document.getElementById('league-selector');
+    if (leagueSelector) {
+        leagueSelector.value = currentLeague;
+        console.log("League selector set to:", currentLeague);
     }
     
     // Initialize realtime sync first
@@ -2228,55 +2344,78 @@ window.onload = () => {
     if (savedRole === 'viewer' || savedRole === 'admin') {
         selectRole(savedRole);
     }
+};
+
+// ==================== SIMPLE LEAGUE SWITCHER ====================
+function switchLeague(league) {
+    if (league !== 'premier' && league !== 'championship') {
+        console.error("Invalid league:", league);
+        return;
+    }
     
-    // Set up league switcher event listener
+    if (league === currentLeague) {
+        console.log("Already on", league);
+        return;
+    }
+    
+    console.log("Switching to league:", league);
+    
+    // Update global state
+    currentLeague = league;
+    sessionStorage.setItem('desiredLeague', currentLeague);
+    
+    // Update dropdown
+    const selector = document.getElementById('league-selector');
+    if (selector) selector.value = currentLeague;
+    
+    // Clear current data
+    teams = {};
+    fixtures = [];
+    knockoutMatches = [];
+    tournamentPhase = 'league';
+    roundStartTimes = {};
+    roundPaused = {};
+    
+    // Clear UI
+    const tbody = document.getElementById('league-table-body');
+    if (tbody) tbody.innerHTML = '<table><td colspan="12" class="text-center py-8 text-gray-400">Loading ' + (league === 'premier' ? 'Premier League' : 'Championship') + '...</td></tr>';
+    
+    const fixturesContainer = document.getElementById('fixtures-container');
+    if (fixturesContainer) fixturesContainer.innerHTML = '<div class="skeleton h-24 w-full rounded-xl"></div>';
+    
+    const knockoutBracket = document.getElementById('knockout-bracket');
+    if (knockoutBracket) knockoutBracket.innerHTML = '';
+    
+    document.getElementById('knockout-section')?.classList.add('hidden');
+    document.getElementById('schedule-section')?.classList.add('hidden');
+    
+    // Reload data for new league
+    setTimeout(() => {
+        checkAndLoadTournament();
+        startDeadlineClock();
+    }, 50);
+    
+    showToast(`Switched to ${league === 'premier' ? 'Premier League' : 'Championship'}`);
+}
+
+function refreshCurrentLeague() {
+    console.log("Refreshing league:", currentLeague);
+    checkAndLoadTournament();
+    startDeadlineClock();
+    showToast(`Refreshing ${currentLeague === 'premier' ? 'Premier League' : 'Championship'}...`);
+}
+
+// Add event listener after DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
     const leagueSelector = document.getElementById('league-selector');
     if (leagueSelector) {
-        console.log("League selector found, attaching event listener");
-        
-        // Remove any existing listeners by cloning and replacing
         const newSelector = leagueSelector.cloneNode(true);
         leagueSelector.parentNode.replaceChild(newSelector, leagueSelector);
-        
-        newSelector.addEventListener('change', function(e) {
-            const newLeague = e.target.value;
-            console.log("League changed to:", newLeague);
-            
-            if (newLeague === currentLeague) return;
-            
-            currentLeague = newLeague;
-            sessionStorage.setItem('desiredLeague', currentLeague);
-            
-            if (userRole) {
-                // Clear current data
-                teams = {};
-                fixtures = [];
-                knockoutMatches = [];
-                tournamentPhase = 'league';
-                roundStartTimes = {};
-                roundPaused = {};
-                
-                // Clear UI
-                const tbody = document.getElementById('league-table-body');
-                if (tbody) tbody.innerHTML = '<tr><td colspan="12" class="text-center py-8 text-gray-400">Loading...</td></tr>';
-                const fixturesContainer = document.getElementById('fixtures-container');
-                if (fixturesContainer) fixturesContainer.innerHTML = '<div class="skeleton h-24 w-full rounded-xl"></div>';
-                const knockoutBracket = document.getElementById('knockout-bracket');
-                if (knockoutBracket) knockoutBracket.innerHTML = '';
-                document.getElementById('knockout-section')?.classList.add('hidden');
-                document.getElementById('schedule-section')?.classList.add('hidden');
-                
-                // Reload
-                checkAndLoadTournament();
-                startDeadlineClock();
-                
-                showToast(`Switched to ${newLeague === 'premier' ? 'Premier League' : 'Championship'}`);
-            }
+        newSelector.addEventListener('change', (e) => {
+            switchLeague(e.target.value);
         });
-    } else {
-        console.error("League selector element not found!");
     }
-};
+});
 
 // ==================== EXPOSE FUNCTIONS ====================
 window.handleAdminToggleClick = handleAdminToggleClick;
@@ -2344,3 +2483,7 @@ window.deletePoll = deletePoll;
 window.votePoll = votePoll;
 window.sendTypingStatus = sendTypingStatus;
 window.processPromotionRelegation = processPromotionRelegation;
+window.switchLeague = switchLeague;
+window.refreshCurrentLeague = refreshCurrentLeague;
+window.recoverExistingLeague = recoverExistingLeague;
+window.restoreMissingLeague = restoreMissingLeague;
