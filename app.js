@@ -865,12 +865,21 @@ function initializeTournament() {
 }
 
 async function createLeague(leagueId, teamNamesArray, password) {
+    console.log(`Creating ${leagueId} with ${teamNamesArray.length} teams:`, teamNamesArray);
+    
+    // Save original league to restore later
     const originalLeague = currentLeague;
+    
+    // Set current league to the one we're creating
     currentLeague = leagueId;
+    
     let filteredTeams = teamNamesArray.filter(name => name !== "BYE" && name !== "");
+    
     if (filteredTeams.length < 2) {
         throw new Error(`${leagueId} needs at least 2 teams`);
     }
+    
+    // Build teams object
     const newTeams = {};
     filteredTeams.forEach(name => {
         newTeams[name] = {
@@ -879,8 +888,11 @@ async function createLeague(leagueId, teamNamesArray, password) {
             deductedPoints: 0, formHistory: [], relegated: false
         };
     });
+    
+    // Generate double round-robin fixtures
     const teamNames = Object.keys(newTeams);
     const rounds = generateRandomRoundRobin([...teamNames]);
+    
     let fixturesList = [];
     let fixtureId = 0;
     rounds.forEach((roundFixtures, roundIndex) => {
@@ -905,7 +917,11 @@ async function createLeague(leagueId, teamNamesArray, password) {
             }
         });
     });
-    await getTournamentRef().set({
+    
+    console.log(`${leagueId} generated ${fixturesList.length} fixtures across ${rounds.length} rounds`);
+    
+    // Save to Firebase under the league-specific path
+    await db.ref(`${leagueId}/tournament_data`).set({
         teams: newTeams,
         fixtures: fixturesList,
         knockoutMatches: [],
@@ -915,6 +931,10 @@ async function createLeague(leagueId, teamNamesArray, password) {
         autoStartNextRound: false,
         roundPaused: {}
     });
+    
+    console.log(`${leagueId} saved to Firebase at path: ${leagueId}/tournament_data`);
+    
+    // Restore original league
     currentLeague = originalLeague;
 }
 
@@ -967,46 +987,69 @@ async function createBothLeaguesNow() {
         showToast("Only admin can create leagues");
         return;
     }
+    
+    // Get Premier League teams
     const premCount = parseInt(document.getElementById('prem-team-count').value);
     if (isNaN(premCount) || premCount < 2) {
         alert("Please set Premier League number of teams first and click 'Configure'");
         return;
     }
+    
     let premTeamNames = [];
     for (let i = 1; i <= premCount; i++) {
         let name = document.getElementById(`prem-team-${i}`)?.value.trim();
         if (!name) name = `Premier Team ${i}`;
         premTeamNames.push(name);
     }
+    
+    // Get Championship teams - IMPORTANT: These are from the RIGHT column!
     const champCount = parseInt(document.getElementById('champ-team-count').value);
     if (isNaN(champCount) || champCount < 2) {
         alert("Please set Championship number of teams first and click 'Configure'");
         return;
     }
+    
     let champTeamNames = [];
     for (let i = 1; i <= champCount; i++) {
         let name = document.getElementById(`champ-team-${i}`)?.value.trim();
         if (!name) name = `Championship Team ${i}`;
         champTeamNames.push(name);
     }
+    
+    // Get password
     let password = document.getElementById('both-leagues-password').value.trim();
     if (!password) password = "090541";
-    const confirmMsg = `Create both leagues?\n\n🏆 Premier League: ${premTeamNames.length} teams\n📈 Championship: ${champTeamNames.length} teams\n\nProceed?`;
+    
+    // Show confirmation with team counts
+    const confirmMsg = `Create both leagues?\n\n🏆 PREMIER LEAGUE: ${premTeamNames.length} teams\n📈 CHAMPIONSHIP: ${champTeamNames.length} teams\n\nThese are DIFFERENT sets of teams.\n\nProceed?`;
     if (!confirm(confirmMsg)) return;
-    showToast("Creating both leagues simultaneously... Please wait.");
+    
+    showToast("Creating Premier League... Please wait.");
+    
     try {
+        // Create Premier League FIRST (completely separate)
+        const originalLeague = currentLeague;
+        currentLeague = 'premier';
         await createLeague('premier', premTeamNames, password);
-        showToast("✅ Premier League created");
+        showToast("✅ Premier League created with " + premTeamNames.length + " teams");
+        
+        // Create Championship SECOND (completely separate teams)
+        currentLeague = 'championship';
         await createLeague('championship', champTeamNames, password);
-        showToast("✅ Championship created");
+        showToast("✅ Championship created with " + champTeamNames.length + " teams");
+        
         showToast("🎉 Both leagues created successfully!");
+        
+        // Switch to Premier view
         currentLeague = 'premier';
         sessionStorage.setItem('desiredLeague', 'premier');
-        document.getElementById('league-selector').value = 'premier';
+        const selector = document.getElementById('league-selector');
+        if (selector) selector.value = 'premier';
         checkAndLoadTournament();
+        
     } catch (error) {
-        console.error(error);
-        showToast("Error creating leagues. Check console.");
+        console.error("Creation error:", error);
+        showToast("Error creating leagues: " + error.message);
     }
 }
 
@@ -1131,9 +1174,71 @@ function shuffleRound(roundNumber) {
     saveToStorage(); showToast(`Round ${roundNumber} shuffled!`); renderGameweekTabs(); renderFixtures(); renderTable(); generateTickerFacts();
 }
 
-function swapFixture(fixtureId) { if (!isAdmin) return; const f = fixtures.find(f => f.id === fixtureId); [f.home, f.away] = [f.away, f.home]; f.homeScore = null; f.awayScore = null; f.played = false; f.comment = null; f.cancelled = false; saveToStorage(); showToast(`Swapped ${f.home} vs ${f.away}`); renderFixtures(); renderTable(); generateTickerFacts(); }
+function swapFixture(fixtureId) {
+    if (!isAdmin) return;
+    const f = fixtures.find(f => f.id === fixtureId);
+    const oldHome = f.home;
+    const oldAway = f.away;
+    const currentRound = f.round;
+    
+    [f.home, f.away] = [f.away, f.home];
+    f.homeScore = null; f.awayScore = null; f.played = false; f.comment = null; f.cancelled = false;
+    saveToStorage();
+    showToast(`Swapped ${f.home} vs ${f.away}`);
+    renderFixtures();
+    renderTable();
+    generateTickerFacts();
+    
+    // Ask to sync with second half
+    const totalRounds = Math.max(...fixtures.map(f => f.round));
+    const halfRounds = totalRounds / 2;
+    const isFirstHalf = currentRound <= halfRounds;
+    
+    if (isFirstHalf && confirm(`This is a first-leg fixture. Swap the corresponding second-leg fixture (Round ${currentRound + halfRounds}) as well?`)) {
+        const correspondingFixture = findCorrespondingFixture(fixtureId, currentRound, oldHome, oldAway);
+        if (correspondingFixture && !correspondingFixture.played) {
+            [correspondingFixture.home, correspondingFixture.away] = [correspondingFixture.away, correspondingFixture.home];
+            saveToStorage();
+            renderFixtures();
+            renderTable();
+            showToast(`✅ Second-leg fixture also swapped: ${correspondingFixture.home} vs ${correspondingFixture.away}`);
+        }
+    }
+}
 
-function editFixtureTeamName(fixtureId, side) { if (!isAdmin) return; const fixture = fixtures.find(f => f.id === fixtureId); const dropdown = document.getElementById('team-select-dropdown'); dropdown.innerHTML = '<option value="">— Cancel / No change —</option>'; const otherSide = side === 'home' ? fixture.away : fixture.home; const teamNames = Object.values(teams).filter(t => !t.relegated).map(t => t.name).sort(); teamNames.forEach(name => { if (name !== otherSide) { const opt = document.createElement('option'); opt.value = name; opt.textContent = name; dropdown.appendChild(opt); } }); const byeOpt = document.createElement('option'); byeOpt.value = 'BYE_REMOVE'; byeOpt.textContent = '— Remove team (set to BYE) —'; dropdown.appendChild(byeOpt); pendingAssignFixtureId = fixtureId; pendingAssignSide = side; document.getElementById('team-select-modal').classList.remove('hidden'); }
+function editFixtureTeamName(fixtureId, side) {
+    if (!isAdmin) return;
+    const fixture = fixtures.find(f => f.id === fixtureId);
+    const dropdown = document.getElementById('team-select-dropdown');
+    dropdown.innerHTML = '<option value="">— Cancel / No change —</option>';
+    const otherSide = side === 'home' ? fixture.away : fixture.home;
+    const teamNames = Object.values(teams).filter(t => !t.relegated).map(t => t.name).sort();
+    teamNames.forEach(name => {
+        if (name !== otherSide) {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            dropdown.appendChild(opt);
+        }
+    });
+    const byeOpt = document.createElement('option');
+    byeOpt.value = 'BYE_REMOVE';
+    byeOpt.textContent = '— Remove team (set to BYE) —';
+    dropdown.appendChild(byeOpt);
+    
+    // Store extra data for sync
+    window._editingFixtureData = {
+        fixtureId: fixtureId,
+        side: side,
+        round: fixture.round,
+        oldHome: fixture.home,
+        oldAway: fixture.away
+    };
+    
+    pendingAssignFixtureId = fixtureId;
+    pendingAssignSide = side;
+    document.getElementById('team-select-modal').classList.remove('hidden');
+}
 
 function closeTeamSelectModal() { document.getElementById('team-select-modal').classList.add('hidden'); pendingAssignFixtureId = null; pendingAssignSide = null; }
 
@@ -1143,13 +1248,27 @@ function confirmTeamSelection() {
     if (selected === '') { closeTeamSelectModal(); return; }
     const fixture = fixtures.find(f => f.id === pendingAssignFixtureId);
     const side = pendingAssignSide;
+    
+    const oldHome = fixture.home;
+    const oldAway = fixture.away;
+    const currentRound = fixture.round;
+    
     if (selected === 'BYE_REMOVE') {
         if (side === 'home') fixture.home = 'BYE'; else fixture.away = 'BYE';
         fixture.homeScore = null; fixture.awayScore = null; fixture.played = false; fixture.comment = null; fixture.cancelled = false;
         delete fixture.vacantHome; delete fixture.vacantAway;
         saveToStorage(); showToast(`Removed team, set to BYE`); renderFixtures(); renderTable(); generateTickerFacts(); closeTeamSelectModal();
+        
+        // Ask to sync with second half
+        if (confirm("This fixture has a corresponding second-leg match. Update that match as well?")) {
+            syncWithSecondHalf(pendingAssignFixtureId, currentRound, oldHome, oldAway, fixture.home, fixture.away);
+            saveToStorage();
+            renderFixtures();
+            renderTable();
+        }
         return;
     }
+    
     const newTeam = selected;
     const oldTeam = side === 'home' ? fixture.home : fixture.away;
     if (newTeam === oldTeam) { closeTeamSelectModal(); return; }
@@ -1157,10 +1276,34 @@ function confirmTeamSelection() {
     const round = fixture.round;
     const otherFixtures = fixtures.filter(f => f.round === round && f.id !== fixture.id);
     if (otherFixtures.some(f => f.home === newTeam || f.away === newTeam)) { showToast(`Team "${newTeam}" already has a fixture in this round!`); closeTeamSelectModal(); return; }
+    
+    const oldValue = side === 'home' ? fixture.home : fixture.away;
     if (side === 'home') { fixture.home = newTeam; delete fixture.vacantHome; }
     else { fixture.away = newTeam; delete fixture.vacantAway; }
     fixture.homeScore = null; fixture.awayScore = null; fixture.played = false; fixture.comment = null; fixture.cancelled = false;
-    saveToStorage(); showToast(`Assigned ${newTeam} to ${side} side.`); renderFixtures(); renderTable(); generateTickerFacts(); closeTeamSelectModal();
+    
+    saveToStorage();
+    showToast(`Assigned ${newTeam} to ${side} side.`);
+    renderFixtures();
+    renderTable();
+    generateTickerFacts();
+    
+    // Ask to sync with second half
+    const totalRounds = Math.max(...fixtures.map(f => f.round));
+    const halfRounds = totalRounds / 2;
+    const isFirstHalf = currentRound <= halfRounds;
+    
+    if (isFirstHalf && confirm(`This is a first-leg fixture. Update the corresponding second-leg fixture (Round ${currentRound + halfRounds}) with home/away swapped?`)) {
+        const newHome = side === 'home' ? newTeam : fixture.home;
+        const newAway = side === 'away' ? newTeam : fixture.away;
+        await syncWithSecondHalf(pendingAssignFixtureId, currentRound, oldHome, oldAway, newHome, newAway);
+        saveToStorage();
+        renderFixtures();
+        renderTable();
+        showToast(`✅ Second-leg fixture updated!`);
+    }
+    
+    closeTeamSelectModal();
 }
 
 // ==================== STANDINGS & KNOCKOUT ====================
@@ -1508,6 +1651,67 @@ function renderFixtures() {
     });
     if (window.deadlineInterval) clearInterval(window.deadlineInterval);
     window.deadlineInterval = setInterval(() => { expireOldFixtures(); renderFixtures(); }, 60000);
+}
+
+// ==================== DOUBLE ROUND-ROBIN SYNC ====================
+function findCorrespondingFixture(fixtureId, currentRound, homeTeam, awayTeam) {
+    const totalRounds = Math.max(...fixtures.map(f => f.round));
+    const halfRounds = totalRounds / 2;
+    
+    // Determine if this is first half or second half
+    let correspondingRound;
+    let shouldSwap = false;
+    
+    if (currentRound <= halfRounds) {
+        // First half -> find second half match (same teams, home/away swapped)
+        correspondingRound = currentRound + halfRounds;
+        shouldSwap = true;
+    } else {
+        // Second half -> find first half match (same teams, home/away swapped)
+        correspondingRound = currentRound - halfRounds;
+        shouldSwap = true;
+    }
+    
+    // Find the fixture in the corresponding round
+    const correspondingFixture = fixtures.find(f => {
+        if (f.round !== correspondingRound) return false;
+        
+        if (shouldSwap) {
+            // Home/away should be swapped
+            return (f.home === awayTeam && f.away === homeTeam);
+        } else {
+            return (f.home === homeTeam && f.away === awayTeam);
+        }
+    });
+    
+    return correspondingFixture;
+}
+
+async function syncWithSecondHalf(fixtureId, currentRound, homeTeam, awayTeam, newHomeTeam, newAwayTeam, swapOnly = false) {
+    const correspondingFixture = findCorrespondingFixture(fixtureId, currentRound, homeTeam, awayTeam);
+    
+    if (!correspondingFixture) {
+        console.log("No corresponding fixture found");
+        return false;
+    }
+    
+    if (swapOnly) {
+        // For swap operation: swap the corresponding fixture too
+        [correspondingFixture.home, correspondingFixture.away] = [correspondingFixture.away, correspondingFixture.home];
+        showToast(`🔄 Also swapped corresponding second-leg fixture: ${correspondingFixture.home} vs ${correspondingFixture.away}`);
+    } else {
+        // For team name changes: update with home/away swapped
+        const originalHome = correspondingFixture.home;
+        const originalAway = correspondingFixture.away;
+        
+        // Update with new team names (swapped because second half is reversed)
+        correspondingFixture.home = newAwayTeam;
+        correspondingFixture.away = newHomeTeam;
+        
+        showToast(`🔄 Also updated corresponding ${correspondingFixture.round === currentRound + (currentRound <= fixtures.length/2 ? fixtures.length/2 : -fixtures.length/2)}-leg fixture: ${correspondingFixture.home} vs ${correspondingFixture.away}`);
+    }
+    
+    return true;
 }
 
 // ==================== TEAM DETAILS ====================
@@ -2487,3 +2691,5 @@ window.switchLeague = switchLeague;
 window.refreshCurrentLeague = refreshCurrentLeague;
 window.recoverExistingLeague = recoverExistingLeague;
 window.restoreMissingLeague = restoreMissingLeague;
+window.findCorrespondingFixture = findCorrespondingFixture;
+window.syncWithSecondHalf = syncWithSecondHalf;
