@@ -1242,7 +1242,7 @@ function editFixtureTeamName(fixtureId, side) {
 
 function closeTeamSelectModal() { document.getElementById('team-select-modal').classList.add('hidden'); pendingAssignFixtureId = null; pendingAssignSide = null; }
 
-function confirmTeamSelection() {
+async function confirmTeamSelection() {
     if (pendingAssignFixtureId === null) return;
     const selected = document.getElementById('team-select-dropdown').value;
     if (selected === '') { closeTeamSelectModal(); return; }
@@ -2623,6 +2623,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ==================== EXPOSE FUNCTIONS ====================
 window.handleAdminToggleClick = handleAdminToggleClick;
+window.selectRole = selectRole;
 window.initializeBothLeagues = createBothLeaguesNow;
 window.diagnoseLeagueDisplay = diagnoseLeagueDisplay;
 window.generatePremierTeams = generatePremierTeams;
