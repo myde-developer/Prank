@@ -364,11 +364,37 @@ async function saveRoundChanges() {
     // Get all current fixtures in this round
     const currentRoundFixtures = fixtures.filter(f => f.round === roundNumber);
     
+    // Find the first uncompleted round in the first half
+    let firstUncompletedRound = halfRounds + 1;
+    for (let round = 1; round <= halfRounds; round++) {
+        const roundFixtures = fixtures.filter(f => f.round === round);
+        const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
+        if (!allResolved) {
+            firstUncompletedRound = round;
+            break;
+        }
+    }
+    
+    // Check if the round being edited is already completed
+    const isRoundCompleted = currentRoundFixtures.length > 0 && currentRoundFixtures.every(f => f.played || f.cancelled);
+    
+    if (isRoundCompleted) {
+        alert(`⚠️ Round ${roundNumber} is already completed!\n\nYou cannot edit a completed round. All matches in this round have already been played or cancelled.`);
+        closeEditRoundModal();
+        return;
+    }
+    
+    // Check if trying to edit a round before the first uncompleted round
+    if (roundNumber < firstUncompletedRound) {
+        alert(`⚠️ Round ${roundNumber} is already completed!\n\nYou cannot edit rounds that have already been finished. The first uncompleted round is Round ${firstUncompletedRound}.`);
+        closeEditRoundModal();
+        return;
+    }
+    
     // Build changes array by reading dropdowns directly
     const changes = [];
     
     for (const fixture of currentRoundFixtures) {
-        // Get the dropdown elements directly from DOM
         const homeSelect = document.getElementById(`round-edit-home-${fixture.id}`);
         const awaySelect = document.getElementById(`round-edit-away-${fixture.id}`);
         
@@ -376,7 +402,6 @@ async function saveRoundChanges() {
             const newHome = homeSelect.value;
             const newAway = awaySelect.value;
             
-            // Check if anything changed
             if (newHome !== fixture.home || newAway !== fixture.away) {
                 changes.push({
                     id: fixture.id,
@@ -390,21 +415,23 @@ async function saveRoundChanges() {
     }
     
     console.log("Changes found:", changes.length);
-    console.log("Changes details:", changes);
+    console.log("First uncompleted round:", firstUncompletedRound);
     
     // If no changes and user doesn't want to reshuffle, exit
     if (changes.length === 0) {
-        if (!confirm("No changes detected in this round.\n\nDo you still want to RESHUFFLE the entire first half?\n\nClick OK to reshuffle, Cancel to exit.")) {
+        if (!confirm(`No changes detected in Round ${roundNumber}.\n\nDo you still want to RESHUFFLE rounds ${firstUncompletedRound} to ${halfRounds}?\n\n(Completed rounds 1-${firstUncompletedRound - 1} will NOT be affected)\n\nClick OK to reshuffle, Cancel to exit.`)) {
             closeEditRoundModal();
             return;
         }
     } else {
         // Show confirmation with changes
-        let message = `The following ${changes.length} change(s) will be made:\n\n`;
+        let message = `The following ${changes.length} change(s) will be made in Round ${roundNumber}:\n\n`;
         for (const change of changes) {
             message += `• ${change.oldHome} vs ${change.oldAway} → ${change.newHome} vs ${change.newAway}\n`;
         }
-        message += `\n⚠️ This will RESHUFFLE the ENTIRE FIRST HALF (Rounds 1-${halfRounds}).\nAll existing results will be RESET.\n\nContinue?`;
+        message += `\n⚠️ This will RESHUFFLE rounds ${firstUncompletedRound} to ${halfRounds} (first half).\n`;
+        message += `✅ Completed rounds 1-${firstUncompletedRound - 1} will NOT be affected.\n`;
+        message += `❌ All results in rounds ${firstUncompletedRound} to ${halfRounds} will be RESET.\n\nContinue?`;
         
         if (!confirm(message)) {
             closeEditRoundModal();
@@ -412,7 +439,7 @@ async function saveRoundChanges() {
         }
     }
     
-    showToast("Reshuffling first half fixtures...");
+    showToast(`Reshuffling rounds ${firstUncompletedRound} to ${halfRounds}...`);
     
     // Get all active teams
     const activeTeams = Object.values(teams).filter(t => !t.relegated).map(t => t.name);
@@ -420,8 +447,8 @@ async function saveRoundChanges() {
     // Generate new first half fixtures
     const newFirstHalfRounds = generateRandomRoundRobinFirstHalf(activeTeams);
     
-    // Apply new fixtures to first half
-    for (let round = 1; round <= halfRounds; round++) {
+    // ONLY apply to uncompleted rounds (from firstUncompletedRound to halfRounds)
+    for (let round = firstUncompletedRound; round <= halfRounds; round++) {
         const roundFixturesList = fixtures.filter(f => f.round === round);
         const newRoundFixtures = newFirstHalfRounds[round - 1] || [];
         
@@ -441,20 +468,23 @@ async function saveRoundChanges() {
         }
     }
     
-    // Apply the admin's changes back
-    for (const change of changes) {
-        const fixture = fixtures.find(f => f.id === change.id);
-        if (fixture) {
-            fixture.home = change.newHome;
-            fixture.away = change.newAway;
-            fixture.homeScore = null;
-            fixture.awayScore = null;
-            fixture.played = false;
-            fixture.cancelled = false;
+    // Apply the admin's changes to the edited round (only if it's within uncompleted range)
+    if (roundNumber >= firstUncompletedRound) {
+        for (const change of changes) {
+            const fixture = fixtures.find(f => f.id === change.id);
+            if (fixture) {
+                fixture.home = change.newHome;
+                fixture.away = change.newAway;
+                fixture.homeScore = null;
+                fixture.awayScore = null;
+                fixture.played = false;
+                fixture.cancelled = false;
+            }
         }
     }
     
-    // Regenerate second half as mirror of first half
+    // Regenerate second half as mirror of the ENTIRE first half
+    // This ensures second half still mirrors first half correctly for all rounds
     for (let round = 1; round <= halfRounds; round++) {
         const secondHalfRound = round + halfRounds;
         const firstHalfFixturesList = fixtures.filter(f => f.round === round);
@@ -484,9 +514,9 @@ async function saveRoundChanges() {
     generateTickerFacts();
     
     if (changes.length > 0) {
-        showToast(`✅ Round ${roundNumber} updated with ${changes.length} change(s)! First half reshuffled.`);
+        showToast(`✅ Round ${roundNumber} updated! Rounds ${firstUncompletedRound}-${halfRounds} reshuffled. Completed rounds preserved.`);
     } else {
-        showToast(`✅ First half reshuffled! New schedule created.`);
+        showToast(`✅ Rounds ${firstUncompletedRound}-${halfRounds} reshuffled! Completed rounds preserved.`);
     }
     closeEditRoundModal();
     checkAndShowFirstHalfReview();
