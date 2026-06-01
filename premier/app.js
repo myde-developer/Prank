@@ -269,8 +269,12 @@ function closeEditRoundModal() {
 
 function loadRoundForEditing() {
     const roundNumber = parseInt(document.getElementById('edit-round-select').value);
+    console.log("Loading round:", roundNumber);
+    
     const roundFixtures = fixtures.filter(f => f.round === roundNumber && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
     const container = document.getElementById('edit-round-fixtures-container');
+    
+    console.log("Found fixtures:", roundFixtures.length);
     
     if (!roundFixtures.length) {
         container.innerHTML = '<p class="text-center text-red-500 py-8">No fixtures found for this round</p>';
@@ -296,21 +300,24 @@ function loadRoundForEditing() {
         }
         
         html += `
-            <div class="bg-gray-50 p-3 rounded-xl border border-gray-200">
+            <div class="bg-gray-50 p-3 rounded-xl border border-gray-200" data-fixture-id="${fixture.id}">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
                     <div class="flex-1">
                         <label class="text-xs text-gray-500">Home Team</label>
-                        <select id="round-edit-home-${fixture.id}" class="w-full mt-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm">
+                        <select id="round-edit-home-${fixture.id}" class="round-edit-home w-full mt-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm">
                             ${homeOptions}
                         </select>
                     </div>
                     <div class="text-center text-gray-400 font-bold">VS</div>
                     <div class="flex-1">
                         <label class="text-xs text-gray-500">Away Team</label>
-                        <select id="round-edit-away-${fixture.id}" class="w-full mt-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm">
+                        <select id="round-edit-away-${fixture.id}" class="round-edit-away w-full mt-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm">
                             ${awayOptions}
                         </select>
                     </div>
+                </div>
+                <div class="text-xs text-gray-400 mt-2 text-center">
+                    Original: ${fixture.home} vs ${fixture.away}
                 </div>
             </div>
         `;
@@ -319,6 +326,23 @@ function loadRoundForEditing() {
     html += '</div>';
     container.innerHTML = html;
     document.getElementById('save-round-changes-btn').classList.remove('hidden');
+    
+    // Add a debug button
+    const debugBtn = document.createElement('button');
+    debugBtn.innerText = '🔍 Debug - Show Selected Values';
+    debugBtn.className = 'mt-3 text-xs bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded-full';
+    debugBtn.onclick = () => {
+        let msg = "Current values:\n\n";
+        for (const fixture of roundFixtures) {
+            const homeVal = document.getElementById(`round-edit-home-${fixture.id}`)?.value;
+            const awayVal = document.getElementById(`round-edit-away-${fixture.id}`)?.value;
+            msg += `${fixture.home} vs ${fixture.away}\n`;
+            msg += `  → Selected: ${homeVal} vs ${awayVal}\n\n`;
+        }
+        alert(msg);
+        console.log(msg);
+    };
+    container.appendChild(debugBtn);
     
     // Scroll to top of modal
     document.getElementById('edit-round-modal').scrollTop = 0;
@@ -331,41 +355,52 @@ async function saveRoundChanges() {
     const totalRounds = Math.max(...fixtures.map(f => f.round));
     const halfRounds = totalRounds / 2;
     
-    // Collect changes from the UI
-    const roundFixtures = fixtures.filter(f => f.round === roundNumber);
-    const changes = {};
-    let changeCount = 0;
+    // Get all current fixtures in this round
+    const currentRoundFixtures = fixtures.filter(f => f.round === roundNumber);
     
-    for (const fixture of roundFixtures) {
-        const newHome = document.getElementById(`round-edit-home-${fixture.id}`)?.value;
-        const newAway = document.getElementById(`round-edit-away-${fixture.id}`)?.value;
+    // Build changes array by reading dropdowns directly
+    const changes = [];
+    
+    for (const fixture of currentRoundFixtures) {
+        // Get the dropdown elements directly from DOM
+        const homeSelect = document.getElementById(`round-edit-home-${fixture.id}`);
+        const awaySelect = document.getElementById(`round-edit-away-${fixture.id}`);
         
-        if (newHome && newAway) {
-            // Check if there's an actual change
+        if (homeSelect && awaySelect) {
+            const newHome = homeSelect.value;
+            const newAway = awaySelect.value;
+            
+            // Check if anything changed
             if (newHome !== fixture.home || newAway !== fixture.away) {
-                changes[fixture.id] = { home: newHome, away: newAway, oldHome: fixture.home, oldAway: fixture.away };
-                changeCount++;
+                changes.push({
+                    id: fixture.id,
+                    oldHome: fixture.home,
+                    oldAway: fixture.away,
+                    newHome: newHome,
+                    newAway: newAway
+                });
             }
         }
     }
     
-    console.log("Changes detected:", changeCount, changes);
+    console.log("Changes found:", changes.length);
+    console.log("Changes details:", changes);
     
-    if (changeCount === 0) {
-        // Ask if they want to reshuffle anyway without changes
-        if (!confirm("No changes detected in this round.\n\nDo you still want to RESHUFFLE the entire first half to create a new schedule?\n\nClick OK to reshuffle, Cancel to exit.")) {
+    // If no changes and user doesn't want to reshuffle, exit
+    if (changes.length === 0) {
+        if (!confirm("No changes detected in this round.\n\nDo you still want to RESHUFFLE the entire first half?\n\nClick OK to reshuffle, Cancel to exit.")) {
             closeEditRoundModal();
             return;
         }
     } else {
-        // Show what changes will be made
-        let changeMsg = "The following changes will be made:\n\n";
-        for (const [id, change] of Object.entries(changes)) {
-            changeMsg += `${change.oldHome} vs ${change.oldAway} → ${change.home} vs ${change.away}\n`;
+        // Show confirmation with changes
+        let message = `The following ${changes.length} change(s) will be made:\n\n`;
+        for (const change of changes) {
+            message += `• ${change.oldHome} vs ${change.oldAway} → ${change.newHome} vs ${change.newAway}\n`;
         }
-        changeMsg += `\n⚠️ This will RESHUFFLE the entire FIRST HALF (Rounds 1-${halfRounds}) while preserving your changes.\n\nThe second half will automatically mirror the new first half.\n\nAll existing results will be RESET.\n\nContinue?`;
+        message += `\n⚠️ This will RESHUFFLE the ENTIRE FIRST HALF (Rounds 1-${halfRounds}).\nAll existing results will be RESET.\n\nContinue?`;
         
-        if (!confirm(changeMsg)) {
+        if (!confirm(message)) {
             closeEditRoundModal();
             return;
         }
@@ -379,7 +414,7 @@ async function saveRoundChanges() {
     // Generate new first half fixtures
     const newFirstHalfRounds = generateRandomRoundRobinFirstHalf(activeTeams);
     
-    // Apply new fixtures to rounds 1 to halfRounds
+    // Apply new fixtures to first half
     for (let round = 1; round <= halfRounds; round++) {
         const roundFixturesList = fixtures.filter(f => f.round === round);
         const newRoundFixtures = newFirstHalfRounds[round - 1] || [];
@@ -400,48 +435,23 @@ async function saveRoundChanges() {
         }
     }
     
-    // Apply the admin's custom changes to the edited round
-    for (const [fixtureId, change] of Object.entries(changes)) {
-        const fixture = fixtures.find(f => f.id == fixtureId);
+    // Apply the admin's changes back
+    for (const change of changes) {
+        const fixture = fixtures.find(f => f.id === change.id);
         if (fixture) {
-            fixture.home = change.home;
-            fixture.away = change.away;
+            fixture.home = change.newHome;
+            fixture.away = change.newAway;
             fixture.homeScore = null;
             fixture.awayScore = null;
             fixture.played = false;
             fixture.cancelled = false;
-            console.log(`Applied change: ${fixture.home} vs ${fixture.away}`);
         }
     }
     
-    // Validate no duplicate matchups in the same half
-    const firstHalfFixtures = fixtures.filter(f => f.round <= halfRounds);
-    const matchups = new Set();
-    let hasDuplicate = false;
-    let duplicateInfo = "";
-    
-    for (const f of firstHalfFixtures) {
-        const matchup = `${f.home} vs ${f.away}`;
-        if (matchups.has(matchup)) {
-            hasDuplicate = true;
-            duplicateInfo = matchup;
-            break;
-        }
-        matchups.add(matchup);
-    }
-    
-    if (hasDuplicate) {
-        showToast(`⚠️ Duplicate matchup detected: ${duplicateInfo}! Reshuffling again...`);
-        // Recursive call to fix duplicates
-        await saveRoundChanges();
-        return;
-    }
-    
-    // Regenerate second half as mirror of new first half
+    // Regenerate second half as mirror of first half
     for (let round = 1; round <= halfRounds; round++) {
-        const firstHalfRound = round;
         const secondHalfRound = round + halfRounds;
-        const firstHalfFixturesList = fixtures.filter(f => f.round === firstHalfRound);
+        const firstHalfFixturesList = fixtures.filter(f => f.round === round);
         const secondHalfFixturesList = fixtures.filter(f => f.round === secondHalfRound);
         
         for (let i = 0; i < firstHalfFixturesList.length && i < secondHalfFixturesList.length; i++) {
@@ -467,8 +477,8 @@ async function saveRoundChanges() {
     renderFixtures();
     generateTickerFacts();
     
-    if (changeCount > 0) {
-        showToast(`✅ Round ${roundNumber} updated with ${changeCount} change(s)! First half reshuffled, second half mirrored.`);
+    if (changes.length > 0) {
+        showToast(`✅ Round ${roundNumber} updated with ${changes.length} change(s)! First half reshuffled.`);
     } else {
         showToast(`✅ First half reshuffled! New schedule created.`);
     }
