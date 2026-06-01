@@ -35,7 +35,10 @@ let isLoadingLeague = false;
 let currentLeague = 'premier';   // 'premier' or 'championship'
 
 function getTournamentRef() {
-    return db.ref(`${currentLeague}/tournament_data`);
+    // Always return the correct path based on currentLeague
+    const path = `${currentLeague}/tournament_data`;
+    console.log("Accessing Firebase path:", path);
+    return db.ref(path);
 }
 function getChatRef() {
     return db.ref(`${currentLeague}/chat_messages`);
@@ -948,7 +951,7 @@ async function createBothLeaguesNow() {
         premTeamNames.push(name);
     }
     
-    // Get Championship teams - IMPORTANT: These are from the RIGHT column!
+    // Get Championship teams
     const champCount = parseInt(document.getElementById('champ-team-count').value);
     if (isNaN(champCount) || champCount < 2) {
         alert("Please set Championship number of teams first and click 'Configure'");
@@ -962,35 +965,130 @@ async function createBothLeaguesNow() {
         champTeamNames.push(name);
     }
     
-    // Get password
     let password = document.getElementById('both-leagues-password').value.trim();
     if (!password) password = "090541";
     
-    // Show confirmation with team counts
-    const confirmMsg = `Create both leagues?\n\n🏆 PREMIER LEAGUE: ${premTeamNames.length} teams\n📈 CHAMPIONSHIP: ${champTeamNames.length} teams\n\nThese are DIFFERENT sets of teams.\n\nProceed?`;
+    // Verify teams are different
+    console.log("PREMIER TEAMS:", premTeamNames);
+    console.log("CHAMPIONSHIP TEAMS:", champTeamNames);
+    
+    const confirmMsg = `Create both leagues?\n\n🏆 PREMIER LEAGUE: ${premTeamNames.length} teams\n📈 CHAMPIONSHIP: ${champTeamNames.length} teams\n\n⚠️ Make sure these are DIFFERENT sets of teams!\n\nProceed?`;
     if (!confirm(confirmMsg)) return;
     
     showToast("Creating Premier League... Please wait.");
     
     try {
-        // Create Premier League FIRST (completely separate)
-        const originalLeague = currentLeague;
-        currentLeague = 'premier';
-        await createLeague('premier', premTeamNames, password);
+        // Create Premier League - DIRECT Firebase write, no currentLeague interference
+        const premierTeamsObj = {};
+        premTeamNames.forEach(name => {
+            premierTeamsObj[name] = {
+                name: name,
+                mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0,
+                deductedPoints: 0, formHistory: [], relegated: false
+            };
+        });
+        
+        const premierRounds = generateRandomRoundRobin([...premTeamNames]);
+        let premierFixtures = [];
+        let fixtureId = 0;
+        premierRounds.forEach((roundFixtures, roundIndex) => {
+            roundFixtures.forEach(({ home, away }) => {
+                if (home !== "BYE" && away !== "BYE") {
+                    premierFixtures.push({
+                        id: fixtureId++,
+                        round: roundIndex + 1,
+                        home: home,
+                        away: away,
+                        homeScore: null,
+                        awayScore: null,
+                        played: false,
+                        cancelled: false,
+                        comment: null,
+                        predictions: [],
+                        banter: [],
+                        events: [],
+                        report: null,
+                        deadline: null
+                    });
+                }
+            });
+        });
+        
+        // Direct write to Premier League path
+        await db.ref('premier/tournament_data').set({
+            teams: premierTeamsObj,
+            fixtures: premierFixtures,
+            knockoutMatches: [],
+            tournamentPhase: 'league',
+            password: password,
+            roundStartTimes: {},
+            autoStartNextRound: false,
+            roundPaused: {}
+        });
         showToast("✅ Premier League created with " + premTeamNames.length + " teams");
         
-        // Create Championship SECOND (completely separate teams)
-        currentLeague = 'championship';
-        await createLeague('championship', champTeamNames, password);
+        // Create Championship - COMPLETELY SEPARATE
+        const champTeamsObj = {};
+        champTeamNames.forEach(name => {
+            champTeamsObj[name] = {
+                name: name,
+                mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0,
+                deductedPoints: 0, formHistory: [], relegated: false
+            };
+        });
+        
+        const champRounds = generateRandomRoundRobin([...champTeamNames]);
+        let champFixtures = [];
+        fixtureId = 0;
+        champRounds.forEach((roundFixtures, roundIndex) => {
+            roundFixtures.forEach(({ home, away }) => {
+                if (home !== "BYE" && away !== "BYE") {
+                    champFixtures.push({
+                        id: fixtureId++,
+                        round: roundIndex + 1,
+                        home: home,
+                        away: away,
+                        homeScore: null,
+                        awayScore: null,
+                        played: false,
+                        cancelled: false,
+                        comment: null,
+                        predictions: [],
+                        banter: [],
+                        events: [],
+                        report: null,
+                        deadline: null
+                    });
+                }
+            });
+        });
+        
+        // Direct write to Championship path
+        await db.ref('championship/tournament_data').set({
+            teams: champTeamsObj,
+            fixtures: champFixtures,
+            knockoutMatches: [],
+            tournamentPhase: 'league',
+            password: password,
+            roundStartTimes: {},
+            autoStartNextRound: false,
+            roundPaused: {}
+        });
         showToast("✅ Championship created with " + champTeamNames.length + " teams");
         
         showToast("🎉 Both leagues created successfully!");
         
-        // Switch to Premier view
+        // Switch to Premier view without any interference
         currentLeague = 'premier';
         sessionStorage.setItem('desiredLeague', 'premier');
         const selector = document.getElementById('league-selector');
         if (selector) selector.value = 'premier';
+        
+        // Clear all global data before loading
+        teams = {};
+        fixtures = [];
+        knockoutMatches = [];
+        
         checkAndLoadTournament();
         
     } catch (error) {
