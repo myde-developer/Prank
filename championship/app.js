@@ -624,15 +624,34 @@ function swapFixture(fixtureId) {
 function editFixtureTeamName(fixtureId, side) {
     if (!isAdmin) return;
     const fixture = fixtures.find(f => f.id === fixtureId);
+    
+    // Calculate halves
+    const totalRounds = Math.max(...fixtures.map(f => f.round));
+    const halfRounds = totalRounds / 2;
+    const isFirstHalf = fixture.round <= halfRounds;
+    
+    if (!isFirstHalf) {
+        alert("⚠️ Please edit the FIRST HALF fixture instead.\n\nThe second half automatically mirrors the first half (home/away swapped).\n\nGo to Round " + (fixture.round - halfRounds) + " to make your change.");
+        return;
+    }
+    
     const dropdown = document.getElementById('team-select-dropdown');
     dropdown.innerHTML = '<option value="">— Cancel / No change —</option>';
     const otherSide = side === 'home' ? fixture.away : fixture.home;
     const teamNames = Object.values(teams).filter(t => !t.relegated).map(t => t.name).sort();
-    teamNames.forEach(name => { if (name !== otherSide) { const opt = document.createElement('option'); opt.value = name; opt.textContent = name; dropdown.appendChild(opt); } });
+    teamNames.forEach(name => {
+        if (name !== otherSide) {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            dropdown.appendChild(opt);
+        }
+    });
     const byeOpt = document.createElement('option');
     byeOpt.value = 'BYE_REMOVE';
     byeOpt.textContent = '— Remove team (set to BYE) —';
     dropdown.appendChild(byeOpt);
+    
     pendingAssignFixtureId = fixtureId;
     pendingAssignSide = side;
     document.getElementById('team-select-modal').classList.remove('hidden');
@@ -649,16 +668,32 @@ function confirmTeamSelection() {
     const oldAway = fixture.away;
     const currentRound = fixture.round;
     
-    // Calculate half rounds
+    // Calculate halves
     const totalRounds = Math.max(...fixtures.map(f => f.round));
     const halfRounds = totalRounds / 2;
     const isFirstHalf = currentRound <= halfRounds;
+    
+    // Prevent editing second half fixtures
+    if (!isFirstHalf) {
+        alert("⚠️ Please edit the FIRST HALF fixture instead.\n\nThe second half automatically mirrors the first half (home/away swapped).\n\nGo to Round " + (currentRound - halfRounds) + " to make your change.");
+        closeTeamSelectModal();
+        return;
+    }
     
     if (selected === 'BYE_REMOVE') {
         if (side === 'home') fixture.home = 'BYE'; else fixture.away = 'BYE';
         fixture.homeScore = null; fixture.awayScore = null; fixture.played = false; fixture.comment = null; fixture.cancelled = false;
         delete fixture.vacantHome; delete fixture.vacantAway;
-        saveToStorage(); showToast(`Removed team, set to BYE`); renderFixtures(); renderTable(); generateTickerFacts(); closeTeamSelectModal();
+        saveToStorage(); 
+        showToast(`Removed team, set to BYE`);
+        
+        // Regenerate second half to mirror updated first half
+        regenerateSecondHalf();
+        
+        renderFixtures(); 
+        renderTable(); 
+        generateTickerFacts(); 
+        closeTeamSelectModal();
         return;
     }
     
@@ -667,62 +702,142 @@ function confirmTeamSelection() {
     if (newTeam === oldTeam) { closeTeamSelectModal(); return; }
     if (teams[newTeam]?.relegated) { showToast(`Cannot assign a relegated team.`); closeTeamSelectModal(); return; }
     
-    // Get the new matchup (home vs away after edit)
-    let newHome = fixture.home;
-    let newAway = fixture.away;
-    if (side === 'home') { newHome = newTeam; }
-    else { newAway = newTeam; }
-    
-    // Check for duplicate matchup in the SAME HALF ONLY (excluding current fixture)
-    const conflictingFixture = fixtures.find(f => {
-        if (f.id === pendingAssignFixtureId) return false;
-        // Only check within the same half (first half OR second half)
-        if (isFirstHalf && f.round > halfRounds) return false;
-        if (!isFirstHalf && f.round <= halfRounds) return false;
-        return (f.home === newHome && f.away === newAway) || (f.home === newAway && f.away === newHome);
-    });
-    
-    if (conflictingFixture) {
-        // Conflict found! Swap the conflicting fixture to play against the original opponent
-        showToast(`⚠️ Matchup ${newHome} vs ${newAway} already exists in Round ${conflictingFixture.round}! Auto-adjusting...`);
-        
-        // Determine which team to swap out in the conflicting fixture
-        let teamToReplace, replacementTeam;
-        if (conflictingFixture.home === newHome || conflictingFixture.home === newAway) {
-            teamToReplace = conflictingFixture.home;
-            replacementTeam = oldTeam;
-        } else {
-            teamToReplace = conflictingFixture.away;
-            replacementTeam = oldTeam;
-        }
-        
-        // Update the conflicting fixture
-        if (conflictingFixture.home === teamToReplace) {
-            conflictingFixture.home = replacementTeam;
-        } else {
-            conflictingFixture.away = replacementTeam;
-        }
-        
-        // Reset the conflicting fixture (clear any results)
-        conflictingFixture.homeScore = null;
-        conflictingFixture.awayScore = null;
-        conflictingFixture.played = false;
-        conflictingFixture.cancelled = false;
-        
-        showToast(`🔄 Adjusted conflicting fixture Round ${conflictingFixture.round}: ${conflictingFixture.home} vs ${conflictingFixture.away}`);
-    }
-    
-    // Apply the edit to current fixture
+    // Apply the edit to current fixture first
     if (side === 'home') { fixture.home = newTeam; delete fixture.vacantHome; }
     else { fixture.away = newTeam; delete fixture.vacantAway; }
-    fixture.homeScore = null; fixture.awayScore = null; fixture.played = false; fixture.comment = null; fixture.cancelled = false;
     
-    saveToStorage();
-    showToast(`Assigned ${newTeam} to ${side} side.`);
-    renderFixtures();
-    renderTable();
-    generateTickerFacts();
+    // Ask admin to reshuffle the first half
+    if (confirm(`⚠️ You changed a fixture in Round ${currentRound}.\n\nDo you want to RESHUFFLE the ENTIRE FIRST HALF to create a valid schedule while keeping your change?\n\nThe second half will automatically mirror the new first half.\n\nClick OK to reshuffle, Cancel to keep as-is (may cause duplicates).`)) {
+        
+        showToast(`Reshuffling first half fixtures...`);
+        
+        // Get all active teams
+        const activeTeams = Object.values(teams).filter(t => !t.relegated).map(t => t.name);
+        
+        // Generate new first half fixtures
+        const newFirstHalfRounds = generateRandomRoundRobinFirstHalf(activeTeams);
+        
+        // Apply new fixtures to rounds 1 to halfRounds
+        for (let round = 1; round <= halfRounds; round++) {
+            const roundFixtures = fixtures.filter(f => f.round === round);
+            const newRoundFixtures = newFirstHalfRounds[round - 1] || [];
+            
+            for (let i = 0; i < roundFixtures.length && i < newRoundFixtures.length; i++) {
+                const f = roundFixtures[i];
+                const newF = newRoundFixtures[i];
+                if (newF) {
+                    f.home = newF.home;
+                    f.away = newF.away;
+                    // Reset results
+                    f.homeScore = null;
+                    f.awayScore = null;
+                    f.played = false;
+                    f.cancelled = false;
+                    f.report = null;
+                    f.events = [];
+                }
+            }
+        }
+        
+        // Re-apply the admin's edit (in case it got overwritten)
+        const editedFixture = fixtures.find(f => f.id === pendingAssignFixtureId);
+        if (editedFixture) {
+            if (side === 'home') editedFixture.home = newTeam;
+            else editedFixture.away = newTeam;
+        }
+        
+        // Regenerate second half as mirror of new first half
+        regenerateSecondHalf();
+        
+        saveToStorage();
+        updateTableCalculations();
+        renderTable();
+        renderGameweekTabs();
+        renderFixtures();
+        generateTickerFacts();
+        showToast(`✅ First half reshuffled! Second half mirrored automatically. All results reset.`);
+        
+    } else {
+        // Just save without reshuffle
+        fixture.homeScore = null;
+        fixture.awayScore = null;
+        fixture.played = false;
+        fixture.comment = null;
+        fixture.cancelled = false;
+        
+        // Still update second half to mirror (just in case)
+        regenerateSecondHalf();
+        
+        saveToStorage();
+        showToast(`Assigned ${newTeam} to ${side} side. Second half mirrored.`);
+        renderFixtures();
+        renderTable();
+        generateTickerFacts();
+    }
+    
     closeTeamSelectModal();
+}
+
+// Helper function to regenerate second half based on first half
+function regenerateSecondHalf() {
+    const totalRounds = Math.max(...fixtures.map(f => f.round));
+    const halfRounds = totalRounds / 2;
+    
+    for (let round = 1; round <= halfRounds; round++) {
+        const firstHalfRound = round;
+        const secondHalfRound = round + halfRounds;
+        const firstHalfFixtures = fixtures.filter(f => f.round === firstHalfRound);
+        const secondHalfFixtures = fixtures.filter(f => f.round === secondHalfRound);
+        
+        for (let i = 0; i < firstHalfFixtures.length && i < secondHalfFixtures.length; i++) {
+            const first = firstHalfFixtures[i];
+            const second = secondHalfFixtures[i];
+            if (first && second) {
+                second.home = first.away;
+                second.away = first.home;
+                second.homeScore = null;
+                second.awayScore = null;
+                second.played = false;
+                second.cancelled = false;
+                second.report = null;
+                second.events = [];
+            }
+        }
+    }
+}
+
+// Helper function to generate first half only
+function generateRandomRoundRobinFirstHalf(teamNames) {
+    let n = teamNames.length;
+    if (n % 2 !== 0) { teamNames.push("BYE"); n++; }
+    let shuffled = [...teamNames];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    const numRounds = n - 1;
+    const halfSize = n / 2;
+    let firstHalfRounds = [];
+    for (let round = 0; round < numRounds; round++) {
+        const roundFixtures = [];
+        for (let i = 0; i < halfSize; i++) {
+            const home = shuffled[i];
+            const away = shuffled[n - 1 - i];
+            if (home !== "BYE" && away !== "BYE") {
+                if (Math.random() < 0.5) roundFixtures.push({ home, away });
+                else roundFixtures.push({ home: away, away: home });
+            }
+        }
+        firstHalfRounds.push(roundFixtures);
+        const last = shuffled.pop();
+        shuffled.splice(1, 0, last);
+    }
+    // Shuffle round order for randomness
+    for (let i = firstHalfRounds.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [firstHalfRounds[i], firstHalfRounds[j]] = [firstHalfRounds[j], firstHalfRounds[i]];
+    }
+    return firstHalfRounds;
 }
 
 // ==================== STANDINGS & KNOCKOUT ====================
