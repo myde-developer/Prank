@@ -644,6 +644,16 @@ function confirmTeamSelection() {
     if (selected === '') { closeTeamSelectModal(); return; }
     const fixture = fixtures.find(f => f.id === pendingAssignFixtureId);
     const side = pendingAssignSide;
+    
+    const oldHome = fixture.home;
+    const oldAway = fixture.away;
+    const currentRound = fixture.round;
+    
+    // Calculate half rounds
+    const totalRounds = Math.max(...fixtures.map(f => f.round));
+    const halfRounds = totalRounds / 2;
+    const isFirstHalf = currentRound <= halfRounds;
+    
     if (selected === 'BYE_REMOVE') {
         if (side === 'home') fixture.home = 'BYE'; else fixture.away = 'BYE';
         fixture.homeScore = null; fixture.awayScore = null; fixture.played = false; fixture.comment = null; fixture.cancelled = false;
@@ -651,17 +661,68 @@ function confirmTeamSelection() {
         saveToStorage(); showToast(`Removed team, set to BYE`); renderFixtures(); renderTable(); generateTickerFacts(); closeTeamSelectModal();
         return;
     }
+    
     const newTeam = selected;
     const oldTeam = side === 'home' ? fixture.home : fixture.away;
     if (newTeam === oldTeam) { closeTeamSelectModal(); return; }
     if (teams[newTeam]?.relegated) { showToast(`Cannot assign a relegated team.`); closeTeamSelectModal(); return; }
-    const round = fixture.round;
-    const otherFixtures = fixtures.filter(f => f.round === round && f.id !== fixture.id);
-    if (otherFixtures.some(f => f.home === newTeam || f.away === newTeam)) { showToast(`Team "${newTeam}" already has a fixture in this round!`); closeTeamSelectModal(); return; }
+    
+    // Get the new matchup (home vs away after edit)
+    let newHome = fixture.home;
+    let newAway = fixture.away;
+    if (side === 'home') { newHome = newTeam; }
+    else { newAway = newTeam; }
+    
+    // Check for duplicate matchup in the SAME HALF ONLY (excluding current fixture)
+    const conflictingFixture = fixtures.find(f => {
+        if (f.id === pendingAssignFixtureId) return false;
+        // Only check within the same half (first half OR second half)
+        if (isFirstHalf && f.round > halfRounds) return false;
+        if (!isFirstHalf && f.round <= halfRounds) return false;
+        return (f.home === newHome && f.away === newAway) || (f.home === newAway && f.away === newHome);
+    });
+    
+    if (conflictingFixture) {
+        // Conflict found! Swap the conflicting fixture to play against the original opponent
+        showToast(`⚠️ Matchup ${newHome} vs ${newAway} already exists in Round ${conflictingFixture.round}! Auto-adjusting...`);
+        
+        // Determine which team to swap out in the conflicting fixture
+        let teamToReplace, replacementTeam;
+        if (conflictingFixture.home === newHome || conflictingFixture.home === newAway) {
+            teamToReplace = conflictingFixture.home;
+            replacementTeam = oldTeam;
+        } else {
+            teamToReplace = conflictingFixture.away;
+            replacementTeam = oldTeam;
+        }
+        
+        // Update the conflicting fixture
+        if (conflictingFixture.home === teamToReplace) {
+            conflictingFixture.home = replacementTeam;
+        } else {
+            conflictingFixture.away = replacementTeam;
+        }
+        
+        // Reset the conflicting fixture (clear any results)
+        conflictingFixture.homeScore = null;
+        conflictingFixture.awayScore = null;
+        conflictingFixture.played = false;
+        conflictingFixture.cancelled = false;
+        
+        showToast(`🔄 Adjusted conflicting fixture Round ${conflictingFixture.round}: ${conflictingFixture.home} vs ${conflictingFixture.away}`);
+    }
+    
+    // Apply the edit to current fixture
     if (side === 'home') { fixture.home = newTeam; delete fixture.vacantHome; }
     else { fixture.away = newTeam; delete fixture.vacantAway; }
     fixture.homeScore = null; fixture.awayScore = null; fixture.played = false; fixture.comment = null; fixture.cancelled = false;
-    saveToStorage(); showToast(`Assigned ${newTeam} to ${side} side.`); renderFixtures(); renderTable(); generateTickerFacts(); closeTeamSelectModal();
+    
+    saveToStorage();
+    showToast(`Assigned ${newTeam} to ${side} side.`);
+    renderFixtures();
+    renderTable();
+    generateTickerFacts();
+    closeTeamSelectModal();
 }
 
 // ==================== STANDINGS & KNOCKOUT ====================
