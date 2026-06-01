@@ -10,6 +10,22 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
+// LOCKED TO PREMIER LEAGUE ONLY
+const CURRENT_LEAGUE = 'premier';
+
+function getTournamentRef() {
+    return db.ref(`${CURRENT_LEAGUE}/tournament_data`);
+}
+function getChatRef() {
+    return db.ref(`${CURRENT_LEAGUE}/chat_messages`);
+}
+function getPollsRef() {
+    return db.ref(`${CURRENT_LEAGUE}/chat_polls`);
+}
+function getTypingRef() {
+    return db.ref(`${CURRENT_LEAGUE}/chat_typing`);
+}
+
 let teams = {}, fixtures = [], knockoutMatches = [], tournamentPhase = 'league';
 let currentSelectedRound = 1, isAdmin = false, tournamentPassword = "";
 let tickerInterval = null, currentTickerFactIndex = 0, tickerFacts = [];
@@ -19,8 +35,6 @@ let currentPredictionFixtureId = null, currentBanterFixtureId = null;
 let chatMessagesRef = null;
 let autoStartNextRound = false;
 let roundStartTimes = {};
-let premTeamInputs = [];
-let champTeamInputs = [];
 let roundPaused = {};
 let typingTimeout = null;
 let isTyping = false;
@@ -28,43 +42,15 @@ let unreadMessagesCount = 0;
 let lastReadTimestamp = localStorage.getItem('chatLastRead') ? parseInt(localStorage.getItem('chatLastRead')) : Date.now();
 let isChatModalOpen = false;
 let currentMentionText = '';
-let mentionTimeout = null;
 let pendingReplaceOldTeam = null;
-let isLoadingLeague = false; 
-
-let currentLeague = 'premier';   // 'premier' or 'championship'
-
-function getTournamentRef() {
-    // Always return the correct path based on currentLeague
-    const path = `${currentLeague}/tournament_data`;
-    console.log("Accessing Firebase path:", path);
-    return db.ref(path);
-}
-function getChatRef() {
-    return db.ref(`${currentLeague}/chat_messages`);
-}
-function getPollsRef() {
-    return db.ref(`${currentLeague}/chat_polls`);
-}
-function getTypingRef() {
-    return db.ref(`${currentLeague}/chat_typing`);
-}
-
-// ==================== ROLE SELECTION ====================
+let isLoadingLeague = false;
 let userRole = null;
 
+// ==================== ROLE SELECTION ====================
 function selectRole(role) {
     userRole = role;
     sessionStorage.setItem('tournamentRole', role);
     document.getElementById('role-selector').style.display = 'none';
-    
-    const savedLeague = sessionStorage.getItem('desiredLeague');
-    if (savedLeague && (savedLeague === 'premier' || savedLeague === 'championship')) {
-        currentLeague = savedLeague;
-        document.getElementById('league-selector').value = currentLeague;
-    } else {
-        currentLeague = 'premier';
-    }
     
     if (role === 'admin') {
         const entered = prompt("Enter admin master password:");
@@ -88,31 +74,19 @@ function selectRole(role) {
 }
 
 function checkAndLoadTournament() {
-    console.log("Loading tournament for league:", currentLeague);
-    console.log("Firebase path:", `${currentLeague}/tournament_data`);
-    
-    // Show loading state
     const tbody = document.getElementById('league-table-body');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="12" class="text-center py-8 text-gray-400">Loading ' + (currentLeague === 'premier' ? 'Premier League' : 'Championship') + '...</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="12" class="text-center py-8 text-gray-400">Loading Premier League...</td></tr>';
     const fixturesContainer = document.getElementById('fixtures-container');
     if (fixturesContainer) fixturesContainer.innerHTML = '<div class="skeleton h-24 w-full rounded-xl"></div>';
     
     getTournamentRef().once('value', (snapshot) => {
         const data = snapshot.val();
-        console.log("Data loaded for", currentLeague, data ? "found" : "not found");
-        
         if (data && data.teams && data.fixtures) {
-            console.log("Teams in", currentLeague, ":", Object.keys(data.teams));
-            console.log("Fixtures count:", data.fixtures.length);
-            
-            // Tournament exists – load it
             loadTournamentData(data);
-            
             if (userRole === 'viewer') {
                 document.getElementById('admin-toggle-container')?.classList.add('hidden');
                 document.getElementById('admin-reset-container')?.classList.add('hidden');
                 document.getElementById('floating-admin-menu')?.classList.add('hidden');
-                document.getElementById('auto-start-container')?.classList.add('hidden');
                 document.getElementById('th-admin-actions')?.classList.add('hidden');
                 document.getElementById('admin-table-hint')?.classList.add('hidden');
                 document.getElementById('relegation-zone')?.classList.add('hidden');
@@ -121,62 +95,26 @@ function checkAndLoadTournament() {
                 document.getElementById('admin-reset-container')?.classList.remove('hidden');
             }
         } else {
-            console.log("No tournament exists for", currentLeague, data);
-            // No tournament exists
             if (userRole === 'viewer') {
                 document.getElementById('dashboard-section')?.classList.add('hidden');
                 document.getElementById('setup-section')?.classList.add('hidden');
                 const roleSelector = document.getElementById('role-selector');
                 if (roleSelector) {
-                    roleSelector.innerHTML = `
-                        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center">
-                            <div class="mb-4">
-                                <div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                                    <span class="text-3xl">🏆</span>
-                                </div>
-                                <h2 class="text-2xl font-bold text-gray-800">No Tournament Yet</h2>
-                                <p class="text-gray-500 text-sm mt-1">An admin hasn't started a tournament in ${currentLeague === 'premier' ? 'Premier League' : 'Championship'}.</p>
-                            </div>
-                            <button onclick="selectRole('admin')" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition">
-                                🔑 Switch to Admin to Create
-                            </button>
-                        </div>
-                    `;
+                    roleSelector.innerHTML = `<div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center"><div class="mb-4"><div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3"><span class="text-3xl">🏆</span></div><h2 class="text-2xl font-bold text-gray-800">No Premier League Yet</h2><p class="text-gray-500 text-sm mt-1">An admin hasn't started the Premier League.</p></div><button onclick="selectRole('admin')" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition">🔑 Switch to Admin to Create</button></div>`;
                     roleSelector.style.display = 'flex';
                 }
             } else if (userRole === 'admin') {
-                const setupSection = document.getElementById('setup-section');
-                const dashboardSection = document.getElementById('dashboard-section');
-                const roleSelector = document.getElementById('role-selector');
-                if (setupSection) {
-                    setupSection.classList.remove('hidden');
-                }
-                if (dashboardSection) dashboardSection.classList.add('hidden');
-                if (roleSelector) roleSelector.remove();
+                document.getElementById('setup-section')?.classList.remove('hidden');
+                document.getElementById('dashboard-section')?.classList.add('hidden');
                 document.getElementById('admin-toggle-container')?.classList.add('hidden');
                 document.getElementById('floating-admin-menu')?.classList.add('hidden');
-                document.getElementById('league-table-body').innerHTML = '';
-                document.getElementById('fixtures-container').innerHTML = '';
-                showToast(`Setup mode – create ${currentLeague === 'premier' ? 'Premier League' : 'Championship'}`);
+                showToast("Setup mode – create Premier League");
             }
         }
-    }).catch(error => {
-        console.error("Error loading tournament:", error);
-        showToast("Error loading data. Check console.");
-    });
+    }).catch(error => { console.error(error); showToast("Error loading data"); });
 }
 
 function loadTournamentData(data) {
-    console.log("Loading tournament data for league:", currentLeague);
-    console.log("Teams in loaded data:", data.teams ? Object.keys(data.teams) : "NO TEAMS");
-    console.log("Fixtures:", data.fixtures ? data.fixtures.length : 0);
-    
-    if (!data.teams || Object.keys(data.teams).length === 0) {
-        console.error("No teams found in data for", currentLeague);
-        showToast(`Error: No teams found in ${currentLeague === 'premier' ? 'Premier League' : 'Championship'} data`);
-        return;
-    }
-    
     tournamentPassword = data.password || "090541";
     teams = data.teams;
     fixtures = data.fixtures || [];
@@ -185,8 +123,6 @@ function loadTournamentData(data) {
     roundStartTimes = data.roundStartTimes || {};
     roundPaused = data.roundPaused || {};
     autoStartNextRound = data.autoStartNextRound || false;
-    
-    console.log("Teams object loaded:", teams);
     
     updateTableCalculations();
     renderTable();
@@ -199,17 +135,9 @@ function loadTournamentData(data) {
     
     document.getElementById('setup-section')?.classList.add('hidden');
     document.getElementById('dashboard-section')?.classList.remove('hidden');
-    document.getElementById('deadline-clock')?.classList.remove('hidden');
-    
     initBackToTop();
     initChatListener();
-    
-    if (userRole === 'admin') {
-        updateAdminUIElements();
-    }
-    checkAndShowPromotionButton();
-    
-    console.log("Finished loading", currentLeague);
+    if (userRole === 'admin') updateAdminUIElements();
 }
 
 // ==================== HELPERS ====================
@@ -229,13 +157,10 @@ function getCurrentUserId() {
     return id;
 }
 
-// ==================== RANDOMIZED FIXTURE GENERATION ====================
+// ==================== FIXTURE GENERATION ====================
 function generateRandomRoundRobin(teamNames) {
     let n = teamNames.length;
-    if (n % 2 !== 0) {
-        teamNames.push("BYE");
-        n++;
-    }
+    if (n % 2 !== 0) { teamNames.push("BYE"); n++; }
     let shuffled = [...teamNames];
     for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -250,11 +175,8 @@ function generateRandomRoundRobin(teamNames) {
             const home = shuffled[i];
             const away = shuffled[n - 1 - i];
             if (home !== "BYE" && away !== "BYE") {
-                if (Math.random() < 0.5) {
-                    roundFixtures.push({ home, away });
-                } else {
-                    roundFixtures.push({ home: away, away: home });
-                }
+                if (Math.random() < 0.5) roundFixtures.push({ home, away });
+                else roundFixtures.push({ home: away, away: home });
             }
         }
         firstHalfRounds.push(roundFixtures);
@@ -266,23 +188,16 @@ function generateRandomRoundRobin(teamNames) {
         [firstHalfRounds[i], firstHalfRounds[j]] = [firstHalfRounds[j], firstHalfRounds[i]];
     }
     const secondHalfRounds = firstHalfRounds.map(roundFixtures => {
-        return roundFixtures.map(fixture => ({
-            home: fixture.away,
-            away: fixture.home
-        }));
+        return roundFixtures.map(fixture => ({ home: fixture.away, away: fixture.home }));
     });
-    const allRounds = [...firstHalfRounds, ...secondHalfRounds];
-    return allRounds;
+    return [...firstHalfRounds, ...secondHalfRounds];
 }
 
 // ==================== CHAT ====================
 function initChatListener() {
     chatMessagesRef = getChatRef();
     chatMessagesRef.off();
-    chatMessagesRef.on('child_added', (snapshot) => {
-        const msg = snapshot.val();
-        appendChatMessage(msg);
-    });
+    chatMessagesRef.on('child_added', (snapshot) => { appendChatMessage(snapshot.val()); });
     initTypingListener();
     initPollListener();
 }
@@ -303,10 +218,7 @@ function openChatModal() {
         unreadMessagesCount = 0;
         updateUnreadBadge();
         const pollBtn = document.getElementById('create-poll-btn');
-        if (pollBtn) {
-            if (isAdmin) pollBtn.classList.remove('hidden');
-            else pollBtn.classList.add('hidden');
-        }
+        if (pollBtn) { if (isAdmin) pollBtn.classList.remove('hidden'); else pollBtn.classList.add('hidden'); }
     }
 }
 
@@ -326,9 +238,7 @@ function updateUnreadBadge() {
         if (unreadMessagesCount > 0) {
             badge.classList.remove('hidden');
             badge.innerText = unreadMessagesCount > 99 ? '99+' : unreadMessagesCount;
-        } else {
-            badge.classList.add('hidden');
-        }
+        } else { badge.classList.add('hidden'); }
     }
 }
 
@@ -339,35 +249,23 @@ function sendTypingStatus() {
         getTypingRef().set({ user: userRole === 'admin' ? 'Admin' : (localStorage.getItem('chatNickname') || 'Fan'), timestamp: Date.now() });
     }
     clearTimeout(typingTimeout);
-    typingTimeout = setTimeout(() => {
-        isTyping = false;
-        getTypingRef().remove();
-    }, 1500);
+    typingTimeout = setTimeout(() => { isTyping = false; getTypingRef().remove(); }, 1500);
 }
 
 function initTypingListener() {
     getTypingRef().on('value', (snapshot) => {
         const data = snapshot.val();
         const typingDiv = document.getElementById('chat-typing-indicator');
-        if (data && data.user) {
-            typingDiv.innerText = `${data.user} is typing...`;
-            typingDiv.classList.remove('hidden');
-        } else {
-            typingDiv.classList.add('hidden');
-        }
+        if (data && data.user) { typingDiv.innerText = `${data.user} is typing...`; typingDiv.classList.remove('hidden'); }
+        else { typingDiv.classList.add('hidden'); }
     });
 }
 
 function appendChatMessage(msg) {
     const container = document.getElementById('chat-messages-container');
     if (!container) return;
-    if (container.children.length === 1 && container.children[0].innerText.includes('Loading')) {
-        container.innerHTML = '';
-    }
-    if (msg.isPoll && msg.pollId) {
-        renderPollMessage(msg.pollId);
-        return;
-    }
+    if (container.children.length === 1 && container.children[0].innerText.includes('Loading')) container.innerHTML = '';
+    if (msg.isPoll && msg.pollId) { renderPollMessage(msg.pollId); return; }
     const date = new Date(msg.timestamp).toLocaleString();
     const currentUserId = getCurrentUserId();
     const isCurrentUser = (msg.userId === currentUserId);
@@ -378,22 +276,10 @@ function appendChatMessage(msg) {
     const deleteBtn = canDelete ? `<button onclick="deleteChatMessage('${msg.messageId}', '${msg.userId}')" class="chat-delete-btn" title="Delete">🗑️</button>` : '';
     const messageDiv = document.createElement('div');
     messageDiv.className = `chat-message ${bubbleClass}`;
-    messageDiv.innerHTML = `
-        <div class="bubble">
-            ${deleteBtn}
-            <p>${formattedText}</p>
-            <div class="message-meta">
-                <span class="message-author">${escapeHtml(msg.nickname)}</span>
-                <span class="message-time">${date}</span>
-            </div>
-        </div>
-    `;
+    messageDiv.innerHTML = `<div class="bubble">${deleteBtn}<p>${formattedText}</p><div class="message-meta"><span class="message-author">${escapeHtml(msg.nickname)}</span><span class="message-time">${date}</span></div></div>`;
     container.appendChild(messageDiv);
     container.scrollTop = container.scrollHeight;
-    if (!isChatModalOpen && !isCurrentUser && msg.timestamp > lastReadTimestamp) {
-        unreadMessagesCount++;
-        updateUnreadBadge();
-    }
+    if (!isChatModalOpen && !isCurrentUser && msg.timestamp > lastReadTimestamp) { unreadMessagesCount++; updateUnreadBadge(); }
 }
 
 function sendChatMessage() {
@@ -404,34 +290,15 @@ function sendChatMessage() {
     if (text === "") return;
     localStorage.setItem('chatNickname', nickname);
     const userId = getCurrentUserId();
-    const message = {
-        nickname: nickname.slice(0,20),
-        text: text.slice(0,200),
-        timestamp: Date.now(),
-        userId: userId,
-        messageId: Date.now() + '_' + Math.random().toString(36).substr(2, 6)
-    };
-    if (chatMessagesRef) {
-        chatMessagesRef.push(message);
-        document.getElementById('chat-input').value = '';
-        hideMentionDropdown();
-    } else {
-        showToast("Chat not ready, try again");
-    }
+    const message = { nickname: nickname.slice(0,20), text: text.slice(0,200), timestamp: Date.now(), userId: userId, messageId: Date.now() + '_' + Math.random().toString(36).substr(2, 6) };
+    if (chatMessagesRef) { chatMessagesRef.push(message); document.getElementById('chat-input').value = ''; hideMentionDropdown(); }
+    else { showToast("Chat not ready"); }
 }
 
 function deleteChatMessage(messageId, messageUserId) {
     const currentUserId = getCurrentUserId();
-    if (!isAdmin && currentUserId !== messageUserId) {
-        showToast("You can only delete your own messages");
-        return;
-    }
-    chatMessagesRef.orderByChild('messageId').equalTo(messageId).once('value', snapshot => {
-        snapshot.forEach(child => {
-            child.ref.remove();
-            showToast("Message deleted");
-        });
-    });
+    if (!isAdmin && currentUserId !== messageUserId) { showToast("You can only delete your own messages"); return; }
+    chatMessagesRef.orderByChild('messageId').equalTo(messageId).once('value', snapshot => { snapshot.forEach(child => { child.ref.remove(); showToast("Message deleted"); }); });
 }
 
 function onChatInput() {
@@ -443,36 +310,24 @@ function onChatInput() {
     if (lastAtIndex !== -1 && (lastAtIndex === 0 || value[lastAtIndex-1] === ' ')) {
         currentMentionText = textBeforeCursor.slice(lastAtIndex + 1);
         showMentionSuggestions(currentMentionText);
-    } else {
-        hideMentionDropdown();
-    }
+    } else { hideMentionDropdown(); }
     sendTypingStatus();
 }
 
 function showMentionSuggestions(query) {
     const nicknames = new Set();
-    document.querySelectorAll('#chat-messages-container .message-author').forEach(el => {
-        nicknames.add(el.innerText);
-    });
+    document.querySelectorAll('#chat-messages-container .message-author').forEach(el => nicknames.add(el.innerText));
     nicknames.add(localStorage.getItem('chatNickname'));
     const filtered = Array.from(nicknames).filter(n => n && n.toLowerCase().includes(query.toLowerCase()));
     const dropdown = document.getElementById('mention-dropdown');
-    if (filtered.length === 0) {
-        dropdown.classList.add('hidden');
-        return;
-    }
+    if (filtered.length === 0) { dropdown.classList.add('hidden'); return; }
     dropdown.innerHTML = filtered.map(n => `<div class="mention-item px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm" data-name="${n}">@${n}</div>`).join('');
     dropdown.classList.remove('hidden');
     const input = document.getElementById('chat-input');
     const rect = input.getBoundingClientRect();
     dropdown.style.bottom = `${window.innerHeight - rect.top + 5}px`;
     dropdown.style.left = `${rect.left}px`;
-    document.querySelectorAll('.mention-item').forEach(item => {
-        item.onclick = () => {
-            const name = item.dataset.name;
-            insertMention(name);
-        };
-    });
+    document.querySelectorAll('.mention-item').forEach(item => { item.onclick = () => { insertMention(item.dataset.name); }; });
 }
 
 function insertMention(name) {
@@ -489,73 +344,28 @@ function insertMention(name) {
     hideMentionDropdown();
 }
 
-function hideMentionDropdown() {
-    document.getElementById('mention-dropdown').classList.add('hidden');
-}
+function hideMentionDropdown() { document.getElementById('mention-dropdown').classList.add('hidden'); }
 
 // ==================== POLLS ====================
-function initPollListener() {
-    getPollsRef().on('child_changed', (snapshot) => {
-        const poll = snapshot.val();
-        if (poll) updatePollUI(poll.id);
-    });
-}
-
-function openPollModal() {
-    if (!isAdmin) return;
-    document.getElementById('poll-modal').classList.remove('hidden');
-    document.getElementById('poll-modal').classList.add('flex');
-}
-
-function closePollModal() {
-    document.getElementById('poll-modal').classList.add('hidden');
-    document.getElementById('poll-modal').classList.remove('flex');
-}
-
-function addPollOption() {
-    const container = document.getElementById('poll-options-container');
-    const div = document.createElement('div');
-    div.className = 'flex gap-2 mb-2';
-    div.innerHTML = `<input type="text" placeholder="Option" class="poll-option flex-1 bg-gray-50 border rounded-lg p-2"><button onclick="removePollOption(this)" class="text-red-500">✖</button>`;
-    container.appendChild(div);
-}
-
-function removePollOption(btn) {
-    btn.parentElement.remove();
-}
-
+function initPollListener() { getPollsRef().on('child_changed', (snapshot) => { const poll = snapshot.val(); if (poll) updatePollUI(poll.id); }); }
+function openPollModal() { if (!isAdmin) return; document.getElementById('poll-modal').classList.remove('hidden'); document.getElementById('poll-modal').classList.add('flex'); }
+function closePollModal() { document.getElementById('poll-modal').classList.add('hidden'); document.getElementById('poll-modal').classList.remove('flex'); }
+function addPollOption() { const container = document.getElementById('poll-options-container'); const div = document.createElement('div'); div.className = 'flex gap-2 mb-2'; div.innerHTML = `<input type="text" placeholder="Option" class="poll-option flex-1 bg-gray-50 border rounded-lg p-2"><button onclick="removePollOption(this)" class="text-red-500">✖</button>`; container.appendChild(div); }
+function removePollOption(btn) { btn.parentElement.remove(); }
 function createPoll() {
     const question = document.getElementById('poll-question').value.trim();
     if (!question) { alert("Enter a question"); return; }
     const options = Array.from(document.querySelectorAll('.poll-option')).map(inp => inp.value.trim()).filter(v => v);
     if (options.length < 2) { alert("At least 2 options"); return; }
     const pollId = Date.now();
-    const poll = {
-        id: pollId,
-        question: question,
-        options: options.map(opt => ({ text: opt, votes: 0 })),
-        totalVotes: 0,
-        voters: {},
-        createdAt: Date.now()
-    };
+    const poll = { id: pollId, question: question, options: options.map(opt => ({ text: opt, votes: 0 })), totalVotes: 0, voters: {}, createdAt: Date.now() };
     getPollsRef().child(`${pollId}`).set(poll);
-    const msg = {
-        nickname: "System",
-        text: `📊 New poll: ${question}`,
-        timestamp: Date.now(),
-        userId: `poll_${pollId}`,
-        isPoll: true,
-        pollId: pollId
-    };
+    const msg = { nickname: "System", text: `📊 New poll: ${question}`, timestamp: Date.now(), userId: `poll_${pollId}`, isPoll: true, pollId: pollId };
     getChatRef().push(msg);
     closePollModal();
     document.getElementById('poll-question').value = '';
-    document.getElementById('poll-options-container').innerHTML = `
-        <div class="flex gap-2 mb-2"><input type="text" placeholder="Option 1" class="poll-option flex-1 bg-gray-50 border rounded-lg p-2"><button onclick="removePollOption(this)" class="text-red-500">✖</button></div>
-        <div class="flex gap-2 mb-2"><input type="text" placeholder="Option 2" class="poll-option flex-1 bg-gray-50 border rounded-lg p-2"><button onclick="removePollOption(this)" class="text-red-500">✖</button></div>
-    `;
+    document.getElementById('poll-options-container').innerHTML = `<div class="flex gap-2 mb-2"><input type="text" placeholder="Option 1" class="poll-option flex-1 bg-gray-50 border rounded-lg p-2"><button onclick="removePollOption(this)" class="text-red-500">✖</button></div><div class="flex gap-2 mb-2"><input type="text" placeholder="Option 2" class="poll-option flex-1 bg-gray-50 border rounded-lg p-2"><button onclick="removePollOption(this)" class="text-red-500">✖</button></div>`;
 }
-
 function votePoll(pollId, optionIndex) {
     const nickname = localStorage.getItem('chatNickname') || 'Fan';
     const pollRef = getPollsRef().child(`${pollId}`);
@@ -567,7 +377,6 @@ function votePoll(pollId, optionIndex) {
         showToast("Vote cast!");
     });
 }
-
 function renderPollMessage(pollId) {
     getPollsRef().child(`${pollId}`).once('value', (snapshot) => {
         const poll = snapshot.val();
@@ -577,17 +386,11 @@ function renderPollMessage(pollId) {
         pollDiv.className = 'poll-card bg-white rounded-lg p-3 shadow my-2 border relative';
         pollDiv.id = `poll-${poll.id}`;
         const deleteBtn = isAdmin ? `<button onclick="deletePoll('${poll.id}')" class="absolute top-2 right-2 text-red-500 hover:text-red-700 text-xs bg-white rounded-full p-1 shadow">🗑️</button>` : '';
-        pollDiv.innerHTML = `
-            ${deleteBtn}
-            <p class="font-bold">📊 ${escapeHtml(poll.question)}</p>
-            <div class="space-y-2 mt-2" id="poll-options-${poll.id}"></div>
-            <div class="text-xs text-gray-500 mt-2">${poll.totalVotes || 0} vote(s)</div>
-        `;
+        pollDiv.innerHTML = `${deleteBtn}<p class="font-bold">📊 ${escapeHtml(poll.question)}</p><div class="space-y-2 mt-2" id="poll-options-${poll.id}"></div><div class="text-xs text-gray-500 mt-2">${poll.totalVotes || 0} vote(s)</div>`;
         container.appendChild(pollDiv);
         updatePollUI(poll.id);
     });
 }
-
 function updatePollUI(pollId) {
     getPollsRef().child(`${pollId}`).once('value', (snapshot) => {
         const poll = snapshot.val();
@@ -598,43 +401,27 @@ function updatePollUI(pollId) {
         const total = poll.totalVotes || 1;
         poll.options.forEach((opt, idx) => {
             const percent = ((opt.votes || 0) / total) * 100;
-            optionsContainer.innerHTML += `
-                <div class="flex items-center justify-between gap-2 text-sm">
-                    <span class="flex-1">${escapeHtml(opt.text)}</span>
-                    <span class="w-16 text-right">${opt.votes || 0}</span>
-                    <div class="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div class="h-full bg-emerald-500 rounded-full" style="width: ${percent}%"></div>
-                    </div>
-                    <button onclick="votePoll(${pollId}, ${idx})" class="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full hover:bg-indigo-200">Vote</button>
-                </div>
-            `;
+            optionsContainer.innerHTML += `<div class="flex items-center justify-between gap-2 text-sm"><span class="flex-1">${escapeHtml(opt.text)}</span><span class="w-16 text-right">${opt.votes || 0}</span><div class="w-24 h-2 bg-gray-200 rounded-full overflow-hidden"><div class="h-full bg-emerald-500 rounded-full" style="width: ${percent}%"></div></div><button onclick="votePoll(${pollId}, ${idx})" class="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full hover:bg-indigo-200">Vote</button></div>`;
         });
         const totalSpan = optionsContainer.parentElement?.querySelector('.text-xs');
         if (totalSpan) totalSpan.innerText = `${poll.totalVotes || 0} vote(s)`;
     });
 }
-
 function deletePoll(pollId) {
     if (!isAdmin) return;
     if (confirm("Delete this poll permanently?")) {
         getPollsRef().child(`${pollId}`).remove();
-        getChatRef().orderByChild('pollId').equalTo(pollId).once('value', (snapshot) => {
-            snapshot.forEach(child => {
-                child.ref.remove();
-            });
-        });
+        getChatRef().orderByChild('pollId').equalTo(pollId).once('value', (snapshot) => { snapshot.forEach(child => { child.ref.remove(); }); });
         const pollCard = document.getElementById(`poll-${pollId}`);
         if (pollCard) pollCard.remove();
         showToast("Poll deleted");
     }
 }
 
-// ==================== DATABASE + LIVE ALERTS ====================
+// ==================== DATABASE SYNC ====================
 function initRealtimeDatabaseSync() {
     getTournamentRef().on('value', (snapshot) => {
-        // Prevent recursive loading
         if (isLoadingLeague) return;
-        
         if (snapshot.exists() && userRole) {
             isLoadingLeague = true;
             loadTournamentData(snapshot.val());
@@ -642,50 +429,25 @@ function initRealtimeDatabaseSync() {
         } else if (!snapshot.exists() && userRole === 'admin') {
             document.getElementById('setup-section')?.classList.remove('hidden');
             document.getElementById('dashboard-section')?.classList.add('hidden');
-            document.getElementById('deadline-clock')?.classList.add('hidden');
         } else if (!snapshot.exists() && userRole === 'viewer') {
             document.getElementById('dashboard-section')?.classList.add('hidden');
             document.getElementById('setup-section')?.classList.add('hidden');
-            const roleSelector = document.getElementById('role-selector');
-            if (roleSelector) {
-                roleSelector.innerHTML = `
-                    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center">
-                        <div class="mb-4">
-                            <div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                                <span class="text-3xl">🏆</span>
-                            </div>
-                            <h2 class="text-2xl font-bold text-gray-800">No Tournament Yet</h2>
-                            <p class="text-gray-500 text-sm mt-1">An admin hasn't started a tournament in ${currentLeague === 'premier' ? 'Premier League' : 'Championship'}.</p>
-                        </div>
-                        <button onclick="selectRole('admin')" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition">
-                            🔑 Switch to Admin to Create
-                        </button>
-                    </div>
-                `;
-            }
         }
     });
-    
     getTournamentRef().child('fixtures').on('child_changed', (snapshot) => {
         const updated = snapshot.val();
         if (updated && updated.played === true && updated.homeScore !== null) {
             showToast(`📢 Result: ${updated.home} ${updated.homeScore}-${updated.awayScore} ${updated.away}`);
         }
     });
-    
-    if (userRole) {
-        initChatListener();
-    }
+    if (userRole) initChatListener();
 }
 
 // ==================== BACK TO TOP ====================
 function initBackToTop() {
     const backBtn = document.getElementById('backToTop');
     if (!backBtn) return;
-    window.addEventListener('scroll', () => {
-        if (window.scrollY > 300) backBtn.classList.remove('hidden');
-        else backBtn.classList.add('hidden');
-    });
+    window.addEventListener('scroll', () => { if (window.scrollY > 300) backBtn.classList.remove('hidden'); else backBtn.classList.add('hidden'); });
     backBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
 }
 
@@ -703,7 +465,6 @@ function updateTickerFacts() {
         setTimeout(() => el.classList.remove('slide-in'), 500);
     }, 500);
 }
-
 function generateTickerFacts() {
     const activeTeams = Object.values(teams).filter(t => !t.relegated);
     const totalTeams = activeTeams.length;
@@ -717,7 +478,7 @@ function generateTickerFacts() {
         if (sortedGF.length) topScorer = sortedGF[0];
     }
     fixtures.forEach(f => { if (f.played && f.homeScore !== null && !teams[f.home]?.relegated && !teams[f.away]?.relegated) { const total = f.homeScore + f.awayScore; if (!biggestWin || total > biggestWin.total) biggestWin = { home: f.home, away: f.away, homeScore: f.homeScore, awayScore: f.awayScore, total }; } });
-    tickerFacts = [`🏆 DLS Vawulence Academy Hub`, `⚽ ${totalTeams} teams`, `📊 ${totalMatchesPlayed}/${totalMatches} played`, leader ? `👑 Leader: ${leader.name} (${leader.pts} pts)` : null, topScorer ? `🔥 Top scorer: ${topScorer.name} (${topScorer.gf} goals)` : null, biggestWin ? `🎯 Biggest win: ${biggestWin.home} ${biggestWin.homeScore}-${biggestWin.awayScore} ${biggestWin.away}` : null, `🔮 Predict matches & post banter!`].filter(f => f);
+    tickerFacts = [`🏆 DLS Vawulence Premier League`, `⚽ ${totalTeams} teams`, `📊 ${totalMatchesPlayed}/${totalMatches} played`, leader ? `👑 Leader: ${leader.name} (${leader.pts} pts)` : null, topScorer ? `🔥 Top scorer: ${topScorer.name} (${topScorer.gf} goals)` : null, biggestWin ? `🎯 Biggest win: ${biggestWin.home} ${biggestWin.homeScore}-${biggestWin.awayScore} ${biggestWin.away}` : null, `🔮 Predict matches & post banter!`].filter(f => f);
     if (tickerFacts.length) {
         const el = document.getElementById('news-ticker');
         if (el) el.innerHTML = `<span class="inline-flex items-center gap-2"><span class="w-2 h-2 bg-white rounded-full animate-pulse"></span> ${tickerFacts[0]}</span>`;
@@ -735,8 +496,6 @@ function activateAdminMode() { isAdmin = true; updateAdminUIElements(); showToas
 function deactivateAdminMode() { isAdmin = false; updateAdminUIElements(); showToast("Admin mode deactivated"); }
 function updateAdminUIElements() {
     const btn = document.getElementById('admin-btn'), dot = document.getElementById('admin-btn-dot'), statusText = document.getElementById('admin-status-text'), resetContainer = document.getElementById('admin-reset-container'), thActions = document.getElementById('th-admin-actions'), hint = document.getElementById('admin-table-hint'), relegationZone = document.getElementById('relegation-zone');
-    const autoStartContainer = document.getElementById('auto-start-container');
-    if (autoStartContainer) { if (isAdmin) autoStartContainer.classList.remove('hidden'); else autoStartContainer.classList.add('hidden'); }
     const floatMenu = document.getElementById('floating-admin-menu');
     if (isAdmin) {
         btn?.classList.replace('bg-gray-300', 'bg-indigo-600'); dot?.classList.replace('translate-x-0', 'translate-x-5');
@@ -754,22 +513,13 @@ function updateAdminUIElements() {
     }
     renderTable(); renderGameweekTabs(); renderFixtures();
 }
-function toggleAutoStart() {
-    if (!isAdmin) return;
-    autoStartNextRound = !autoStartNextRound;
-    const btn = document.getElementById('auto-start-toggle');
-    const dot = document.getElementById('auto-start-dot');
-    if (autoStartNextRound) { btn.classList.replace('bg-gray-300', 'bg-indigo-600'); dot.classList.replace('translate-x-0', 'translate-x-4'); showToast("Auto‑start enabled"); }
-    else { btn.classList.replace('bg-indigo-600', 'bg-gray-300'); dot.classList.replace('translate-x-4', 'translate-x-0'); showToast("Auto‑start disabled"); }
-    saveToStorage();
-}
 
 // ==================== PASSWORD CHANGE ====================
 function openChangePasswordModal() { if (!isAdmin) return; document.getElementById('new-password').value = ''; document.getElementById('confirm-password').value = ''; document.getElementById('password-match-error').classList.add('hidden'); document.getElementById('change-password-modal').classList.remove('hidden'); }
 function closeChangePasswordModal() { document.getElementById('change-password-modal').classList.add('hidden'); }
 function updateMasterPassword() { const newPass = document.getElementById('new-password').value.trim(), confirmPass = document.getElementById('confirm-password').value.trim(); if (!newPass) { showToast('Password cannot be empty'); return; } if (newPass !== confirmPass) { document.getElementById('password-match-error').classList.remove('hidden'); return; } tournamentPassword = newPass; saveToStorage(); showToast('Master password updated!'); closeChangePasswordModal(); }
 
-// ==================== ADVANCED PENALTY ====================
+// ==================== PENALTY ====================
 function openPenaltyModal(teamName) { if (!isAdmin) return; currentPenaltyTeam = teamName; const team = teams[teamName]; document.getElementById('penalty-team-name').innerText = teamName; document.getElementById('current-penalty').innerText = team.deductedPoints || 0; document.getElementById('penalty-modal').classList.remove('hidden'); }
 function closePenaltyModal() { document.getElementById('penalty-modal').classList.add('hidden'); currentPenaltyTeam = null; }
 function adjustPenalty(delta) { if (!currentPenaltyTeam) return; const team = teams[currentPenaltyTeam]; let newVal = (team.deductedPoints || 0) + delta; if (newVal < 0) newVal = 0; team.deductedPoints = newVal; document.getElementById('current-penalty').innerText = newVal; saveToStorage(); renderTable(); showToast(`${currentPenaltyTeam} penalty now ${newVal} pts`); }
@@ -785,7 +535,6 @@ function generateTeamInputs() {
     document.getElementById('step-1').classList.add('hidden');
     document.getElementById('step-2').classList.remove('hidden');
 }
-
 function initializeTournament() {
     const count = parseInt(document.getElementById('team-count').value);
     const pass = document.getElementById('tournament-password').value.trim();
@@ -810,291 +559,7 @@ function initializeTournament() {
     autoStartNextRound = false;
     currentSelectedRound = 1;
     saveToStorage();
-    showToast(`Tournament launched with ${count} teams!`);
-}
-
-async function createLeague(leagueId, teamNamesArray, password) {
-    console.log(`Creating ${leagueId} with ${teamNamesArray.length} teams:`, teamNamesArray);
-    
-    // Save original league to restore later
-    const originalLeague = currentLeague;
-    
-    // Set current league to the one we're creating
-    currentLeague = leagueId;
-    
-    let filteredTeams = teamNamesArray.filter(name => name !== "BYE" && name !== "");
-    
-    if (filteredTeams.length < 2) {
-        throw new Error(`${leagueId} needs at least 2 teams`);
-    }
-    
-    // Build teams object
-    const newTeams = {};
-    filteredTeams.forEach(name => {
-        newTeams[name] = {
-            name: name,
-            mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0,
-            deductedPoints: 0, formHistory: [], relegated: false
-        };
-    });
-    
-    // Generate double round-robin fixtures
-    const teamNames = Object.keys(newTeams);
-    const rounds = generateRandomRoundRobin([...teamNames]);
-    
-    let fixturesList = [];
-    let fixtureId = 0;
-    rounds.forEach((roundFixtures, roundIndex) => {
-        roundFixtures.forEach(({ home, away }) => {
-            if (home !== "BYE" && away !== "BYE") {
-                fixturesList.push({
-                    id: fixtureId++,
-                    round: roundIndex + 1,
-                    home: home,
-                    away: away,
-                    homeScore: null,
-                    awayScore: null,
-                    played: false,
-                    cancelled: false,
-                    comment: null,
-                    predictions: [],
-                    banter: [],
-                    events: [],
-                    report: null,
-                    deadline: null
-                });
-            }
-        });
-    });
-    
-    console.log(`${leagueId} generated ${fixturesList.length} fixtures across ${rounds.length} rounds`);
-    
-    // Save to Firebase under the league-specific path
-    await db.ref(`${leagueId}/tournament_data`).set({
-        teams: newTeams,
-        fixtures: fixturesList,
-        knockoutMatches: [],
-        tournamentPhase: 'league',
-        password: password,
-        roundStartTimes: {},
-        autoStartNextRound: false,
-        roundPaused: {}
-    });
-    
-    console.log(`${leagueId} saved to Firebase at path: ${leagueId}/tournament_data`);
-    
-    // Restore original league
-    currentLeague = originalLeague;
-}
-
-function generatePremierTeams() {
-    const count = parseInt(document.getElementById('prem-team-count').value);
-    if (isNaN(count) || count < 2) {
-        alert("Please enter a valid number of teams (at least 2)");
-        return;
-    }
-    const container = document.getElementById('prem-teams-container');
-    container.innerHTML = '<p class="text-xs font-semibold text-gray-600 mb-2">Enter team names:</p>';
-    premTeamInputs = [];
-    for (let i = 1; i <= count; i++) {
-        const inputId = `prem-team-${i}`;
-        container.innerHTML += `
-            <div class="flex items-center gap-2">
-                <span class="bg-indigo-100 text-indigo-700 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">${i}</span>
-                <input type="text" id="${inputId}" placeholder="Team name" class="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm">
-            </div>
-        `;
-        premTeamInputs.push(inputId);
-    }
-    showToast(`Premier League: Enter ${count} team names below`);
-}
-
-function generateChampionshipTeams() {
-    const count = parseInt(document.getElementById('champ-team-count').value);
-    if (isNaN(count) || count < 2) {
-        alert("Please enter a valid number of teams (at least 2)");
-        return;
-    }
-    const container = document.getElementById('champ-teams-container');
-    container.innerHTML = '<p class="text-xs font-semibold text-gray-600 mb-2">Enter team names:</p>';
-    champTeamInputs = [];
-    for (let i = 1; i <= count; i++) {
-        const inputId = `champ-team-${i}`;
-        container.innerHTML += `
-            <div class="flex items-center gap-2">
-                <span class="bg-emerald-100 text-emerald-700 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">${i}</span>
-                <input type="text" id="${inputId}" placeholder="Team name" class="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm">
-            </div>
-        `;
-        champTeamInputs.push(inputId);
-    }
-    showToast(`Championship: Enter ${count} team names below`);
-}
-
-async function createBothLeaguesNow() {
-    if (!isAdmin) {
-        showToast("Only admin can create leagues");
-        return;
-    }
-    
-    // Get Premier League teams
-    const premCount = parseInt(document.getElementById('prem-team-count').value);
-    if (isNaN(premCount) || premCount < 2) {
-        alert("Please set Premier League number of teams first and click 'Configure'");
-        return;
-    }
-    
-    let premTeamNames = [];
-    for (let i = 1; i <= premCount; i++) {
-        let name = document.getElementById(`prem-team-${i}`)?.value.trim();
-        if (!name) name = `Premier Team ${i}`;
-        premTeamNames.push(name);
-    }
-    
-    // Get Championship teams
-    const champCount = parseInt(document.getElementById('champ-team-count').value);
-    if (isNaN(champCount) || champCount < 2) {
-        alert("Please set Championship number of teams first and click 'Configure'");
-        return;
-    }
-    
-    let champTeamNames = [];
-    for (let i = 1; i <= champCount; i++) {
-        let name = document.getElementById(`champ-team-${i}`)?.value.trim();
-        if (!name) name = `Championship Team ${i}`;
-        champTeamNames.push(name);
-    }
-    
-    let password = document.getElementById('both-leagues-password').value.trim();
-    if (!password) password = "090541";
-    
-    // Verify teams are different
-    console.log("PREMIER TEAMS:", premTeamNames);
-    console.log("CHAMPIONSHIP TEAMS:", champTeamNames);
-    
-    const confirmMsg = `Create both leagues?\n\n🏆 PREMIER LEAGUE: ${premTeamNames.length} teams\n📈 CHAMPIONSHIP: ${champTeamNames.length} teams\n\n⚠️ Make sure these are DIFFERENT sets of teams!\n\nProceed?`;
-    if (!confirm(confirmMsg)) return;
-    
-    showToast("Creating Premier League... Please wait.");
-    
-    try {
-        // Create Premier League - DIRECT Firebase write, no currentLeague interference
-        const premierTeamsObj = {};
-        premTeamNames.forEach(name => {
-            premierTeamsObj[name] = {
-                name: name,
-                mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0,
-                deductedPoints: 0, formHistory: [], relegated: false
-            };
-        });
-        
-        const premierRounds = generateRandomRoundRobin([...premTeamNames]);
-        let premierFixtures = [];
-        let fixtureId = 0;
-        premierRounds.forEach((roundFixtures, roundIndex) => {
-            roundFixtures.forEach(({ home, away }) => {
-                if (home !== "BYE" && away !== "BYE") {
-                    premierFixtures.push({
-                        id: fixtureId++,
-                        round: roundIndex + 1,
-                        home: home,
-                        away: away,
-                        homeScore: null,
-                        awayScore: null,
-                        played: false,
-                        cancelled: false,
-                        comment: null,
-                        predictions: [],
-                        banter: [],
-                        events: [],
-                        report: null,
-                        deadline: null
-                    });
-                }
-            });
-        });
-        
-        // Direct write to Premier League path
-        await db.ref('premier/tournament_data').set({
-            teams: premierTeamsObj,
-            fixtures: premierFixtures,
-            knockoutMatches: [],
-            tournamentPhase: 'league',
-            password: password,
-            roundStartTimes: {},
-            autoStartNextRound: false,
-            roundPaused: {}
-        });
-        showToast("✅ Premier League created with " + premTeamNames.length + " teams");
-        
-        // Create Championship - COMPLETELY SEPARATE
-        const champTeamsObj = {};
-        champTeamNames.forEach(name => {
-            champTeamsObj[name] = {
-                name: name,
-                mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0,
-                deductedPoints: 0, formHistory: [], relegated: false
-            };
-        });
-        
-        const champRounds = generateRandomRoundRobin([...champTeamNames]);
-        let champFixtures = [];
-        fixtureId = 0;
-        champRounds.forEach((roundFixtures, roundIndex) => {
-            roundFixtures.forEach(({ home, away }) => {
-                if (home !== "BYE" && away !== "BYE") {
-                    champFixtures.push({
-                        id: fixtureId++,
-                        round: roundIndex + 1,
-                        home: home,
-                        away: away,
-                        homeScore: null,
-                        awayScore: null,
-                        played: false,
-                        cancelled: false,
-                        comment: null,
-                        predictions: [],
-                        banter: [],
-                        events: [],
-                        report: null,
-                        deadline: null
-                    });
-                }
-            });
-        });
-        
-        // Direct write to Championship path
-        await db.ref('championship/tournament_data').set({
-            teams: champTeamsObj,
-            fixtures: champFixtures,
-            knockoutMatches: [],
-            tournamentPhase: 'league',
-            password: password,
-            roundStartTimes: {},
-            autoStartNextRound: false,
-            roundPaused: {}
-        });
-        showToast("✅ Championship created with " + champTeamNames.length + " teams");
-        
-        showToast("🎉 Both leagues created successfully!");
-        
-        // Switch to Premier view without any interference
-        currentLeague = 'premier';
-        sessionStorage.setItem('desiredLeague', 'premier');
-        const selector = document.getElementById('league-selector');
-        if (selector) selector.value = 'premier';
-        
-        // Clear all global data before loading
-        teams = {};
-        fixtures = [];
-        knockoutMatches = [];
-        
-        checkAndLoadTournament();
-        
-    } catch (error) {
-        console.error("Creation error:", error);
-        showToast("Error creating leagues: " + error.message);
-    }
+    showToast(`Premier League launched with ${count} teams!`);
 }
 
 function openReplaceTeamModal(teamName) {
@@ -1105,13 +570,11 @@ function openReplaceTeamModal(teamName) {
     document.getElementById('replace-team-modal').classList.remove('hidden');
     document.getElementById('replace-team-modal').classList.add('flex');
 }
-
 function closeReplaceTeamModal() {
     document.getElementById('replace-team-modal').classList.add('hidden');
     document.getElementById('replace-team-modal').classList.remove('flex');
     pendingReplaceOldTeam = null;
 }
-
 function confirmReplaceTeam() {
     if (!pendingReplaceOldTeam) return;
     const newName = document.getElementById('replace-new-team-name').value.trim();
@@ -1123,20 +586,8 @@ function confirmReplaceTeam() {
     if (!oldTeamData) return;
     teams[newName] = { ...oldTeamData, name: newName };
     delete teams[oldName];
-    fixtures.forEach(f => {
-        if (f.home === oldName) f.home = newName;
-        if (f.away === oldName) f.away = newName;
-    });
-    knockoutMatches.forEach(k => {
-        if (k.home === oldName) k.home = newName;
-        if (k.away === oldName) k.away = newName;
-    });
-    db.ref('tournament_data/champion').once('value', (snapshot) => {
-        const champ = snapshot.val();
-        if (champ && champ.name === oldName) {
-            db.ref('tournament_data/champion').set({ name: newName, date: champ.date });
-        }
-    });
+    fixtures.forEach(f => { if (f.home === oldName) f.home = newName; if (f.away === oldName) f.away = newName; });
+    knockoutMatches.forEach(k => { if (k.home === oldName) k.home = newName; if (k.away === oldName) k.away = newName; });
     saveToStorage();
     updateTableCalculations();
     renderTable();
@@ -1163,39 +614,13 @@ function shuffleRound(roundNumber) {
     roundFixtures.forEach((f, idx) => { if (idx < newPairs.length) { f.home = newPairs[idx].home; f.away = newPairs[idx].away; f.homeScore = null; f.awayScore = null; f.played = false; f.comment = null; f.cancelled = false; } });
     saveToStorage(); showToast(`Round ${roundNumber} shuffled!`); renderGameweekTabs(); renderFixtures(); renderTable(); generateTickerFacts();
 }
-
 function swapFixture(fixtureId) {
     if (!isAdmin) return;
     const f = fixtures.find(f => f.id === fixtureId);
-    const oldHome = f.home;
-    const oldAway = f.away;
-    const currentRound = f.round;
-    
     [f.home, f.away] = [f.away, f.home];
     f.homeScore = null; f.awayScore = null; f.played = false; f.comment = null; f.cancelled = false;
-    saveToStorage();
-    showToast(`Swapped ${f.home} vs ${f.away}`);
-    renderFixtures();
-    renderTable();
-    generateTickerFacts();
-    
-    // Ask to sync with second half
-    const totalRounds = Math.max(...fixtures.map(f => f.round));
-    const halfRounds = totalRounds / 2;
-    const isFirstHalf = currentRound <= halfRounds;
-    
-    if (isFirstHalf && confirm(`This is a first-leg fixture. Swap the corresponding second-leg fixture (Round ${currentRound + halfRounds}) as well?`)) {
-        const correspondingFixture = findCorrespondingFixture(fixtureId, currentRound, oldHome, oldAway);
-        if (correspondingFixture && !correspondingFixture.played) {
-            [correspondingFixture.home, correspondingFixture.away] = [correspondingFixture.away, correspondingFixture.home];
-            saveToStorage();
-            renderFixtures();
-            renderTable();
-            showToast(`✅ Second-leg fixture also swapped: ${correspondingFixture.home} vs ${correspondingFixture.away}`);
-        }
-    }
+    saveToStorage(); showToast(`Swapped ${f.home} vs ${f.away}`); renderFixtures(); renderTable(); generateTickerFacts();
 }
-
 function editFixtureTeamName(fixtureId, side) {
     if (!isAdmin) return;
     const fixture = fixtures.find(f => f.id === fixtureId);
@@ -1203,130 +628,40 @@ function editFixtureTeamName(fixtureId, side) {
     dropdown.innerHTML = '<option value="">— Cancel / No change —</option>';
     const otherSide = side === 'home' ? fixture.away : fixture.home;
     const teamNames = Object.values(teams).filter(t => !t.relegated).map(t => t.name).sort();
-    teamNames.forEach(name => {
-        if (name !== otherSide) {
-            const opt = document.createElement('option');
-            opt.value = name;
-            opt.textContent = name;
-            dropdown.appendChild(opt);
-        }
-    });
+    teamNames.forEach(name => { if (name !== otherSide) { const opt = document.createElement('option'); opt.value = name; opt.textContent = name; dropdown.appendChild(opt); } });
     const byeOpt = document.createElement('option');
     byeOpt.value = 'BYE_REMOVE';
     byeOpt.textContent = '— Remove team (set to BYE) —';
     dropdown.appendChild(byeOpt);
-    
-    // Store extra data for sync
-    window._editingFixtureData = {
-        fixtureId: fixtureId,
-        side: side,
-        round: fixture.round,
-        oldHome: fixture.home,
-        oldAway: fixture.away
-    };
-    
     pendingAssignFixtureId = fixtureId;
     pendingAssignSide = side;
     document.getElementById('team-select-modal').classList.remove('hidden');
 }
-
 function closeTeamSelectModal() { document.getElementById('team-select-modal').classList.add('hidden'); pendingAssignFixtureId = null; pendingAssignSide = null; }
-
-async function confirmTeamSelection() {
+function confirmTeamSelection() {
     if (pendingAssignFixtureId === null) return;
     const selected = document.getElementById('team-select-dropdown').value;
     if (selected === '') { closeTeamSelectModal(); return; }
     const fixture = fixtures.find(f => f.id === pendingAssignFixtureId);
     const side = pendingAssignSide;
-    
-    const oldHome = fixture.home;
-    const oldAway = fixture.away;
-    const currentRound = fixture.round;
-    const totalRounds = Math.max(...fixtures.map(f => f.round));
-    const halfRounds = totalRounds / 2;
-    const isFirstHalf = currentRound <= halfRounds;
-    
     if (selected === 'BYE_REMOVE') {
         if (side === 'home') fixture.home = 'BYE'; else fixture.away = 'BYE';
         fixture.homeScore = null; fixture.awayScore = null; fixture.played = false; fixture.comment = null; fixture.cancelled = false;
         delete fixture.vacantHome; delete fixture.vacantAway;
         saveToStorage(); showToast(`Removed team, set to BYE`); renderFixtures(); renderTable(); generateTickerFacts(); closeTeamSelectModal();
-        
-        if (isFirstHalf && confirm("This fixture has a corresponding second-leg match. Update that match as well?")) {
-            syncWithSecondHalf(pendingAssignFixtureId, currentRound, oldHome, oldAway, fixture.home, fixture.away);
-            saveToStorage();
-            renderFixtures();
-            renderTable();
-        }
         return;
     }
-    
     const newTeam = selected;
     const oldTeam = side === 'home' ? fixture.home : fixture.away;
     if (newTeam === oldTeam) { closeTeamSelectModal(); return; }
     if (teams[newTeam]?.relegated) { showToast(`Cannot assign a relegated team.`); closeTeamSelectModal(); return; }
-    
-    // Get the new matchup (home vs away after edit)
-    let newHome = fixture.home;
-    let newAway = fixture.away;
-    if (side === 'home') { newHome = newTeam; }
-    else { newAway = newTeam; }
-    
-    // Check for duplicate matchup in the same half (excluding current fixture)
-    const conflictingFixture = fixtures.find(f => {
-        if (f.id === pendingAssignFixtureId) return false;
-        if (isFirstHalf && f.round > halfRounds) return false; // Only check same half
-        if (!isFirstHalf && f.round <= halfRounds) return false;
-        return (f.home === newHome && f.away === newAway) || (f.home === newAway && f.away === newHome);
-    });
-    
-    if (conflictingFixture) {
-        // Conflict found! Swap the conflicting fixture to play against the original opponent
-        showToast(`⚠️ Matchup ${newHome} vs ${newAway} already exists in ${conflictingFixture.round <= halfRounds ? 'first' : 'second'} half! Auto-adjusting...`);
-        
-        // Determine which team to swap out in the conflicting fixture
-        let teamToReplace, replacementTeam;
-        if (conflictingFixture.home === newHome || conflictingFixture.home === newAway) {
-            teamToReplace = conflictingFixture.home;
-            replacementTeam = oldTeam;
-        } else {
-            teamToReplace = conflictingFixture.away;
-            replacementTeam = oldTeam;
-        }
-        
-        // Update the conflicting fixture
-        if (conflictingFixture.home === teamToReplace) {
-            conflictingFixture.home = replacementTeam;
-        } else {
-            conflictingFixture.away = replacementTeam;
-        }
-        
-        showToast(`🔄 Adjusted conflicting fixture: ${conflictingFixture.home} vs ${conflictingFixture.away}`);
-    }
-    
-    // Apply the edit
+    const round = fixture.round;
+    const otherFixtures = fixtures.filter(f => f.round === round && f.id !== fixture.id);
+    if (otherFixtures.some(f => f.home === newTeam || f.away === newTeam)) { showToast(`Team "${newTeam}" already has a fixture in this round!`); closeTeamSelectModal(); return; }
     if (side === 'home') { fixture.home = newTeam; delete fixture.vacantHome; }
     else { fixture.away = newTeam; delete fixture.vacantAway; }
     fixture.homeScore = null; fixture.awayScore = null; fixture.played = false; fixture.comment = null; fixture.cancelled = false;
-    
-    saveToStorage();
-    showToast(`Assigned ${newTeam} to ${side} side.`);
-    renderFixtures();
-    renderTable();
-    generateTickerFacts();
-    
-    // Ask to sync with second half
-    if (isFirstHalf && confirm(`This is a first-leg fixture. Update the corresponding second-leg fixture (Round ${currentRound + halfRounds}) with home/away swapped?`)) {
-        const newHomeFinal = side === 'home' ? newTeam : fixture.home;
-        const newAwayFinal = side === 'away' ? newTeam : fixture.away;
-        await syncWithSecondHalf(pendingAssignFixtureId, currentRound, oldHome, oldAway, newHomeFinal, newAwayFinal);
-        saveToStorage();
-        renderFixtures();
-        renderTable();
-        showToast(`✅ Second-leg fixture updated!`);
-    }
-    
-    closeTeamSelectModal();
+    saveToStorage(); showToast(`Assigned ${newTeam} to ${side} side.`); renderFixtures(); renderTable(); generateTickerFacts(); closeTeamSelectModal();
 }
 
 // ==================== STANDINGS & KNOCKOUT ====================
@@ -1350,13 +685,11 @@ function updateTableCalculations() {
         startKnockoutStage(activeTeams);
     }
 }
-
 function startKnockoutStage(activeTeams) {
     const sorted = [...activeTeams].sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
     const now = Date.now();
     generateSemiFinalLegs(sorted[0].name, sorted[3].name, sorted[1].name, sorted[2].name, now);
 }
-
 function generateSemiFinalLegs(team1, team4, team2, team3, baseTime) {
     const leg1Deadline = baseTime + 2 * 24 * 60 * 60 * 1000;
     const leg2Deadline = baseTime + 4 * 24 * 60 * 60 * 1000;
@@ -1373,7 +706,6 @@ function generateSemiFinalLegs(team1, team4, team2, team3, baseTime) {
     renderKnockoutBracket();
     showToast("🏆 Only 4 teams left! Two‑leg semi‑finals begin.");
 }
-
 function checkSemiFinalsCompletion() {
     const semis = knockoutMatches.filter(k => k.round === 'semi_leg1' || k.round === 'semi_leg2');
     if (semis.length !== 4) return;
@@ -1394,9 +726,8 @@ function checkSemiFinalsCompletion() {
         else { winners.push(leg1.home); showToast(`Semi‑final tied aggregate. ${leg1.home} advances on random draw.`); }
     }
     if (winners.length === 2 && winners[0] && winners[1]) generateFinalLegs(winners[0], winners[1]);
-    else showToast("Semi‑finals incomplete or cancelled. Cannot generate final.");
+    else showToast("Semi‑finals incomplete or cancelled.");
 }
-
 function generateFinalLegs(teamA, teamB) {
     const now = Date.now();
     const leg1Deadline = now + 2 * 24 * 60 * 60 * 1000;
@@ -1412,7 +743,6 @@ function generateFinalLegs(teamA, teamB) {
     renderKnockoutBracket();
     showToast("🏆 Final set! Two legs to decide the champion.");
 }
-
 function checkFinalCompletion() {
     const legs = knockoutMatches.filter(k => k.round === 'final_leg1' || k.round === 'final_leg2');
     if (legs.length !== 2) return;
@@ -1420,7 +750,7 @@ function checkFinalCompletion() {
     const leg1 = legs.find(l => l.leg === 1);
     const leg2 = legs.find(l => l.leg === 2);
     if (!leg1 || !leg2) return;
-    if (leg1.cancelled || leg2.cancelled) { showToast("Final legs cancelled. No champion crowned."); return; }
+    if (leg1.cancelled || leg2.cancelled) { showToast("Final legs cancelled."); return; }
     const aggHome = (leg1.homeScore || 0) + (leg2.awayScore || 0);
     const aggAway = (leg1.awayScore || 0) + (leg2.homeScore || 0);
     let champion = null;
@@ -1431,7 +761,6 @@ function checkFinalCompletion() {
     if (typeof confetti === 'function') confetti({ particleCount: 300, spread: 100, origin: { y: 0.6 } });
     showToast(`🏆 ${champion} are the ultimate champions! 🏆`);
 }
-
 function checkAndCelebrateChampion() {}
 
 // ==================== RENDER KNOCKOUT BRACKET ====================
@@ -1467,7 +796,6 @@ function renderKnockoutBracket() {
         container.appendChild(finalDiv);
     }
 }
-
 function renderKnockoutMatchCard(m) {
     const played = m.played;
     const cancelled = m.cancelled;
@@ -1503,9 +831,8 @@ function saveKnockoutResult(matchId) {
     renderKnockoutBracket();
     if (match.round === 'semi_leg1' || match.round === 'semi_leg2') checkSemiFinalsCompletion();
     if (match.round === 'final_leg1' || match.round === 'final_leg2') checkFinalCompletion();
-    if (typeof confetti === 'function') confetti({ particleCount: 60, spread: 45, origin: { y: 0.7 }, startVelocity: 12, colors: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'] });
+    if (typeof confetti === 'function') confetti({ particleCount: 60, spread: 45, origin: { y: 0.7 }, startVelocity: 12 });
 }
-
 function showMatchCommentForKnockout(matchId) {
     const match = knockoutMatches.find(m => m.id === matchId);
     if (!match || !match.played) return;
@@ -1521,7 +848,6 @@ function showMatchCommentForKnockout(matchId) {
     } else eventsContainer.classList.add('hidden');
     document.getElementById('comment-viewer-modal').classList.remove('hidden');
 }
-
 function editKnockoutResult(matchId) {
     if (!isAdmin) return;
     const match = knockoutMatches.find(m => m.id === matchId);
@@ -1552,7 +878,7 @@ function renderTable() {
     <button onclick="event.stopPropagation(); relegateTeam('${team.name}')" class="text-[9px] bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded-full hover:bg-orange-100">⬇️ Relegate</button>
     <button onclick="event.stopPropagation(); openReplaceTeamModal('${team.name}')" class="text-[9px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full hover:bg-blue-100">🔄 Replace</button>
 </td>` : "";
-        tbody.innerHTML += `<tr class="hover:bg-gray-50 transition ${pos === 1 ? 'champions-row' : (pos > sorted.length - 2 ? 'relegation-row' : '')}" onclick="showTeamDetails('${team.name}')"><td class="py-2 px-2 text-center font-bold text-xs ${pos === 1 ? 'text-indigo-600' : ''}">${pos}</td><td class="py-2 px-2"><span class="font-semibold text-xs">${team.name}</span>${penaltyBadge}</td><td class="py-2 px-1 text-center text-xs">${team.mp}</td><td class="py-2 px-1 text-center text-emerald-600 text-xs">${team.w}</td><td class="py-2 px-1 text-center text-xs">${team.d}</td><td class="py-2 px-1 text-center text-rose-500 text-xs">${team.l}</td><td class="py-2 px-1 text-center text-xs">${team.gf}</td><td class="py-2 px-1 text-center text-xs">${team.ga}</td><td class="py-2 px-1 text-center font-mono text-xs ${team.gd >= 0 ? 'text-emerald-600' : 'text-rose-500'}">${team.gd > 0 ? '+' + team.gd : team.gd}</td><td class="py-2 px-2 text-center font-black text-indigo-600 text-xs">${team.pts}</td><td class="py-2 px-2 text-center">${formHtml}<td>${actionBtn}</tr>`;
+        tbody.innerHTML += `<tr class="hover:bg-gray-50 transition ${pos === 1 ? 'champions-row' : (pos > sorted.length - 2 ? 'relegation-row' : '')}" onclick="showTeamDetails('${team.name}')"><td class="py-2 px-2 text-center font-bold text-xs ${pos === 1 ? 'text-indigo-600' : ''}">${pos}</td><td class="py-2 px-2"><span class="font-semibold text-xs">${team.name}</span>${penaltyBadge}</td><td class="py-2 px-1 text-center text-xs">${team.mp}</td><td class="py-2 px-1 text-center text-emerald-600 text-xs">${team.w}</td><td class="py-2 px-1 text-center text-xs">${team.d}</td><td class="py-2 px-1 text-center text-rose-500 text-xs">${team.l}</td><td class="py-2 px-1 text-center text-xs">${team.gf}</td><td class="py-2 px-1 text-center text-xs">${team.ga}</td><td class="py-2 px-1 text-center font-mono text-xs ${team.gd >= 0 ? 'text-emerald-600' : 'text-rose-500'}">${team.gd > 0 ? '+' + team.gd : team.gd}</td><td class="py-2 px-2 text-center font-black text-indigo-600 text-xs">${team.pts}</td><td class="py-2 px-2 text-center">${formHtml}</td>${actionBtn}</tr>`;
     });
     const phaseIndicator = document.getElementById('phase-indicator');
     if (phaseIndicator) phaseIndicator.innerText = tournamentPhase === 'league' ? '🏆 League Phase' : '🥇 Knockout Stage';
@@ -1568,14 +894,7 @@ function renderGameweekTabs() {
     for (let r = 1; r <= total; r++) {
         const roundFixtures = fixtures.filter(f => f.round === r && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
         const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
-        let statusHtml = '';
-
-        if (allResolved) {
-            statusHtml = `<span class="text-[9px] font-mono text-green-600 ml-1">✅ Completed</span>`;
-        } else {
-            statusHtml = `<span class="text-[9px] font-mono text-gray-400 ml-1">⏸ Not started</span>`;
-        }
-
+        let statusHtml = allResolved ? `<span class="text-[9px] font-mono text-green-600 ml-1">✅ Completed</span>` : `<span class="text-[9px] font-mono text-gray-400 ml-1">⏸ Not started</span>`;
         const active = r === currentSelectedRound;
         const btn = document.createElement('button');
         btn.className = `px-3 py-1 text-[11px] font-mono rounded-full transition shrink-0 flex items-center gap-1 ${active ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
@@ -1603,16 +922,13 @@ function renderFixtures() {
     }
     if (scheduleSection) scheduleSection.classList.remove('hidden');
     container.innerHTML = "";
-
     fixtures.filter(f => f.round === currentSelectedRound && !teams[f.home]?.relegated && !teams[f.away]?.relegated).forEach(f => {
         const played = f.played;
         const cancelled = f.cancelled;
-
         if (cancelled) {
             container.innerHTML += `<div class="bg-gray-100 p-3 rounded-xl border border-red-200"><div class="flex justify-between items-center"><span class="line-through">${f.home}</span><span class="text-red-500 text-xs">CANCELLED</span><span class="line-through">${f.away}</span></div></div>`;
             return;
         }
-
         if (isAdmin) {
             let homeDisplay = f.home === "VACANT" ? `<span class="font-semibold text-sm text-red-500 cursor-pointer" onclick="editFixtureTeamName(${f.id}, 'home')">[VACANT]</span>` : `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'home')">${f.home}</span>`;
             let awayDisplay = f.away === "VACANT" ? `<span class="font-semibold text-sm text-red-500 cursor-pointer" onclick="editFixtureTeamName(${f.id}, 'away')">[VACANT]</span>` : `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'away')">${f.away}</span>`;
@@ -1624,67 +940,6 @@ function renderFixtures() {
             container.innerHTML += `<div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div class="flex-1 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${homeName}</div><div class="flex justify-center">${predictionBtn}</div><div class="flex-1 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${awayName}</div></div><div class="mt-2 flex justify-center gap-1"><button onclick="showMatchComment(${f.id})" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full">📖</button><button onclick="openBanterModal(${f.id})" class="text-[11px] bg-purple-50 hover:bg-purple-100 px-3 py-1 rounded-full">🤣 Banter</button></div></div>`;
         }
     });
-}
-
-// ==================== DOUBLE ROUND-ROBIN SYNC ====================
-function findCorrespondingFixture(fixtureId, currentRound, homeTeam, awayTeam) {
-    const totalRounds = Math.max(...fixtures.map(f => f.round));
-    const halfRounds = totalRounds / 2;
-    
-    // Determine if this is first half or second half
-    let correspondingRound;
-    let shouldSwap = false;
-    
-    if (currentRound <= halfRounds) {
-        // First half -> find second half match (same teams, home/away swapped)
-        correspondingRound = currentRound + halfRounds;
-        shouldSwap = true;
-    } else {
-        // Second half -> find first half match (same teams, home/away swapped)
-        correspondingRound = currentRound - halfRounds;
-        shouldSwap = true;
-    }
-    
-    // Find the fixture in the corresponding round
-    const correspondingFixture = fixtures.find(f => {
-        if (f.round !== correspondingRound) return false;
-        
-        if (shouldSwap) {
-            // Home/away should be swapped
-            return (f.home === awayTeam && f.away === homeTeam);
-        } else {
-            return (f.home === homeTeam && f.away === awayTeam);
-        }
-    });
-    
-    return correspondingFixture;
-}
-
-async function syncWithSecondHalf(fixtureId, currentRound, homeTeam, awayTeam, newHomeTeam, newAwayTeam, swapOnly = false) {
-    const correspondingFixture = findCorrespondingFixture(fixtureId, currentRound, homeTeam, awayTeam);
-    
-    if (!correspondingFixture) {
-        console.log("No corresponding fixture found");
-        return false;
-    }
-    
-    if (swapOnly) {
-        // For swap operation: swap the corresponding fixture too
-        [correspondingFixture.home, correspondingFixture.away] = [correspondingFixture.away, correspondingFixture.home];
-        showToast(`🔄 Also swapped corresponding second-leg fixture: ${correspondingFixture.home} vs ${correspondingFixture.away}`);
-    } else {
-        // For team name changes: update with home/away swapped
-        const originalHome = correspondingFixture.home;
-        const originalAway = correspondingFixture.away;
-        
-        // Update with new team names (swapped because second half is reversed)
-        correspondingFixture.home = newAwayTeam;
-        correspondingFixture.away = newHomeTeam;
-        
-        showToast(`🔄 Also updated corresponding ${correspondingFixture.round === currentRound + (currentRound <= fixtures.length/2 ? fixtures.length/2 : -fixtures.length/2)}-leg fixture: ${correspondingFixture.home} vs ${correspondingFixture.away}`);
-    }
-    
-    return true;
 }
 
 // ==================== TEAM DETAILS ====================
@@ -1736,10 +991,9 @@ function showTeamDetails(teamName) {
     document.getElementById('modal-summary').innerText = summary;
     document.getElementById('team-modal').classList.remove('hidden');
 }
-
 function closeTeamModal() { document.getElementById('team-modal').classList.add('hidden'); }
 
-// ==================== RICH REPORT FROM EVENTS ====================
+// ==================== RICH REPORT ====================
 function generateRichReportFromEvents(home, away, homeScore, awayScore, events) {
     const goalEvents = events.filter(e => e.type === 'goal');
     let report = '';
@@ -1784,66 +1038,19 @@ function saveResult(fixtureId) {
     pendingAwayScore = parseInt(awayScore);
     openGoalEditor();
 }
-
 function openGoalEditor() {
     const fixture = fixtures.find(f => f.id === pendingFixtureId);
     const totalGoals = pendingHomeScore + pendingAwayScore;
-    let modalHtml = `
-        <div id="goal-editor-modal" class="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                <div class="p-5 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white">
-                    <h3 class="font-bold text-lg">⚽ Enter Goal Details</h3>
-                    <button onclick="closeGoalEditor()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
-                </div>
-                <div class="p-5 space-y-4">
-                    <p class="text-sm text-gray-600">Match: ${fixture.home} vs ${fixture.away}</p>
-                    <p class="text-sm font-semibold">Score: ${pendingHomeScore} - ${pendingAwayScore}</p>
-                    <div id="goals-list-container" class="space-y-3">
-    `;
+    let modalHtml = `<div id="goal-editor-modal" class="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4"><div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"><div class="p-5 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white"><h3 class="font-bold text-lg">⚽ Enter Goal Details</h3><button onclick="closeGoalEditor()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button></div><div class="p-5 space-y-4"><p class="text-sm text-gray-600">Match: ${fixture.home} vs ${fixture.away}</p><p class="text-sm font-semibold">Score: ${pendingHomeScore} - ${pendingAwayScore}</p><div id="goals-list-container" class="space-y-3">`;
     for (let i = 0; i < totalGoals; i++) {
-        modalHtml += `
-            <div class="goal-entry border rounded-xl p-3 bg-gray-50" data-goal-index="${i}">
-                <div class="font-medium mb-2">Goal #${i+1}</div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <select class="goal-team border rounded-lg px-3 py-2 text-sm bg-white">
-                        <option value="${fixture.home}">${fixture.home}</option>
-                        <option value="${fixture.away}">${fixture.away}</option>
-                    </select>
-                    <input type="text" class="goal-scorer border rounded-lg px-3 py-2 text-sm" placeholder="Scorer name">
-                    <input type="text" class="goal-assist border rounded-lg px-3 py-2 text-sm" placeholder="Assist (optional)">
-                    <input type="number" class="goal-minute border rounded-lg px-3 py-2 text-sm" placeholder="Minute" min="1" max="120">
-                    <select class="goal-type border rounded-lg px-3 py-2 text-sm bg-white">
-                        <option value="Open play">⚽ Open play</option>
-                        <option value="Penalty">🎯 Penalty</option>
-                        <option value="Free kick">🦵 Free kick</option>
-                        <option value="Header">👑 Header</option>
-                        <option value="Own goal">😵 Own goal</option>
-                    </select>
-                </div>
-            </div>
-        `;
+        modalHtml += `<div class="goal-entry border rounded-xl p-3 bg-gray-50" data-goal-index="${i}"><div class="font-medium mb-2">Goal #${i+1}</div><div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><select class="goal-team border rounded-lg px-3 py-2 text-sm bg-white"><option value="${fixture.home}">${fixture.home}</option><option value="${fixture.away}">${fixture.away}</option></select><input type="text" class="goal-scorer border rounded-lg px-3 py-2 text-sm" placeholder="Scorer name"><input type="text" class="goal-assist border rounded-lg px-3 py-2 text-sm" placeholder="Assist (optional)"><input type="number" class="goal-minute border rounded-lg px-3 py-2 text-sm" placeholder="Minute" min="1" max="120"><select class="goal-type border rounded-lg px-3 py-2 text-sm bg-white"><option value="Open play">⚽ Open play</option><option value="Penalty">🎯 Penalty</option><option value="Free kick">🦵 Free kick</option><option value="Header">👑 Header</option><option value="Own goal">😵 Own goal</option></select></div></div>`;
     }
-    modalHtml += `
-                    </div>
-                    <div class="flex justify-end gap-3 pt-4">
-                        <button onclick="closeGoalEditor()" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100">Cancel</button>
-                        <button onclick="saveGoalsAndFinish()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500">Save Match & Report</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
+    modalHtml += `</div><div class="flex justify-end gap-3 pt-4"><button onclick="closeGoalEditor()" class="px-4 py-2 border rounded-lg">Cancel</button><button onclick="saveGoalsAndFinish()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg">Save Match & Report</button></div></div></div></div>`;
     const existingModal = document.getElementById('goal-editor-modal');
     if (existingModal) existingModal.remove();
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
-
-function closeGoalEditor() {
-    const modal = document.getElementById('goal-editor-modal');
-    if (modal) modal.remove();
-    pendingFixtureId = null;
-}
-
+function closeGoalEditor() { const modal = document.getElementById('goal-editor-modal'); if (modal) modal.remove(); pendingFixtureId = null; }
 function saveGoalsAndFinish() {
     const fixture = fixtures.find(f => f.id === pendingFixtureId);
     if (!fixture) return;
@@ -1857,7 +1064,7 @@ function saveGoalsAndFinish() {
         const minute = parseInt(entry.querySelector('.goal-minute').value);
         const type = entry.querySelector('.goal-type').value;
         if (!scorer) { alert(`Please enter scorer name for goal #${i+1}`); return; }
-        if (isNaN(minute) || minute < 1 || minute > 120) { alert(`Please enter a valid minute (1-120) for goal #${i+1}`); return; }
+        if (isNaN(minute) || minute < 1 || minute > 120) { alert(`Please enter a valid minute (1-120)`); return; }
         events.push({ minute, type: 'goal', team, player: scorer, assist: assist || null, goalType: type });
     }
     events.sort((a,b) => a.minute - b.minute);
@@ -1877,8 +1084,7 @@ function saveGoalsAndFinish() {
     renderTable();
     renderFixtures();
     generateTickerFacts();
-    if (typeof confetti === 'function') confetti({ particleCount: 60, spread: 45, origin: { y: 0.7 }, startVelocity: 12, colors: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'] });
-    checkAndShowPromotionButton();
+    if (typeof confetti === 'function') confetti({ particleCount: 60, spread: 45, origin: { y: 0.7 } });
 }
 
 // ==================== EDIT EXISTING MATCH EVENTS ====================
@@ -1892,61 +1098,19 @@ function editViewerEvents() {
     openGoalEditorForEdit(f.events || []);
     closeCommentViewer();
 }
-
 function openGoalEditorForEdit(existingEvents) {
     const fixture = fixtures.find(f => f.id === pendingFixtureId);
     const totalGoals = pendingHomeScore + pendingAwayScore;
-    let modalHtml = `
-        <div id="goal-editor-modal" class="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                <div class="p-5 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white">
-                    <h3 class="font-bold text-lg">✏️ Edit Goal Details</h3>
-                    <button onclick="closeGoalEditor()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
-                </div>
-                <div class="p-5 space-y-4">
-                    <p class="text-sm text-gray-600">Match: ${fixture.home} vs ${fixture.away}</p>
-                    <p class="text-sm font-semibold">Score: ${pendingHomeScore} - ${pendingAwayScore}</p>
-                    <div id="goals-list-container" class="space-y-3">
-    `;
+    let modalHtml = `<div id="goal-editor-modal" class="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4"><div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"><div class="p-5 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white"><h3 class="font-bold text-lg">✏️ Edit Goal Details</h3><button onclick="closeGoalEditor()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button></div><div class="p-5 space-y-4"><p class="text-sm text-gray-600">Match: ${fixture.home} vs ${fixture.away}</p><p class="text-sm font-semibold">Score: ${pendingHomeScore} - ${pendingAwayScore}</p><div id="goals-list-container" class="space-y-3">`;
     for (let i = 0; i < totalGoals; i++) {
         const ev = existingEvents[i] || {};
-        modalHtml += `
-            <div class="goal-entry border rounded-xl p-3 bg-gray-50" data-goal-index="${i}">
-                <div class="font-medium mb-2">Goal #${i+1}</div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <select class="goal-team border rounded-lg px-3 py-2 text-sm bg-white">
-                        <option value="${fixture.home}" ${ev.team === fixture.home ? 'selected' : ''}>${fixture.home}</option>
-                        <option value="${fixture.away}" ${ev.team === fixture.away ? 'selected' : ''}>${fixture.away}</option>
-                    </select>
-                    <input type="text" class="goal-scorer border rounded-lg px-3 py-2 text-sm" placeholder="Scorer name" value="${escapeHtml(ev.player || '')}">
-                    <input type="text" class="goal-assist border rounded-lg px-3 py-2 text-sm" placeholder="Assist (optional)" value="${escapeHtml(ev.assist || '')}">
-                    <input type="number" class="goal-minute border rounded-lg px-3 py-2 text-sm" placeholder="Minute" value="${ev.minute || ''}">
-                    <select class="goal-type border rounded-lg px-3 py-2 text-sm bg-white">
-                        <option value="Open play" ${ev.goalType === 'Open play' ? 'selected' : ''}>⚽ Open play</option>
-                        <option value="Penalty" ${ev.goalType === 'Penalty' ? 'selected' : ''}>🎯 Penalty</option>
-                        <option value="Free kick" ${ev.goalType === 'Free kick' ? 'selected' : ''}>🦵 Free kick</option>
-                        <option value="Header" ${ev.goalType === 'Header' ? 'selected' : ''}>👑 Header</option>
-                        <option value="Own goal" ${ev.goalType === 'Own goal' ? 'selected' : ''}>😵 Own goal</option>
-                    </select>
-                </div>
-            </div>
-        `;
+        modalHtml += `<div class="goal-entry border rounded-xl p-3 bg-gray-50" data-goal-index="${i}"><div class="font-medium mb-2">Goal #${i+1}</div><div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><select class="goal-team border rounded-lg px-3 py-2 text-sm bg-white"><option value="${fixture.home}" ${ev.team === fixture.home ? 'selected' : ''}>${fixture.home}</option><option value="${fixture.away}" ${ev.team === fixture.away ? 'selected' : ''}>${fixture.away}</option></select><input type="text" class="goal-scorer border rounded-lg px-3 py-2 text-sm" placeholder="Scorer name" value="${escapeHtml(ev.player || '')}"><input type="text" class="goal-assist border rounded-lg px-3 py-2 text-sm" placeholder="Assist (optional)" value="${escapeHtml(ev.assist || '')}"><input type="number" class="goal-minute border rounded-lg px-3 py-2 text-sm" placeholder="Minute" value="${ev.minute || ''}"><select class="goal-type border rounded-lg px-3 py-2 text-sm bg-white"><option value="Open play" ${ev.goalType === 'Open play' ? 'selected' : ''}>⚽ Open play</option><option value="Penalty" ${ev.goalType === 'Penalty' ? 'selected' : ''}>🎯 Penalty</option><option value="Free kick" ${ev.goalType === 'Free kick' ? 'selected' : ''}>🦵 Free kick</option><option value="Header" ${ev.goalType === 'Header' ? 'selected' : ''}>👑 Header</option><option value="Own goal" ${ev.goalType === 'Own goal' ? 'selected' : ''}>😵 Own goal</option></select></div></div>`;
     }
-    modalHtml += `
-                    </div>
-                    <div class="flex justify-end gap-3 pt-4">
-                        <button onclick="closeGoalEditor()" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100">Cancel</button>
-                        <button onclick="saveGoalsAndFinish()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500">Save Changes</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
+    modalHtml += `</div><div class="flex justify-end gap-3 pt-4"><button onclick="closeGoalEditor()" class="px-4 py-2 border rounded-lg">Cancel</button><button onclick="saveGoalsAndFinish()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg">Save Changes</button></div></div></div></div>`;
     const existingModal = document.getElementById('goal-editor-modal');
     if (existingModal) existingModal.remove();
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
-
 function showMatchComment(fixtureId) {
     const f = fixtures.find(f => f.id === fixtureId);
     if (!f) { showToast("Fixture not found"); return; }
@@ -1956,60 +1120,38 @@ function showMatchComment(fixtureId) {
     modal.style.display = 'flex';
     modal.classList.remove('hidden');
     modal.classList.add('flex');
-    const nameEl = document.getElementById('viewer-match-name');
-    const scoreEl = document.getElementById('viewer-score');
-    const commentEl = document.getElementById('viewer-comment');
+    document.getElementById('viewer-match-name').innerHTML = `${f.home} vs ${f.away}`;
+    document.getElementById('viewer-score').innerText = f.played ? `${f.homeScore} - ${f.awayScore}` : 'Not played yet';
+    document.getElementById('viewer-comment').innerText = f.report || (f.played ? 'No report available.' : 'Match not played.');
     const eventsContainer = document.getElementById('viewer-events-container');
     const eventsDiv = document.getElementById('viewer-events');
-    const editBtn = document.getElementById('viewer-edit-btn');
-    const editEventsBtn = document.getElementById('viewer-edit-events-btn');
-    if (nameEl) nameEl.innerHTML = `${f.home} vs ${f.away}`;
-    if (scoreEl) scoreEl.innerText = f.played ? `${f.homeScore} - ${f.awayScore}` : 'Not played yet';
-    if (commentEl) commentEl.innerText = f.report || (f.played ? 'No report available.' : 'Match not played.');
     if (eventsContainer && eventsDiv) {
         if (f.events && f.events.length > 0) {
             eventsContainer.classList.remove('hidden');
-            eventsDiv.innerHTML = f.events.map(ev => {
-                const assistText = ev.assist ? ` (assist: ${ev.assist})` : '';
-                const typeText = ev.goalType && ev.goalType !== 'Open play' ? ` [${ev.goalType}]` : '';
-                return `<div class="flex justify-between border-b border-gray-200 py-1">
-                    <span class="font-mono w-12">${ev.minute}′</span>
-                    <span class="flex-1">⚽ ${ev.team} - ${ev.player}${typeText}${assistText}</span>
-                </div>`;
-            }).join('');
-        } else {
-            eventsContainer.classList.add('hidden');
-        }
+            eventsDiv.innerHTML = f.events.map(ev => `<div class="flex justify-between border-b border-gray-200 py-1"><span class="font-mono w-12">${ev.minute}′</span><span class="flex-1">⚽ ${ev.team} - ${ev.player}${ev.goalType && ev.goalType !== 'Open play' ? ` [${ev.goalType}]` : ''}${ev.assist ? ` (assist: ${ev.assist})` : ''}</span></div>`).join('');
+        } else { eventsContainer.classList.add('hidden'); }
     }
+    const editBtn = document.getElementById('viewer-edit-btn');
+    const editEventsBtn = document.getElementById('viewer-edit-events-btn');
     if (editBtn && editEventsBtn) {
-        if (isAdmin && f.played) {
-            editBtn.classList.remove('hidden');
-            editEventsBtn.classList.remove('hidden');
-        } else {
-            editBtn.classList.add('hidden');
-            editEventsBtn.classList.add('hidden');
-        }
+        if (isAdmin && f.played) { editBtn.classList.remove('hidden'); editEventsBtn.classList.remove('hidden'); }
+        else { editBtn.classList.add('hidden'); editEventsBtn.classList.add('hidden'); }
     }
 }
-
 function closeCommentViewer() {
     const modal = document.getElementById('comment-viewer-modal');
-    if (modal) {
-        modal.style.display = 'none';
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-    }
+    if (modal) { modal.style.display = 'none'; modal.classList.add('hidden'); modal.classList.remove('flex'); }
     currentViewerFixtureId = null;
 }
 
-// ==================== RELEGATION (MANUAL) ====================
+// ==================== RELEGATION ====================
 function relegateTeam(teamName) {
     if (!isAdmin) return;
     if (tournamentPhase !== 'league') { showToast("Cannot relegate during knockout stage."); return; }
     const team = teams[teamName];
     if (!team) return;
     if (team.relegated) { showToast(`${teamName} is already relegated.`); return; }
-    if (confirm(`Relegate ${teamName}? They will be removed from all future fixtures, leaving vacant slots for you to reassign.`)) {
+    if (confirm(`Relegate ${teamName}? They will be removed from all future fixtures.`)) {
         team.relegated = true;
         fixtures.forEach(f => {
             if (!f.played && !f.cancelled) {
@@ -2018,7 +1160,7 @@ function relegateTeam(teamName) {
             }
         });
         saveToStorage();
-        showToast(`${teamName} relegated. Vacant slots created in their future fixtures.`);
+        showToast(`${teamName} relegated.`);
         updateTableCalculations();
         renderTable();
         renderGameweekTabs();
@@ -2027,13 +1169,12 @@ function relegateTeam(teamName) {
         generateTickerFacts();
     }
 }
-
 function restoreTeam(teamName) {
     if (!isAdmin) return;
     if (tournamentPhase !== 'league') { showToast("Cannot restore during knockout stage."); return; }
     const team = teams[teamName];
     if (!team || !team.relegated) return;
-    if (confirm(`Restore ${teamName} to the league? They will reappear in the table, but future fixtures are missing. You may need to re-add them manually via "Edit Fixture".`)) {
+    if (confirm(`Restore ${teamName} to the league?`)) {
         team.relegated = false;
         saveToStorage();
         showToast(`${teamName} restored.`);
@@ -2045,7 +1186,6 @@ function restoreTeam(teamName) {
         generateTickerFacts();
     }
 }
-
 function renderRelegatedTeams() {
     const container = document.getElementById('relegated-teams-list');
     if (!container) return;
@@ -2067,9 +1207,7 @@ function openPredictionsModal(fixtureId) {
     document.getElementById('predictions-modal').classList.remove('hidden');
     renderPredictions(fixtureId);
 }
-
 function closePredictionsModal() { document.getElementById('predictions-modal').classList.add('hidden'); currentPredictionFixtureId = null; }
-
 function renderPredictions(fixtureId) {
     const f = fixtures.find(f => f.id === fixtureId);
     const container = document.getElementById('predictions-list');
@@ -2082,7 +1220,6 @@ function renderPredictions(fixtureId) {
         container.innerHTML += `<div class="prediction-item"><div class="flex justify-between items-start"><div class="flex-1"><div class="flex items-center gap-2 flex-wrap"><span class="font-semibold text-sm text-gray-800">${escapeHtml(pred.nickname || 'Anonymous')}</span><span class="text-xs font-mono bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full">${pred.homeScore} - ${pred.awayScore}</span></div><p class="text-[10px] text-gray-400 mt-1">${date}</p></div>${deleteBtn}</div></div>`;
     });
 }
-
 function submitPrediction() {
     if (!currentPredictionFixtureId) return;
     const nickname = document.getElementById('prediction-nickname').value.trim();
@@ -2101,7 +1238,6 @@ function submitPrediction() {
     document.getElementById('prediction-away-score').value = '';
     showToast("Prediction submitted!");
 }
-
 function deletePrediction(fixtureId, index) {
     if (!isAdmin) return;
     const f = fixtures.find(f => f.id === fixtureId);
@@ -2122,7 +1258,6 @@ function editViewerComment() {
     document.getElementById('comment-modal').classList.add('flex');
     closeCommentViewer();
 }
-
 function confirmComment() {
     if (pendingFixtureId === null) return;
     const finalReport = document.getElementById('comment-text').value.trim();
@@ -2138,7 +1273,6 @@ function confirmComment() {
     renderFixtures();
     generateTickerFacts();
 }
-
 function closeCommentModal(save = false) {
     const modal = document.getElementById('comment-modal');
     if (modal) {
@@ -2159,9 +1293,7 @@ function openBanterModal(fixtureId) {
     document.getElementById('banter-modal').classList.remove('hidden');
     renderBanterMessages(fixtureId);
 }
-
 function closeBanterModal() { document.getElementById('banter-modal').classList.add('hidden'); currentBanterFixtureId = null; }
-
 function postBanter() {
     if (!currentBanterFixtureId) { showToast("No fixture selected"); return; }
     const input = document.getElementById('banter-input');
@@ -2176,7 +1308,6 @@ function postBanter() {
     renderBanterMessages(currentBanterFixtureId);
     showToast("Banter posted!");
 }
-
 function renderBanterMessages(fixtureId) {
     const f = fixtures.find(f => f.id === fixtureId);
     const container = document.getElementById('banter-messages-container');
@@ -2192,376 +1323,31 @@ function renderBanterMessages(fixtureId) {
     });
     container.scrollTop = container.scrollHeight;
 }
-
 function deleteBanter(fixtureId, index) {
     if (!isAdmin) return;
     const f = fixtures.find(f => f.id === fixtureId);
     if (f && f.banter && f.banter[index]) { f.banter.splice(index,1); saveToStorage(); renderBanterMessages(fixtureId); showToast("Banter deleted"); }
 }
-
 function escapeHtml(str) { return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m] || m)); }
-
-// ==================== PROMOTION/RELEGATION ====================
-async function processPromotionRelegation() {
-    if (!isAdmin) return;
-    if (!confirm("⚠️ End season: Relegate bottom 3 from Premier, promote top 3 from Championship, reset both leagues?")) return;
-    const originalLeague = currentLeague;
-    currentLeague = 'premier';
-    const premierSnap = await getTournamentRef().once('value');
-    const premierData = premierSnap.val();
-    if (!premierData?.teams) { showToast("Premier League data missing"); currentLeague = originalLeague; return; }
-    const premierTeams = Object.values(premierData.teams).filter(t => !t.relegated);
-    const premierFixtures = premierData.fixtures || [];
-    const premierComplete = premierFixtures.length > 0 && premierFixtures.every(f => f.played || f.cancelled);
-    if (!premierComplete) { showToast("Premier League season not finished!"); currentLeague = originalLeague; return; }
-    currentLeague = 'championship';
-    const champSnap = await getTournamentRef().once('value');
-    const champData = champSnap.val();
-    if (!champData?.teams) { showToast("Championship data missing"); currentLeague = originalLeague; return; }
-    const champTeams = Object.values(champData.teams).filter(t => !t.relegated);
-    const champFixtures = champData.fixtures || [];
-    const champComplete = champFixtures.length > 0 && champFixtures.every(f => f.played || f.cancelled);
-    if (!champComplete) { showToast("Championship season not finished!"); currentLeague = originalLeague; return; }
-    const sortFn = (a,b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf;
-    const sortedPremier = [...premierTeams].sort(sortFn);
-    const sortedChamp = [...champTeams].sort(sortFn);
-    if (sortedPremier.length < 3 || sortedChamp.length < 3) {
-        showToast("Need at least 3 teams in each league");
-        currentLeague = originalLeague;
-        return;
-    }
-    const relegated = sortedPremier.slice(-3).map(t => t.name);
-    const promoted = sortedChamp.slice(0,3).map(t => t.name);
-    let newPremierNames = sortedPremier.filter(t => !relegated.includes(t.name)).map(t => t.name);
-    newPremierNames.push(...promoted);
-    let newChampNames = sortedChamp.filter(t => !promoted.includes(t.name)).map(t => t.name);
-    newChampNames.push(...relegated);
-    await resetLeagueWithTeams('premier', newPremierNames);
-    await resetLeagueWithTeams('championship', newChampNames);
-    showToast(`✅ Promotion/Relegation done!\nRelegated: ${relegated.join(', ')}\nPromoted: ${promoted.join(', ')}`);
-    currentLeague = originalLeague;
-    checkAndLoadTournament();
-}
-
-async function resetLeagueWithTeams(leagueId, teamNames) {
-    const originalLeague = currentLeague;
-    currentLeague = leagueId;
-    let finalNames = [...teamNames];
-    if (finalNames.length % 2 !== 0) finalNames.push("BYE");
-    const newTeams = {};
-    finalNames.forEach(name => {
-        if (name !== "BYE") {
-            newTeams[name] = { name, mp:0, w:0, d:0, l:0, gf:0, ga:0, gd:0, pts:0, deductedPoints:0, formHistory:[], relegated:false };
-        }
-    });
-    const teamNameList = Object.keys(newTeams);
-    const rounds = generateRandomRoundRobin(teamNameList);
-    let fixturesList = [], id = 0;
-    rounds.forEach((round, idx) => {
-        round.forEach(({home, away}) => {
-            fixturesList.push({ id: id++, round: idx+1, home, away, homeScore:null, awayScore:null, played:false, cancelled:false, comment:null, predictions:[], banter:[], events:[], report:null, deadline:null });
-        });
-    });
-    await getTournamentRef().set({
-        teams: newTeams,
-        fixtures: fixturesList,
-        knockoutMatches: [],
-        tournamentPhase: 'league',
-        password: tournamentPassword,
-        roundStartTimes: {},
-        autoStartNextRound: false,
-        roundPaused: {}
-    });
-    currentLeague = originalLeague;
-}
-
-async function checkAndShowPromotionButton() {
-    const btn = document.getElementById('promote-relegate-btn');
-    if (!btn || !isAdmin) { if(btn) btn.classList.add('hidden'); return; }
-    const original = currentLeague;
-    let premierDone = false, champDone = false;
-    try {
-        currentLeague = 'premier';
-        const pSnap = await getTournamentRef().once('value');
-        const pData = pSnap.val();
-        if (pData?.fixtures?.length) premierDone = pData.fixtures.every(f => f.played || f.cancelled);
-        currentLeague = 'championship';
-        const cSnap = await getTournamentRef().once('value');
-        const cData = cSnap.val();
-        if (cData?.fixtures?.length) champDone = cData.fixtures.every(f => f.played || f.cancelled);
-    } catch(e) { console.warn(e); }
-    currentLeague = original;
-    if (premierDone && champDone) btn.classList.remove('hidden');
-    else btn.classList.add('hidden');
-}
-
-async function recoverExistingLeague() {
-    if (!isAdmin) {
-        showToast("Only admin can recover leagues");
-        return;
-    }
-    
-    const leagueToRecover = prompt("Which league won't display?\nEnter 'premier' or 'championship'", "championship");
-    
-    if (!leagueToRecover || (leagueToRecover !== 'premier' && leagueToRecover !== 'championship')) {
-        showToast("Invalid league name");
-        return;
-    }
-    
-    const leagueName = leagueToRecover === 'premier' ? 'Premier League' : 'Championship';
-    showToast(`Checking ${leagueName} data...`);
-    
-    const checkRef = db.ref(`${leagueToRecover}/tournament_data`);
-    const snapshot = await checkRef.once('value');
-    const data = snapshot.val();
-    
-    if (data && data.teams && Object.keys(data.teams).length > 0) {
-        console.log(`${leagueName} data found:`, data);
-        showToast(`✅ ${leagueName} data exists! Loading...`);
-        
-        currentLeague = leagueToRecover;
-        sessionStorage.setItem('desiredLeague', currentLeague);
-        document.getElementById('league-selector').value = currentLeague;
-        
-        teams = {};
-        fixtures = [];
-        knockoutMatches = [];
-        
-        await checkAndLoadTournament();
-        showToast(`Loaded ${leagueName} successfully!`);
-    } else {
-        showToast(`❌ No ${leagueName} data found in Firebase`);
-        if (confirm(`${leagueName} data is missing. Create it with default teams?`)) {
-            restoreMissingLeague();
-        }
-    }
-}
-
-// ==================== RESTORE MISSING LEAGUE ====================
-async function restoreMissingLeague() {
-    if (!isAdmin) {
-        showToast("Only admin can restore leagues");
-        return;
-    }
-    
-    const leagueToRestore = prompt("Which league is missing?\nEnter 'premier' for Premier League\nEnter 'championship' for Championship", "championship");
-    
-    if (!leagueToRestore || (leagueToRestore !== 'premier' && leagueToRestore !== 'championship')) {
-        showToast("Invalid league name. Use 'premier' or 'championship'");
-        return;
-    }
-    
-    const leagueName = leagueToRestore === 'premier' ? 'Premier League' : 'Championship';
-    
-    if (!confirm(`⚠️ Warning: This will create a NEW ${leagueName} with DEFAULT teams (8 teams).\nAny existing data for this league will be LOST.\n\nContinue?`)) {
-        return;
-    }
-    
-    // Default teams (8 teams as example - admin can edit later using Replace button)
-    const defaultTeams = [
-        `${leagueName} FC`,
-        `${leagueName} United`,
-        `${leagueName} City`,
-        `${leagueName} Rovers`,
-        `${leagueName} Athletic`,
-        `${leagueName} Town`,
-        `${leagueName} Wanderers`,
-        `${leagueName} Albion`
-    ];
-    
-    const password = prompt("Set master password for this league:", "090541");
-    const finalPassword = password || "090541";
-    
-    showToast(`Creating new ${leagueName}... Please wait.`);
-    
-    try {
-        await createLeague(leagueToRestore, defaultTeams, finalPassword);
-        showToast(`✅ ${leagueName} restored successfully with 8 default teams!`);
-        
-        // If we're currently viewing the missing league, reload it
-        if (currentLeague === leagueToRestore) {
-            checkAndLoadTournament();
-        } else {
-            showToast(`Switch to ${leagueName} using the league selector to view it.`);
-        }
-    } catch (error) {
-        console.error(error);
-        showToast(`Error restoring ${leagueName}. Check console.`);
-    }
-}
-
-// ==================== DIAGNOSE AND FIX LEAGUE DISPLAY ====================
-async function diagnoseLeagueDisplay() {
-    if (!isAdmin) {
-        showToast("Only admin can run diagnostics");
-        return;
-    }
-    
-    console.log("=== LEAGUE DISPLAY DIAGNOSTIC ===");
-    console.log("Current league:", currentLeague);
-    console.log("User role:", userRole);
-    
-    // Check Premier League data
-    console.log("\n--- Checking Premier League ---");
-    const premierRef = db.ref('premier/tournament_data');
-    const premierSnap = await premierRef.once('value');
-    const premierData = premierSnap.val();
-    console.log("Premier data exists:", !!premierData);
-    if (premierData) {
-        console.log("Premier teams:", premierData.teams ? Object.keys(premierData.teams).length : 0);
-        console.log("Premier fixtures:", premierData.fixtures ? premierData.fixtures.length : 0);
-    }
-    
-    // Check Championship League data
-    console.log("\n--- Checking Championship League ---");
-    const champRef = db.ref('championship/tournament_data');
-    const champSnap = await champRef.once('value');
-    const champData = champSnap.val();
-    console.log("Championship data exists:", !!champData);
-    if (champData) {
-        console.log("Championship teams:", champData.teams ? Object.keys(champData.teams).length : 0);
-        console.log("Championship fixtures:", champData.fixtures ? champData.fixtures.length : 0);
-    }
-    
-    // Force reload current league
-    console.log("\n--- Forcing reload of current league ---");
-    await checkAndLoadTournament();
-    
-    // Show summary
-    let message = "";
-    if (!champData) {
-        message = "❌ Championship data is MISSING from Firebase!";
-    } else if (!champData.teams || Object.keys(champData.teams).length === 0) {
-        message = "⚠️ Championship has NO teams!";
-    } else if (!champData.fixtures || champData.fixtures.length === 0) {
-        message = "⚠️ Championship has NO fixtures!";
-    } else {
-        message = `✅ Championship has ${Object.keys(champData.teams).length} teams and ${champData.fixtures.length} fixtures. Try switching leagues again.`;
-    }
-    
-    showToast(message);
-    console.log("Diagnostic complete. Check console for details.");
-    
-    // If Championship is missing or corrupted, offer to restore
-    if (!champData || !champData.teams || Object.keys(champData.teams).length === 0) {
-        if (confirm("Championship data is missing or corrupted. Would you like to restore it with default teams?")) {
-            restoreMissingLeague();
-        }
-    }
-}
 
 // ==================== RESET ====================
 function resetTournament() { 
-    if (confirm("Wipe ALL data for this league? Cannot be undone.")) 
+    if (confirm("Wipe ALL data for Premier League? Cannot be undone.")) 
         getTournamentRef().remove().then(() => location.reload()); 
 }
 
 // ==================== INIT ====================
 window.onload = () => {
-    console.log("Window loaded - initializing...");
-    
-    // Load saved league preference
-    const savedLeague = sessionStorage.getItem('desiredLeague');
-    if (savedLeague && (savedLeague === 'premier' || savedLeague === 'championship')) {
-        currentLeague = savedLeague;
-    } else {
-        currentLeague = 'premier';
-    }
-    
-    // Set the dropdown value to match currentLeague
-    const leagueSelector = document.getElementById('league-selector');
-    if (leagueSelector) {
-        leagueSelector.value = currentLeague;
-        console.log("League selector set to:", currentLeague);
-    }
-    
-    // Initialize realtime sync first
     initRealtimeDatabaseSync();
-    
-    // Then load role
     const savedRole = sessionStorage.getItem('tournamentRole');
     if (savedRole === 'viewer' || savedRole === 'admin') {
         selectRole(savedRole);
     }
 };
 
-// ==================== SIMPLE LEAGUE SWITCHER ====================
-function switchLeague(league) {
-    if (league !== 'premier' && league !== 'championship') {
-        console.error("Invalid league:", league);
-        return;
-    }
-    
-    if (league === currentLeague) {
-        console.log("Already on", league);
-        return;
-    }
-    
-    console.log("Switching to league:", league);
-    
-    // Update global state
-    currentLeague = league;
-    sessionStorage.setItem('desiredLeague', currentLeague);
-    
-    // Update dropdown
-    const selector = document.getElementById('league-selector');
-    if (selector) selector.value = currentLeague;
-    
-    // Clear current data
-    teams = {};
-    fixtures = [];
-    knockoutMatches = [];
-    tournamentPhase = 'league';
-    roundStartTimes = {};
-    roundPaused = {};
-    
-    // Clear UI
-    const tbody = document.getElementById('league-table-body');
-    if (tbody) tbody.innerHTML = '<table><td colspan="12" class="text-center py-8 text-gray-400">Loading ' + (league === 'premier' ? 'Premier League' : 'Championship') + '...</td></tr>';
-    
-    const fixturesContainer = document.getElementById('fixtures-container');
-    if (fixturesContainer) fixturesContainer.innerHTML = '<div class="skeleton h-24 w-full rounded-xl"></div>';
-    
-    const knockoutBracket = document.getElementById('knockout-bracket');
-    if (knockoutBracket) knockoutBracket.innerHTML = '';
-    
-    document.getElementById('knockout-section')?.classList.add('hidden');
-    document.getElementById('schedule-section')?.classList.add('hidden');
-    
-    // Reload data for new league
-    setTimeout(() => {
-        checkAndLoadTournament();
-    }, 50);
-    
-    showToast(`Switched to ${league === 'premier' ? 'Premier League' : 'Championship'}`);
-}
-
-function refreshCurrentLeague() {
-    console.log("Refreshing league:", currentLeague);
-    checkAndLoadTournament();
-    showToast(`Refreshing ${currentLeague === 'premier' ? 'Premier League' : 'Championship'}...`);
-}
-
-// Add event listener after DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    const leagueSelector = document.getElementById('league-selector');
-    if (leagueSelector) {
-        const newSelector = leagueSelector.cloneNode(true);
-        leagueSelector.parentNode.replaceChild(newSelector, leagueSelector);
-        newSelector.addEventListener('change', (e) => {
-            switchLeague(e.target.value);
-        });
-    }
-});
-
 // ==================== EXPOSE FUNCTIONS ====================
-window.handleAdminToggleClick = handleAdminToggleClick;
 window.selectRole = selectRole;
-window.initializeBothLeagues = createBothLeaguesNow;
-window.diagnoseLeagueDisplay = diagnoseLeagueDisplay;
-window.generatePremierTeams = generatePremierTeams;
-window.generateChampionshipTeams = generateChampionshipTeams;
-window.createBothLeaguesNow = createBothLeaguesNow;
+window.handleAdminToggleClick = handleAdminToggleClick;
 window.verifyAdminPassword = verifyAdminPassword;
 window.closePasswordModal = closePasswordModal;
 window.openChangePasswordModal = openChangePasswordModal;
@@ -2608,7 +1394,6 @@ window.closeChatModal = closeChatModal;
 window.sendChatMessage = sendChatMessage;
 window.deleteChatMessage = deleteChatMessage;
 window.onChatInput = onChatInput;
-window.toggleAutoStart = toggleAutoStart;
 window.openPollModal = openPollModal;
 window.closePollModal = closePollModal;
 window.addPollOption = addPollOption;
@@ -2617,10 +1402,3 @@ window.createPoll = createPoll;
 window.deletePoll = deletePoll;
 window.votePoll = votePoll;
 window.sendTypingStatus = sendTypingStatus;
-window.processPromotionRelegation = processPromotionRelegation;
-window.switchLeague = switchLeague;
-window.refreshCurrentLeague = refreshCurrentLeague;
-window.recoverExistingLeague = recoverExistingLeague;
-window.restoreMissingLeague = restoreMissingLeague;
-window.findCorrespondingFixture = findCorrespondingFixture;
-window.syncWithSecondHalf = syncWithSecondHalf;
