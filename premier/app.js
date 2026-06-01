@@ -26,13 +26,16 @@ function getTypingRef() {
     return db.ref(`${CURRENT_LEAGUE}/chat_typing`);
 }
 
-let teams = {}, fixtures = [];
+let teams = {}, fixtures = [], knockoutMatches = [], tournamentPhase = 'league';
 let currentSelectedRound = 1, isAdmin = false, tournamentPassword = "";
 let tickerInterval = null, currentTickerFactIndex = 0, tickerFacts = [];
 let pendingFixtureId = null, pendingHomeScore = null, pendingAwayScore = null;
 let currentPenaltyTeam = null, pendingAssignFixtureId = null, pendingAssignSide = null, currentViewerFixtureId = null;
 let currentPredictionFixtureId = null, currentBanterFixtureId = null;
 let chatMessagesRef = null;
+let autoStartNextRound = false;
+let roundStartTimes = {};
+let roundPaused = {};
 let typingTimeout = null;
 let isTyping = false;
 let unreadMessagesCount = 0;
@@ -86,6 +89,7 @@ function checkAndLoadTournament() {
                 document.getElementById('floating-admin-menu')?.classList.add('hidden');
                 document.getElementById('th-admin-actions')?.classList.add('hidden');
                 document.getElementById('admin-table-hint')?.classList.add('hidden');
+                document.getElementById('relegation-zone')?.classList.add('hidden');
             } else if (userRole === 'admin') {
                 document.getElementById('admin-toggle-container')?.classList.remove('hidden');
                 document.getElementById('admin-reset-container')?.classList.remove('hidden');
@@ -114,11 +118,17 @@ function loadTournamentData(data) {
     tournamentPassword = data.password || "090541";
     teams = data.teams;
     fixtures = data.fixtures || [];
+    knockoutMatches = data.knockoutMatches || [];
+    tournamentPhase = data.tournamentPhase || 'league';
+    roundStartTimes = data.roundStartTimes || {};
+    roundPaused = data.roundPaused || {};
+    autoStartNextRound = data.autoStartNextRound || false;
     
     updateTableCalculations();
     renderTable();
     renderGameweekTabs();
     renderFixtures();
+    renderKnockoutBracket();
     renderRelegatedTeams();
     generateTickerFacts();
     checkAndCelebrateChampion();
@@ -136,7 +146,7 @@ function showToast(msg) {
     if (c) { let t = document.createElement("div"); t.className = "toast"; t.innerText = msg; c.appendChild(t); setTimeout(() => t.remove(), 2500); }
 }
 function saveToStorage() { 
-    getTournamentRef().set({ teams, fixtures, password: tournamentPassword });
+    getTournamentRef().set({ teams, fixtures, knockoutMatches, tournamentPhase, password: tournamentPassword, roundStartTimes, autoStartNextRound, roundPaused });
 }
 function getCurrentUserId() {
     let id = localStorage.getItem('chatUserId');
@@ -187,6 +197,10 @@ function generateRandomRoundRobin(teamNames) {
 // ==================== EDIT ENTIRE ROUND ====================
 function openEditRoundModal(preSelectedRound = null) {
     if (!isAdmin) return;
+    if (tournamentPhase !== 'league') {
+        showToast("Cannot edit rounds during knockout stage");
+        return;
+    }
     
     const totalRounds = Math.max(...fixtures.map(f => f.round));
     const halfRounds = totalRounds / 2;
@@ -779,12 +793,14 @@ function updateAdminUIElements() {
         btn?.classList.replace('bg-gray-300', 'bg-indigo-600'); dot?.classList.replace('translate-x-0', 'translate-x-5');
         if (statusText) { statusText.innerText = "⚡ ADMIN MODE"; statusText.classList.replace('text-gray-600', 'text-indigo-600'); }
         if (resetContainer) resetContainer.classList.remove('hidden'); if (thActions) thActions.classList.remove('hidden'); if (hint) hint.classList.remove('hidden');
+        if (relegationZone) relegationZone.classList.remove('hidden');
         if (floatMenu) floatMenu.classList.remove('hidden');
         renderRelegatedTeams();
     } else {
         btn?.classList.replace('bg-indigo-600', 'bg-gray-300'); dot?.classList.replace('translate-x-5', 'translate-x-0');
         if (statusText) { statusText.innerText = "🔒 READ ONLY"; statusText.classList.replace('text-indigo-600', 'text-gray-600'); }
         if (resetContainer) resetContainer.classList.add('hidden'); if (thActions) thActions.classList.add('hidden'); if (hint) hint.classList.add('hidden');
+        if (relegationZone) relegationZone.classList.add('hidden');
         if (floatMenu) floatMenu.classList.add('hidden');
     }
     renderTable(); renderGameweekTabs(); renderFixtures();
@@ -819,16 +835,20 @@ function initializeTournament() {
     for (let i = 1; i <= count; i++) { let name = document.getElementById(`team-input-${i}`).value.trim(); if (name === "") name = `Team ${i}`; list.push({ name }); }
     if (list.length % 2 !== 0) list.push({ name: "BYE" });
     teams = {};
-    list.forEach(item => { if (item.name !== "BYE") teams[item.name] = { name: item.name, mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0, deductedPoints: 0, formHistory: [] }; });
+    list.forEach(item => { if (item.name !== "BYE") teams[item.name] = { name: item.name, mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0, deductedPoints: 0, formHistory: [], relegated: false }; });
     const teamNames = Object.keys(teams);
     const rounds = generateRandomRoundRobin(teamNames);
     fixtures = [];
     let fixtureId = 0;
     rounds.forEach((roundFixtures, roundIndex) => {
         roundFixtures.forEach(({ home, away }) => {
-            fixtures.push({ id: fixtureId++, round: roundIndex + 1, home, away, homeScore: null, awayScore: null, played: false, cancelled: false, comment: null, predictions: [], banter: [], events: [], report: null });
+            fixtures.push({ id: fixtureId++, round: roundIndex + 1, home, away, homeScore: null, awayScore: null, played: false, cancelled: false, comment: null, predictions: [], banter: [], events: [], report: null, deadline: null });
         });
     });
+    tournamentPhase = 'league';
+    knockoutMatches = [];
+    roundStartTimes = {};
+    autoStartNextRound = false;
     currentSelectedRound = 1;
     saveToStorage();
     showToast(`Premier League launched with ${count} teams!`);
@@ -859,11 +879,13 @@ function confirmReplaceTeam() {
     teams[newName] = { ...oldTeamData, name: newName };
     delete teams[oldName];
     fixtures.forEach(f => { if (f.home === oldName) f.home = newName; if (f.away === oldName) f.away = newName; });
+    knockoutMatches.forEach(k => { if (k.home === oldName) k.home = newName; if (k.away === oldName) k.away = newName; });
     saveToStorage();
     updateTableCalculations();
     renderTable();
     renderGameweekTabs();
     renderFixtures();
+    renderKnockoutBracket();
     renderRelegatedTeams();
     generateTickerFacts();
     showToast(`Team "${oldName}" replaced with "${newName}"`);
@@ -1110,9 +1132,9 @@ function generateRandomRoundRobinFirstHalf(teamNames) {
     return firstHalfRounds;
 }
 
-// ==================== STANDINGS ====================
+// ==================== STANDINGS & KNOCKOUT ====================
 function updateTableCalculations() {
-    for (let t in teams) { teams[t] = { ...teams[t], mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0, formHistory: [] }; }
+    for (let t in teams) { if (!teams[t].relegated) { teams[t] = { ...teams[t], mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0, formHistory: [] }; } }
     fixtures.forEach(f => {
         if (f.played && !f.cancelled && teams[f.home] && teams[f.away] && !teams[f.home].relegated && !teams[f.away].relegated && f.home !== "VACANT" && f.away !== "VACANT") {
             const h = f.home, a = f.away, hS = parseInt(f.homeScore), aS = parseInt(f.awayScore);
@@ -1126,9 +1148,186 @@ function updateTableCalculations() {
         }
     });
     for (let t in teams) { teams[t].pts = Math.max(0, teams[t].pts - (teams[t].deductedPoints || 0)); teams[t].gd = teams[t].gf - teams[t].ga; }
+    const activeTeams = Object.values(teams).filter(t => !t.relegated);
+    if (activeTeams.length === 4 && tournamentPhase === 'league' && knockoutMatches.length === 0) {
+        startKnockoutStage(activeTeams);
+    }
+}
+function startKnockoutStage(activeTeams) {
+    const sorted = [...activeTeams].sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
+    const now = Date.now();
+    generateSemiFinalLegs(sorted[0].name, sorted[3].name, sorted[1].name, sorted[2].name, now);
+}
+function generateSemiFinalLegs(team1, team4, team2, team3, baseTime) {
+    const leg1Deadline = baseTime + 2 * 24 * 60 * 60 * 1000;
+    const leg2Deadline = baseTime + 4 * 24 * 60 * 60 * 1000;
+    const semiId = Date.now();
+    const semiMatches = [
+        { id: semiId, round: 'semi_leg1', home: team1, away: team4, homeScore: null, awayScore: null, played: false, cancelled: false, events: [], report: null, deadline: leg1Deadline, semiId: semiId, leg: 1, pair: 1 },
+        { id: semiId + 1, round: 'semi_leg2', home: team4, away: team1, homeScore: null, awayScore: null, played: false, cancelled: false, events: [], report: null, deadline: leg2Deadline, semiId: semiId, leg: 2, pair: 1 },
+        { id: semiId + 2, round: 'semi_leg1', home: team2, away: team3, homeScore: null, awayScore: null, played: false, cancelled: false, events: [], report: null, deadline: leg1Deadline, semiId: semiId + 1, leg: 1, pair: 2 },
+        { id: semiId + 3, round: 'semi_leg2', home: team3, away: team2, homeScore: null, awayScore: null, played: false, cancelled: false, events: [], report: null, deadline: leg2Deadline, semiId: semiId + 1, leg: 2, pair: 2 }
+    ];
+    knockoutMatches = semiMatches;
+    tournamentPhase = 'knockout';
+    saveToStorage();
+    renderKnockoutBracket();
+    showToast("🏆 Only 4 teams left! Two‑leg semi‑finals begin.");
+}
+function checkSemiFinalsCompletion() {
+    const semis = knockoutMatches.filter(k => k.round === 'semi_leg1' || k.round === 'semi_leg2');
+    if (semis.length !== 4) return;
+    if (!semis.every(s => s.played || s.cancelled)) return;
+    const pairs = {};
+    semis.forEach(s => { if (!pairs[s.pair]) pairs[s.pair] = []; pairs[s.pair].push(s); });
+    const winners = [];
+    for (let pair in pairs) {
+        const legs = pairs[pair];
+        if (legs.length !== 2) { winners.push(null); continue; }
+        const leg1 = legs.find(l => l.leg === 1);
+        const leg2 = legs.find(l => l.leg === 2);
+        if (!leg1 || !leg2 || leg1.cancelled || leg2.cancelled) { winners.push(null); continue; }
+        const aggHome = (leg1.homeScore || 0) + (leg2.awayScore || 0);
+        const aggAway = (leg1.awayScore || 0) + (leg2.homeScore || 0);
+        if (aggHome > aggAway) winners.push(leg1.home);
+        else if (aggAway > aggHome) winners.push(leg1.away);
+        else { winners.push(leg1.home); showToast(`Semi‑final tied aggregate. ${leg1.home} advances on random draw.`); }
+    }
+    if (winners.length === 2 && winners[0] && winners[1]) generateFinalLegs(winners[0], winners[1]);
+    else showToast("Semi‑finals incomplete or cancelled.");
+}
+function generateFinalLegs(teamA, teamB) {
+    const now = Date.now();
+    const leg1Deadline = now + 2 * 24 * 60 * 60 * 1000;
+    const leg2Deadline = now + 4 * 24 * 60 * 60 * 1000;
+    const finalId = Date.now();
+    const finalLegs = [
+        { id: finalId, round: 'final_leg1', home: teamA, away: teamB, homeScore: null, awayScore: null, played: false, cancelled: false, events: [], report: null, deadline: leg1Deadline, finalId: finalId, leg: 1 },
+        { id: finalId + 1, round: 'final_leg2', home: teamB, away: teamA, homeScore: null, awayScore: null, played: false, cancelled: false, events: [], report: null, deadline: leg2Deadline, finalId: finalId, leg: 2 }
+    ];
+    knockoutMatches = knockoutMatches.filter(k => k.round !== 'final_leg1' && k.round !== 'final_leg2');
+    knockoutMatches.push(...finalLegs);
+    saveToStorage();
+    renderKnockoutBracket();
+    showToast("🏆 Final set! Two legs to decide the champion.");
+}
+function checkFinalCompletion() {
+    const legs = knockoutMatches.filter(k => k.round === 'final_leg1' || k.round === 'final_leg2');
+    if (legs.length !== 2) return;
+    if (!legs.every(l => l.played || l.cancelled)) return;
+    const leg1 = legs.find(l => l.leg === 1);
+    const leg2 = legs.find(l => l.leg === 2);
+    if (!leg1 || !leg2) return;
+    if (leg1.cancelled || leg2.cancelled) { showToast("Final legs cancelled."); return; }
+    const aggHome = (leg1.homeScore || 0) + (leg2.awayScore || 0);
+    const aggAway = (leg1.awayScore || 0) + (leg2.homeScore || 0);
+    let champion = null;
+    if (aggHome > aggAway) champion = leg1.home;
+    else if (aggAway > aggHome) champion = leg1.away;
+    else { champion = leg1.home; showToast("Aggregate tie! Champion decided by random draw."); }
+    db.ref('tournament_data/champion').set({ name: champion, date: new Date().toISOString() });
+    if (typeof confetti === 'function') confetti({ particleCount: 300, spread: 100, origin: { y: 0.6 } });
+    showToast(`🏆 ${champion} are the ultimate champions! 🏆`);
+}
+function checkAndCelebrateChampion() {}
+
+// ==================== RENDER KNOCKOUT BRACKET ====================
+function renderKnockoutBracket() {
+    const container = document.getElementById('knockout-bracket');
+    const section = document.getElementById('knockout-section');
+    if (!container) return;
+    if (tournamentPhase !== 'knockout' || knockoutMatches.length === 0) {
+        section?.classList.add('hidden');
+        return;
+    }
+    section?.classList.remove('hidden');
+    container.innerHTML = '';
+    const semiLegs = knockoutMatches.filter(k => k.round === 'semi_leg1' || k.round === 'semi_leg2');
+    const finalLegs = knockoutMatches.filter(k => k.round === 'final_leg1' || k.round === 'final_leg2');
+    if (semiLegs.length) {
+        const pairs = {};
+        semiLegs.forEach(leg => { if (!pairs[leg.pair]) pairs[leg.pair] = []; pairs[leg.pair].push(leg); });
+        const semiDiv = document.createElement('div');
+        semiDiv.className = 'space-y-4';
+        semiDiv.innerHTML = '<h3 class="font-semibold text-sm text-gray-600">Semi‑finals (two legs)</h3>';
+        for (const pair in pairs) {
+            const legs = pairs[pair].sort((a,b) => a.leg - b.leg);
+            semiDiv.innerHTML += `<div class="border-l-2 border-indigo-200 pl-3 mb-2"><p class="text-xs font-mono text-gray-500 mb-1">Match ${pair}</p>${legs.map(leg => renderKnockoutMatchCard(leg)).join('')}</div>`;
+        }
+        container.appendChild(semiDiv);
+    }
+    if (finalLegs.length) {
+        const finalDiv = document.createElement('div');
+        finalDiv.className = 'space-y-3';
+        finalDiv.innerHTML = '<h3 class="font-semibold text-sm text-gray-600">Final (two legs)</h3>';
+        finalLegs.sort((a,b) => a.leg - b.leg).forEach(leg => { finalDiv.innerHTML += renderKnockoutMatchCard(leg); });
+        container.appendChild(finalDiv);
+    }
+}
+function renderKnockoutMatchCard(m) {
+    const played = m.played;
+    const cancelled = m.cancelled;
+    let scoreHtml = '', actionsHtml = '';
+    if (cancelled) scoreHtml = `<span class="text-rose-500 text-xs font-bold">CANCELLED</span>`;
+    else if (played) {
+        scoreHtml = `<span class="font-mono font-bold">${m.homeScore} - ${m.awayScore}</span>`;
+        if (isAdmin) actionsHtml = `<div class="mt-1 flex gap-1"><button onclick="showMatchCommentForKnockout(${m.id})" class="text-[9px] bg-gray-100 px-1 py-0.5 rounded">📖</button><button onclick="editKnockoutResult(${m.id})" class="text-[9px] bg-indigo-100 px-1 py-0.5 rounded">✏️</button></div>`;
+    } else {
+        if (isAdmin) scoreHtml = `<div class="flex items-center gap-1"><input type="number" id="ko-home-${m.id}" placeholder="0" class="w-10 text-center bg-white border rounded text-xs"><span>:</span><input type="number" id="ko-away-${m.id}" placeholder="0" class="w-10 text-center bg-white border rounded text-xs"><button onclick="saveKnockoutResult(${m.id})" class="bg-indigo-600 text-white text-[9px] px-1 py-0.5 rounded">Save</button></div>`;
+        else scoreHtml = `<span class="text-gray-400 text-xs">Not played yet</span>`;
+    }
+    const legLabel = m.leg ? ` (Leg ${m.leg})` : '';
+    return `<div class="bg-gray-50 p-2 rounded-lg border"><div class="flex justify-between items-center"><span class="font-medium text-sm">${m.home}</span><span>vs</span><span class="font-medium text-sm">${m.away}</span></div><div class="text-center mt-1">${scoreHtml}</div>${actionsHtml}<div class="text-right text-[9px] text-gray-400">${m.round}${legLabel}</div></div>`;
 }
 
-function checkAndCelebrateChampion() {}
+// ==================== KNOCKOUT ADMIN ACTIONS ====================
+function saveKnockoutResult(matchId) {
+    if (!isAdmin) return;
+    const match = knockoutMatches.find(m => m.id === matchId);
+    if (!match) return;
+    const homeScore = document.getElementById(`ko-home-${matchId}`).value;
+    const awayScore = document.getElementById(`ko-away-${matchId}`).value;
+    if (homeScore === "" || awayScore === "") { alert("Enter both scores"); return; }
+    match.homeScore = parseInt(homeScore);
+    match.awayScore = parseInt(awayScore);
+    match.played = true;
+    match.cancelled = false;
+    match.events = [];
+    match.report = `🎉 ${match.home} ${match.homeScore} - ${match.awayScore} ${match.away}`;
+    saveToStorage();
+    showToast(`Knockout result saved: ${match.home} ${match.homeScore}-${match.awayScore} ${match.away}`);
+    renderKnockoutBracket();
+    if (match.round === 'semi_leg1' || match.round === 'semi_leg2') checkSemiFinalsCompletion();
+    if (match.round === 'final_leg1' || match.round === 'final_leg2') checkFinalCompletion();
+    if (typeof confetti === 'function') confetti({ particleCount: 60, spread: 45, origin: { y: 0.7 }, startVelocity: 12 });
+}
+function showMatchCommentForKnockout(matchId) {
+    const match = knockoutMatches.find(m => m.id === matchId);
+    if (!match || !match.played) return;
+    currentViewerFixtureId = matchId;
+    document.getElementById('viewer-match-name').innerHTML = `${match.home} vs ${match.away}`;
+    document.getElementById('viewer-score').innerText = `${match.homeScore} - ${match.awayScore}`;
+    document.getElementById('viewer-comment').innerText = match.report || 'No report.';
+    const eventsDiv = document.getElementById('viewer-events');
+    const eventsContainer = document.getElementById('viewer-events-container');
+    if (match.events && match.events.length) {
+        eventsContainer.classList.remove('hidden');
+        eventsDiv.innerHTML = match.events.map(ev => `<div>${ev.minute}′ ⚽ ${ev.team} - ${ev.player}</div>`).join('');
+    } else eventsContainer.classList.add('hidden');
+    document.getElementById('comment-viewer-modal').classList.remove('hidden');
+}
+function editKnockoutResult(matchId) {
+    if (!isAdmin) return;
+    const match = knockoutMatches.find(m => m.id === matchId);
+    if (!match || !match.played) return;
+    pendingFixtureId = matchId;
+    pendingHomeScore = match.homeScore;
+    pendingAwayScore = match.awayScore;
+    document.getElementById('comment-match-name').innerText = `${match.home} vs ${match.away}`;
+    document.getElementById('comment-text').value = match.report || '';
+    document.getElementById('comment-modal').classList.remove('hidden');
+    window._editingKnockout = true;
+}
 
 // ==================== RENDER LEAGUE TABLE ====================
 function renderTable() {
@@ -1144,10 +1343,13 @@ function renderTable() {
         const penaltyBadge = team.deductedPoints > 0 ? `<span class="ml-1 text-[8px] bg-rose-50 text-rose-600 px-1 rounded-full">-${team.deductedPoints}</span>` : "";
         const actionBtn = isAdmin ? `<td class="py-2 px-1 text-center">
     <button onclick="event.stopPropagation(); openPenaltyModal('${team.name}')" class="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-full hover:bg-amber-100">⚖️</button>
+    <button onclick="event.stopPropagation(); relegateTeam('${team.name}')" class="text-[9px] bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded-full hover:bg-orange-100">⬇️ Relegate</button>
     <button onclick="event.stopPropagation(); openReplaceTeamModal('${team.name}')" class="text-[9px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full hover:bg-blue-100">🔄 Replace</button>
 </td>` : "";
         tbody.innerHTML += `<tr class="hover:bg-gray-50 transition ${pos === 1 ? 'champions-row' : (pos > sorted.length - 2 ? 'relegation-row' : '')}" onclick="showTeamDetails('${team.name}')"><td class="py-2 px-2 text-center font-bold text-xs ${pos === 1 ? 'text-indigo-600' : ''}">${pos}</td><td class="py-2 px-2"><span class="font-semibold text-xs">${team.name}</span>${penaltyBadge}</td><td class="py-2 px-1 text-center text-xs">${team.mp}</td><td class="py-2 px-1 text-center text-emerald-600 text-xs">${team.w}</td><td class="py-2 px-1 text-center text-xs">${team.d}</td><td class="py-2 px-1 text-center text-rose-500 text-xs">${team.l}</td><td class="py-2 px-1 text-center text-xs">${team.gf}</td><td class="py-2 px-1 text-center text-xs">${team.ga}</td><td class="py-2 px-1 text-center font-mono text-xs ${team.gd >= 0 ? 'text-emerald-600' : 'text-rose-500'}">${team.gd > 0 ? '+' + team.gd : team.gd}</td><td class="py-2 px-2 text-center font-black text-indigo-600 text-xs">${team.pts}</td><td class="py-2 px-2 text-center">${formHtml}</td>${actionBtn}</tr>`;
     });
+    const phaseIndicator = document.getElementById('phase-indicator');
+    if (phaseIndicator) phaseIndicator.innerText = tournamentPhase === 'league' ? '🏆 League Phase' : '🥇 Knockout Stage';
     generateTickerFacts();
 }
 
@@ -1168,7 +1370,7 @@ function renderGameweekTabs() {
         
         // Add Edit button for first half rounds only (and not completed)
         let editBtnHtml = '';
-        if (isAdmin && isFirstHalf && !allResolved) {
+        if (isAdmin && isFirstHalf && !allResolved && tournamentPhase === 'league') {
             editBtnHtml = `<button onclick="event.stopPropagation(); openEditRoundModal(${r})" class="ml-1 text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full hover:bg-purple-200" title="Edit entire round">✏️ Edit</button>`;
         }
         
@@ -1179,24 +1381,27 @@ function renderGameweekTabs() {
         btn.onclick = () => { currentSelectedRound = r; renderGameweekTabs(); renderFixtures(); };
         container.appendChild(btn);
     }
-   if (isAdmin) {
-    const shuffleBtn = document.createElement('button');
-    shuffleBtn.className = 'px-3 py-1 text-[11px] font-mono rounded-full bg-amber-100 text-amber-700 hover:bg-amber-200 transition ml-2 shrink-0';
-    shuffleBtn.innerText = '🔄 Shuffle Round';
-    shuffleBtn.onclick = () => shuffleRound(currentSelectedRound);
-    container.appendChild(shuffleBtn);
-}
+    
+    if (isAdmin && tournamentPhase === 'league') {
+        const shuffleBtn = document.createElement('button');
+        shuffleBtn.className = 'px-3 py-1 text-[11px] font-mono rounded-full bg-amber-100 text-amber-700 hover:bg-amber-200 transition ml-2 shrink-0';
+        shuffleBtn.innerText = '🔄 Shuffle Round';
+        shuffleBtn.onclick = () => shuffleRound(currentSelectedRound);
+        container.appendChild(shuffleBtn);
+    }
 }
 
 // ==================== RENDER FIXTURES ====================
 function renderFixtures() {
     const container = document.getElementById('fixtures-container');
     const scheduleSection = document.getElementById('schedule-section');
-    
-    // Always show schedule section (no knockout stage)
+    if (tournamentPhase !== 'league') {
+        if (scheduleSection) scheduleSection.classList.add('hidden');
+        container.innerHTML = '<div class="text-center text-gray-400 py-8">🏆 League phase completed. Knockout stage is active above.</div>';
+        return;
+    }
     if (scheduleSection) scheduleSection.classList.remove('hidden');
     container.innerHTML = "";
-    
     fixtures.filter(f => f.round === currentSelectedRound && !teams[f.home]?.relegated && !teams[f.away]?.relegated).forEach(f => {
         const played = f.played;
         const cancelled = f.cancelled;
@@ -1419,6 +1624,56 @@ function closeCommentViewer() {
     currentViewerFixtureId = null;
 }
 
+// ==================== RELEGATION ====================
+function relegateTeam(teamName) {
+    if (!isAdmin) return;
+    if (tournamentPhase !== 'league') { showToast("Cannot relegate during knockout stage."); return; }
+    const team = teams[teamName];
+    if (!team) return;
+    if (team.relegated) { showToast(`${teamName} is already relegated.`); return; }
+    if (confirm(`Relegate ${teamName}? They will be removed from all future fixtures.`)) {
+        team.relegated = true;
+        fixtures.forEach(f => {
+            if (!f.played && !f.cancelled) {
+                if (f.home === teamName) { f.home = "VACANT"; f.vacantHome = true; }
+                if (f.away === teamName) { f.away = "VACANT"; f.vacantAway = true; }
+            }
+        });
+        saveToStorage();
+        showToast(`${teamName} relegated.`);
+        updateTableCalculations();
+        renderTable();
+        renderGameweekTabs();
+        renderFixtures();
+        renderRelegatedTeams();
+        generateTickerFacts();
+    }
+}
+function restoreTeam(teamName) {
+    if (!isAdmin) return;
+    if (tournamentPhase !== 'league') { showToast("Cannot restore during knockout stage."); return; }
+    const team = teams[teamName];
+    if (!team || !team.relegated) return;
+    if (confirm(`Restore ${teamName} to the league?`)) {
+        team.relegated = false;
+        saveToStorage();
+        showToast(`${teamName} restored.`);
+        updateTableCalculations();
+        renderTable();
+        renderGameweekTabs();
+        renderFixtures();
+        renderRelegatedTeams();
+        generateTickerFacts();
+    }
+}
+function renderRelegatedTeams() {
+    const container = document.getElementById('relegated-teams-list');
+    if (!container) return;
+    const relegated = Object.values(teams).filter(t => t.relegated);
+    if (relegated.length === 0) { container.innerHTML = '<p class="text-sm text-gray-400 italic">No relegated teams</p>'; return; }
+    container.innerHTML = relegated.map(team => `<div class="bg-red-50 border border-red-200 rounded-lg px-3 py-1.5 flex items-center gap-2"><span class="text-sm font-medium text-red-700">${team.name}</span><button onclick="restoreTeam('${team.name}')" class="text-xs bg-green-100 hover:bg-green-200 text-green-700 px-2 py-0.5 rounded-full">↺ Restore</button></div>`).join('');
+}
+
 // ==================== PREDICTIONS ====================
 function openPredictionsModal(fixtureId) {
     const f = fixtures.find(f => f.id === fixtureId);
@@ -1606,9 +1861,14 @@ window.openBanterModal = openBanterModal;
 window.closeBanterModal = closeBanterModal;
 window.postBanter = postBanter;
 window.deleteBanter = deleteBanter;
+window.relegateTeam = relegateTeam;
+window.restoreTeam = restoreTeam;
 window.showTeamDetails = showTeamDetails;
 window.closeTeamModal = closeTeamModal;
 window.resetTournament = resetTournament;
+window.saveKnockoutResult = saveKnockoutResult;
+window.showMatchCommentForKnockout = showMatchCommentForKnockout;
+window.editKnockoutResult = editKnockoutResult;
 window.openChatModal = openChatModal;
 window.closeChatModal = closeChatModal;
 window.sendChatMessage = sendChatMessage;
