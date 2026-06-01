@@ -13,11 +13,11 @@
 </head>
 <body class="bg-gradient-to-br from-slate-50 to-gray-100 font-['Inter'] text-gray-800 antialiased">
 
-    <!-- League Navigation -->
-    <div class="bg-indigo-700 text-white py-2 px-4 text-center">
+    <!-- League Navigation Bar -->
+    <div class="bg-gradient-to-r from-indigo-800 to-indigo-600 text-white py-3 px-4 text-center shadow-lg">
         <div class="flex justify-center gap-4">
-            <span class="px-4 py-1 bg-white text-indigo-700 rounded-full font-semibold">🏆 Premier League</span>
-            <a href="../championship/index.html" class="px-4 py-1 bg-indigo-500 hover:bg-indigo-400 rounded-full transition">📈 Championship</a>
+            <span class="px-5 py-1.5 bg-white text-indigo-700 rounded-full font-bold shadow-md">🏆 Premier League</span>
+            <a href="../championship/index.html" class="px-5 py-1.5 bg-indigo-500 hover:bg-indigo-400 rounded-full transition-all duration-200 font-semibold">📈 Championship</a>
         </div>
     </div>
 
@@ -137,7 +137,7 @@
         </section>
     </main>
 
-    <!-- Modals (Team, Predictions, Banter, etc.) - Same as before -->
+    <!-- All Modals (Team, Predictions, Banter, etc.) - same as before -->
     <div id="team-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-gray-200 overflow-y-auto max-h-[90vh]">
             <div class="p-5 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white">
@@ -240,7 +240,7 @@
         </div>
     </div>
 
-      <div id="team-select-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
+   <div id="team-select-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full border border-gray-200 overflow-hidden">
             <div class="p-5 border-b border-gray-200 flex justify-between items-center"><h3 class="font-bold">Select Team</h3><button onclick="closeTeamSelectModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button></div>
             <div class="p-5"><p class="text-sm text-gray-600 mb-3">Choose the correct team for this fixture:</p><select id="team-select-dropdown" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm"></select></div>
