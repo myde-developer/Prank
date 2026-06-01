@@ -276,12 +276,23 @@ function loadRoundForEditing() {
         return;
     }
     
+    const allTeamNames = Object.values(teams).filter(t => !t.relegated).map(t => t.name).sort();
+    
     let html = '<p class="text-sm font-semibold text-gray-700 mb-3">Edit Matchups for Round ' + roundNumber + ' (First Half)</p>';
-    html += '<div class="space-y-2">';
+    html += '<p class="text-xs text-amber-600 mb-3">⚠️ Change any fixture below, then click "Save". The entire first half will reshuffle to maintain a valid schedule.</p>';
+    html += '<div class="space-y-3">';
     
     roundFixtures.forEach((fixture, idx) => {
-        const teamNames = Object.values(teams).filter(t => !t.relegated).map(t => t.name).sort();
-        const otherTeams = teamNames.filter(name => name !== fixture.home && name !== fixture.away);
+        // Create options for home dropdown
+        let homeOptions = `<option value="${fixture.home}" selected>${fixture.home}</option>`;
+        let awayOptions = `<option value="${fixture.away}" selected>${fixture.away}</option>`;
+        
+        for (const team of allTeamNames) {
+            if (team !== fixture.home && team !== fixture.away) {
+                homeOptions += `<option value="${team}">${team}</option>`;
+                awayOptions += `<option value="${team}">${team}</option>`;
+            }
+        }
         
         html += `
             <div class="bg-gray-50 p-3 rounded-xl border border-gray-200">
@@ -289,16 +300,14 @@ function loadRoundForEditing() {
                     <div class="flex-1">
                         <label class="text-xs text-gray-500">Home Team</label>
                         <select id="round-edit-home-${fixture.id}" class="w-full mt-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm">
-                            <option value="${fixture.home}" selected>${fixture.home}</option>
-                            ${teamNames.filter(n => n !== fixture.home && n !== fixture.away).map(n => `<option value="${n}">${n}</option>`).join('')}
+                            ${homeOptions}
                         </select>
                     </div>
-                    <div class="text-center text-gray-400">vs</div>
+                    <div class="text-center text-gray-400 font-bold">VS</div>
                     <div class="flex-1">
                         <label class="text-xs text-gray-500">Away Team</label>
                         <select id="round-edit-away-${fixture.id}" class="w-full mt-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm">
-                            <option value="${fixture.away}" selected>${fixture.away}</option>
-                            ${teamNames.filter(n => n !== fixture.home && n !== fixture.away).map(n => `<option value="${n}">${n}</option>`).join('')}
+                            ${awayOptions}
                         </select>
                     </div>
                 </div>
@@ -307,10 +316,11 @@ function loadRoundForEditing() {
     });
     
     html += '</div>';
-    html += '<p class="text-xs text-amber-600 mt-3">⚠️ After saving, the entire first half will be reshuffled to maintain a valid schedule. Your changes will be preserved.</p>';
-    
     container.innerHTML = html;
     document.getElementById('save-round-changes-btn').classList.remove('hidden');
+    
+    // Scroll to top of modal
+    document.getElementById('edit-round-modal').scrollTop = 0;
 }
 
 async function saveRoundChanges() {
@@ -323,24 +333,41 @@ async function saveRoundChanges() {
     // Collect changes from the UI
     const roundFixtures = fixtures.filter(f => f.round === roundNumber);
     const changes = {};
+    let changeCount = 0;
     
     for (const fixture of roundFixtures) {
         const newHome = document.getElementById(`round-edit-home-${fixture.id}`)?.value;
         const newAway = document.getElementById(`round-edit-away-${fixture.id}`)?.value;
         
         if (newHome && newAway) {
+            // Check if there's an actual change
             if (newHome !== fixture.home || newAway !== fixture.away) {
-                changes[fixture.id] = { home: newHome, away: newAway };
+                changes[fixture.id] = { home: newHome, away: newAway, oldHome: fixture.home, oldAway: fixture.away };
+                changeCount++;
             }
         }
     }
     
-    if (Object.keys(changes).length === 0 && !confirm("No changes detected. Still want to reshuffle the first half?")) {
-        return;
-    }
+    console.log("Changes detected:", changeCount, changes);
     
-    if (!confirm(`⚠️ This will RESHUFFLE the entire FIRST HALF (Rounds 1-${halfRounds}) while preserving your changes for Round ${roundNumber}.\n\nThe second half will automatically mirror the new first half.\n\nAll existing results in the first half will be RESET.\n\nContinue?`)) {
-        return;
+    if (changeCount === 0) {
+        // Ask if they want to reshuffle anyway without changes
+        if (!confirm("No changes detected in this round.\n\nDo you still want to RESHUFFLE the entire first half to create a new schedule?\n\nClick OK to reshuffle, Cancel to exit.")) {
+            closeEditRoundModal();
+            return;
+        }
+    } else {
+        // Show what changes will be made
+        let changeMsg = "The following changes will be made:\n\n";
+        for (const [id, change] of Object.entries(changes)) {
+            changeMsg += `${change.oldHome} vs ${change.oldAway} → ${change.home} vs ${change.away}\n`;
+        }
+        changeMsg += `\n⚠️ This will RESHUFFLE the entire FIRST HALF (Rounds 1-${halfRounds}) while preserving your changes.\n\nThe second half will automatically mirror the new first half.\n\nAll existing results will be RESET.\n\nContinue?`;
+        
+        if (!confirm(changeMsg)) {
+            closeEditRoundModal();
+            return;
+        }
     }
     
     showToast("Reshuffling first half fixtures...");
@@ -382,6 +409,7 @@ async function saveRoundChanges() {
             fixture.awayScore = null;
             fixture.played = false;
             fixture.cancelled = false;
+            console.log(`Applied change: ${fixture.home} vs ${fixture.away}`);
         }
     }
     
@@ -438,7 +466,11 @@ async function saveRoundChanges() {
     renderFixtures();
     generateTickerFacts();
     
-    showToast(`✅ Round ${roundNumber} updated! First half reshuffled, second half mirrored.`);
+    if (changeCount > 0) {
+        showToast(`✅ Round ${roundNumber} updated with ${changeCount} change(s)! First half reshuffled, second half mirrored.`);
+    } else {
+        showToast(`✅ First half reshuffled! New schedule created.`);
+    }
     closeEditRoundModal();
 }
 
