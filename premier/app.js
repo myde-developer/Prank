@@ -75,7 +75,7 @@ function selectRole(role) {
 
 function checkAndLoadTournament() {
     const tbody = document.getElementById('league-table-body');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="12" class="text-center py-8 text-gray-400">Loading Premier League...</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="12" class="text-center py-8 text-gray-400">Loading Championship League...</td></tr>';
     const fixturesContainer = document.getElementById('fixtures-container');
     if (fixturesContainer) fixturesContainer.innerHTML = '<div class="skeleton h-24 w-full rounded-xl"></div>';
     
@@ -100,7 +100,7 @@ function checkAndLoadTournament() {
                 document.getElementById('setup-section')?.classList.add('hidden');
                 const roleSelector = document.getElementById('role-selector');
                 if (roleSelector) {
-                    roleSelector.innerHTML = `<div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center"><div class="mb-4"><div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3"><span class="text-3xl">🏆</span></div><h2 class="text-2xl font-bold text-gray-800">No Premier League Yet</h2><p class="text-gray-500 text-sm mt-1">An admin hasn't started the Premier League.</p></div><button onclick="selectRole('admin')" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition">🔑 Switch to Admin to Create</button></div>`;
+                    roleSelector.innerHTML = `<div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center"><div class="mb-4"><div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3"><span class="text-3xl">🏆</span></div><h2 class="text-2xl font-bold text-gray-800">No Championship League Yet</h2><p class="text-gray-500 text-sm mt-1">An admin hasn't started the Championship League.</p></div><button onclick="selectRole('admin')" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition">🔑 Switch to Admin to Create</button></div>`;
                     roleSelector.style.display = 'flex';
                 }
             } else if (userRole === 'admin') {
@@ -108,16 +108,20 @@ function checkAndLoadTournament() {
                 document.getElementById('dashboard-section')?.classList.add('hidden');
                 document.getElementById('admin-toggle-container')?.classList.add('hidden');
                 document.getElementById('floating-admin-menu')?.classList.add('hidden');
-                showToast("Setup mode – create Premier League");
+                showToast("Setup mode – create Championship League");
             }
         }
     }).catch(error => { console.error(error); showToast("Error loading data"); });
 }
 
+
 function loadTournamentData(data) {
     tournamentPassword = data.password || "090541";
     teams = data.teams;
     fixtures = data.fixtures || [];
+  
+document.getElementById('setup-section')?.classList.add('hidden');
+
     knockoutMatches = data.knockoutMatches || [];
     tournamentPhase = data.tournamentPhase || 'league';
     roundStartTimes = data.roundStartTimes || {};

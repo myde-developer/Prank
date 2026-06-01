@@ -74,6 +74,10 @@ function selectRole(role) {
 }
 
 function checkAndLoadTournament() {
+
+const setupSection = document.getElementById('setup-section');
+    if (setupSection) setupSection.classList.add('hidden');
+    
     const tbody = document.getElementById('league-table-body');
     if (tbody) tbody.innerHTML = '<tr><td colspan="12" class="text-center py-8 text-gray-400">Loading Championship League...</td></tr>';
     const fixturesContainer = document.getElementById('fixtures-container');
@@ -118,6 +122,8 @@ function loadTournamentData(data) {
     tournamentPassword = data.password || "090541";
     teams = data.teams;
     fixtures = data.fixtures || [];
+
+document.getElementById('setup-section')?.classList.add('hidden');
     knockoutMatches = data.knockoutMatches || [];
     tournamentPhase = data.tournamentPhase || 'league';
     roundStartTimes = data.roundStartTimes || {};
