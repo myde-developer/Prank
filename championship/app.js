@@ -10,7 +10,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// LOCKED TO Championship LEAGUE ONLY
+// LOCKED TO CHAMPIONSHIP LEAGUE ONLY
 const CURRENT_LEAGUE = 'championship';
 
 function getTournamentRef() {
@@ -192,6 +192,7 @@ function generateRandomRoundRobin(teamNames) {
     });
     return [...firstHalfRounds, ...secondHalfRounds];
 }
+
 
 // ==================== EDIT ENTIRE ROUND ====================
 function openEditRoundModal(preSelectedRound = null) {
@@ -482,6 +483,7 @@ async function saveRoundChanges() {
         showToast(`✅ First half reshuffled! New schedule created.`);
     }
     closeEditRoundModal();
+    checkAndShowFirstHalfReview();
 }
 
 // ==================== CHAT ====================
@@ -1388,6 +1390,7 @@ function renderGameweekTabs() {
         container.appendChild(shuffleBtn);
     }
 }
+
 // ==================== RENDER FIXTURES ====================
 function renderFixtures() {
     const container = document.getElementById('fixtures-container');
@@ -1503,6 +1506,325 @@ function generateRichReportFromEvents(home, away, homeScore, awayScore, events) 
     return report;
 }
 
+function showFirstHalfReviewModal() {
+    const totalRounds = Math.max(...fixtures.map(f => f.round));
+    const halfRounds = totalRounds / 2;
+    
+    // Get first half fixtures only
+    const firstHalfFixtures = fixtures.filter(f => f.round <= halfRounds && f.played && !f.cancelled);
+    
+    // Calculate standings at halfway
+    const halfStandings = {};
+    for (let t in teams) {
+        if (!teams[t].relegated) {
+            halfStandings[t] = {
+                name: t,
+                mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0,
+                homeW: 0, homeD: 0, homeL: 0, homeGF: 0, homeGA: 0,
+                awayW: 0, awayD: 0, awayL: 0, awayGF: 0, awayGA: 0
+            };
+        }
+    }
+    
+    let biggestWin = { home: null, away: null, margin: 0, score: "" };
+    let totalGoals = 0;
+    let totalMatches = 0;
+    
+    firstHalfFixtures.forEach(f => {
+        const h = f.home, a = f.away, hS = f.homeScore, aS = f.awayScore;
+        if (halfStandings[h] && halfStandings[a]) {
+            halfStandings[h].mp++;
+            halfStandings[a].mp++;
+            halfStandings[h].gf += hS;
+            halfStandings[h].ga += aS;
+            halfStandings[a].gf += aS;
+            halfStandings[a].ga += hS;
+            totalGoals += hS + aS;
+            totalMatches++;
+            
+            halfStandings[h].homeGF += hS;
+            halfStandings[h].homeGA += aS;
+            halfStandings[a].awayGF += aS;
+            halfStandings[a].awayGA += hS;
+            
+            if (hS > aS) {
+                halfStandings[h].w++;
+                halfStandings[h].pts += 3;
+                halfStandings[a].l++;
+                halfStandings[h].homeW++;
+                halfStandings[a].awayL++;
+            } else if (aS > hS) {
+                halfStandings[a].w++;
+                halfStandings[a].pts += 3;
+                halfStandings[h].l++;
+                halfStandings[a].awayW++;
+                halfStandings[h].homeL++;
+            } else {
+                halfStandings[h].d++;
+                halfStandings[a].d++;
+                halfStandings[h].pts += 1;
+                halfStandings[a].pts += 1;
+                halfStandings[h].homeD++;
+                halfStandings[a].awayD++;
+            }
+            
+            const margin = Math.abs(hS - aS);
+            if (margin > biggestWin.margin) {
+                biggestWin = { home: h, away: a, margin: margin, score: `${hS}-${aS}` };
+            }
+        }
+    });
+    
+    // Sort standings
+    const sorted = Object.values(halfStandings).sort((a, b) => b.pts - a.pts || (b.gf - b.ga) - (a.gf - a.ga));
+    
+    // Prepare team reviews array
+    const teamReviews = sorted.map((team, idx) => {
+        const ppg = (team.pts / team.mp).toFixed(1);
+        let review = "";
+        let emoji = "";
+        
+        if (team.pts >= team.mp * 2.3) {
+            emoji = "🏆🔥";
+            review = "Absolute dominance! Title favorites!";
+        } else if (team.pts >= team.mp * 1.8) {
+            emoji = "👍⭐";
+            review = "Strong first half. Top 4 contenders.";
+        } else if (team.pts >= team.mp * 1.2) {
+            emoji = "⚖️📊";
+            review = "Mid-table consistency. Solid but need improvement.";
+        } else {
+            emoji = "⚠️⬇️";
+            review = "Struggling. Relegation battle ahead.";
+        }
+        
+        const homeForm = `${team.homeW}-${team.homeD}-${team.homeL}`;
+        const awayForm = `${team.awayW}-${team.awayD}-${team.awayL}`;
+        const position = idx + 1;
+        
+        return { ...team, ppg, review, emoji, homeForm, awayForm, position };
+    });
+    
+    const topScorer = teamReviews[0];
+    const topDefense = teamReviews.reduce((a, b) => a.ga < b.ga ? a : b);
+    const avgGoals = (totalGoals / totalMatches).toFixed(2);
+    const totalPoints = teamReviews.reduce((sum, t) => sum + t.pts, 0);
+    
+    let currentReviewIndex = 0;
+    
+    // Function to update the review display
+    function updateReviewDisplay() {
+        const team = teamReviews[currentReviewIndex];
+        const reviewContainer = document.getElementById('team-review-dynamic');
+        if (!reviewContainer) return;
+        
+        const gd = team.gf - team.ga;
+        const positionIcon = team.position === 1 ? '🥇' : team.position === 2 ? '🥈' : team.position === 3 ? '🥉' : `#${team.position}`;
+        
+        reviewContainer.innerHTML = `
+            <div class="bg-gradient-to-br from-white to-gray-50 rounded-xl p-5 border-2 ${team.position <= 3 ? 'border-indigo-300' : 'border-gray-200'}">
+                <div class="flex justify-between items-start mb-3">
+                    <div>
+                        <span class="text-2xl font-bold text-indigo-700">${team.name}</span>
+                        <span class="ml-2 text-lg">${team.emoji}</span>
+                    </div>
+                    <span class="text-xs font-mono bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full">${team.pts} pts</span>
+                </div>
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="text-xs bg-gray-200 px-2 py-0.5 rounded-full">${positionIcon}</span>
+                    <span class="text-xs text-gray-500">PPG: ${team.ppg}</span>
+                    <span class="text-xs text-gray-500">GD: ${gd > 0 ? '+' + gd : gd}</span>
+                </div>
+                <p class="text-sm text-gray-700 mb-4 bg-indigo-50 p-3 rounded-lg">📝 ${team.review}</p>
+                <div class="grid grid-cols-2 gap-3 text-sm">
+                    <div class="bg-emerald-50 p-2 rounded-lg text-center">
+                        <p class="text-[10px] text-gray-500">🏠 HOME</p>
+                        <p class="font-bold">${team.homeForm}</p>
+                        <p class="text-xs">${team.homeGF} / ${team.homeGA}</p>
+                    </div>
+                    <div class="bg-amber-50 p-2 rounded-lg text-center">
+                        <p class="text-[10px] text-gray-500">✈️ AWAY</p>
+                        <p class="font-bold">${team.awayForm}</p>
+                        <p class="text-xs">${team.awayGF} / ${team.awayGA}</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3 mt-3 text-center">
+                    <div>
+                        <p class="text-[10px] text-gray-500">⚽ GOALS FOR</p>
+                        <p class="font-bold text-emerald-600">${team.gf}</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] text-gray-500">🥅 GOALS AGAINST</p>
+                        <p class="font-bold text-rose-500">${team.ga}</p>
+                    </div>
+                </div>
+                <div class="mt-3 pt-2 border-t border-gray-200">
+                    <div class="flex justify-between text-xs">
+                        <span>✅ Wins: ${team.w}</span>
+                        <span>🤝 Draws: ${team.d}</span>
+                        <span>❌ Losses: ${team.l}</span>
+                    </div>
+                </div>
+                <button onclick="closeFirstHalfReviewModal(); showTeamDetails('${team.name}')" class="w-full mt-3 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 py-1.5 rounded-lg transition">📊 View Full Stats</button>
+            </div>
+        `;
+        
+        // Update navigation buttons
+        const prevBtn = document.getElementById('review-prev-btn');
+        const nextBtn = document.getElementById('review-next-btn');
+        const counter = document.getElementById('review-counter');
+        
+        if (prevBtn) prevBtn.disabled = currentReviewIndex === 0;
+        if (nextBtn) nextBtn.disabled = currentReviewIndex === teamReviews.length - 1;
+        if (counter) counter.innerText = `${currentReviewIndex + 1} / ${teamReviews.length}`;
+    }
+    
+    // Build modal HTML
+    let modalHtml = `
+        <div id="first-half-review-modal" class="fixed inset-0 z-50 bg-gray-900/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[95vh] overflow-y-auto">
+                <div class="p-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white sticky top-0 z-10">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h2 class="text-xl font-bold">🏆 FIRST HALF COMPLETED!</h2>
+
+                            <p class="text-xs text-white/80">Rounds 1 - ${halfRounds} | ${CURRENT_LEAGUE === 'premier' ? 'Premier League' : 'Championship'}</p>
+
+                        </div>
+                        <button onclick="closeFirstHalfReviewModal()" class="text-white/80 hover:text-white text-2xl leading-5">&times;</button>
+                    </div>
+                </div>
+                
+                <div class="p-4 space-y-5">
+                    <!-- Stats Cards -->
+                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                        <div class="bg-gradient-to-br from-indigo-50 to-white p-2 rounded-xl text-center border border-indigo-100">
+                            <p class="text-xl font-bold text-indigo-600">${totalMatches}</p>
+                            <p class="text-[9px] text-gray-500">Matches</p>
+                        </div>
+                        <div class="bg-gradient-to-br from-emerald-50 to-white p-2 rounded-xl text-center border border-emerald-100">
+                            <p class="text-xl font-bold text-emerald-600">${totalGoals}</p>
+                            <p class="text-[9px] text-gray-500">Goals</p>
+                        </div>
+                        <div class="bg-gradient-to-br from-amber-50 to-white p-2 rounded-xl text-center border border-amber-100">
+                            <p class="text-xl font-bold text-amber-600">${avgGoals}</p>
+                            <p class="text-[9px] text-gray-500">Avg Goals</p>
+                        </div>
+                        <div class="bg-gradient-to-br from-rose-50 to-white p-2 rounded-xl text-center border border-rose-100">
+                            <p class="text-xl font-bold text-rose-600">${biggestWin.margin}</p>
+                            <p class="text-[9px] text-gray-500">Biggest Win</p>
+                        </div>
+                        <div class="bg-gradient-to-br from-purple-50 to-white p-2 rounded-xl text-center border border-purple-100">
+                            <p class="text-xl font-bold text-purple-600">${totalPoints}</p>
+                            <p class="text-[9px] text-gray-500">Points</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Half Standings Table (compact) -->
+                    <div>
+                        <h3 class="font-bold text-gray-700 text-sm mb-2">📊 HALFWAY STANDINGS</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-[10px]">
+                                <thead class="bg-gray-100">
+                                    <tr><th class="py-1 px-1">Pos</th><th class="py-1 px-1 text-left">Team</th><th class="py-1 px-1">PTS</th><th class="py-1 px-1">W</th><th class="py-1 px-1">D</th><th class="py-1 px-1">L</th><th class="py-1 px-1">GF</th><th class="py-1 px-1">GA</th><th class="py-1 px-1">GD</th></tr>
+                                </thead>
+                                <tbody>
+    `;
+    
+    teamReviews.forEach((team, idx) => {
+        const gd = team.gf - team.ga;
+        modalHtml += `
+            <tr class="border-b border-gray-100 cursor-pointer hover:bg-gray-50" onclick="closeFirstHalfReviewModal(); showTeamDetails('${team.name}')">
+                <td class="py-1 px-1 text-center font-bold ${idx === 0 ? 'text-indigo-600' : ''}">${idx + 1}${idx < 3 ? '🎯' : idx > teamReviews.length - 3 ? '⚠️' : ''}</td>
+                <td class="py-1 px-1 font-medium truncate max-w-[100px]">${team.name}</td>
+                <td class="py-1 px-1 text-center font-bold text-indigo-600">${team.pts}</td>
+                <td class="py-1 px-1 text-center text-emerald-600">${team.w}</td>
+                <td class="py-1 px-1 text-center">${team.d}</td>
+                <td class="py-1 px-1 text-center text-rose-500">${team.l}</td>
+                <td class="py-1 px-1 text-center">${team.gf}</td>
+                <td class="py-1 px-1 text-center">${team.ga}</td>
+                <td class="py-1 px-1 text-center ${gd >= 0 ? 'text-emerald-600' : 'text-rose-500'}">${gd > 0 ? '+' + gd : gd}</td>
+            </tr>
+        `;
+    });
+    
+    modalHtml += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Team Review Carousel -->
+                    <div>
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="font-bold text-gray-700 text-sm">📝 TEAM REVIEW</h3>
+                            <div class="flex items-center gap-2">
+                                <button id="review-prev-btn" onclick="navigateReview(-1)" class="bg-gray-200 hover:bg-gray-300 disabled:opacity-50 rounded-full w-7 h-7 flex items-center justify-center transition">◀</button>
+                                <span id="review-counter" class="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded-full">1 / ${teamReviews.length}</span>
+                                <button id="review-next-btn" onclick="navigateReview(1)" class="bg-gray-200 hover:bg-gray-300 disabled:opacity-50 rounded-full w-7 h-7 flex items-center justify-center transition">▶</button>
+                            </div>
+                        </div>
+                        <div id="team-review-dynamic">
+                            <!-- Dynamic content will be inserted here -->
+                        </div>
+                    </div>
+                    
+                    <!-- Highlights -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-gradient-to-r from-yellow-50 to-amber-50 p-2 rounded-xl border border-amber-200 text-center">
+                            <p class="text-[10px] font-bold text-amber-700">🏆 TOP TEAM</p>
+                            <p class="font-bold text-sm truncate">${topScorer?.name}</p>
+                            <p class="text-[10px]">${topScorer?.pts} pts</p>
+                        </div>
+                        <div class="bg-gradient-to-r from-emerald-50 to-green-50 p-2 rounded-xl border border-emerald-200 text-center">
+                            <p class="text-[10px] font-bold text-emerald-700">🛡️ BEST DEFENSE</p>
+                            <p class="font-bold text-sm truncate">${topDefense?.name}</p>
+                            <p class="text-[10px]">${topDefense?.ga} goals</p>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-amber-50 p-3 rounded-xl border border-amber-200 text-center">
+                        <p class="text-xs font-semibold text-amber-800">🎯 BIGGEST WIN</p>
+                        <p class="text-sm font-bold text-amber-900 truncate">${biggestWin.home} ${biggestWin.score} ${biggestWin.away}</p>
+                    </div>
+                    
+                    <div class="text-center text-[10px] text-gray-400 pt-2 border-t">
+                        The second half will now begin !
+                    </div>
+                </div>
+                <div class="p-3 bg-gray-50 text-right rounded-b-2xl">
+                    <button onclick="closeFirstHalfReviewModal()" class="px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-500 transition">Continue to Second Half</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const existingModal = document.getElementById('first-half-review-modal');
+    if (existingModal) existingModal.remove();
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    document.getElementById('first-half-review-modal').classList.remove('hidden');
+    document.getElementById('first-half-review-modal').classList.add('flex');
+    
+    // Initialize the first review display
+    updateReviewDisplay();
+    
+    // Store currentIndex globally for navigation
+    window.currentReviewIndex = 0;
+    window.teamReviewsData = teamReviews;
+    window.updateReviewDisplayGlobal = updateReviewDisplay;
+}
+
+function navigateReview(direction) {
+    if (!window.teamReviewsData) return;
+    const newIndex = (window.currentReviewIndex || 0) + direction;
+    if (newIndex >= 0 && newIndex < window.teamReviewsData.length) {
+        window.currentReviewIndex = newIndex;
+        if (window.updateReviewDisplayGlobal) {
+            window.updateReviewDisplayGlobal();
+        }
+    }
+}
+
 // ==================== SAVE RESULT & GOAL EDITOR ====================
 function saveResult(fixtureId) {
     const homeScore = document.getElementById(`home-score-${fixtureId}`).value;
@@ -1562,6 +1884,7 @@ function saveGoalsAndFinish() {
     renderFixtures();
     generateTickerFacts();
     if (typeof confetti === 'function') confetti({ particleCount: 60, spread: 45, origin: { y: 0.7 } });
+    checkAndShowFirstHalfReview();
 }
 
 // ==================== EDIT EXISTING MATCH EVENTS ====================
@@ -1878,8 +2201,11 @@ window.removePollOption = removePollOption;
 window.createPoll = createPoll;
 window.deletePoll = deletePoll;
 window.votePoll = votePoll;
+window.sendTypingStatus = sendTypingStatus;
 window.openEditRoundModal = openEditRoundModal;
 window.closeEditRoundModal = closeEditRoundModal;
 window.loadRoundForEditing = loadRoundForEditing;
 window.saveRoundChanges = saveRoundChanges;
-window.sendTypingStatus = sendTypingStatus;
+window.checkAndShowFirstHalfReview = checkAndShowFirstHalfReview;
+window.closeFirstHalfReviewModal = closeFirstHalfReviewModal;
+window.navigateReview = navigateReview;
