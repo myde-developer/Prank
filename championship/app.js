@@ -193,6 +193,255 @@ function generateRandomRoundRobin(teamNames) {
     return [...firstHalfRounds, ...secondHalfRounds];
 }
 
+// ==================== EDIT ENTIRE ROUND ====================
+function openEditRoundModal(preSelectedRound = null) {
+    if (!isAdmin) return;
+    if (tournamentPhase !== 'league') {
+        showToast("Cannot edit rounds during knockout stage");
+        return;
+    }
+    
+    const totalRounds = Math.max(...fixtures.map(f => f.round));
+    const halfRounds = totalRounds / 2;
+    
+    // Create modal HTML
+    let modalHtml = `
+        <div id="edit-round-modal" class="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="p-5 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white">
+                    <h3 class="font-bold text-lg">✏️ Edit Entire Round</h3>
+                    <button onclick="closeEditRoundModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+                </div>
+                <div class="p-5 space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-xs font-semibold text-gray-500 uppercase">Select Round</label>
+                            <select id="edit-round-select" class="w-full mt-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm">
+    `;
+    
+    // Only show first half rounds (second half auto-mirrors)
+    for (let r = 1; r <= halfRounds; r++) {
+        const roundFixtures = fixtures.filter(f => f.round === r);
+        const isCompleted = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
+        const selected = (preSelectedRound === r) ? 'selected' : '';
+        modalHtml += `<option value="${r}" ${selected} ${isCompleted ? 'disabled' : ''}>Round ${r} ${isCompleted ? '(Completed - Cannot edit)' : ''}</option>`;
+    }
+    
+    modalHtml += `
+                            </select>
+                            <p class="text-xs text-gray-400 mt-1">Only first half rounds can be edited. Second half auto-mirrors.</p>
+                        </div>
+                        <div class="flex items-end">
+                            <button onclick="loadRoundForEditing()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-xl text-sm font-semibold transition">Load Round</button>
+                        </div>
+                    </div>
+                    
+                    <div id="edit-round-fixtures-container" class="space-y-3 mt-4">
+                        <p class="text-center text-gray-400 py-8">Select a round and click "Load Round"</p>
+                    </div>
+                    
+                    <div class="flex justify-end gap-3 pt-4 border-t">
+                        <button onclick="closeEditRoundModal()" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100">Cancel</button>
+                        <button id="save-round-changes-btn" onclick="saveRoundChanges()" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 hidden">Save Round Changes & Reshuffle</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const existingModal = document.getElementById('edit-round-modal');
+    if (existingModal) existingModal.remove();
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    document.getElementById('edit-round-modal').classList.remove('hidden');
+    document.getElementById('edit-round-modal').classList.add('flex');
+    
+    // Auto-load if a round was pre-selected
+    if (preSelectedRound) {
+        setTimeout(() => loadRoundForEditing(), 100);
+    }
+}
+
+function closeEditRoundModal() {
+    const modal = document.getElementById('edit-round-modal');
+    if (modal) modal.remove();
+}
+
+function loadRoundForEditing() {
+    const roundNumber = parseInt(document.getElementById('edit-round-select').value);
+    const roundFixtures = fixtures.filter(f => f.round === roundNumber && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
+    const container = document.getElementById('edit-round-fixtures-container');
+    
+    if (!roundFixtures.length) {
+        container.innerHTML = '<p class="text-center text-red-500 py-8">No fixtures found for this round</p>';
+        return;
+    }
+    
+    let html = '<p class="text-sm font-semibold text-gray-700 mb-3">Edit Matchups for Round ' + roundNumber + ' (First Half)</p>';
+    html += '<div class="space-y-2">';
+    
+    roundFixtures.forEach((fixture, idx) => {
+        const teamNames = Object.values(teams).filter(t => !t.relegated).map(t => t.name).sort();
+        const otherTeams = teamNames.filter(name => name !== fixture.home && name !== fixture.away);
+        
+        html += `
+            <div class="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
+                    <div class="flex-1">
+                        <label class="text-xs text-gray-500">Home Team</label>
+                        <select id="round-edit-home-${fixture.id}" class="w-full mt-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm">
+                            <option value="${fixture.home}" selected>${fixture.home}</option>
+                            ${teamNames.filter(n => n !== fixture.home && n !== fixture.away).map(n => `<option value="${n}">${n}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="text-center text-gray-400">vs</div>
+                    <div class="flex-1">
+                        <label class="text-xs text-gray-500">Away Team</label>
+                        <select id="round-edit-away-${fixture.id}" class="w-full mt-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm">
+                            <option value="${fixture.away}" selected>${fixture.away}</option>
+                            ${teamNames.filter(n => n !== fixture.home && n !== fixture.away).map(n => `<option value="${n}">${n}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    html += '<p class="text-xs text-amber-600 mt-3">⚠️ After saving, the entire first half will be reshuffled to maintain a valid schedule. Your changes will be preserved.</p>';
+    
+    container.innerHTML = html;
+    document.getElementById('save-round-changes-btn').classList.remove('hidden');
+}
+
+async function saveRoundChanges() {
+    if (!isAdmin) return;
+    
+    const roundNumber = parseInt(document.getElementById('edit-round-select').value);
+    const totalRounds = Math.max(...fixtures.map(f => f.round));
+    const halfRounds = totalRounds / 2;
+    
+    // Collect changes from the UI
+    const roundFixtures = fixtures.filter(f => f.round === roundNumber);
+    const changes = {};
+    
+    for (const fixture of roundFixtures) {
+        const newHome = document.getElementById(`round-edit-home-${fixture.id}`)?.value;
+        const newAway = document.getElementById(`round-edit-away-${fixture.id}`)?.value;
+        
+        if (newHome && newAway) {
+            if (newHome !== fixture.home || newAway !== fixture.away) {
+                changes[fixture.id] = { home: newHome, away: newAway };
+            }
+        }
+    }
+    
+    if (Object.keys(changes).length === 0 && !confirm("No changes detected. Still want to reshuffle the first half?")) {
+        return;
+    }
+    
+    if (!confirm(`⚠️ This will RESHUFFLE the entire FIRST HALF (Rounds 1-${halfRounds}) while preserving your changes for Round ${roundNumber}.\n\nThe second half will automatically mirror the new first half.\n\nAll existing results in the first half will be RESET.\n\nContinue?`)) {
+        return;
+    }
+    
+    showToast("Reshuffling first half fixtures...");
+    
+    // Get all active teams
+    const activeTeams = Object.values(teams).filter(t => !t.relegated).map(t => t.name);
+    
+    // Generate new first half fixtures
+    const newFirstHalfRounds = generateRandomRoundRobinFirstHalf(activeTeams);
+    
+    // Apply new fixtures to rounds 1 to halfRounds
+    for (let round = 1; round <= halfRounds; round++) {
+        const roundFixturesList = fixtures.filter(f => f.round === round);
+        const newRoundFixtures = newFirstHalfRounds[round - 1] || [];
+        
+        for (let i = 0; i < roundFixturesList.length && i < newRoundFixtures.length; i++) {
+            const f = roundFixturesList[i];
+            const newF = newRoundFixtures[i];
+            if (newF) {
+                f.home = newF.home;
+                f.away = newF.away;
+                f.homeScore = null;
+                f.awayScore = null;
+                f.played = false;
+                f.cancelled = false;
+                f.report = null;
+                f.events = [];
+            }
+        }
+    }
+    
+    // Apply the admin's custom changes to the edited round
+    for (const [fixtureId, change] of Object.entries(changes)) {
+        const fixture = fixtures.find(f => f.id == fixtureId);
+        if (fixture) {
+            fixture.home = change.home;
+            fixture.away = change.away;
+            fixture.homeScore = null;
+            fixture.awayScore = null;
+            fixture.played = false;
+            fixture.cancelled = false;
+        }
+    }
+    
+    // Validate no duplicate matchups in the same half
+    const firstHalfFixtures = fixtures.filter(f => f.round <= halfRounds);
+    const matchups = new Set();
+    let hasDuplicate = false;
+    let duplicateInfo = "";
+    
+    for (const f of firstHalfFixtures) {
+        const matchup = `${f.home} vs ${f.away}`;
+        if (matchups.has(matchup)) {
+            hasDuplicate = true;
+            duplicateInfo = matchup;
+            break;
+        }
+        matchups.add(matchup);
+    }
+    
+    if (hasDuplicate) {
+        showToast(`⚠️ Duplicate matchup detected: ${duplicateInfo}! Reshuffling again...`);
+        // Recursive call to fix duplicates
+        await saveRoundChanges();
+        return;
+    }
+    
+    // Regenerate second half as mirror of new first half
+    for (let round = 1; round <= halfRounds; round++) {
+        const firstHalfRound = round;
+        const secondHalfRound = round + halfRounds;
+        const firstHalfFixturesList = fixtures.filter(f => f.round === firstHalfRound);
+        const secondHalfFixturesList = fixtures.filter(f => f.round === secondHalfRound);
+        
+        for (let i = 0; i < firstHalfFixturesList.length && i < secondHalfFixturesList.length; i++) {
+            const first = firstHalfFixturesList[i];
+            const second = secondHalfFixturesList[i];
+            if (first && second) {
+                second.home = first.away;
+                second.away = first.home;
+                second.homeScore = null;
+                second.awayScore = null;
+                second.played = false;
+                second.cancelled = false;
+                second.report = null;
+                second.events = [];
+            }
+        }
+    }
+    
+    saveToStorage();
+    updateTableCalculations();
+    renderTable();
+    renderGameweekTabs();
+    renderFixtures();
+    generateTickerFacts();
+    
+    showToast(`✅ Round ${roundNumber} updated! First half reshuffled, second half mirrored.`);
+    closeEditRoundModal();
+}
+
 // ==================== CHAT ====================
 function initChatListener() {
     chatMessagesRef = getChatRef();
@@ -1066,18 +1315,30 @@ function renderGameweekTabs() {
     const container = document.getElementById('gameweek-tabs');
     if (!fixtures.length) return;
     const total = Math.max(...fixtures.map(f => f.round));
+    const halfRounds = total / 2;
     container.innerHTML = "";
+    
     for (let r = 1; r <= total; r++) {
         const roundFixtures = fixtures.filter(f => f.round === r && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
         const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
+        const isFirstHalf = r <= halfRounds;
+        
         let statusHtml = allResolved ? `<span class="text-[9px] font-mono text-green-600 ml-1">✅ Completed</span>` : `<span class="text-[9px] font-mono text-gray-400 ml-1"></span>`;
+        
+        // Add Edit button for first half rounds only (and not completed)
+        let editBtnHtml = '';
+        if (isAdmin && isFirstHalf && !allResolved && tournamentPhase === 'league') {
+            editBtnHtml = `<button onclick="event.stopPropagation(); openEditRoundModal(${r})" class="ml-1 text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full hover:bg-purple-200" title="Edit entire round">✏️ Edit</button>`;
+        }
+        
         const active = r === currentSelectedRound;
         const btn = document.createElement('button');
         btn.className = `px-3 py-1 text-[11px] font-mono rounded-full transition shrink-0 flex items-center gap-1 ${active ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
-        btn.innerHTML = `GW ${r} ${statusHtml}`;
+        btn.innerHTML = `GW ${r} ${statusHtml} ${editBtnHtml}`;
         btn.onclick = () => { currentSelectedRound = r; renderGameweekTabs(); renderFixtures(); };
         container.appendChild(btn);
     }
+    
     if (isAdmin && tournamentPhase === 'league') {
         const shuffleBtn = document.createElement('button');
         shuffleBtn.className = 'px-3 py-1 text-[11px] font-mono rounded-full bg-amber-100 text-amber-700 hover:bg-amber-200 transition ml-2 shrink-0';
@@ -1086,7 +1347,6 @@ function renderGameweekTabs() {
         container.appendChild(shuffleBtn);
     }
 }
-
 // ==================== RENDER FIXTURES ====================
 function renderFixtures() {
     const container = document.getElementById('fixtures-container');
@@ -1577,4 +1837,8 @@ window.removePollOption = removePollOption;
 window.createPoll = createPoll;
 window.deletePoll = deletePoll;
 window.votePoll = votePoll;
+window.openEditRoundModal = openEditRoundModal;
+window.closeEditRoundModal = closeEditRoundModal;
+window.loadRoundForEditing = loadRoundForEditing;
+window.saveRoundChanges = saveRoundChanges;
 window.sendTypingStatus = sendTypingStatus;
