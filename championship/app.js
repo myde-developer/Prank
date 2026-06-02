@@ -1526,17 +1526,132 @@ function renderGameweekTabs() {
         
         // Add Edit button for first half rounds only (and not completed)
         let editBtnHtml = '';
-        if (isAdmin && isFirstHalf && !allResolved && tournamentPhase === 'league') {
+        if (isAdmin && isFirstHalf && !allResolved) {
             editBtnHtml = `<button onclick="event.stopPropagation(); openEditRoundModal(${r})" class="ml-1 text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full hover:bg-purple-200" title="Edit entire round">✏️ Edit</button>`;
+        }
+        
+        // Add Integrity Check button for ALL rounds (admin only)
+        let integrityBtnHtml = '';
+        if (isAdmin) {
+            integrityBtnHtml = `<button onclick="event.stopPropagation(); checkRoundIntegrity(${r})" class="ml-1 text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full hover:bg-blue-200" title="Check round integrity">🔍</button>`;
         }
         
         const active = r === currentSelectedRound;
         const btn = document.createElement('button');
         btn.className = `px-3 py-1 text-[11px] font-mono rounded-full transition shrink-0 flex items-center gap-1 ${active ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
-        btn.innerHTML = `GW ${r} ${statusHtml} ${editBtnHtml}`;
+        btn.innerHTML = `GW ${r} ${statusHtml} ${editBtnHtml} ${integrityBtnHtml}`;
         btn.onclick = () => { currentSelectedRound = r; renderGameweekTabs(); renderFixtures(); };
         container.appendChild(btn);
     }
+}
+
+function checkRoundIntegrity(roundNumber) {
+    const roundFixtures = fixtures.filter(f => f.round === roundNumber && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
+    const totalRounds = Math.max(...fixtures.map(f => f.round));
+    const halfRounds = totalRounds / 2;
+    const isFirstHalf = roundNumber <= halfRounds;
+    
+    let issues = [];
+    
+    // Check 1: No team plays twice in this round
+    const teamsInRound = [];
+    for (const f of roundFixtures) {
+        if (teamsInRound.includes(f.home)) issues.push(`❌ ${f.home} appears twice in Round ${roundNumber}!`);
+        if (teamsInRound.includes(f.away)) issues.push(`❌ ${f.away} appears twice in Round ${roundNumber}!`);
+        teamsInRound.push(f.home, f.away);
+    }
+    
+    // Check 2: No duplicate matchups in the same half (only for first half rounds)
+    if (isFirstHalf) {
+        for (let round = 1; round <= halfRounds; round++) {
+            const roundFixturesCheck = fixtures.filter(f => f.round === round);
+            for (const f of roundFixturesCheck) {
+                if (f.round !== roundNumber) {
+                    const isDuplicate = roundFixtures.some(rf => 
+                        (rf.home === f.home && rf.away === f.away) || 
+                        (rf.home === f.away && rf.away === f.home)
+                    );
+                    if (isDuplicate) {
+                        issues.push(`⚠️ Matchup ${f.home} vs ${f.away} appears in both Round ${roundNumber} and Round ${round}`);
+                    }
+                }
+            }
+        }
+    }
+    
+    // Check 3: No team plays against itself
+    for (const f of roundFixtures) {
+        if (f.home === f.away && f.home !== "BYE") {
+            issues.push(`❌ Invalid fixture: ${f.home} vs ${f.away} (team cannot play itself)`);
+        }
+    }
+    
+    // Check 4: For first half, check if second half mirrors correctly
+    if (isFirstHalf) {
+        const secondHalfRound = roundNumber + halfRounds;
+        const secondHalfFixtures = fixtures.filter(f => f.round === secondHalfRound);
+        
+        for (let i = 0; i < roundFixtures.length && i < secondHalfFixtures.length; i++) {
+            const first = roundFixtures[i];
+            const second = secondHalfFixtures[i];
+            if (second && (second.home !== first.away || second.away !== first.home)) {
+                issues.push(`⚠️ Round ${secondHalfRound} does not mirror Round ${roundNumber}`);
+            }
+        }
+    }
+    
+    // Display results in a modal
+    let modalHtml = `
+        <div id="integrity-modal" class="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-y-auto">
+                <div class="p-4 border-b border-gray-200 sticky top-0 bg-white flex justify-between items-center">
+                    <h3 class="font-bold text-lg">🔍 Round ${roundNumber} Integrity Check</h3>
+                    <button onclick="closeIntegrityModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+                </div>
+                <div class="p-4">
+    `;
+    
+    if (issues.length === 0) {
+        modalHtml += `
+            <div class="text-center py-8">
+                <div class="text-5xl mb-3">✅</div>
+                <p class="text-green-600 font-bold">No issues found!</p>
+                <p class="text-sm text-gray-500 mt-2">Round ${roundNumber} is valid.</p>
+            </div>
+        `;
+    } else {
+        modalHtml += `
+            <div class="text-center mb-4">
+                <div class="text-5xl mb-3">⚠️</div>
+                <p class="text-red-600 font-bold">Found ${issues.length} issue(s)</p>
+            </div>
+            <div class="space-y-2">
+        `;
+        for (const issue of issues) {
+            modalHtml += `<div class="bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700">${issue}</div>`;
+        }
+        modalHtml += `</div>`;
+    }
+    
+    modalHtml += `
+                </div>
+                <div class="p-3 bg-gray-50 text-right rounded-b-2xl">
+                    <button onclick="closeIntegrityModal()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-500">Close</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const existingModal = document.getElementById('integrity-modal');
+    if (existingModal) existingModal.remove();
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    document.getElementById('integrity-modal').classList.remove('hidden');
+    document.getElementById('integrity-modal').classList.add('flex');
+}
+
+function closeIntegrityModal() {
+    const modal = document.getElementById('integrity-modal');
+    if (modal) modal.remove();
 }
 
 // ==================== RENDER FIXTURES ====================
