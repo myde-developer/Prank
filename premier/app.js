@@ -200,6 +200,231 @@ function generateRandomRoundRobin(teamNames) {
     return [...firstHalfRounds, ...secondHalfRounds];
 }
 
+// ==================== RANGE RESHUFFLER ====================
+function openRangeReshuffler() {
+    if (!isAdmin) return;
+    
+    const totalRounds = Math.max(...fixtures.map(f => f.round));
+    const halfRounds = totalRounds / 2;
+    
+    // Find first uncompleted round
+    let firstUncompletedRound = halfRounds + 1;
+    for (let round = 1; round <= halfRounds; round++) {
+        const roundFixtures = fixtures.filter(f => f.round === round);
+        const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
+        if (!allResolved) {
+            firstUncompletedRound = round;
+            break;
+        }
+    }
+    
+    // Get protected matchups (from rounds before firstUncompletedRound)
+    let protectedMatchupsList = [];
+    for (let round = 1; round < firstUncompletedRound; round++) {
+        const roundFixtures = fixtures.filter(f => f.round === round);
+        for (const f of roundFixtures) {
+            protectedMatchupsList.push(`${f.home} vs ${f.away}`);
+        }
+    }
+    
+    let modalHtml = `
+        <div id="range-reshuffle-modal" class="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+                <div class="p-5 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white">
+                    <h3 class="font-bold text-lg">🔄 Range Reshuffler</h3>
+                    <button onclick="closeRangeReshuffler()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+                </div>
+                <div class="p-5 space-y-4">
+                    <p class="text-sm text-gray-600">Reshuffle a range of rounds in the FIRST HALF only.</p>
+                    <p class="text-xs text-green-600">✅ Rounds before your range will be PROTECTED (no duplicate matchups)</p>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-xs font-semibold text-gray-500 uppercase">From Round</label>
+                            <input type="number" id="range-from" min="1" max="${halfRounds}" value="${firstUncompletedRound}" class="w-full mt-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-500 uppercase">To Round</label>
+                            <input type="number" id="range-to" min="1" max="${halfRounds}" value="${halfRounds}" class="w-full mt-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm">
+                        </div>
+                    </div>
+                    
+                    <div class="bg-green-50 p-3 rounded-lg border border-green-200">
+                        <p class="text-xs font-bold text-green-700">🔒 Protected Rounds: 1 - ${firstUncompletedRound - 1}</p>
+                        <p class="text-xs text-green-600 mt-1">These ${firstUncompletedRound - 1} round(s) will NOT be changed.</p>
+                        <p class="text-xs text-green-600">Their matchups will NOT appear in reshuffled rounds.</p>
+                    </div>
+                    
+                    ${protectedMatchupsList.length > 0 ? `
+                    <div class="bg-gray-50 p-3 rounded-lg max-h-32 overflow-y-auto">
+                        <p class="text-xs font-semibold text-gray-600">Protected Matchups:</p>
+                        <p class="text-[10px] text-gray-500 mt-1">${protectedMatchupsList.join(', ')}</p>
+                    </div>
+                    ` : ''}
+                    
+                    <button onclick="executeRangeReshuffle()" class="w-full bg-purple-600 hover:bg-purple-500 text-white py-3 rounded-xl font-semibold transition">
+                        🔄 Reshuffle Selected Range
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const existingModal = document.getElementById('range-reshuffle-modal');
+    if (existingModal) existingModal.remove();
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    document.getElementById('range-reshuffle-modal').classList.remove('hidden');
+    document.getElementById('range-reshuffle-modal').classList.add('flex');
+}
+
+function closeRangeReshuffler() {
+    const modal = document.getElementById('range-reshuffle-modal');
+    if (modal) modal.remove();
+}
+
+async function executeRangeReshuffle() {
+    const fromRound = parseInt(document.getElementById('range-from').value);
+    const toRound = parseInt(document.getElementById('range-to').value);
+    const totalRounds = Math.max(...fixtures.map(f => f.round));
+    const halfRounds = totalRounds / 2;
+    
+    // Validation
+    if (isNaN(fromRound) || isNaN(toRound)) {
+        alert("Please enter valid round numbers");
+        return;
+    }
+    
+    if (fromRound < 1 || toRound > halfRounds || fromRound > toRound) {
+        alert(`Please enter valid range (1-${halfRounds})`);
+        return;
+    }
+    
+    // Check if any round in range is already completed
+    let hasCompletedRound = false;
+    let completedRoundNumber = 0;
+    for (let round = fromRound; round <= toRound; round++) {
+        const roundFixtures = fixtures.filter(f => f.round === round);
+        const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
+        if (allResolved) {
+            hasCompletedRound = true;
+            completedRoundNumber = round;
+            break;
+        }
+    }
+    
+    if (hasCompletedRound) {
+        alert(`⚠️ Round ${completedRoundNumber} is already completed!\n\nYou cannot reshuffle rounds that have already been played.\n\nPlease start from a round that hasn't been completed yet.`);
+        closeRangeReshuffler();
+        return;
+    }
+    
+    // Confirm with user
+    const confirmMsg = `Reshuffle Rounds ${fromRound} to ${toRound}?\n\n⚠️ All results in these rounds will be RESET.\n✅ Rounds 1-${fromRound - 1} will NOT be affected.\n\nContinue?`;
+    if (!confirm(confirmMsg)) {
+        closeRangeReshuffler();
+        return;
+    }
+    
+    showToast(`Reshuffling rounds ${fromRound} to ${toRound}...`);
+    
+    // Get all active teams
+    const activeTeams = Object.values(teams).filter(t => !t.relegated).map(t => t.name);
+    
+    // Get matchups already used in rounds BEFORE the range
+    const usedMatchups = new Set();
+    for (let round = 1; round < fromRound; round++) {
+        const roundFixtures = fixtures.filter(f => f.round === round);
+        for (const f of roundFixtures) {
+            usedMatchups.add(`${f.home}|${f.away}`);
+            usedMatchups.add(`${f.away}|${f.home}`);
+        }
+    }
+    
+    // Generate a complete round-robin schedule
+    const completeSchedule = generateRoundRobinComplete(activeTeams);
+    
+    // Find rounds that don't conflict with used matchups
+    let availableRounds = [];
+    for (let roundIdx = 0; roundIdx < completeSchedule.length; roundIdx++) {
+        const roundFixtures = completeSchedule[roundIdx];
+        let roundValid = true;
+        
+        for (const f of roundFixtures) {
+            if (usedMatchups.has(`${f.home}|${f.away}`)) {
+                roundValid = false;
+                break;
+            }
+        }
+        
+        if (roundValid) {
+            availableRounds.push(roundFixtures);
+        }
+    }
+    
+    const neededRounds = (toRound - fromRound + 1);
+    
+    if (availableRounds.length < neededRounds) {
+        showToast(`❌ Not enough valid schedule combinations. Try a smaller range or start earlier.`);
+        closeRangeReshuffler();
+        return;
+    }
+    
+    // Apply selected rounds
+    for (let i = 0; i < neededRounds; i++) {
+        const targetRound = fromRound + i;
+        const newRoundFixtures = availableRounds[i];
+        const existingRoundFixtures = fixtures.filter(f => f.round === targetRound);
+        
+        for (let j = 0; j < existingRoundFixtures.length && j < newRoundFixtures.length; j++) {
+            const existing = existingRoundFixtures[j];
+            const newF = newRoundFixtures[j];
+            if (existing && newF) {
+                existing.home = newF.home;
+                existing.away = newF.away;
+                existing.homeScore = null;
+                existing.awayScore = null;
+                existing.played = false;
+                existing.cancelled = false;
+                existing.report = null;
+                existing.events = [];
+            }
+        }
+    }
+    
+    // Regenerate second half as mirror of first half
+    for (let round = 1; round <= halfRounds; round++) {
+        const secondHalfRound = round + halfRounds;
+        const firstHalfFixtures = fixtures.filter(f => f.round === round);
+        const secondHalfFixtures = fixtures.filter(f => f.round === secondHalfRound);
+        
+        for (let i = 0; i < firstHalfFixtures.length && i < secondHalfFixtures.length; i++) {
+            const first = firstHalfFixtures[i];
+            const second = secondHalfFixtures[i];
+            if (first && second) {
+                second.home = first.away;
+                second.away = first.home;
+                second.homeScore = null;
+                second.awayScore = null;
+                second.played = false;
+                second.cancelled = false;
+                second.report = null;
+                second.events = [];
+            }
+        }
+    }
+    
+    saveToStorage();
+    updateTableCalculations();
+    renderTable();
+    renderGameweekTabs();
+    renderFixtures();
+    generateTickerFacts();
+    
+    showToast(`✅ Rounds ${fromRound} to ${toRound} reshuffled successfully!`);
+    closeRangeReshuffler();
+    validateFixtureIntegrity();
+}
+
 // ==================== INTEGRITY VALIDATION ====================
 function validateFixtureIntegrity(silent = false) {
     const totalRounds = Math.max(...fixtures.map(f => f.round));
@@ -2530,3 +2755,6 @@ window.saveRoundChanges = saveRoundChanges;
 window.checkAndShowFirstHalfReview = checkAndShowFirstHalfReview;
 window.closeFirstHalfReviewModal = closeFirstHalfReviewModal;
 window.navigateReview = navigateReview;
+window.openRangeReshuffler = openRangeReshuffler;
+window.closeRangeReshuffler = closeRangeReshuffler;
+window.executeRangeReshuffle = executeRangeReshuffle;
