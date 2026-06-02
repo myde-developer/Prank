@@ -432,15 +432,8 @@ function loadRoundForEditing() {
     document.getElementById('edit-round-modal').scrollTop = 0;
 }
 
-async function saveRoundChanges(retryCount = 0) {
+async function saveRoundChanges() {
     if (!isAdmin) return;
-    
-    // Prevent infinite loop
-    if (retryCount > 10) {
-        showToast("❌ Unable to create valid schedule after 10 attempts. Please try different changes.");
-        closeEditRoundModal();
-        return;
-    }
     
     const roundNumber = parseInt(document.getElementById('edit-round-select').value);
     const totalRounds = Math.max(...fixtures.map(f => f.round));
@@ -459,7 +452,7 @@ async function saveRoundChanges(retryCount = 0) {
         }
     }
     
-    // Validation checks
+    // Validation
     const isRoundCompleted = currentRoundFixtures.length > 0 && currentRoundFixtures.every(f => f.played || f.cancelled);
     if (isRoundCompleted || roundNumber < firstUncompletedRound) {
         alert(`⚠️ Round ${roundNumber} is already completed! Cannot edit.`);
@@ -489,7 +482,7 @@ async function saveRoundChanges(retryCount = 0) {
     
     // Confirm with user
     if (changes.length === 0) {
-        if (!confirm(`No changes in Round ${roundNumber}. Reshuffle rounds ${firstUncompletedRound}-${halfRounds}?`)) {
+        if (!confirm(`No changes in Round ${roundNumber}. Reshuffle remaining rounds?`)) {
             closeEditRoundModal();
             return;
         }
@@ -498,81 +491,94 @@ async function saveRoundChanges(retryCount = 0) {
         for (const change of changes) {
             message += `• ${change.oldHome} vs ${change.oldAway} → ${change.newHome} vs ${change.newAway}\n`;
         }
-        message += `\n⚠️ Reshuffle rounds ${firstUncompletedRound}-${halfRounds}?`;
+        message += `\n⚠️ Reshuffle remaining rounds?`;
         if (!confirm(message)) {
             closeEditRoundModal();
             return;
         }
     }
     
-    showToast(`Reshuffling rounds ${firstUncompletedRound} to ${halfRounds}... (Attempt ${retryCount + 1})`);
+    showToast(`Generating valid schedule...`);
     
-    // Get active teams
+    // Get all active teams
     const activeTeams = Object.values(teams).filter(t => !t.relegated).map(t => t.name);
     
-    // Generate new schedule
-    let newFirstHalfRounds = generateRandomRoundRobinFirstHalf(activeTeams);
-    let hasDuplicate = true;
-    let attempts = 0;
-    const maxAttempts = 20;
-    
-    // Keep generating until no duplicates with completed rounds
-    while (hasDuplicate && attempts < maxAttempts) {
-        newFirstHalfRounds = generateRandomRoundRobinFirstHalf(activeTeams);
-        
-        // Check for duplicates with completed rounds
-        const completedRounds = [];
-        for (let round = 1; round < firstUncompletedRound; round++) {
-            const roundFixtures = fixtures.filter(f => f.round === round);
-            completedRounds.push(...roundFixtures);
+    // Get the matchups that have ALREADY been played in completed rounds
+    const usedMatchups = new Set();
+    for (let round = 1; round < firstUncompletedRound; round++) {
+        const roundFixtures = fixtures.filter(f => f.round === round);
+        for (const f of roundFixtures) {
+            const matchup1 = `${f.home}|${f.away}`;
+            const matchup2 = `${f.away}|${f.home}`;
+            usedMatchups.add(matchup1);
+            usedMatchups.add(matchup2);
         }
-        
-        hasDuplicate = false;
-        for (let round = firstUncompletedRound; round <= halfRounds; round++) {
-            const newRoundFixtures = newFirstHalfRounds[round - 1] || [];
-            for (const fixture of newRoundFixtures) {
-                const isDuplicate = completedRounds.some(completed => 
-                    (completed.home === fixture.home && completed.away === fixture.away) ||
-                    (completed.home === fixture.away && completed.away === fixture.home)
-                );
-                if (isDuplicate) {
-                    hasDuplicate = true;
-                    break;
-                }
-            }
-            if (hasDuplicate) break;
-        }
-        attempts++;
     }
     
-    if (hasDuplicate) {
-        showToast(`❌ Could not generate valid schedule after ${maxAttempts} attempts. Please try different changes.`);
+    console.log("Used matchups:", usedMatchups);
+    console.log("Active teams:", activeTeams);
+    
+    // Generate a complete round-robin schedule
+    let completeSchedule = generateRoundRobinComplete(activeTeams);
+    
+    // Filter out rounds that are already completed
+    let availableRounds = [];
+    for (let roundIdx = 0; roundIdx < completeSchedule.length; roundIdx++) {
+        const roundFixtures = completeSchedule[roundIdx];
+        let roundValid = true;
+        
+        // Check if any fixture in this round conflicts with used matchups
+        for (const f of roundFixtures) {
+            const matchup1 = `${f.home}|${f.away}`;
+            if (usedMatchups.has(matchup1)) {
+                roundValid = false;
+                break;
+            }
+        }
+        
+        if (roundValid) {
+            availableRounds.push(roundFixtures);
+        }
+    }
+    
+    console.log("Complete schedule rounds:", completeSchedule.length);
+    console.log("Available rounds after filtering:", availableRounds.length);
+    
+    // We need enough rounds for the remaining uncompleted rounds
+    const neededRounds = (halfRounds - firstUncompletedRound + 1);
+    
+    if (availableRounds.length < neededRounds) {
+        showToast(`❌ Not enough valid schedule combinations. Try different changes.`);
         closeEditRoundModal();
         return;
     }
     
-    // Apply the valid schedule
-    for (let round = firstUncompletedRound; round <= halfRounds; round++) {
-        const roundFixturesList = fixtures.filter(f => f.round === round);
-        const newRoundFixtures = newFirstHalfRounds[round - 1] || [];
+    // Take the first 'neededRounds' from available rounds
+    const selectedRounds = availableRounds.slice(0, neededRounds);
+    
+    // Apply selected rounds to uncompleted rounds
+    for (let i = 0; i < neededRounds; i++) {
+        const targetRound = firstUncompletedRound + i;
+        const newRoundFixtures = selectedRounds[i];
+        const existingRoundFixtures = fixtures.filter(f => f.round === targetRound);
         
-        for (let i = 0; i < roundFixturesList.length && i < newRoundFixtures.length; i++) {
-            const f = roundFixturesList[i];
-            const newF = newRoundFixtures[i];
-            if (newF) {
-                f.home = newF.home;
-                f.away = newF.away;
-                f.homeScore = null;
-                f.awayScore = null;
-                f.played = false;
-                f.cancelled = false;
-                f.report = null;
-                f.events = [];
+        for (let j = 0; j < existingRoundFixtures.length && j < newRoundFixtures.length; j++) {
+            const existing = existingRoundFixtures[j];
+            const newF = newRoundFixtures[j];
+            if (existing && newF) {
+                existing.home = newF.home;
+                existing.away = newF.away;
+                existing.homeScore = null;
+                existing.awayScore = null;
+                existing.played = false;
+                existing.cancelled = false;
+                existing.report = null;
+                existing.events = [];
             }
         }
     }
     
-    // Apply admin changes
+    // Apply admin changes to the edited round
     for (const change of changes) {
         const fixture = fixtures.find(f => f.id === change.id);
         if (fixture) {
@@ -585,15 +591,15 @@ async function saveRoundChanges(retryCount = 0) {
         }
     }
     
-    // Regenerate second half
+    // Regenerate second half as mirror of first half
     for (let round = 1; round <= halfRounds; round++) {
         const secondHalfRound = round + halfRounds;
-        const firstHalfFixturesList = fixtures.filter(f => f.round === round);
-        const secondHalfFixturesList = fixtures.filter(f => f.round === secondHalfRound);
+        const firstHalfFixtures = fixtures.filter(f => f.round === round);
+        const secondHalfFixtures = fixtures.filter(f => f.round === secondHalfRound);
         
-        for (let i = 0; i < firstHalfFixturesList.length && i < secondHalfFixturesList.length; i++) {
-            const first = firstHalfFixturesList[i];
-            const second = secondHalfFixturesList[i];
+        for (let i = 0; i < firstHalfFixtures.length && i < secondHalfFixtures.length; i++) {
+            const first = firstHalfFixtures[i];
+            const second = secondHalfFixtures[i];
             if (first && second) {
                 second.home = first.away;
                 second.away = first.home;
@@ -614,10 +620,52 @@ async function saveRoundChanges(retryCount = 0) {
     renderFixtures();
     generateTickerFacts();
     
-    showToast(`✅ Round ${roundNumber} updated successfully! (${attempts} generation attempts)`);
+    showToast(`✅ Round ${roundNumber} updated successfully!`);
     closeEditRoundModal();
     checkAndShowFirstHalfReview();
     validateFixtureIntegrity();
+}
+
+// Helper function to generate a complete round-robin schedule
+function generateRoundRobinComplete(teamNames) {
+    let n = teamNames.length;
+    if (n % 2 !== 0) { teamNames.push("BYE"); n++; }
+    
+    let shuffled = [...teamNames];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    
+    const numRounds = n - 1;
+    const halfSize = n / 2;
+    let allRounds = [];
+    
+    for (let round = 0; round < numRounds; round++) {
+        const roundFixtures = [];
+        for (let i = 0; i < halfSize; i++) {
+            const home = shuffled[i];
+            const away = shuffled[n - 1 - i];
+            if (home !== "BYE" && away !== "BYE") {
+                if (Math.random() < 0.5) {
+                    roundFixtures.push({ home, away });
+                } else {
+                    roundFixtures.push({ home: away, away: home });
+                }
+            }
+        }
+        allRounds.push(roundFixtures);
+        const last = shuffled.pop();
+        shuffled.splice(1, 0, last);
+    }
+    
+    // Shuffle round order
+    for (let i = allRounds.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [allRounds[i], allRounds[j]] = [allRounds[j], allRounds[i]];
+    }
+    
+    return allRounds;
 }
 
 // ==================== CHAT ====================
