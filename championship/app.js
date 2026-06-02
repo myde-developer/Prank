@@ -206,9 +206,11 @@ function openRangeReshuffler() {
     
     const totalRounds = Math.max(...fixtures.map(f => f.round));
     const halfRounds = totalRounds / 2;
+    const matchesPerRound = fixtures.filter(f => f.round === 1).length;
     
     // Find first uncompleted round
     let firstUncompletedRound = halfRounds + 1;
+    let completedRoundsCount = 0;
     for (let round = 1; round <= halfRounds; round++) {
         const roundFixtures = fixtures.filter(f => f.round === round);
         const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
@@ -216,27 +218,22 @@ function openRangeReshuffler() {
             firstUncompletedRound = round;
             break;
         }
+        completedRoundsCount++;
     }
     
-    // Get protected matchups (from rounds before firstUncompletedRound)
-    let protectedMatchupsList = [];
-    for (let round = 1; round < firstUncompletedRound; round++) {
-        const roundFixtures = fixtures.filter(f => f.round === round);
-        for (const f of roundFixtures) {
-            protectedMatchupsList.push(`${f.home} vs ${f.away}`);
-        }
-    }
+    const activeTeams = Object.values(teams).filter(t => !t.relegated).map(t => t.name);
+    const totalTeams = activeTeams.length;
     
     let modalHtml = `
         <div id="range-reshuffle-modal" class="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-                <div class="p-5 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+                <div class="p-5 border-b border-gray-200 flex justify-between items-center">
                     <h3 class="font-bold text-lg">🔄 Range Reshuffler</h3>
                     <button onclick="closeRangeReshuffler()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
                 </div>
                 <div class="p-5 space-y-4">
                     <p class="text-sm text-gray-600">Reshuffle a range of rounds in the FIRST HALF only.</p>
-                    <p class="text-xs text-green-600">✅ Rounds before your range will be PROTECTED (no duplicate matchups)</p>
+                    <p class="text-xs text-green-600">✅ Rounds before your range will be PROTECTED</p>
                     
                     <div class="grid grid-cols-2 gap-4">
                         <div>
@@ -251,16 +248,8 @@ function openRangeReshuffler() {
                     
                     <div class="bg-green-50 p-3 rounded-lg border border-green-200">
                         <p class="text-xs font-bold text-green-700">🔒 Protected Rounds: 1 - ${firstUncompletedRound - 1}</p>
-                        <p class="text-xs text-green-600 mt-1">These ${firstUncompletedRound - 1} round(s) will NOT be changed.</p>
-                        <p class="text-xs text-green-600">Their matchups will NOT appear in reshuffled rounds.</p>
+                        <p class="text-xs text-green-600">${completedRoundsCount} round(s) preserved</p>
                     </div>
-                    
-                    ${protectedMatchupsList.length > 0 ? `
-                    <div class="bg-gray-50 p-3 rounded-lg max-h-32 overflow-y-auto">
-                        <p class="text-xs font-semibold text-gray-600">Protected Matchups:</p>
-                        <p class="text-[10px] text-gray-500 mt-1">${protectedMatchupsList.join(', ')}</p>
-                    </div>
-                    ` : ''}
                     
                     <button onclick="executeRangeReshuffle()" class="w-full bg-purple-600 hover:bg-purple-500 text-white py-3 rounded-xl font-semibold transition">
                         🔄 Reshuffle Selected Range
@@ -289,38 +278,23 @@ async function executeRangeReshuffle() {
     const halfRounds = totalRounds / 2;
     
     // Validation
-    if (isNaN(fromRound) || isNaN(toRound)) {
-        alert("Please enter valid round numbers");
-        return;
-    }
-    
-    if (fromRound < 1 || toRound > halfRounds || fromRound > toRound) {
+    if (isNaN(fromRound) || isNaN(toRound) || fromRound < 1 || toRound > halfRounds || fromRound > toRound) {
         alert(`Please enter valid range (1-${halfRounds})`);
         return;
     }
     
     // Check if any round in range is already completed
-    let hasCompletedRound = false;
-    let completedRoundNumber = 0;
     for (let round = fromRound; round <= toRound; round++) {
         const roundFixtures = fixtures.filter(f => f.round === round);
         const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
         if (allResolved) {
-            hasCompletedRound = true;
-            completedRoundNumber = round;
-            break;
+            alert(`⚠️ Round ${round} is already completed! Cannot reshuffle completed rounds.`);
+            closeRangeReshuffler();
+            return;
         }
     }
     
-    if (hasCompletedRound) {
-        alert(`⚠️ Round ${completedRoundNumber} is already completed!\n\nYou cannot reshuffle rounds that have already been played.`);
-        closeRangeReshuffler();
-        return;
-    }
-    
-    // Confirm with user
-    const confirmMsg = `Reshuffle Rounds ${fromRound} to ${toRound}?\n\n⚠️ All results in these rounds will be RESET.\n✅ Rounds 1-${fromRound - 1} will be preserved.\n\nContinue?`;
-    if (!confirm(confirmMsg)) {
+    if (!confirm(`Reshuffle Rounds ${fromRound} to ${toRound}?\n\n⚠️ Results in these rounds will be RESET.\n✅ Rounds 1-${fromRound - 1} preserved.\n\nContinue?`)) {
         closeRangeReshuffler();
         return;
     }
@@ -329,74 +303,38 @@ async function executeRangeReshuffle() {
     
     // Get all active teams
     const activeTeams = Object.values(teams).filter(t => !t.relegated).map(t => t.name);
+    const matchesPerRound = activeTeams.length / 2;
+    const roundsToReshuffle = toRound - fromRound + 1;
     
-    // Step 1: Extract the protected fixtures (rounds BEFORE fromRound)
-    const protectedFixtures = [];
+    // Step 1: Extract the schedule of protected rounds
+    const protectedSchedule = [];
     for (let round = 1; round < fromRound; round++) {
         const roundFixtures = fixtures.filter(f => f.round === round);
-        for (const f of roundFixtures) {
-            protectedFixtures.push({ home: f.home, away: f.away });
-        }
+        const roundMatchups = roundFixtures.map(f => ({ home: f.home, away: f.away }));
+        protectedSchedule.push(roundMatchups);
     }
     
-    // Step 2: Create a set of used matchups from protected fixtures
-    const usedMatchups = new Set();
-    for (const f of protectedFixtures) {
-        usedMatchups.add(`${f.home}|${f.away}`);
-    }
+    // Step 2: Build a proper round-robin schedule for the remaining rounds
+    const newSchedule = generateValidScheduleForRounds(activeTeams, protectedSchedule, roundsToReshuffle);
     
-    // Step 3: Get all remaining matchups that haven't been used yet
-    const allPossibleMatchups = [];
-    for (let i = 0; i < activeTeams.length; i++) {
-        for (let j = i + 1; j < activeTeams.length; j++) {
-            const teamA = activeTeams[i];
-            const teamB = activeTeams[j];
-            const matchup = `${teamA}|${teamB}`;
-            const matchupReversed = `${teamB}|${teamA}`;
-            
-            if (!usedMatchups.has(matchup) && !usedMatchups.has(matchupReversed)) {
-                allPossibleMatchups.push({ home: teamA, away: teamB });
-            }
-        }
-    }
-    
-    console.log("Protected fixtures count:", protectedFixtures.length);
-    console.log("Remaining matchups available:", allPossibleMatchups.length);
-    
-    const neededMatchups = (toRound - fromRound + 1) * (activeTeams.length / 2);
-    
-    if (allPossibleMatchups.length < neededMatchups) {
-        alert(`❌ Not enough remaining matchups!\n\nAvailable: ${allPossibleMatchups.length}\nNeeded: ${neededMatchups}\n\nTry protecting fewer rounds (start from an earlier round).`);
+    if (!newSchedule) {
+        alert("❌ Could not generate a valid schedule. Try protecting fewer rounds (start from an earlier round).");
         closeRangeReshuffler();
         return;
     }
     
-    // Step 4: Shuffle remaining matchups randomly
-    for (let i = allPossibleMatchups.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [allPossibleMatchups[i], allPossibleMatchups[j]] = [allPossibleMatchups[j], allPossibleMatchups[i]];
-    }
-    
-    // Step 5: Distribute remaining matchups into rounds
-    const matchesPerRound = activeTeams.length / 2;
-    let matchupIndex = 0;
-    
-    for (let round = fromRound; round <= toRound; round++) {
-        const roundFixtures = fixtures.filter(f => f.round === round);
+    // Step 3: Apply the new schedule
+    for (let i = 0; i < roundsToReshuffle; i++) {
+        const targetRound = fromRound + i;
+        const roundFixtures = fixtures.filter(f => f.round === targetRound);
+        const newRoundMatchups = newSchedule[i];
         
-        for (let i = 0; i < roundFixtures.length && matchupIndex < allPossibleMatchups.length; i++) {
-            const fixture = roundFixtures[i];
-            const newMatchup = allPossibleMatchups[matchupIndex];
-            
-            if (newMatchup) {
-                // Randomly decide home/away
-                if (Math.random() < 0.5) {
-                    fixture.home = newMatchup.home;
-                    fixture.away = newMatchup.away;
-                } else {
-                    fixture.home = newMatchup.away;
-                    fixture.away = newMatchup.home;
-                }
+        for (let j = 0; j < roundFixtures.length && j < newRoundMatchups.length; j++) {
+            const fixture = roundFixtures[j];
+            const matchup = newRoundMatchups[j];
+            if (fixture && matchup) {
+                fixture.home = matchup.home;
+                fixture.away = matchup.away;
                 fixture.homeScore = null;
                 fixture.awayScore = null;
                 fixture.played = false;
@@ -404,33 +342,10 @@ async function executeRangeReshuffle() {
                 fixture.report = null;
                 fixture.events = [];
             }
-            matchupIndex++;
         }
     }
     
-    // Step 6: Verify no duplicates were created
-    let hasDuplicate = false;
-    const allMatchupsCheck = new Set();
-    
-    for (let round = 1; round <= halfRounds; round++) {
-        const roundFixtures = fixtures.filter(f => f.round === round);
-        for (const f of roundFixtures) {
-            const matchup = `${f.home}|${f.away}`;
-            if (allMatchupsCheck.has(matchup)) {
-                hasDuplicate = true;
-                console.warn("Duplicate found:", matchup);
-            }
-            allMatchupsCheck.add(matchup);
-        }
-    }
-    
-    if (hasDuplicate) {
-        showToast(`⚠️ Duplicate detected! Trying again...`);
-        await executeRangeReshuffle();
-        return;
-    }
-    
-    // Step 7: Regenerate second half as mirror of first half
+    // Step 4: Regenerate second half as mirror of first half
     for (let round = 1; round <= halfRounds; round++) {
         const secondHalfRound = round + halfRounds;
         const firstHalfFixtures = fixtures.filter(f => f.round === round);
@@ -462,6 +377,105 @@ async function executeRangeReshuffle() {
     showToast(`✅ Rounds ${fromRound} to ${toRound} reshuffled successfully!`);
     closeRangeReshuffler();
     validateFixtureIntegrity();
+}
+
+// Core function: Generate valid round-robin schedule for remaining rounds
+function generateValidScheduleForRounds(teams, protectedSchedule, roundsNeeded) {
+    const n = teams.length;
+    const matchesPerRound = n / 2;
+    
+    // Build set of already used matchups from protected rounds
+    const usedMatchups = new Set();
+    for (const round of protectedSchedule) {
+        for (const match of round) {
+            usedMatchups.add(`${match.home}|${match.away}`);
+            usedMatchups.add(`${match.away}|${match.home}`);
+        }
+    }
+    
+    // Get all available teams and create a base schedule
+    let teamList = [...teams];
+    if (teamList.length % 2 !== 0) teamList.push("BYE");
+    
+    // Try multiple times to find a valid schedule
+    for (let attempt = 0; attempt < 50; attempt++) {
+        // Create a round-robin schedule
+        const schedule = [];
+        let workingTeams = [...teamList];
+        
+        // Shuffle teams for randomness
+        for (let i = workingTeams.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [workingTeams[i], workingTeams[j]] = [workingTeams[j], workingTeams[i]];
+        }
+        
+        const numRounds = workingTeams.length - 1;
+        const half = workingTeams.length / 2;
+        
+        // Generate all rounds
+        for (let round = 0; round < numRounds; round++) {
+            const roundMatches = [];
+            for (let i = 0; i < half; i++) {
+                const home = workingTeams[i];
+                const away = workingTeams[workingTeams.length - 1 - i];
+                if (home !== "BYE" && away !== "BYE") {
+                    roundMatches.push({ home: home, away: away });
+                }
+            }
+            schedule.push(roundMatches);
+            
+            // Rotate
+            const last = workingTeams.pop();
+            workingTeams.splice(1, 0, last);
+        }
+        
+        // Shuffle round order
+        for (let i = schedule.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [schedule[i], schedule[j]] = [schedule[j], schedule[i]];
+        }
+        
+        // Filter rounds that don't conflict with used matchups
+        const availableRounds = [];
+        for (const round of schedule) {
+            let roundValid = true;
+            for (const match of round) {
+                const matchupKey = `${match.home}|${match.away}`;
+                if (usedMatchups.has(matchupKey)) {
+                    roundValid = false;
+                    break;
+                }
+            }
+            if (roundValid) {
+                availableRounds.push(round);
+            }
+        }
+        
+        // Check if we have enough rounds
+        if (availableRounds.length >= roundsNeeded) {
+            // Also check that no duplicates within the new rounds themselves
+            const newMatchups = new Set();
+            let hasInternalDuplicate = false;
+            
+            for (let i = 0; i < roundsNeeded; i++) {
+                for (const match of availableRounds[i]) {
+                    const key = `${match.home}|${match.away}`;
+                    if (newMatchups.has(key)) {
+                        hasInternalDuplicate = true;
+                        break;
+                    }
+                    newMatchups.add(key);
+                }
+                if (hasInternalDuplicate) break;
+            }
+            
+            if (!hasInternalDuplicate) {
+                return availableRounds.slice(0, roundsNeeded);
+            }
+        }
+    }
+    
+    return null; // No valid schedule found
 }
 
 // ==================== INTEGRITY VALIDATION ====================
