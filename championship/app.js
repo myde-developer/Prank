@@ -144,6 +144,7 @@ document.getElementById('setup-section')?.classList.add('hidden');
     initBackToTop();
     initChatListener();
     if (userRole === 'admin') updateAdminUIElements();
+   validateFixtureIntegrity(true);
 }
 
 // ==================== HELPERS ====================
@@ -197,6 +198,83 @@ function generateRandomRoundRobin(teamNames) {
         return roundFixtures.map(fixture => ({ home: fixture.away, away: fixture.home }));
     });
     return [...firstHalfRounds, ...secondHalfRounds];
+}
+
+// ==================== INTEGRITY VALIDATION ====================
+function validateFixtureIntegrity(silent = false) {
+    const totalRounds = Math.max(...fixtures.map(f => f.round));
+    const halfRounds = totalRounds / 2;
+    let issues = [];
+    
+    // Check 1: No team plays twice in the same round
+    for (let round = 1; round <= totalRounds; round++) {
+        const roundFixtures = fixtures.filter(f => f.round === round);
+        const teamsInRound = [];
+        for (const f of roundFixtures) {
+            if (teamsInRound.includes(f.home)) issues.push(`Round ${round}: ${f.home} appears twice!`);
+            if (teamsInRound.includes(f.away)) issues.push(`Round ${round}: ${f.away} appears twice!`);
+            teamsInRound.push(f.home, f.away);
+        }
+    }
+    
+    // Check 2: No duplicate matchups in the same half
+    const firstHalfMatches = new Set();
+    for (let round = 1; round <= halfRounds; round++) {
+        const roundFixtures = fixtures.filter(f => f.round === round);
+        for (const f of roundFixtures) {
+            const matchup = `${f.home} vs ${f.away}`;
+            if (firstHalfMatches.has(matchup)) issues.push(`Duplicate matchup in first half: ${matchup}`);
+            firstHalfMatches.add(matchup);
+        }
+    }
+    
+    // Check 3: Second half mirrors first half
+    for (let round = 1; round <= halfRounds; round++) {
+        const secondHalfRound = round + halfRounds;
+        const firstHalfFixtures = fixtures.filter(f => f.round === round);
+        const secondHalfFixtures = fixtures.filter(f => f.round === secondHalfRound);
+        
+        for (let i = 0; i < firstHalfFixtures.length; i++) {
+            const first = firstHalfFixtures[i];
+            const second = secondHalfFixtures[i];
+            if (second && (second.home !== first.away || second.away !== first.home)) {
+                issues.push(`Round ${secondHalfRound} does not mirror Round ${round}`);
+            }
+        }
+    }
+    
+    // Check 4: No team plays against itself
+    for (const f of fixtures) {
+        if (f.home === f.away && f.home !== "BYE") {
+            issues.push(`Invalid fixture: ${f.home} vs ${f.away} (team cannot play itself)`);
+        }
+    }
+    
+    // Check 5: Each team has equal number of home and away games in first half
+    const homeCount = {};
+    const awayCount = {};
+    for (let round = 1; round <= halfRounds; round++) {
+        const roundFixtures = fixtures.filter(f => f.round === round);
+        for (const f of roundFixtures) {
+            if (f.home !== "BYE") homeCount[f.home] = (homeCount[f.home] || 0) + 1;
+            if (f.away !== "BYE") awayCount[f.away] = (awayCount[f.away] || 0) + 1;
+        }
+    }
+    for (const team in homeCount) {
+        if (homeCount[team] !== awayCount[team]) {
+            issues.push(`${team} has ${homeCount[team]} home games and ${awayCount[team]} away games in first half`);
+        }
+    }
+    
+    if (issues.length > 0) {
+        console.warn("⚠️ Integrity issues found:", issues);
+        if (!silent) showToast(`⚠️ Found ${issues.length} integrity issues! Check console.`);
+    } else {
+        console.log("✅ All fixtures are valid!");
+        if (!silent) showToast("✅ Fixture integrity check passed!");
+    }
+    
+    return issues;
 }
 
 
@@ -483,6 +561,40 @@ async function saveRoundChanges() {
         }
     }
     
+// After applying new fixtures, check for duplicates with completed rounds
+let hasDuplicate = false;
+let duplicateMessage = "";
+
+// Get all completed rounds (1 to firstUncompletedRound - 1)
+const completedRounds = [];
+for (let round = 1; round < firstUncompletedRound; round++) {
+    const roundFixtures = fixtures.filter(f => f.round === round);
+    completedRounds.push(...roundFixtures);
+}
+
+// Check if any fixture in uncompleted rounds duplicates a completed fixture
+for (let round = firstUncompletedRound; round <= halfRounds; round++) {
+    const roundFixtures = fixtures.filter(f => f.round === round);
+    for (const fixture of roundFixtures) {
+        const isDuplicate = completedRounds.some(completed => 
+            (completed.home === fixture.home && completed.away === fixture.away) ||
+            (completed.home === fixture.away && completed.away === fixture.home)
+        );
+        if (isDuplicate) {
+            hasDuplicate = true;
+            duplicateMessage = `${fixture.home} vs ${fixture.away}`;
+            break;
+        }
+    }
+}
+
+if (hasDuplicate) {
+    showToast(`⚠️ Duplicate detected: ${duplicateMessage}. Reshuffling again...`);
+    // Recursively call the function to try again
+    await saveRoundChanges();
+    return;
+}
+
     // Regenerate second half as mirror of the ENTIRE first half
     // This ensures second half still mirrors first half correctly for all rounds
     for (let round = 1; round <= halfRounds; round++) {
@@ -520,6 +632,7 @@ async function saveRoundChanges() {
     }
     closeEditRoundModal();
     checkAndShowFirstHalfReview();
+    validateFixtureIntegrity();
 }
 
 // ==================== CHAT ====================
@@ -927,22 +1040,10 @@ function confirmReplaceTeam() {
     generateTickerFacts();
     showToast(`Team "${oldName}" replaced with "${newName}"`);
     closeReplaceTeamModal();
+   validateFixtureIntegrity();
 }
 
 // ==================== FIXTURE MANAGEMENT ====================
-function shuffleRound(roundNumber) {
-    if (!isAdmin) return;
-    const roundFixtures = fixtures.filter(f => f.round === roundNumber);
-    if (!roundFixtures.length) return;
-    const teamsInRound = [];
-    roundFixtures.forEach(f => { if (f.home !== 'BYE') teamsInRound.push(f.home); if (f.away !== 'BYE') teamsInRound.push(f.away); });
-    let uniqueTeams = [...new Set(teamsInRound)];
-    for (let i = uniqueTeams.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [uniqueTeams[i], uniqueTeams[j]] = [uniqueTeams[j], uniqueTeams[i]]; }
-    const newPairs = [];
-    for (let i = 0; i < uniqueTeams.length; i += 2) { if (i + 1 < uniqueTeams.length) { if (Math.random() < 0.5) newPairs.push({ home: uniqueTeams[i], away: uniqueTeams[i + 1] }); else newPairs.push({ home: uniqueTeams[i + 1], away: uniqueTeams[i] }); } }
-    roundFixtures.forEach((f, idx) => { if (idx < newPairs.length) { f.home = newPairs[idx].home; f.away = newPairs[idx].away; f.homeScore = null; f.awayScore = null; f.played = false; f.comment = null; f.cancelled = false; } });
-    saveToStorage(); showToast(`Round ${roundNumber} shuffled!`); renderGameweekTabs(); renderFixtures(); renderTable(); generateTickerFacts();
-}
 function swapFixture(fixtureId) {
     if (!isAdmin) return;
     const f = fixtures.find(f => f.id === fixtureId);
@@ -958,6 +1059,24 @@ function editFixtureTeamName(fixtureId, side) {
     const totalRounds = Math.max(...fixtures.map(f => f.round));
     const halfRounds = totalRounds / 2;
     const isFirstHalf = fixture.round <= halfRounds;
+    
+    // Find the highest completed round
+    let highestCompletedRound = 0;
+    for (let round = 1; round <= (isFirstHalf ? halfRounds : totalRounds); round++) {
+        const roundFixtures = fixtures.filter(f => f.round === round);
+        const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
+        if (allResolved) {
+            highestCompletedRound = round;
+        } else {
+            break;
+        }
+    }
+    
+    // Prevent editing completed rounds
+    if (fixture.round <= highestCompletedRound) {
+        alert(`⚠️ Cannot edit Round ${fixture.round} because it has already been completed!\n\nCompleted rounds cannot be modified.`);
+        return;
+    }
     
     if (!isFirstHalf) {
         alert("⚠️ Please edit the FIRST HALF fixture instead.\n\nThe second half automatically mirrors the first half (home/away swapped).\n\nGo to Round " + (fixture.round - halfRounds) + " to make your change.");
@@ -1105,6 +1224,7 @@ function confirmTeamSelection() {
     }
     
     closeTeamSelectModal();
+    validateFixtureIntegrity();
 }
 
 // Helper function to regenerate second half based on first half
@@ -1416,14 +1536,6 @@ function renderGameweekTabs() {
         btn.innerHTML = `GW ${r} ${statusHtml} ${editBtnHtml}`;
         btn.onclick = () => { currentSelectedRound = r; renderGameweekTabs(); renderFixtures(); };
         container.appendChild(btn);
-    }
-    
-    if (isAdmin && tournamentPhase === 'league') {
-        const shuffleBtn = document.createElement('button');
-        shuffleBtn.className = 'px-3 py-1 text-[11px] font-mono rounded-full bg-amber-100 text-amber-700 hover:bg-amber-200 transition ml-2 shrink-0';
-        shuffleBtn.innerText = '🔄 Shuffle Round';
-        shuffleBtn.onclick = () => shuffleRound(currentSelectedRound);
-        container.appendChild(shuffleBtn);
     }
 }
 
@@ -1863,10 +1975,32 @@ function navigateReview(direction) {
 
 // ==================== SAVE RESULT & GOAL EDITOR ====================
 function saveResult(fixtureId) {
+    const fixture = fixtures.find(f => f.id === fixtureId);
+    const totalRounds = Math.max(...fixtures.map(f => f.round));
+    const halfRounds = totalRounds / 2;
+    const isFirstHalf = fixture.round <= halfRounds;
+    
+    // Find highest completed round
+    let highestCompletedRound = 0;
+    for (let round = 1; round <= (isFirstHalf ? halfRounds : totalRounds); round++) {
+        const roundFixtures = fixtures.filter(f => f.round === round);
+        const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
+        if (allResolved) {
+            highestCompletedRound = round;
+        } else {
+            break;
+        }
+    }
+    
+    // Prevent editing scores in completed rounds
+    if (fixture.round <= highestCompletedRound) {
+        alert(`⚠️ Cannot edit score for Round ${fixture.round} because this round has already been completed!\n\nAll matches in this round have been played.`);
+        return;
+    }
+    
     const homeScore = document.getElementById(`home-score-${fixtureId}`).value;
     const awayScore = document.getElementById(`away-score-${fixtureId}`).value;
     if (homeScore === "" || awayScore === "") { alert("Enter both scores"); return; }
-    const fixture = fixtures.find(f => f.id === fixtureId);
     if (fixture.home === 'BYE' || fixture.away === 'BYE') { alert("Cannot save match with BYE team."); return; }
     pendingFixtureId = fixtureId;
     pendingHomeScore = parseInt(homeScore);
@@ -1920,7 +2054,12 @@ function saveGoalsAndFinish() {
     renderFixtures();
     generateTickerFacts();
     if (typeof confetti === 'function') confetti({ particleCount: 60, spread: 45, origin: { y: 0.7 } });
+    
+    // Check if first half is now completed
     checkAndShowFirstHalfReview();
+    
+    // Auto-validate integrity
+    validateFixtureIntegrity();
 }
 
 // ==================== EDIT EXISTING MATCH EVENTS ====================
@@ -2198,7 +2337,7 @@ window.closeReplaceTeamModal = closeReplaceTeamModal;
 window.confirmReplaceTeam = confirmReplaceTeam;
 window.generateTeamInputs = generateTeamInputs;
 window.initializeTournament = initializeTournament;
-window.shuffleRound = shuffleRound;
+window.validateFixtureIntegrity = validateFixtureIntegrity;
 window.swapFixture = swapFixture;
 window.editFixtureTeamName = editFixtureTeamName;
 window.closeTeamSelectModal = closeTeamSelectModal;
