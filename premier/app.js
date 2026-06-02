@@ -1421,27 +1421,25 @@ function renderTable() {
 function renderGameweekTabs() {
     const container = document.getElementById('gameweek-tabs');
     if (!fixtures.length) return;
-    const total = Math.max(...fixtures.map(f => f.round));
-    const halfRounds = total / 2;
+    const totalRounds = Math.max(...fixtures.map(f => f.round));
+    const halfRounds = totalRounds / 2;
     container.innerHTML = "";
     
-    for (let r = 1; r <= total; r++) {
+    for (let r = 1; r <= totalRounds; r++) {
         const roundFixtures = fixtures.filter(f => f.round === r && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
         const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
-        const isFirstHalf = r <= halfRounds;
         
         let statusHtml = allResolved ? `<span class="text-[9px] font-mono text-green-600 ml-1">✅ Completed</span>` : `<span class="text-[9px] font-mono text-gray-400 ml-1"></span>`;
         
-        // Add Integrity Check button for ALL rounds (admin only)
         let integrityBtnHtml = '';
         if (isAdmin) {
             integrityBtnHtml = `<button onclick="event.stopPropagation(); checkRoundIntegrity(${r})" class="ml-1 text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full hover:bg-blue-200" title="Check round integrity">🔍</button>`;
         }
         
-        const active = r === currentSelectedRound;
+        const active = (r === currentSelectedRound);
         const btn = document.createElement('button');
         btn.className = `px-3 py-1 text-[11px] font-mono rounded-full transition shrink-0 flex items-center gap-1 ${active ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
-        btn.innerHTML = `GW ${r} ${statusHtml} ${editBtnHtml} ${integrityBtnHtml}`;
+        btn.innerHTML = `GW ${r} ${statusHtml} ${integrityBtnHtml}`;
         btn.onclick = () => { currentSelectedRound = r; renderGameweekTabs(); renderFixtures(); };
         container.appendChild(btn);
     }
@@ -1990,6 +1988,19 @@ function navigateReview(direction) {
     }
 }
 
+function checkAndShowFirstHalfReview() {
+    const totalRounds = Math.max(...fixtures.map(f => f.round));
+    const halfRounds = totalRounds / 2;
+    const firstHalfFixtures = fixtures.filter(f => f.round <= halfRounds);
+    const allFirstHalfPlayed = firstHalfFixtures.length > 0 && 
+        firstHalfFixtures.every(f => f.played || f.cancelled);
+    
+    if (allFirstHalfPlayed && !localStorage.getItem('firstHalfReviewShown')) {
+        localStorage.setItem('firstHalfReviewShown', 'true');
+        showFirstHalfReviewModal();
+    }
+}
+
 // ==================== SAVE RESULT & GOAL EDITOR ====================
 function saveResult(fixtureId) {
     const fixture = fixtures.find(f => f.id === fixtureId);
@@ -2360,6 +2371,7 @@ window.editFixtureTeamName = editFixtureTeamName;
 window.closeTeamSelectModal = closeTeamSelectModal;
 window.confirmTeamSelection = confirmTeamSelection;
 window.saveResult = saveResult;
+window.confirmComment = confirmComment;
 window.closeCommentModal = closeCommentModal;
 window.showMatchComment = showMatchComment;
 window.closeCommentViewer = closeCommentViewer;
