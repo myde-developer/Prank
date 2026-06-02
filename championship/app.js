@@ -200,152 +200,241 @@ function generateRandomRoundRobin(teamNames) {
     return [...firstHalfRounds, ...secondHalfRounds];
 }
 
-// ==================== RANGE RESHUFFLER ====================
-function openRangeReshuffler() {
+// ==================== DIRECT FIXTURE EDITOR ====================
+function openDirectFixtureEditor() {
     if (!isAdmin) return;
     
     const totalRounds = Math.max(...fixtures.map(f => f.round));
     const halfRounds = totalRounds / 2;
     const matchesPerRound = fixtures.filter(f => f.round === 1).length;
-    
-    // Find first uncompleted round
-    let firstUncompletedRound = halfRounds + 1;
-    let completedRoundsCount = 0;
-    for (let round = 1; round <= halfRounds; round++) {
-        const roundFixtures = fixtures.filter(f => f.round === round);
-        const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
-        if (!allResolved) {
-            firstUncompletedRound = round;
-            break;
-        }
-        completedRoundsCount++;
-    }
-    
-    const activeTeams = Object.values(teams).filter(t => !t.relegated).map(t => t.name);
-    const totalTeams = activeTeams.length;
+    const allTeams = Object.values(teams).filter(t => !t.relegated).map(t => t.name).sort();
     
     let modalHtml = `
-        <div id="range-reshuffle-modal" class="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full">
-                <div class="p-5 border-b border-gray-200 flex justify-between items-center">
-                    <h3 class="font-bold text-lg">🔄 Range Reshuffler</h3>
-                    <button onclick="closeRangeReshuffler()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+        <div id="direct-editor-modal" class="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="p-5 border-b border-gray-200 sticky top-0 bg-white flex justify-between items-center">
+                    <h3 class="font-bold text-lg">✏️ Direct Fixture Editor</h3>
+                    <button onclick="closeDirectEditor()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
                 </div>
                 <div class="p-5 space-y-4">
-                    <p class="text-sm text-gray-600">Reshuffle a range of rounds in the FIRST HALF only.</p>
-                    <p class="text-xs text-green-600">✅ Rounds before your range will be PROTECTED</p>
-                    
-                    <div class="grid grid-cols-2 gap-4">
+                    <div class="grid grid-cols-3 gap-4">
                         <div>
-                            <label class="text-xs font-semibold text-gray-500 uppercase">From Round</label>
-                            <input type="number" id="range-from" min="1" max="${halfRounds}" value="${firstUncompletedRound}" class="w-full mt-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm">
+                            <label class="text-xs font-semibold text-gray-500 uppercase">Select Round</label>
+                            <select id="editor-round-select" class="w-full mt-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm">
+    `;
+    
+    for (let r = 1; r <= halfRounds; r++) {
+        const roundFixtures = fixtures.filter(f => f.round === r);
+        const isCompleted = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
+        modalHtml += `<option value="${r}" ${isCompleted ? 'disabled' : ''}>Round ${r} ${isCompleted ? '(Completed - Locked)' : ''}</option>`;
+    }
+    
+    modalHtml += `
+                            </select>
                         </div>
-                        <div>
-                            <label class="text-xs font-semibold text-gray-500 uppercase">To Round</label>
-                            <input type="number" id="range-to" min="1" max="${halfRounds}" value="${halfRounds}" class="w-full mt-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm">
+                        <div class="flex items-end">
+                            <button onclick="loadRoundForDirectEdit()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-xl text-sm font-semibold transition">Load Round</button>
+                        </div>
+                        <div class="flex items-end">
+                            <button onclick="validateCurrentRound()" class="w-full bg-green-600 hover:bg-green-500 text-white py-2 rounded-xl text-sm font-semibold transition">✅ Validate Round</button>
                         </div>
                     </div>
                     
-                    <div class="bg-green-50 p-3 rounded-lg border border-green-200">
-                        <p class="text-xs font-bold text-green-700">🔒 Protected Rounds: 1 - ${firstUncompletedRound - 1}</p>
-                        <p class="text-xs text-green-600">${completedRoundsCount} round(s) preserved</p>
+                    <div id="direct-editor-container" class="space-y-3 mt-4">
+                        <p class="text-center text-gray-400 py-8">Select a round and click "Load Round"</p>
                     </div>
                     
-                    <button onclick="executeRangeReshuffle()" class="w-full bg-purple-600 hover:bg-purple-500 text-white py-3 rounded-xl font-semibold transition">
-                        🔄 Reshuffle Selected Range
-                    </button>
+                    <div class="flex justify-end gap-3 pt-4 border-t">
+                        <button onclick="closeDirectEditor()" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100">Cancel</button>
+                        <button id="save-direct-changes-btn" onclick="saveDirectEdits()" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 hidden">Save Changes</button>
+                    </div>
                 </div>
             </div>
         </div>
     `;
     
-    const existingModal = document.getElementById('range-reshuffle-modal');
+    const existingModal = document.getElementById('direct-editor-modal');
     if (existingModal) existingModal.remove();
     document.body.insertAdjacentHTML('beforeend', modalHtml);
-    document.getElementById('range-reshuffle-modal').classList.remove('hidden');
-    document.getElementById('range-reshuffle-modal').classList.add('flex');
+    document.getElementById('direct-editor-modal').classList.remove('hidden');
+    document.getElementById('direct-editor-modal').classList.add('flex');
 }
 
-function closeRangeReshuffler() {
-    const modal = document.getElementById('range-reshuffle-modal');
+function closeDirectEditor() {
+    const modal = document.getElementById('direct-editor-modal');
     if (modal) modal.remove();
 }
 
-async function executeRangeReshuffle() {
-    const fromRound = parseInt(document.getElementById('range-from').value);
-    const toRound = parseInt(document.getElementById('range-to').value);
+function loadRoundForDirectEdit() {
+    const roundNumber = parseInt(document.getElementById('editor-round-select').value);
+    const roundFixtures = fixtures.filter(f => f.round === roundNumber && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
+    const allTeams = Object.values(teams).filter(t => !t.relegated).map(t => t.name).sort();
+    const container = document.getElementById('direct-editor-container');
+    
+    if (!roundFixtures.length) {
+        container.innerHTML = '<p class="text-center text-red-500 py-8">No fixtures found for this round</p>';
+        return;
+    }
+    
+    let html = `
+        <div class="bg-amber-50 p-3 rounded-lg mb-3">
+            <p class="text-xs text-amber-700">⚠️ Edit fixtures below. Click "Validate Round" to check for errors, then "Save Changes".</p>
+        </div>
+        <div class="space-y-3">
+    `;
+    
+    roundFixtures.forEach((fixture, idx) => {
+        // Create dropdown options for home team
+        let homeOptions = `<option value="${fixture.home}" selected>${fixture.home}</option>`;
+        let awayOptions = `<option value="${fixture.away}" selected>${fixture.away}</option>`;
+        
+        for (const team of allTeams) {
+            if (team !== fixture.home) homeOptions += `<option value="${team}">${team}</option>`;
+            if (team !== fixture.away) awayOptions += `<option value="${team}">${team}</option>`;
+        }
+        
+        html += `
+            <div class="bg-gray-50 p-4 rounded-xl border border-gray-200" data-fixture-id="${fixture.id}">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs text-gray-500">Home Team</label>
+                        <select class="direct-home-select w-full mt-1 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                            ${homeOptions}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-500">Away Team</label>
+                        <select class="direct-away-select w-full mt-1 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                            ${awayOptions}
+                        </select>
+                    </div>
+                </div>
+                <div class="text-xs text-gray-400 mt-2 text-center">
+                    Original: ${fixture.home} vs ${fixture.away}
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `</div>`;
+    container.innerHTML = html;
+    document.getElementById('save-direct-changes-btn').classList.remove('hidden');
+}
+
+function validateCurrentRound() {
+    const roundNumber = parseInt(document.getElementById('editor-round-select').value);
     const totalRounds = Math.max(...fixtures.map(f => f.round));
     const halfRounds = totalRounds / 2;
+    const roundFixtures = fixtures.filter(f => f.round === roundNumber);
     
-    // Validation
-    if (isNaN(fromRound) || isNaN(toRound) || fromRound < 1 || toRound > halfRounds || fromRound > toRound) {
-        alert(`Please enter valid range (1-${halfRounds})`);
-        return;
-    }
+    const homeSelects = document.querySelectorAll('.direct-home-select');
+    const awaySelects = document.querySelectorAll('.direct-away-select');
     
-    // Check if any round in range is already completed
-    for (let round = fromRound; round <= toRound; round++) {
-        const roundFixtures = fixtures.filter(f => f.round === round);
-        const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
-        if (allResolved) {
-            alert(`⚠️ Round ${round} is already completed! Cannot reshuffle completed rounds.`);
-            closeRangeReshuffler();
-            return;
-        }
-    }
+    const newMatchups = [];
+    const errors = [];
     
-    if (!confirm(`Reshuffle Rounds ${fromRound} to ${toRound}?\n\n⚠️ Results in these rounds will be RESET.\n✅ Rounds 1-${fromRound - 1} preserved.\n\nContinue?`)) {
-        closeRangeReshuffler();
-        return;
-    }
-    
-    showToast(`Reshuffling rounds ${fromRound} to ${toRound}...`);
-    
-    // Get all active teams
-    const activeTeams = Object.values(teams).filter(t => !t.relegated).map(t => t.name);
-    const matchesPerRound = activeTeams.length / 2;
-    const roundsToReshuffle = toRound - fromRound + 1;
-    
-    // Step 1: Extract the schedule of protected rounds
-    const protectedSchedule = [];
-    for (let round = 1; round < fromRound; round++) {
-        const roundFixtures = fixtures.filter(f => f.round === round);
-        const roundMatchups = roundFixtures.map(f => ({ home: f.home, away: f.away }));
-        protectedSchedule.push(roundMatchups);
-    }
-    
-    // Step 2: Build a proper round-robin schedule for the remaining rounds
-    const newSchedule = generateValidScheduleForRounds(activeTeams, protectedSchedule, roundsToReshuffle);
-    
-    if (!newSchedule) {
-        alert("❌ Could not generate a valid schedule. Try protecting fewer rounds (start from an earlier round).");
-        closeRangeReshuffler();
-        return;
-    }
-    
-    // Step 3: Apply the new schedule
-    for (let i = 0; i < roundsToReshuffle; i++) {
-        const targetRound = fromRound + i;
-        const roundFixtures = fixtures.filter(f => f.round === targetRound);
-        const newRoundMatchups = newSchedule[i];
+    // Collect new matchups
+    for (let i = 0; i < homeSelects.length; i++) {
+        const home = homeSelects[i].value;
+        const away = awaySelects[i].value;
         
-        for (let j = 0; j < roundFixtures.length && j < newRoundMatchups.length; j++) {
-            const fixture = roundFixtures[j];
-            const matchup = newRoundMatchups[j];
-            if (fixture && matchup) {
-                fixture.home = matchup.home;
-                fixture.away = matchup.away;
-                fixture.homeScore = null;
-                fixture.awayScore = null;
-                fixture.played = false;
-                fixture.cancelled = false;
-                fixture.report = null;
-                fixture.events = [];
+        if (home === away) {
+            errors.push(`❌ Match ${i + 1}: ${home} cannot play against itself!`);
+        }
+        
+        newMatchups.push({ home, away });
+    }
+    
+    // Check for duplicates within the same round
+    for (let i = 0; i < newMatchups.length; i++) {
+        for (let j = i + 1; j < newMatchups.length; j++) {
+            if ((newMatchups[i].home === newMatchups[j].home && newMatchups[i].away === newMatchups[j].away) ||
+                (newMatchups[i].home === newMatchups[j].away && newMatchups[i].away === newMatchups[j].home)) {
+                errors.push(`❌ Duplicate matchup: ${newMatchups[i].home} vs ${newMatchups[i].away} appears twice in this round!`);
             }
         }
     }
     
-    // Step 4: Regenerate second half as mirror of first half
+    // Check teams don't appear twice in the same round
+    const teamsInRound = [];
+    for (const match of newMatchups) {
+        if (teamsInRound.includes(match.home)) errors.push(`❌ ${match.home} appears twice in this round!`);
+        if (teamsInRound.includes(match.away)) errors.push(`❌ ${match.away} appears twice in this round!`);
+        teamsInRound.push(match.home, match.away);
+    }
+    
+    // Check against protected rounds (if this is first half)
+    if (roundNumber <= halfRounds) {
+        const protectedMatchups = new Set();
+        for (let round = 1; round < roundNumber; round++) {
+            const roundFixtures = fixtures.filter(f => f.round === round);
+            for (const f of roundFixtures) {
+                protectedMatchups.add(`${f.home}|${f.away}`);
+            }
+        }
+        
+        for (const match of newMatchups) {
+            const matchupKey = `${match.home}|${match.away}`;
+            if (protectedMatchups.has(matchupKey)) {
+                errors.push(`❌ Matchup ${match.home} vs ${match.away} already exists in an earlier round!`);
+            }
+        }
+    }
+    
+    if (errors.length > 0) {
+        alert(`⚠️ Validation Errors:\n\n${errors.join('\n')}`);
+    } else {
+        alert(`✅ Round ${roundNumber} is VALID! You can save these changes.`);
+    }
+}
+
+async function saveDirectEdits() {
+    const roundNumber = parseInt(document.getElementById('editor-round-select').value);
+    const totalRounds = Math.max(...fixtures.map(f => f.round));
+    const halfRounds = totalRounds / 2;
+    const roundFixtures = fixtures.filter(f => f.round === roundNumber);
+    
+    const homeSelects = document.querySelectorAll('.direct-home-select');
+    const awaySelects = document.querySelectorAll('.direct-away-select');
+    
+    const changes = [];
+    
+    for (let i = 0; i < homeSelects.length && i < roundFixtures.length; i++) {
+        const newHome = homeSelects[i].value;
+        const newAway = awaySelects[i].value;
+        const fixture = roundFixtures[i];
+        
+        if (newHome !== fixture.home || newAway !== fixture.away) {
+            changes.push({ fixture, newHome, newAway });
+        }
+    }
+    
+    if (changes.length === 0) {
+        if (!confirm("No changes detected. Close editor?")) return;
+        closeDirectEditor();
+        return;
+    }
+    
+    let message = `Save ${changes.length} change(s) to Round ${roundNumber}?\n\n`;
+    for (const change of changes) {
+        message += `• ${change.fixture.home} vs ${change.fixture.away} → ${change.newHome} vs ${change.newAway}\n`;
+    }
+    
+    if (!confirm(message)) return;
+    
+    // Apply changes
+    for (const change of changes) {
+        change.fixture.home = change.newHome;
+        change.fixture.away = change.newAway;
+        change.fixture.homeScore = null;
+        change.fixture.awayScore = null;
+        change.fixture.played = false;
+        change.fixture.cancelled = false;
+        change.fixture.report = null;
+        change.fixture.events = [];
+    }
+    
+    // Regenerate second half to mirror first half
     for (let round = 1; round <= halfRounds; round++) {
         const secondHalfRound = round + halfRounds;
         const firstHalfFixtures = fixtures.filter(f => f.round === round);
@@ -374,108 +463,9 @@ async function executeRangeReshuffle() {
     renderFixtures();
     generateTickerFacts();
     
-    showToast(`✅ Rounds ${fromRound} to ${toRound} reshuffled successfully!`);
-    closeRangeReshuffler();
+    showToast(`✅ Round ${roundNumber} updated with ${changes.length} change(s)!`);
+    closeDirectEditor();
     validateFixtureIntegrity();
-}
-
-// Core function: Generate valid round-robin schedule for remaining rounds
-function generateValidScheduleForRounds(teams, protectedSchedule, roundsNeeded) {
-    const n = teams.length;
-    const matchesPerRound = n / 2;
-    
-    // Build set of already used matchups from protected rounds
-    const usedMatchups = new Set();
-    for (const round of protectedSchedule) {
-        for (const match of round) {
-            usedMatchups.add(`${match.home}|${match.away}`);
-            usedMatchups.add(`${match.away}|${match.home}`);
-        }
-    }
-    
-    // Get all available teams and create a base schedule
-    let teamList = [...teams];
-    if (teamList.length % 2 !== 0) teamList.push("BYE");
-    
-    // Try multiple times to find a valid schedule
-    for (let attempt = 0; attempt < 50; attempt++) {
-        // Create a round-robin schedule
-        const schedule = [];
-        let workingTeams = [...teamList];
-        
-        // Shuffle teams for randomness
-        for (let i = workingTeams.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [workingTeams[i], workingTeams[j]] = [workingTeams[j], workingTeams[i]];
-        }
-        
-        const numRounds = workingTeams.length - 1;
-        const half = workingTeams.length / 2;
-        
-        // Generate all rounds
-        for (let round = 0; round < numRounds; round++) {
-            const roundMatches = [];
-            for (let i = 0; i < half; i++) {
-                const home = workingTeams[i];
-                const away = workingTeams[workingTeams.length - 1 - i];
-                if (home !== "BYE" && away !== "BYE") {
-                    roundMatches.push({ home: home, away: away });
-                }
-            }
-            schedule.push(roundMatches);
-            
-            // Rotate
-            const last = workingTeams.pop();
-            workingTeams.splice(1, 0, last);
-        }
-        
-        // Shuffle round order
-        for (let i = schedule.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [schedule[i], schedule[j]] = [schedule[j], schedule[i]];
-        }
-        
-        // Filter rounds that don't conflict with used matchups
-        const availableRounds = [];
-        for (const round of schedule) {
-            let roundValid = true;
-            for (const match of round) {
-                const matchupKey = `${match.home}|${match.away}`;
-                if (usedMatchups.has(matchupKey)) {
-                    roundValid = false;
-                    break;
-                }
-            }
-            if (roundValid) {
-                availableRounds.push(round);
-            }
-        }
-        
-        // Check if we have enough rounds
-        if (availableRounds.length >= roundsNeeded) {
-            // Also check that no duplicates within the new rounds themselves
-            const newMatchups = new Set();
-            let hasInternalDuplicate = false;
-            
-            for (let i = 0; i < roundsNeeded; i++) {
-                for (const match of availableRounds[i]) {
-                    const key = `${match.home}|${match.away}`;
-                    if (newMatchups.has(key)) {
-                        hasInternalDuplicate = true;
-                        break;
-                    }
-                    newMatchups.add(key);
-                }
-                if (hasInternalDuplicate) break;
-            }
-            
-            if (!hasInternalDuplicate) {
-                return availableRounds.slice(0, roundsNeeded);
-            }
-        }
-    }
-    
-    return null; // No valid schedule found
 }
 
 // ==================== INTEGRITY VALIDATION ====================
@@ -553,397 +543,6 @@ function validateFixtureIntegrity(silent = false) {
     }
     
     return issues;
-}
-
-
-// ==================== EDIT ENTIRE ROUND ====================
-function openEditRoundModal(preSelectedRound = null) {
-    if (!isAdmin) return;
-    if (tournamentPhase !== 'league') {
-        showToast("Cannot edit rounds during knockout stage");
-        return;
-    }
-    
-    const totalRounds = Math.max(...fixtures.map(f => f.round));
-    const halfRounds = totalRounds / 2;
-    
-    // Create modal HTML
-    let modalHtml = `
-        <div id="edit-round-modal" class="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                <div class="p-5 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white">
-                    <h3 class="font-bold text-lg">✏️ Edit Entire Round</h3>
-                    <button onclick="closeEditRoundModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
-                </div>
-                <div class="p-5 space-y-4">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="text-xs font-semibold text-gray-500 uppercase">Select Round</label>
-                            <select id="edit-round-select" class="w-full mt-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm">
-    `;
-    
-    // Only show first half rounds (second half auto-mirrors)
-    for (let r = 1; r <= halfRounds; r++) {
-        const roundFixtures = fixtures.filter(f => f.round === r);
-        const isCompleted = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
-        const selected = (preSelectedRound === r) ? 'selected' : '';
-        modalHtml += `<option value="${r}" ${selected} ${isCompleted ? 'disabled' : ''}>Round ${r} ${isCompleted ? '(Completed - Cannot edit)' : ''}</option>`;
-    }
-    
-    modalHtml += `
-                            </select>
-                            <p class="text-xs text-gray-400 mt-1">Only first half rounds can be edited. Second half auto-mirrors.</p>
-                        </div>
-                        <div class="flex items-end">
-                            <button onclick="loadRoundForEditing()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-xl text-sm font-semibold transition">Load Round</button>
-                        </div>
-                    </div>
-                    
-                    <div id="edit-round-fixtures-container" class="space-y-3 mt-4">
-                        <p class="text-center text-gray-400 py-8">Select a round and click "Load Round"</p>
-                    </div>
-                    
-                    <div class="flex justify-end gap-3 pt-4 border-t">
-                        <button onclick="closeEditRoundModal()" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100">Cancel</button>
-                        <button id="save-round-changes-btn" onclick="saveRoundChanges()" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 hidden">Save Round Changes & Reshuffle</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    const existingModal = document.getElementById('edit-round-modal');
-    if (existingModal) existingModal.remove();
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-    document.getElementById('edit-round-modal').classList.remove('hidden');
-    document.getElementById('edit-round-modal').classList.add('flex');
-    
-    // Auto-load if a round was pre-selected
-    if (preSelectedRound) {
-        setTimeout(() => loadRoundForEditing(), 100);
-    }
-}
-
-function closeEditRoundModal() {
-    const modal = document.getElementById('edit-round-modal');
-    if (modal) modal.remove();
-}
-
-function loadRoundForEditing() {
-    const roundNumber = parseInt(document.getElementById('edit-round-select').value);
-    console.log("Loading round:", roundNumber);
-    
-    const roundFixtures = fixtures.filter(f => f.round === roundNumber && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
-    const container = document.getElementById('edit-round-fixtures-container');
-    
-    console.log("Found fixtures:", roundFixtures.length);
-    
-    if (!roundFixtures.length) {
-        container.innerHTML = '<p class="text-center text-red-500 py-8">No fixtures found for this round</p>';
-        return;
-    }
-    
-    const allTeamNames = Object.values(teams).filter(t => !t.relegated).map(t => t.name).sort();
-    
-    let html = '<p class="text-sm font-semibold text-gray-700 mb-3">Edit Matchups for Round ' + roundNumber + ' (First Half)</p>';
-    html += '<p class="text-xs text-amber-600 mb-3">⚠️ Change any fixture below, then click "Save". The entire first half will reshuffle to maintain a valid schedule.</p>';
-    html += '<div class="space-y-3">';
-    
-    roundFixtures.forEach((fixture, idx) => {
-        // Create options for home dropdown
-        let homeOptions = `<option value="${fixture.home}" selected>${fixture.home}</option>`;
-        let awayOptions = `<option value="${fixture.away}" selected>${fixture.away}</option>`;
-        
-        for (const team of allTeamNames) {
-            if (team !== fixture.home && team !== fixture.away) {
-                homeOptions += `<option value="${team}">${team}</option>`;
-                awayOptions += `<option value="${team}">${team}</option>`;
-            }
-        }
-        
-        html += `
-            <div class="bg-gray-50 p-3 rounded-xl border border-gray-200" data-fixture-id="${fixture.id}">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
-                    <div class="flex-1">
-                        <label class="text-xs text-gray-500">Home Team</label>
-                        <select id="round-edit-home-${fixture.id}" class="round-edit-home w-full mt-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm">
-                            ${homeOptions}
-                        </select>
-                    </div>
-                    <div class="text-center text-gray-400 font-bold">VS</div>
-                    <div class="flex-1">
-                        <label class="text-xs text-gray-500">Away Team</label>
-                        <select id="round-edit-away-${fixture.id}" class="round-edit-away w-full mt-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm">
-                            ${awayOptions}
-                        </select>
-                    </div>
-                </div>
-                <div class="text-xs text-gray-400 mt-2 text-center">
-                    Original: ${fixture.home} vs ${fixture.away}
-                </div>
-            </div>
-        `;
-    });
-    
-    html += '</div>';
-    container.innerHTML = html;
-    document.getElementById('save-round-changes-btn').classList.remove('hidden');
-    
-    // Add a debug button
-    const debugBtn = document.createElement('button');
-    debugBtn.innerText = '🔍 Debug - Show Selected Values';
-    debugBtn.className = 'mt-3 text-xs bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded-full';
-    debugBtn.onclick = () => {
-        let msg = "Current values:\n\n";
-        for (const fixture of roundFixtures) {
-            const homeVal = document.getElementById(`round-edit-home-${fixture.id}`)?.value;
-            const awayVal = document.getElementById(`round-edit-away-${fixture.id}`)?.value;
-            msg += `${fixture.home} vs ${fixture.away}\n`;
-            msg += `  → Selected: ${homeVal} vs ${awayVal}\n\n`;
-        }
-        alert(msg);
-        console.log(msg);
-    };
-    container.appendChild(debugBtn);
-    
-    // Scroll to top of modal
-    document.getElementById('edit-round-modal').scrollTop = 0;
-}
-
-async function saveRoundChanges() {
-    if (!isAdmin) return;
-    
-    const roundNumber = parseInt(document.getElementById('edit-round-select').value);
-    const totalRounds = Math.max(...fixtures.map(f => f.round));
-    const halfRounds = totalRounds / 2;
-    
-    const currentRoundFixtures = fixtures.filter(f => f.round === roundNumber);
-    
-    // Find first uncompleted round
-    let firstUncompletedRound = halfRounds + 1;
-    for (let round = 1; round <= halfRounds; round++) {
-        const roundFixtures = fixtures.filter(f => f.round === round);
-        const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
-        if (!allResolved) {
-            firstUncompletedRound = round;
-            break;
-        }
-    }
-    
-    // Validation
-    const isRoundCompleted = currentRoundFixtures.length > 0 && currentRoundFixtures.every(f => f.played || f.cancelled);
-    if (isRoundCompleted || roundNumber < firstUncompletedRound) {
-        alert(`⚠️ Round ${roundNumber} is already completed! Cannot edit.`);
-        closeEditRoundModal();
-        return;
-    }
-    
-    // Build changes array
-    const changes = [];
-    for (const fixture of currentRoundFixtures) {
-        const homeSelect = document.getElementById(`round-edit-home-${fixture.id}`);
-        const awaySelect = document.getElementById(`round-edit-away-${fixture.id}`);
-        if (homeSelect && awaySelect) {
-            const newHome = homeSelect.value;
-            const newAway = awaySelect.value;
-            if (newHome !== fixture.home || newAway !== fixture.away) {
-                changes.push({
-                    id: fixture.id,
-                    oldHome: fixture.home,
-                    oldAway: fixture.away,
-                    newHome: newHome,
-                    newAway: newAway
-                });
-            }
-        }
-    }
-    
-    // Confirm with user
-    if (changes.length === 0) {
-        if (!confirm(`No changes in Round ${roundNumber}. Reshuffle remaining rounds?`)) {
-            closeEditRoundModal();
-            return;
-        }
-    } else {
-        let message = `Changes in Round ${roundNumber}:\n\n`;
-        for (const change of changes) {
-            message += `• ${change.oldHome} vs ${change.oldAway} → ${change.newHome} vs ${change.newAway}\n`;
-        }
-        message += `\n⚠️ Reshuffle remaining rounds?`;
-        if (!confirm(message)) {
-            closeEditRoundModal();
-            return;
-        }
-    }
-    
-    showToast(`Generating valid schedule...`);
-    
-    // Get all active teams
-    const activeTeams = Object.values(teams).filter(t => !t.relegated).map(t => t.name);
-    
-    // Get the matchups that have ALREADY been played in completed rounds
-    const usedMatchups = new Set();
-    for (let round = 1; round < firstUncompletedRound; round++) {
-        const roundFixtures = fixtures.filter(f => f.round === round);
-        for (const f of roundFixtures) {
-            const matchup1 = `${f.home}|${f.away}`;
-            const matchup2 = `${f.away}|${f.home}`;
-            usedMatchups.add(matchup1);
-            usedMatchups.add(matchup2);
-        }
-    }
-    
-    console.log("Used matchups:", usedMatchups);
-    console.log("Active teams:", activeTeams);
-    
-    // Generate a complete round-robin schedule
-    let completeSchedule = generateRoundRobinComplete(activeTeams);
-    
-    // Filter out rounds that are already completed
-    let availableRounds = [];
-    for (let roundIdx = 0; roundIdx < completeSchedule.length; roundIdx++) {
-        const roundFixtures = completeSchedule[roundIdx];
-        let roundValid = true;
-        
-        // Check if any fixture in this round conflicts with used matchups
-        for (const f of roundFixtures) {
-            const matchup1 = `${f.home}|${f.away}`;
-            if (usedMatchups.has(matchup1)) {
-                roundValid = false;
-                break;
-            }
-        }
-        
-        if (roundValid) {
-            availableRounds.push(roundFixtures);
-        }
-    }
-    
-    console.log("Complete schedule rounds:", completeSchedule.length);
-    console.log("Available rounds after filtering:", availableRounds.length);
-    
-    // We need enough rounds for the remaining uncompleted rounds
-    const neededRounds = (halfRounds - firstUncompletedRound + 1);
-    
-    if (availableRounds.length < neededRounds) {
-        showToast(`❌ Not enough valid schedule combinations. Try different changes.`);
-        closeEditRoundModal();
-        return;
-    }
-    
-    // Take the first 'neededRounds' from available rounds
-    const selectedRounds = availableRounds.slice(0, neededRounds);
-    
-    // Apply selected rounds to uncompleted rounds
-    for (let i = 0; i < neededRounds; i++) {
-        const targetRound = firstUncompletedRound + i;
-        const newRoundFixtures = selectedRounds[i];
-        const existingRoundFixtures = fixtures.filter(f => f.round === targetRound);
-        
-        for (let j = 0; j < existingRoundFixtures.length && j < newRoundFixtures.length; j++) {
-            const existing = existingRoundFixtures[j];
-            const newF = newRoundFixtures[j];
-            if (existing && newF) {
-                existing.home = newF.home;
-                existing.away = newF.away;
-                existing.homeScore = null;
-                existing.awayScore = null;
-                existing.played = false;
-                existing.cancelled = false;
-                existing.report = null;
-                existing.events = [];
-            }
-        }
-    }
-    
-    // Apply admin changes to the edited round
-    for (const change of changes) {
-        const fixture = fixtures.find(f => f.id === change.id);
-        if (fixture) {
-            fixture.home = change.newHome;
-            fixture.away = change.newAway;
-            fixture.homeScore = null;
-            fixture.awayScore = null;
-            fixture.played = false;
-            fixture.cancelled = false;
-        }
-    }
-    
-    // Regenerate second half as mirror of first half
-    for (let round = 1; round <= halfRounds; round++) {
-        const secondHalfRound = round + halfRounds;
-        const firstHalfFixtures = fixtures.filter(f => f.round === round);
-        const secondHalfFixtures = fixtures.filter(f => f.round === secondHalfRound);
-        
-        for (let i = 0; i < firstHalfFixtures.length && i < secondHalfFixtures.length; i++) {
-            const first = firstHalfFixtures[i];
-            const second = secondHalfFixtures[i];
-            if (first && second) {
-                second.home = first.away;
-                second.away = first.home;
-                second.homeScore = null;
-                second.awayScore = null;
-                second.played = false;
-                second.cancelled = false;
-                second.report = null;
-                second.events = [];
-            }
-        }
-    }
-    
-    saveToStorage();
-    updateTableCalculations();
-    renderTable();
-    renderGameweekTabs();
-    renderFixtures();
-    generateTickerFacts();
-    
-    showToast(`✅ Round ${roundNumber} updated successfully!`);
-    closeEditRoundModal();
-    checkAndShowFirstHalfReview();
-    validateFixtureIntegrity();
-}
-
-// Helper function to generate a complete round-robin schedule
-function generateRoundRobinComplete(teamNames) {
-    let n = teamNames.length;
-    if (n % 2 !== 0) { teamNames.push("BYE"); n++; }
-    
-    let shuffled = [...teamNames];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    
-    const numRounds = n - 1;
-    const halfSize = n / 2;
-    let allRounds = [];
-    
-    for (let round = 0; round < numRounds; round++) {
-        const roundFixtures = [];
-        for (let i = 0; i < halfSize; i++) {
-            const home = shuffled[i];
-            const away = shuffled[n - 1 - i];
-            if (home !== "BYE" && away !== "BYE") {
-                if (Math.random() < 0.5) {
-                    roundFixtures.push({ home, away });
-                } else {
-                    roundFixtures.push({ home: away, away: home });
-                }
-            }
-        }
-        allRounds.push(roundFixtures);
-        const last = shuffled.pop();
-        shuffled.splice(1, 0, last);
-    }
-    
-    // Shuffle round order
-    for (let i = allRounds.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [allRounds[i], allRounds[j]] = [allRounds[j], allRounds[i]];
-    }
-    
-    return allRounds;
 }
 
 // ==================== CHAT ====================
@@ -1598,7 +1197,6 @@ function regenerateSecondHalf() {
     }
 }
 
-
 // ==================== STANDINGS & KNOCKOUT ====================
 function updateTableCalculations() {
     for (let t in teams) { if (!teams[t].relegated) { teams[t] = { ...teams[t], mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0, formHistory: [] }; } }
@@ -1833,12 +1431,6 @@ function renderGameweekTabs() {
         const isFirstHalf = r <= halfRounds;
         
         let statusHtml = allResolved ? `<span class="text-[9px] font-mono text-green-600 ml-1">✅ Completed</span>` : `<span class="text-[9px] font-mono text-gray-400 ml-1"></span>`;
-        
-        // Add Edit button for first half rounds only (and not completed)
-        let editBtnHtml = '';
-        if (isAdmin && isFirstHalf && !allResolved) {
-            editBtnHtml = `<button onclick="event.stopPropagation(); openEditRoundModal(${r})" class="ml-1 text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full hover:bg-purple-200" title="Edit entire round">✏️ Edit</button>`;
-        }
         
         // Add Integrity Check button for ALL rounds (admin only)
         let integrityBtnHtml = '';
@@ -2802,13 +2394,8 @@ window.createPoll = createPoll;
 window.deletePoll = deletePoll;
 window.votePoll = votePoll;
 window.sendTypingStatus = sendTypingStatus;
-window.openEditRoundModal = openEditRoundModal;
-window.closeEditRoundModal = closeEditRoundModal;
-window.loadRoundForEditing = loadRoundForEditing;
-window.saveRoundChanges = saveRoundChanges;
-window.checkAndShowFirstHalfReview = checkAndShowFirstHalfReview;
-window.closeFirstHalfReviewModal = closeFirstHalfReviewModal;
-window.navigateReview = navigateReview;
-window.openRangeReshuffler = openRangeReshuffler;
-window.closeRangeReshuffler = closeRangeReshuffler;
-window.executeRangeReshuffle = executeRangeReshuffle;
+window.openDirectFixtureEditor = openDirectFixtureEditor;
+window.closeDirectEditor = closeDirectEditor;
+window.loadRoundForDirectEdit = loadRoundForDirectEdit;
+window.validateCurrentRound = validateCurrentRound;
+window.saveDirectEdits = saveDirectEdits;
