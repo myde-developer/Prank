@@ -978,9 +978,6 @@ function initializeTournament() {
     autoStartNextRound = false;
     currentSelectedRound = 1;
    releasedGameweeks = { 1: true };
-if (tournamentPhase === 'league') {
-    autoReleaseCurrentRound();
-}
     saveToStorage();
     showToast(`Premier League launched with ${count} teams!`);
 }

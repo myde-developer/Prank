@@ -33,6 +33,7 @@ let pendingFixtureId = null, pendingHomeScore = null, pendingAwayScore = null;
 let currentPenaltyTeam = null, pendingAssignFixtureId = null, pendingAssignSide = null, currentViewerFixtureId = null;
 let currentPredictionFixtureId = null, currentBanterFixtureId = null;
 let chatMessagesRef = null;
+let releasedGameweeks = {};
 let autoStartNextRound = false;
 let roundStartTimes = {};
 let roundPaused = {};
@@ -128,6 +129,7 @@ document.getElementById('setup-section')?.classList.add('hidden');
     tournamentPhase = data.tournamentPhase || 'league';
     roundStartTimes = data.roundStartTimes || {};
     roundPaused = data.roundPaused || {};
+   releasedGameweeks = data.releasedGameweeks || {};
     autoStartNextRound = data.autoStartNextRound || false;
     
     updateTableCalculations();
@@ -153,7 +155,7 @@ function showToast(msg) {
     if (c) { let t = document.createElement("div"); t.className = "toast"; t.innerText = msg; c.appendChild(t); setTimeout(() => t.remove(), 2500); }
 }
 function saveToStorage() { 
-    getTournamentRef().set({ teams, fixtures, knockoutMatches, tournamentPhase, password: tournamentPassword, roundStartTimes, autoStartNextRound, roundPaused });
+    getTournamentRef().set({ teams, fixtures, knockoutMatches, tournamentPhase, password: tournamentPassword, roundStartTimes, autoStartNextRound, roundPaused, releasedGameweeks });
 }
 function getCurrentUserId() {
     let id = localStorage.getItem('chatUserId');
@@ -164,6 +166,71 @@ function getCurrentUserId() {
     return id;
 }
 
+function autoReleaseCurrentRound() {
+    if (!isAdmin) return;
+    
+    const totalRounds = Math.max(...fixtures.map(f => f.round));
+    let highestCompletedRound = 0;
+    
+    for (let round = 1; round <= totalRounds; round++) {
+        const roundFixtures = fixtures.filter(f => f.round === round);
+        const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
+        if (allResolved) {
+            highestCompletedRound = round;
+        } else {
+            break;
+        }
+    }
+    
+    const nextRound = highestCompletedRound + 1;
+    
+    if (nextRound <= totalRounds && !releasedGameweeks[nextRound]) {
+        releasedGameweeks[nextRound] = true;
+        saveToStorage();
+        showToast(`📢 Gameweek ${nextRound} automatically released!`);
+        renderGameweekTabs();
+    }
+}
+
+function releaseNextRound() {
+    if (!isAdmin) return;
+    
+    const totalRounds = Math.max(...fixtures.map(f => f.round));
+    let nextUnreleasedRound = null;
+    
+    for (let round = 1; round <= totalRounds; round++) {
+        if (!releasedGameweeks[round]) {
+            nextUnreleasedRound = round;
+            break;
+        }
+    }
+    
+    if (nextUnreleasedRound) {
+        releasedGameweeks[nextUnreleasedRound] = true;
+        saveToStorage();
+        showToast(`📢 Gameweek ${nextUnreleasedRound} released!`);
+        renderGameweekTabs();
+        
+        currentSelectedRound = nextUnreleasedRound;
+        renderFixtures();
+    } else {
+        showToast("All gameweeks are already released!");
+    }
+}
+
+function lockGameweek(roundNumber) {
+    if (!isAdmin) return;
+    releasedGameweeks[roundNumber] = false;
+    saveToStorage();
+    showToast(`🔒 Gameweek ${roundNumber} locked!`);
+    renderGameweekTabs();
+    renderFixtures();
+}
+
+function isGameweekReleased(roundNumber) {
+    if (isAdmin) return true;
+    return releasedGameweeks[roundNumber] === true;
+}
 // ==================== FIXTURE GENERATION ====================
 function generateRandomRoundRobin(teamNames) {
     let n = teamNames.length;
@@ -910,6 +977,7 @@ function initializeTournament() {
     roundStartTimes = {};
     autoStartNextRound = false;
     currentSelectedRound = 1;
+releasedGameweeks = { 1: true };
     saveToStorage();
     showToast(`Championship League launched with ${count} teams!`);
 }
@@ -1428,19 +1496,38 @@ function renderGameweekTabs() {
     for (let r = 1; r <= totalRounds; r++) {
         const roundFixtures = fixtures.filter(f => f.round === r && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
         const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
+        const isReleased = releasedGameweeks[r] === true;
         
-        let statusHtml = allResolved ? `<span class="text-[9px] font-mono text-green-600 ml-1">✅ Completed</span>` : `<span class="text-[9px] font-mono text-gray-400 ml-1"></span>`;
+        let statusHtml = allResolved ? `<span class="text-[9px] font-mono text-green-600 ml-1">✅ Completed</span>` : 
+                         (isReleased ? `<span class="text-[9px] font-mono text-emerald-500 ml-1">📢 Released</span>` : 
+                          `<span class="text-[9px] font-mono text-gray-400 ml-1">🔒 Locked</span>`);
         
         let integrityBtnHtml = '';
+        let releaseBtnHtml = '';
+        
         if (isAdmin) {
             integrityBtnHtml = `<button onclick="event.stopPropagation(); checkRoundIntegrity(${r})" class="ml-1 text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full hover:bg-blue-200" title="Check round integrity">🔍</button>`;
+            
+            if (isReleased) {
+                releaseBtnHtml = `<button onclick="event.stopPropagation(); lockGameweek(${r})" class="ml-1 text-[9px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full hover:bg-orange-200" title="Lock this gameweek">🔒 Lock</button>`;
+            } else {
+                releaseBtnHtml = `<button onclick="event.stopPropagation(); releaseNextRound()" class="ml-1 text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full hover:bg-emerald-200" title="Release this gameweek">📢 Release</button>`;
+            }
         }
         
         const active = (r === currentSelectedRound);
+        const canView = isReleased || isAdmin;
+        
         const btn = document.createElement('button');
-        btn.className = `px-3 py-1 text-[11px] font-mono rounded-full transition shrink-0 flex items-center gap-1 ${active ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
-        btn.innerHTML = `GW ${r} ${statusHtml} ${integrityBtnHtml}`;
-        btn.onclick = () => { currentSelectedRound = r; renderGameweekTabs(); renderFixtures(); };
+        btn.className = `px-3 py-1 text-[11px] font-mono rounded-full transition shrink-0 flex items-center gap-1 ${active ? 'bg-indigo-600 text-white shadow' : (canView ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-50')}`;
+        btn.innerHTML = `GW ${r} ${statusHtml} ${releaseBtnHtml} ${integrityBtnHtml}`;
+        
+        if (canView) {
+            btn.onclick = () => { currentSelectedRound = r; renderGameweekTabs(); renderFixtures(); };
+        } else {
+            btn.onclick = () => showToast(`⚠️ Gameweek ${r} not released yet!`);
+        }
+        
         container.appendChild(btn);
     }
 }
@@ -1564,8 +1651,30 @@ function renderFixtures() {
         return;
     }
     if (scheduleSection) scheduleSection.classList.remove('hidden');
+    
+    const isReleased = isGameweekReleased(currentSelectedRound);
+    
+    if (!isReleased && !isAdmin) {
+        container.innerHTML = `
+            <div class="bg-amber-50 border-2 border-amber-200 rounded-2xl p-8 text-center">
+                <div class="text-5xl mb-3">🔒</div>
+                <h3 class="font-bold text-amber-800 text-lg mb-2">Gameweek ${currentSelectedRound} Not Released Yet</h3>
+                <p class="text-amber-700 text-sm">The admin hasn't released this matchweek. Check back later!</p>
+                <div class="mt-4 w-16 h-1 bg-amber-300 rounded-full mx-auto"></div>
+            </div>
+        `;
+        return;
+    }
+    
     container.innerHTML = "";
-    fixtures.filter(f => f.round === currentSelectedRound && !teams[f.home]?.relegated && !teams[f.away]?.relegated).forEach(f => {
+    const roundFixtures = fixtures.filter(f => f.round === currentSelectedRound && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
+    
+    if (roundFixtures.length === 0) {
+        container.innerHTML = '<div class="text-center text-gray-400 py-8">No fixtures this gameweek</div>';
+        return;
+    }
+    
+    roundFixtures.forEach(f => {
         const played = f.played;
         const cancelled = f.cancelled;
         if (cancelled) {
@@ -2410,3 +2519,7 @@ window.closeDirectEditor = closeDirectEditor;
 window.loadRoundForDirectEdit = loadRoundForDirectEdit;
 window.validateCurrentRound = validateCurrentRound;
 window.saveDirectEdits = saveDirectEdits;
+window.toggleGameweekRelease = toggleGameweekRelease;
+window.releaseNextRound = releaseNextRound;
+window.lockGameweek = lockGameweek;
+window.isGameweekReleased = isGameweekReleased;
