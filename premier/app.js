@@ -15,6 +15,38 @@ const CURRENT_LEAGUE = 'premier';
 
 function getTournamentRef() {
     return db.ref(`${CURRENT_LEAGUE}/tournament_data`);
+}function saveResult(fixtureId) {
+    const fixture = fixtures.find(f => f.id === fixtureId);
+    const totalRounds = Math.max(...fixtures.map(f => f.round));
+    const halfRounds = totalRounds / 2;
+    const isFirstHalf = fixture.round <= halfRounds;
+    
+    // Find highest completed round
+    let highestCompletedRound = 0;
+    for (let round = 1; round <= (isFirstHalf ? halfRounds : totalRounds); round++) {
+        const roundFixtures = fixtures.filter(f => f.round === round);
+        const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
+        if (allResolved) {
+            highestCompletedRound = round;
+        } else {
+            break;
+        }
+    }
+    
+    // Prevent editing scores in completed rounds
+    if (fixture.round <= highestCompletedRound) {
+        alert(`⚠️ Cannot edit score for Round ${fixture.round} because this round has already been completed!\n\nAll matches in this round have been played.`);
+        return;
+    }
+    
+    const homeScore = document.getElementById(`home-score-${fixtureId}`).value;
+    const awayScore = document.getElementById(`away-score-${fixtureId}`).value;
+    if (homeScore === "" || awayScore === "") { alert("Enter both scores"); return; }
+    if (fixture.home === 'BYE' || fixture.away === 'BYE') { alert("Cannot save match with BYE team."); return; }
+    pendingFixtureId = fixtureId;
+    pendingHomeScore = parseInt(homeScore);
+    pendingAwayScore = parseInt(awayScore);
+    openGoalEditor();
 }
 function getChatRef() {
     return db.ref(`${CURRENT_LEAGUE}/chat_messages`);
@@ -2113,37 +2145,30 @@ function checkAndShowFirstHalfReview() {
 // ==================== SAVE RESULT & GOAL EDITOR ====================
 function saveResult(fixtureId) {
     const fixture = fixtures.find(f => f.id === fixtureId);
-    const totalRounds = Math.max(...fixtures.map(f => f.round));
-    const halfRounds = totalRounds / 2;
-    const isFirstHalf = fixture.round <= halfRounds;
-    
-    // Find highest completed round
-    let highestCompletedRound = 0;
-    for (let round = 1; round <= (isFirstHalf ? halfRounds : totalRounds); round++) {
-        const roundFixtures = fixtures.filter(f => f.round === round);
-        const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
-        if (allResolved) {
-            highestCompletedRound = round;
-        } else {
-            break;
-        }
-    }
-    
-    // Prevent editing scores in completed rounds
-    if (fixture.round <= highestCompletedRound) {
-        alert(`⚠️ Cannot edit score for Round ${fixture.round} because this round has already been completed!\n\nAll matches in this round have been played.`);
-        return;
-    }
     
     const homeScore = document.getElementById(`home-score-${fixtureId}`).value;
     const awayScore = document.getElementById(`away-score-${fixtureId}`).value;
     if (homeScore === "" || awayScore === "") { alert("Enter both scores"); return; }
     if (fixture.home === 'BYE' || fixture.away === 'BYE') { alert("Cannot save match with BYE team."); return; }
+    
     pendingFixtureId = fixtureId;
     pendingHomeScore = parseInt(homeScore);
     pendingAwayScore = parseInt(awayScore);
-    openGoalEditor();
+    
+    // If fixture already has a result, ask for confirmation before editing
+    if (fixture.played) {
+        if (confirm(`✏️ EDIT EXISTING RESULT?\n\nCurrent: ${fixture.home} ${fixture.homeScore}-${fixture.awayScore} ${fixture.away}\nNew: ${fixture.home} ${pendingHomeScore}-${pendingAwayScore} ${fixture.away}\n\nAll standings will be updated. Continue?`)) {
+            if (fixture.events && fixture.events.length > 0) {
+                openGoalEditorForEdit(fixture.events);
+            } else {
+                openGoalEditor();
+            }
+        }
+    } else {
+        openGoalEditor();
+    }
 }
+
 function openGoalEditor() {
     const fixture = fixtures.find(f => f.id === pendingFixtureId);
     const totalGoals = pendingHomeScore + pendingAwayScore;
