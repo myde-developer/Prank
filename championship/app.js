@@ -1698,50 +1698,258 @@ function renderFixtures() {
 function showTeamDetails(teamName) {
     const team = teams[teamName];
     if (!team) return;
-    document.getElementById('team-modal-name').innerText = team.name;
-    document.getElementById('modal-mp').innerText = team.mp;
-    document.getElementById('modal-pts').innerText = team.pts;
-    document.getElementById('modal-w').innerText = team.w;
-    document.getElementById('modal-d').innerText = team.d;
-    document.getElementById('modal-l').innerText = team.l;
-    document.getElementById('modal-gf').innerText = team.gf;
-    document.getElementById('modal-ga').innerText = team.ga;
-    const gd = team.gd;
-    document.getElementById('modal-gd').innerHTML = `<span class="${gd >= 0 ? 'text-emerald-600' : 'text-rose-500'}">${gd > 0 ? '+' + gd : gd}</span>`;
-    document.getElementById('modal-penalty').innerText = team.deductedPoints ? `-${team.deductedPoints}` : 'None';
-    let recent = team.formHistory.slice(-5);
-    while (recent.length < 5) recent.unshift('-');
-    document.getElementById('modal-form').innerHTML = recent.map(r => r === 'W' ? '<span class="w-6 h-6 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold flex items-center justify-center">W</span>' : r === 'L' ? '<span class="w-6 h-6 bg-rose-100 text-rose-600 rounded-full text-[10px] font-bold flex items-center justify-center">L</span>' : r === 'D' ? '<span class="w-6 h-6 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold flex items-center justify-center">D</span>' : '<span class="w-6 h-6 bg-gray-100 text-gray-400 rounded-full text-[10px] flex items-center justify-center">-</span>').join('');
-    let cleanSheets = 0, homeWins=0, homeDraws=0, homeLosses=0, homeGF=0, homeGA=0, awayWins=0, awayDraws=0, awayLosses=0, awayGF=0, awayGA=0;
-    fixtures.forEach(f => {
-        if (!f.played) return;
-        if (f.home === teamName) {
-            if (f.homeScore === 0) cleanSheets++;
-            if (f.homeScore > f.awayScore) homeWins++;
-            else if (f.homeScore === f.awayScore) homeDraws++;
-            else homeLosses++;
-            homeGF += f.homeScore;
-            homeGA += f.awayScore;
+    
+    // Get all matches for this team
+    const teamMatches = fixtures.filter(f => 
+        (f.home === teamName || f.away === teamName) && 
+        f.played && 
+        !f.cancelled
+    ).sort((a, b) => b.round - a.round); // Most recent first
+    
+    // Calculate advanced stats
+    let cleanSheets = 0;
+    let homeWins = 0, homeDraws = 0, homeLosses = 0;
+    let homeGF = 0, homeGA = 0;
+    let awayWins = 0, awayDraws = 0, awayLosses = 0;
+    let awayGF = 0, awayGA = 0;
+    let goalsScored = [];
+    let goalsConceded = [];
+    let biggestWin = { score: "", opponent: "" };
+    let biggestLoss = { score: "", opponent: "" };
+    let currentStreak = { type: "", length: 0 };
+    
+    // Process each match
+    teamMatches.forEach(f => {
+        const isHome = f.home === teamName;
+        const scored = isHome ? f.homeScore : f.awayScore;
+        const conceded = isHome ? f.awayScore : f.homeScore;
+        const opponent = isHome ? f.away : f.home;
+        const won = (isHome && f.homeScore > f.awayScore) || (!isHome && f.awayScore > f.homeScore);
+        const lost = (isHome && f.homeScore < f.awayScore) || (!isHome && f.awayScore < f.homeScore);
+        
+        // Clean sheets
+        if (conceded === 0) cleanSheets++;
+        
+        // Goals tracking
+        goalsScored.push(scored);
+        goalsConceded.push(conceded);
+        
+        // Biggest win/loss
+        const margin = scored - conceded;
+        if (margin > 0 && margin > (parseInt(biggestWin.score.split('-')[0]) || 0)) {
+            biggestWin = { score: `${scored}-${conceded}`, opponent };
         }
-        if (f.away === teamName) {
-            if (f.awayScore === 0) cleanSheets++;
-            if (f.awayScore > f.homeScore) awayWins++;
-            else if (f.awayScore === f.homeScore) awayDraws++;
-            else awayLosses++;
-            awayGF += f.awayScore;
-            awayGA += f.homeScore;
+        if (margin < 0 && Math.abs(margin) > (parseInt(biggestLoss.score.split('-')[1]) || 0)) {
+            biggestLoss = { score: `${scored}-${conceded}`, opponent };
+        }
+        
+        // Home/Away breakdown
+        if (isHome) {
+            if (won) homeWins++;
+            else if (lost) homeLosses++;
+            else homeDraws++;
+            homeGF += scored;
+            homeGA += conceded;
+        } else {
+            if (won) awayWins++;
+            else if (lost) awayLosses++;
+            else awayDraws++;
+            awayGF += scored;
+            awayGA += conceded;
         }
     });
+    
+    // Calculate current streak
+    if (teamMatches.length > 0) {
+        let streak = 0;
+        let streakType = null;
+        for (let i = 0; i < teamMatches.length; i++) {
+            const f = teamMatches[i];
+            const isHome = f.home === teamName;
+            const won = (isHome && f.homeScore > f.awayScore) || (!isHome && f.awayScore > f.homeScore);
+            const lost = (isHome && f.homeScore < f.awayScore) || (!isHome && f.awayScore < f.homeScore);
+            
+            if (i === 0) {
+                streakType = won ? 'W' : (lost ? 'L' : 'D');
+                streak = 1;
+            } else {
+                const prevWon = (teamMatches[i-1].home === teamName && teamMatches[i-1].homeScore > teamMatches[i-1].awayScore) ||
+                               (teamMatches[i-1].away === teamName && teamMatches[i-1].awayScore > teamMatches[i-1].homeScore);
+                const prevLost = (teamMatches[i-1].home === teamName && teamMatches[i-1].homeScore < teamMatches[i-1].awayScore) ||
+                                (teamMatches[i-1].away === teamName && teamMatches[i-1].awayScore < teamMatches[i-1].homeScore);
+                const prevType = prevWon ? 'W' : (prevLost ? 'L' : 'D');
+                
+                if ((won && prevType === 'W') || (lost && prevType === 'L') || (!won && !lost && prevType === 'D')) {
+                    streak++;
+                } else {
+                    break;
+                }
+            }
+        }
+        currentStreak = { type: streakType, length: streak };
+    }
+    
+    const streakColor = currentStreak.type === 'W' ? 'text-emerald-600' : (currentStreak.type === 'L' ? 'text-rose-600' : 'text-amber-600');
+    const streakIcon = currentStreak.type === 'W' ? '🔥' : (currentStreak.type === 'L' ? '📉' : '🤝');
+    
+    // Calculate PPG and form ranking
+    const ppg = (team.pts / (team.mp || 1)).toFixed(2);
     const avgGF = (team.gf / (team.mp || 1)).toFixed(2);
-    document.getElementById('modal-clean-sheets').innerText = cleanSheets;
-    document.getElementById('modal-avg-gf').innerText = avgGF;
-    document.getElementById('modal-home-record').innerHTML = `${homeWins}-${homeDraws}-${homeLosses} (GF:${homeGF} GA:${homeGA})`;
-    document.getElementById('modal-away-record').innerHTML = `${awayWins}-${awayDraws}-${awayLosses} (GF:${awayGF} GA:${awayGA})`;
-    const ppg = (team.pts / (team.mp || 1)).toFixed(1);
-    let summary = ppg >= 2.3 ? '🔥 Title contenders!' : ppg >= 1.8 ? '👍 Solid season.' : ppg >= 1.2 ? '⚖️ Mid-table consistency.' : '⚠️ Needs improvement.';
-    if (team.deductedPoints > 0) summary += ` (Includes -${team.deductedPoints} pts penalty)`;
-    document.getElementById('modal-summary').innerText = summary;
+    const avgGA = (team.ga / (team.mp || 1)).toFixed(2);
+    
+    // Build match history HTML
+    let matchHistoryHtml = '';
+    if (teamMatches.length > 0) {
+        matchHistoryHtml = teamMatches.slice(0, 8).map(f => {
+            const isHome = f.home === teamName;
+            const scored = isHome ? f.homeScore : f.awayScore;
+            const conceded = isHome ? f.awayScore : f.homeScore;
+            const opponent = isHome ? f.away : f.home;
+            const won = scored > conceded;
+            const lost = scored < conceded;
+            const resultClass = won ? 'bg-emerald-100 text-emerald-700' : (lost ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700');
+            const resultIcon = won ? 'W' : (lost ? 'L' : 'D');
+            const locationIcon = isHome ? '🏠' : '✈️';
+            
+            return `
+                <div class="flex items-center justify-between p-2 border-b border-gray-100 hover:bg-gray-50 rounded-lg transition">
+                    <div class="flex items-center gap-2 w-24">
+                        <span class="text-xs font-mono text-gray-500">GW ${f.round}</span>
+                        <span class="text-xs">${locationIcon}</span>
+                    </div>
+                    <div class="flex-1 text-left">
+                        <span class="text-sm font-medium">${opponent}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="px-2 py-0.5 rounded-full text-xs font-bold ${resultClass}">${resultIcon}</span>
+                        <span class="font-mono font-bold text-sm">${scored} - ${conceded}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } else {
+        matchHistoryHtml = '<p class="text-gray-400 text-sm text-center py-4">No matches played yet</p>';
+    }
+    
+    // Build the modal HTML
+    const modalHtml = `
+        <div id="team-modal" class="fixed inset-0 z-50 bg-gray-900/80 backdrop-blur-sm flex items-center justify-center p-4" onclick="if(event.target === this) closeTeamModal()">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <!-- Header with team name and gradient -->
+                <div class="bg-gradient-to-r from-indigo-600 to-purple-600 p-5 text-white sticky top-0">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h2 class="text-2xl font-bold">${escapeHtml(team.name)}</h2>
+                            <p class="text-white/80 text-sm mt-1">${team.mp} matches • ${team.pts} points</p>
+                        </div>
+                        <button onclick="closeTeamModal()" class="text-white/80 hover:text-white text-2xl leading-5">&times;</button>
+                    </div>
+                </div>
+                
+                <div class="p-5 space-y-5">
+                    <!-- Quick Stats Grid -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div class="bg-gray-50 rounded-xl p-3 text-center">
+                            <p class="text-2xl font-bold text-indigo-600">${team.pts}</p>
+                            <p class="text-[10px] text-gray-500">POINTS</p>
+                        </div>
+                        <div class="bg-gray-50 rounded-xl p-3 text-center">
+                            <p class="text-2xl font-bold text-emerald-600">${ppg}</p>
+                            <p class="text-[10px] text-gray-500">PPG</p>
+                        </div>
+                        <div class="bg-gray-50 rounded-xl p-3 text-center">
+                            <p class="text-2xl font-bold text-amber-600">${team.gf}</p>
+                            <p class="text-[10px] text-gray-500">GOALS</p>
+                        </div>
+                        <div class="bg-gray-50 rounded-xl p-3 text-center">
+                            <p class="text-2xl font-bold text-rose-500">${team.ga}</p>
+                            <p class="text-[10px] text-gray-500">CONCEDED</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Form & Streak -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="bg-gray-50 rounded-xl p-3">
+                            <p class="text-xs font-semibold text-gray-500 mb-2">📈 RECENT FORM</p>
+                            <div class="flex gap-2 justify-start">
+                                ${team.formHistory.slice(-5).map(r => {
+                                    if (r === 'W') return '<span class="w-8 h-8 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold flex items-center justify-center">W</span>';
+                                    if (r === 'L') return '<span class="w-8 h-8 bg-rose-100 text-rose-600 rounded-full text-xs font-bold flex items-center justify-center">L</span>';
+                                    if (r === 'D') return '<span class="w-8 h-8 bg-amber-100 text-amber-700 rounded-full text-xs font-bold flex items-center justify-center">D</span>';
+                                    return '<span class="w-8 h-8 bg-gray-200 text-gray-400 rounded-full text-xs flex items-center justify-center">-</span>';
+                                }).join('')}
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 rounded-xl p-3">
+                            <p class="text-xs font-semibold text-gray-500 mb-2">⚡ CURRENT STREAK</p>
+                            <p class="text-lg font-bold ${streakColor}">${streakIcon} ${currentStreak.length > 0 ? currentStreak.length : 0} ${currentStreak.type === 'W' ? 'Wins' : (currentStreak.type === 'L' ? 'Losses' : 'Draws')}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Home/Away Split -->
+                    <div>
+                        <p class="text-xs font-semibold text-gray-500 mb-2">🏠 HOME vs ✈️ AWAY</p>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="bg-emerald-50 rounded-xl p-3 text-center">
+                                <p class="text-sm font-bold text-emerald-700">🏠 HOME</p>
+                                <p class="text-xl font-bold">${homeWins}-${homeDraws}-${homeLosses}</p>
+                                <p class="text-xs text-gray-500">GF: ${homeGF} | GA: ${homeGA}</p>
+                            </div>
+                            <div class="bg-blue-50 rounded-xl p-3 text-center">
+                                <p class="text-sm font-bold text-blue-700">✈️ AWAY</p>
+                                <p class="text-xl font-bold">${awayWins}-${awayDraws}-${awayLosses}</p>
+                                <p class="text-xs text-gray-500">GF: ${awayGF} | GA: ${awayGA}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Records -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-emerald-50 rounded-xl p-2 text-center">
+                            <p class="text-[10px] text-gray-500">🏆 BIGGEST WIN</p>
+                            <p class="text-sm font-bold text-emerald-700">${biggestWin.score || '-'}</p>
+                            <p class="text-xs text-gray-600">vs ${biggestWin.opponent || '-'}</p>
+                        </div>
+                        <div class="bg-rose-50 rounded-xl p-2 text-center">
+                            <p class="text-[10px] text-gray-500">📉 BIGGEST LOSS</p>
+                            <p class="text-sm font-bold text-rose-700">${biggestLoss.score || '-'}</p>
+                            <p class="text-xs text-gray-600">vs ${biggestLoss.opponent || '-'}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Match History -->
+                    <div>
+                        <p class="text-xs font-semibold text-gray-500 mb-2">📋 RECENT MATCHES</p>
+                        <div class="max-h-64 overflow-y-auto space-y-1">
+                            ${matchHistoryHtml}
+                        </div>
+                    </div>
+                    
+                    <!-- Penalty Info -->
+                    ${team.deductedPoints > 0 ? `
+                    <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
+                        <p class="text-xs text-amber-700">⚠️ POINTS DEDUCTION: -${team.deductedPoints} points</p>
+                    </div>
+                    ` : ''}
+                </div>
+                
+                <div class="p-4 bg-gray-50 flex gap-3 justify-end rounded-b-2xl">
+                    <button onclick="closeTeamModal()" class="px-5 py-2 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition">Close</button>
+                    ${isAdmin ? `<button onclick="closeTeamModal(); openPenaltyModal('${team.name}')" class="px-5 py-2 text-sm font-medium bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition">⚖️ Edit Penalty</button>` : ''}
+                    ${isAdmin ? `<button onclick="closeTeamModal(); openReplaceTeamModal('${team.name}')" class="px-5 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">🔄 Replace Team</button>` : ''}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if any
+    const existingModal = document.getElementById('team-modal');
+    if (existingModal) existingModal.remove();
+    
+    // Add new modal
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
     document.getElementById('team-modal').classList.remove('hidden');
+    document.getElementById('team-modal').classList.add('flex');
 }
 function closeTeamModal() { document.getElementById('team-modal').classList.add('hidden'); }
 
