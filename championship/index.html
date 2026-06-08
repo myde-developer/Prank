@@ -9,7 +9,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1"></script>
-    <script src="https://cdn.jsdelivr.net/npm/groq-sdk@0.37.0/dist/index.browser.min.js"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body class="bg-gradient-to-br from-slate-50 to-gray-100 font-['Inter'] text-gray-800 antialiased">
@@ -213,32 +212,22 @@
         </div>
     </div>
 
-<div id="comment-viewer-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-gray-200 overflow-hidden">
-        <div class="p-5 border-b border-gray-200 flex justify-between items-center">
-            <h3 class="font-bold text-gray-800">📝 Match Report</h3>
-            <button onclick="closeCommentViewer()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
-        </div>
-        <div class="p-5 space-y-4">
-            <div class="text-center">
-                <p class="text-lg font-bold text-gray-800" id="viewer-match-name"></p>
-                <p class="text-2xl font-black text-emerald-600 mt-1" id="viewer-score"></p>
+    <div id="comment-viewer-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-gray-200 overflow-hidden">
+            <div class="p-5 border-b border-gray-200 flex justify-between items-center"><h3 class="font-bold">📝 Match Details</h3><button onclick="closeCommentViewer()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button></div>
+            <div class="p-5 space-y-4">
+                <p class="text-sm font-semibold" id="viewer-match-name"></p>
+                <p class="text-xs text-gray-500">Score: <span id="viewer-score"></span></p>
+                <div class="bg-gray-50 p-3 rounded-xl"><p class="text-xs font-medium mb-1">📖 Match Report</p><p id="viewer-comment" class="text-sm italic"></p></div>
+                <div id="viewer-events-container" class="hidden border-t pt-2"><p class="text-xs font-bold">⚽ Timeline</p><div id="viewer-events" class="max-h-40 overflow-y-auto text-xs space-y-1 mt-1"></div></div>
             </div>
-            <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                <p id="viewer-comment" class="text-gray-700 text-sm leading-relaxed"></p>
+            <div class="p-4 bg-gray-50 flex flex-wrap gap-2 justify-end">
+                <button onclick="closeCommentViewer()" class="px-4 py-2 text-sm border rounded-lg">Close</button>
+                <button id="viewer-edit-btn" onclick="editViewerComment()" class="hidden px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg">Edit Report</button>
+                <button id="viewer-edit-events-btn" onclick="editViewerEvents()" class="hidden px-4 py-2 text-sm bg-amber-600 text-white rounded-lg">⏱️ Edit Events</button>
             </div>
-            <div id="viewer-events-container" class="hidden">
-                <p class="text-xs font-semibold text-gray-500 mb-2">⚽ Goal Timeline</p>
-                <div id="viewer-events" class="space-y-1 max-h-32 overflow-y-auto"></div>
-            </div>
-        </div>
-        <div class="p-4 bg-gray-50 flex flex-wrap gap-2 justify-center">
-            <button onclick="closeCommentViewer()" class="px-6 py-2 text-sm font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition">Close</button>
-            <button id="viewer-edit-btn" onclick="editViewerComment()" class="hidden px-6 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">✏️ Edit Report</button>
-            <button id="viewer-edit-events-btn" onclick="editViewerEvents()" class="hidden px-6 py-2 text-sm font-medium bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition">⏱️ Edit Events</button>
         </div>
     </div>
-</div>
 
    <div id="team-select-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full border border-gray-200 overflow-hidden">

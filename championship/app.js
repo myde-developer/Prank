@@ -10,27 +10,6 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// Groq API Configuration
-const GROQ_API_KEY = "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";
-let groqClient = null;
-
-function initGroqClient() {
-    if (GROQ_API_KEY && typeof Groq !== 'undefined') {
-        try {
-            groqClient = new Groq({
-                apiKey: GROQ_API_KEY,
-                dangerouslyAllowBrowser: true
-            });
-            console.log("✅ Groq AI ready");
-        } catch(e) {
-            console.warn("Groq not available:", e);
-            groqClient = null;
-        }
-    } else {
-        console.warn("Groq SDK not loaded or API key missing");
-    }
-}
-
 // LOCKED TO CHAMPIONSHIP LEAGUE ONLY
 const CURRENT_LEAGUE = 'championship';
 
@@ -1974,6 +1953,39 @@ function showTeamDetails(teamName) {
 }
 function closeTeamModal() { document.getElementById('team-modal').classList.add('hidden'); }
 
+// ==================== RICH REPORT ====================
+function generateRichReportFromEvents(home, away, homeScore, awayScore, events) {
+    const goalEvents = events.filter(e => e.type === 'goal');
+    let report = '';
+    if (homeScore === awayScore) {
+        report = `🤝 ${home} and ${away} shared the spoils in a ${homeScore}-${awayScore} draw.`;
+    } else {
+        const winner = homeScore > awayScore ? home : away;
+        const loser = homeScore > awayScore ? away : home;
+        const margin = Math.abs(homeScore - awayScore);
+        if (margin >= 3) report = `🔥 ${winner} demolished ${loser} ${Math.max(homeScore,awayScore)}-${Math.min(homeScore,awayScore)}!`;
+        else if (margin === 2) report = `📈 ${winner} secured a comfortable win over ${loser}.`;
+        else report = `⚡ ${winner} edged past ${loser} in a tight contest.`;
+    }
+    if (goalEvents.length > 0) {
+        const first = goalEvents[0];
+        const assistText = first.assist ? ` (assisted by ${first.assist})` : '';
+        const typeText = first.goalType === 'Open play' ? '' : ` (${first.goalType})`;
+        report += ` The opener came in the ${first.minute}′ through ${first.player} (${first.team})${typeText}${assistText}.`;
+        if (goalEvents.length > 1) {
+            const last = goalEvents[goalEvents.length-1];
+            const lastAssistText = last.assist ? ` (assisted by ${last.assist})` : '';
+            const lastTypeText = last.goalType === 'Open play' ? '' : ` (${last.goalType})`;
+            report += ` ${last.player} sealed it at ${last.minute}′${lastTypeText}${lastAssistText}.`;
+        }
+    } else if (homeScore === 0 && awayScore === 0) {
+        report += ` A rare goalless affair with no clear chances.`;
+    }
+    const flavours = [`${home} dominated possession but lacked precision.`, `${away} defended deep and hit on the counter.`, `The match was a midfield battle from start to finish.`, `Both goalkeepers produced world-class saves.`, `End-to-end action thrilled the crowd.`, `Set pieces proved decisive today.`];
+    report += ` ${flavours[Math.floor(Math.random() * flavours.length)]}`;
+    return report;
+}
+
 function showFirstHalfReviewModal() {
     const totalRounds = Math.max(...fixtures.map(f => f.round));
     const halfRounds = totalRounds / 2;
@@ -2332,60 +2344,6 @@ function saveResult(fixtureId) {
         openGoalEditor();
     }
 }
-
-async function generateAIMatchComment(homeTeam, awayTeam, homeScore, awayScore, events) {
-    if (!groqClient) {
-        return generateBasicComment(homeTeam, awayTeam, homeScore, awayScore, events);
-    }
-    
-    let eventsDescription = "";
-    if (events && events.length > 0) {
-        eventsDescription = events.map(ev => {
-            const assistText = ev.assist ? ` (assist: ${ev.assist})` : '';
-            const typeText = ev.goalType !== 'Open play' ? ` [${ev.goalType}]` : '';
-            return `${ev.minute}': ${ev.player} (${ev.team})${typeText}${assistText}`;
-        }).join('\n');
-    } else {
-        eventsDescription = "No goal details recorded.";
-    }
-    
-    const prompt = `Write a short, exciting football match report (2-3 sentences) for ${homeTeam} vs ${awayTeam} that ended ${homeScore}-${awayScore}.
-
-Events:
-${eventsDescription}
-
-Make it energetic and sound like a real commentator. Be concise. Don't use quotes.`;
-
-    try {
-        const response = await groqClient.chat.completions.create({
-            messages: [{ role: "user", content: prompt }],
-            model: "llama3-8b-8192",
-            temperature: 0.7,
-            max_tokens: 120,
-        });
-        
-        let comment = response.choices[0]?.message?.content || "";
-        comment = comment.replace(/["']/g, '').trim();
-        return comment || generateBasicComment(homeTeam, awayTeam, homeScore, awayScore, events);
-    } catch (error) {
-        console.error("Groq error:", error);
-        return generateBasicComment(homeTeam, awayTeam, homeScore, awayScore, events);
-    }
-}
-
-function generateBasicComment(homeTeam, awayTeam, homeScore, awayScore, events) {
-    if (homeScore === awayScore) {
-        return `${homeTeam} ${homeScore}-${awayScore} ${awayTeam}. A hard-fought draw.`;
-    }
-    const winner = homeScore > awayScore ? homeTeam : awayTeam;
-    const margin = Math.abs(homeScore - awayScore);
-    
-    if (margin >= 3) return `${winner} dominated with a ${Math.max(homeScore, awayScore)}-${Math.min(homeScore, awayScore)} victory!`;
-    if (margin === 2) return `${winner} secured a ${Math.max(homeScore, awayScore)}-${Math.min(homeScore, awayScore)} win.`;
-    return `${winner} edged it ${Math.max(homeScore, awayScore)}-${Math.min(homeScore, awayScore)} in a tight contest!`;
-}
-
-
 function openGoalEditor() {
     const fixture = fixtures.find(f => f.id === pendingFixtureId);
     const totalGoals = pendingHomeScore + pendingAwayScore;
@@ -2399,15 +2357,11 @@ function openGoalEditor() {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 function closeGoalEditor() { const modal = document.getElementById('goal-editor-modal'); if (modal) modal.remove(); pendingFixtureId = null; }
-async function saveGoalsAndFinish() {
+function saveGoalsAndFinish() {
     const fixture = fixtures.find(f => f.id === pendingFixtureId);
     if (!fixture) return;
-    
-    showToast("Saving match...");
-    
     const goalEntries = document.querySelectorAll('.goal-entry');
     const events = [];
-    
     for (let i = 0; i < goalEntries.length; i++) {
         const entry = goalEntries[i];
         const team = entry.querySelector('.goal-team').value;
@@ -2415,42 +2369,33 @@ async function saveGoalsAndFinish() {
         const assist = entry.querySelector('.goal-assist').value.trim();
         const minute = parseInt(entry.querySelector('.goal-minute').value);
         const type = entry.querySelector('.goal-type').value;
-        
-        if (!scorer) { alert(`Enter scorer name for goal #${i+1}`); return; }
-        if (isNaN(minute) || minute < 1 || minute > 120) { alert(`Enter valid minute (1-120)`); return; }
-        
+        if (!scorer) { alert(`Please enter scorer name for goal #${i+1}`); return; }
+        if (isNaN(minute) || minute < 1 || minute > 120) { alert(`Please enter a valid minute (1-120)`); return; }
         events.push({ minute, type: 'goal', team, player: scorer, assist: assist || null, goalType: type });
     }
     events.sort((a,b) => a.minute - b.minute);
-    
-    const aiComment = await generateAIMatchComment(
-        fixture.home, 
-        fixture.away, 
-        pendingHomeScore, 
-        pendingAwayScore, 
-        events
-    );
-    
+    const report = generateRichReportFromEvents(fixture.home, fixture.away, pendingHomeScore, pendingAwayScore, events);
     fixture.homeScore = pendingHomeScore;
     fixture.awayScore = pendingAwayScore;
     fixture.played = true;
-    fixture.report = aiComment;
+    fixture.report = report;
     fixture.events = events;
     if (!fixture.predictions) fixture.predictions = [];
     if (!fixture.banter) fixture.banter = [];
-    
     updateTableCalculations();
     saveToStorage();
-    
     showToast(`Saved: ${fixture.home} ${pendingHomeScore}-${pendingAwayScore} ${fixture.away}`);
     closeGoalEditor();
     pendingFixtureId = null;
     renderTable();
     renderFixtures();
     generateTickerFacts();
-    
     if (typeof confetti === 'function') confetti({ particleCount: 60, spread: 45, origin: { y: 0.7 } });
+    
+    // Check if first half is now completed
     checkAndShowFirstHalfReview();
+    
+    // Auto-validate integrity
     validateFixtureIntegrity();
 }
 
@@ -2501,13 +2446,8 @@ function showMatchComment(fixtureId) {
     const editBtn = document.getElementById('viewer-edit-btn');
     const editEventsBtn = document.getElementById('viewer-edit-events-btn');
     if (editBtn && editEventsBtn) {
-        if (isAdmin && f.played) { 
-            editBtn.classList.remove('hidden'); 
-            editEventsBtn.classList.remove('hidden');
-        } else { 
-            editBtn.classList.add('hidden'); 
-            editEventsBtn.classList.add('hidden');
-        }
+        if (isAdmin && f.played) { editBtn.classList.remove('hidden'); editEventsBtn.classList.remove('hidden'); }
+        else { editBtn.classList.add('hidden'); editEventsBtn.classList.add('hidden'); }
     }
 }
 function closeCommentViewer() {
@@ -2710,7 +2650,6 @@ function resetTournament() {
 
 // ==================== INIT ====================
 window.onload = () => {
-    initGroqClient();  // ADD THIS LINE
     initRealtimeDatabaseSync();
     const savedRole = sessionStorage.getItem('tournamentRole');
     if (savedRole === 'viewer' || savedRole === 'admin') {
