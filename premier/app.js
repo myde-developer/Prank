@@ -11,11 +11,11 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 // Groq API Configuration
-const GROQ_API_KEY = "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";
+const GROQ_API_KEY = "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";
 let groqClient = null;
 
 function initGroqClient() {
-    if (GROQ_API_KEY && GROQ_API_KEY !== "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") {
+    if (GROQ_API_KEY && GROQ_API_KEY !== "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") {
         try {
             groqClient = new Groq({
                 apiKey: GROQ_API_KEY,
@@ -2534,10 +2534,16 @@ function showMatchComment(fixtureId) {
     const editBtn = document.getElementById('viewer-edit-btn');
     const editEventsBtn = document.getElementById('viewer-edit-events-btn');
     if (editBtn && editEventsBtn) {
-        if (isAdmin && f.played) { editBtn.classList.remove('hidden'); editEventsBtn.classList.remove('hidden'); }
-        else { editBtn.classList.add('hidden'); editEventsBtn.classList.add('hidden'); }
+        if (isAdmin && f.played) { 
+            editBtn.classList.remove('hidden'); 
+            editEventsBtn.classList.remove('hidden');
+        } else { 
+            editBtn.classList.add('hidden'); 
+            editEventsBtn.classList.add('hidden');
+        }
     }
 }
+
 function closeCommentViewer() {
     const modal = document.getElementById('comment-viewer-modal');
     if (modal) { modal.style.display = 'none'; modal.classList.add('hidden'); modal.classList.remove('flex'); }

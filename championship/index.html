@@ -232,8 +232,10 @@
                 <div id="viewer-events" class="space-y-1 max-h-32 overflow-y-auto"></div>
             </div>
         </div>
-        <div class="p-4 bg-gray-50 text-center rounded-b-2xl">
+        <div class="p-4 bg-gray-50 flex flex-wrap gap-2 justify-center">
             <button onclick="closeCommentViewer()" class="px-6 py-2 text-sm font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition">Close</button>
+            <button id="viewer-edit-btn" onclick="editViewerComment()" class="hidden px-6 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">✏️ Edit Report</button>
+            <button id="viewer-edit-events-btn" onclick="editViewerEvents()" class="hidden px-6 py-2 text-sm font-medium bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition">⏱️ Edit Events</button>
         </div>
     </div>
 </div>
