@@ -15,17 +15,19 @@ const GROQ_API_KEY = "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";
 let groqClient = null;
 
 function initGroqClient() {
-    if (GROQ_API_KEY && GROQ_API_KEY !== "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") {
+    if (GROQ_API_KEY && typeof Groq !== 'undefined') {
         try {
             groqClient = new Groq({
                 apiKey: GROQ_API_KEY,
                 dangerouslyAllowBrowser: true
             });
-            console.log("Groq AI ready");
+            console.log("✅ Groq AI ready");
         } catch(e) {
             console.warn("Groq not available:", e);
             groqClient = null;
         }
+    } else {
+        console.warn("Groq SDK not loaded or API key missing");
     }
 }
 
