@@ -10,12 +10,33 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
+// Groq API Configuration
+const GROQ_API_KEY = "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";
+let groqClient = null;
+
+function initGroqClient() {
+    if (GROQ_API_KEY && GROQ_API_KEY !== "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") {
+        try {
+            groqClient = new Groq({
+                apiKey: GROQ_API_KEY,
+                dangerouslyAllowBrowser: true
+            });
+            console.log("Groq AI ready");
+        } catch(e) {
+            console.warn("Groq not available:", e);
+            groqClient = null;
+        }
+    }
+}
+
 // LOCKED TO PREMIER LEAGUE ONLY
 const CURRENT_LEAGUE = 'premier';
 
 function getTournamentRef() {
     return db.ref(`${CURRENT_LEAGUE}/tournament_data`);
-}function saveResult(fixtureId) {
+}
+
+function saveResult(fixtureId) {
     const fixture = fixtures.find(f => f.id === fixtureId);
     const totalRounds = Math.max(...fixtures.map(f => f.round));
     const halfRounds = totalRounds / 2;
@@ -48,6 +69,59 @@ function getTournamentRef() {
     pendingAwayScore = parseInt(awayScore);
     openGoalEditor();
 }
+
+async function generateAIMatchComment(homeTeam, awayTeam, homeScore, awayScore, events) {
+    if (!groqClient) {
+        return generateBasicComment(homeTeam, awayTeam, homeScore, awayScore, events);
+    }
+    
+    let eventsDescription = "";
+    if (events && events.length > 0) {
+        eventsDescription = events.map(ev => {
+            const assistText = ev.assist ? ` (assist: ${ev.assist})` : '';
+            const typeText = ev.goalType !== 'Open play' ? ` [${ev.goalType}]` : '';
+            return `${ev.minute}': ${ev.player} (${ev.team})${typeText}${assistText}`;
+        }).join('\n');
+    } else {
+        eventsDescription = "No goal details recorded.";
+    }
+    
+    const prompt = `Write a short, exciting football match report (2-3 sentences) for ${homeTeam} vs ${awayTeam} that ended ${homeScore}-${awayScore}.
+
+Events:
+${eventsDescription}
+
+Make it energetic and sound like a real commentator. Be concise. Don't use quotes.`;
+
+    try {
+        const response = await groqClient.chat.completions.create({
+            messages: [{ role: "user", content: prompt }],
+            model: "llama3-8b-8192",
+            temperature: 0.7,
+            max_tokens: 120,
+        });
+        
+        let comment = response.choices[0]?.message?.content || "";
+        comment = comment.replace(/["']/g, '').trim();
+        return comment || generateBasicComment(homeTeam, awayTeam, homeScore, awayScore, events);
+    } catch (error) {
+        console.error("Groq error:", error);
+        return generateBasicComment(homeTeam, awayTeam, homeScore, awayScore, events);
+    }
+}
+
+function generateBasicComment(homeTeam, awayTeam, homeScore, awayScore, events) {
+    if (homeScore === awayScore) {
+        return `${homeTeam} ${homeScore}-${awayScore} ${awayTeam}. A hard-fought draw.`;
+    }
+    const winner = homeScore > awayScore ? homeTeam : awayTeam;
+    const margin = Math.abs(homeScore - awayScore);
+    
+    if (margin >= 3) return `${winner} dominated with a ${Math.max(homeScore, awayScore)}-${Math.min(homeScore, awayScore)} victory!`;
+    if (margin === 2) return `${winner} secured a ${Math.max(homeScore, awayScore)}-${Math.min(homeScore, awayScore)} win.`;
+    return `${winner} edged it ${Math.max(homeScore, awayScore)}-${Math.min(homeScore, awayScore)} in a tight contest!`;
+}
+
 function getChatRef() {
     return db.ref(`${CURRENT_LEAGUE}/chat_messages`);
 }
@@ -1985,39 +2059,6 @@ function showTeamDetails(teamName) {
 }
 function closeTeamModal() { document.getElementById('team-modal').classList.add('hidden'); }
 
-// ==================== RICH REPORT ====================
-function generateRichReportFromEvents(home, away, homeScore, awayScore, events) {
-    const goalEvents = events.filter(e => e.type === 'goal');
-    let report = '';
-    if (homeScore === awayScore) {
-        report = `🤝 ${home} and ${away} shared the spoils in a ${homeScore}-${awayScore} draw.`;
-    } else {
-        const winner = homeScore > awayScore ? home : away;
-        const loser = homeScore > awayScore ? away : home;
-        const margin = Math.abs(homeScore - awayScore);
-        if (margin >= 3) report = `🔥 ${winner} demolished ${loser} ${Math.max(homeScore,awayScore)}-${Math.min(homeScore,awayScore)}!`;
-        else if (margin === 2) report = `📈 ${winner} secured a comfortable win over ${loser}.`;
-        else report = `⚡ ${winner} edged past ${loser} in a tight contest.`;
-    }
-    if (goalEvents.length > 0) {
-        const first = goalEvents[0];
-        const assistText = first.assist ? ` (assisted by ${first.assist})` : '';
-        const typeText = first.goalType === 'Open play' ? '' : ` (${first.goalType})`;
-        report += ` The opener came in the ${first.minute}′ through ${first.player} (${first.team})${typeText}${assistText}.`;
-        if (goalEvents.length > 1) {
-            const last = goalEvents[goalEvents.length-1];
-            const lastAssistText = last.assist ? ` (assisted by ${last.assist})` : '';
-            const lastTypeText = last.goalType === 'Open play' ? '' : ` (${last.goalType})`;
-            report += ` ${last.player} sealed it at ${last.minute}′${lastTypeText}${lastAssistText}.`;
-        }
-    } else if (homeScore === 0 && awayScore === 0) {
-        report += ` A rare goalless affair with no clear chances.`;
-    }
-    const flavours = [`${home} dominated possession but lacked precision.`, `${away} defended deep and hit on the counter.`, `The match was a midfield battle from start to finish.`, `Both goalkeepers produced world-class saves.`, `End-to-end action thrilled the crowd.`, `Set pieces proved decisive today.`];
-    report += ` ${flavours[Math.floor(Math.random() * flavours.length)]}`;
-    return report;
-}
-
 function showFirstHalfReviewModal() {
     const totalRounds = Math.max(...fixtures.map(f => f.round));
     const halfRounds = totalRounds / 2;
@@ -2382,7 +2423,7 @@ function openGoalEditor() {
     const totalGoals = pendingHomeScore + pendingAwayScore;
     let modalHtml = `<div id="goal-editor-modal" class="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4"><div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"><div class="p-5 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white"><h3 class="font-bold text-lg">⚽ Enter Goal Details</h3><button onclick="closeGoalEditor()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button></div><div class="p-5 space-y-4"><p class="text-sm text-gray-600">Match: ${fixture.home} vs ${fixture.away}</p><p class="text-sm font-semibold">Score: ${pendingHomeScore} - ${pendingAwayScore}</p><div id="goals-list-container" class="space-y-3">`;
     for (let i = 0; i < totalGoals; i++) {
-        modalHtml += `<div class="goal-entry border rounded-xl p-3 bg-gray-50" data-goal-index="${i}"><div class="font-medium mb-2">Goal #${i+1}</div><div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><select class="goal-team border rounded-lg px-3 py-2 text-sm bg-white"><option value="${fixture.home}">${fixture.home}</option><option value="${fixture.away}">${fixture.away}</option></select><input type="text" class="goal-scorer border rounded-lg px-3 py-2 text-sm" placeholder="Scorer name"><input type="text" class="goal-assist border rounded-lg px-3 py-2 text-sm" placeholder="Assist (optional)"><input type="number" class="goal-minute border rounded-lg px-3 py-2 text-sm" placeholder="Minute" min="1" max="120"><select class="goal-type border rounded-lg px-3 py-2 text-sm bg-white"><option value="Open play">⚽ Open play</option><option value="Penalty">🎯 Penalty</option><option value="Free kick">🦵 Free kick</option><option value="Header">👑 Header</option><option value="Own goal">😵 Own goal</option></select></div></div>`;
+        modalHtml += `<div class="goal-entry border rounded-xl p-3 bg-gray-50" data-goal-index="${i}"><div class="font-medium mb-2">Goal #${i+1}</div><div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><select class="goal-team border rounded-lg px-3 py-2 text-sm bg-white"><option value="${fixture.home}">${fixture.home}</option><option value="${fixture.away}">${fixture.away}</option></select><input type="text" class="goal-scorer border rounded-lg px-3 py-2 text-sm" placeholder="Scorer name"><input type="text" class="goal-assist border rounded-lg px-3 py-2 text-sm" placeholder="Assist (optional)"><input type="number" class="goal-minute border rounded-lg px-3 py-2 text-sm" placeholder="Minute" min="1" max="120"><select class="goal-type border rounded-lg px-3 py-2 text-sm bg-white"><option value="Open play">⚽ Open play</option><option value="Penalty">🎯 Penalty</option><option value="Free kick">🦵 Free kick</option><option value="Header">?? Header</option><option value="Own goal">😵 Own goal</option></select></div></div>`;
     }
     modalHtml += `</div><div class="flex justify-end gap-3 pt-4"><button onclick="closeGoalEditor()" class="px-4 py-2 border rounded-lg">Cancel</button><button onclick="saveGoalsAndFinish()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg">Save Match & Report</button></div></div></div></div>`;
     const existingModal = document.getElementById('goal-editor-modal');
@@ -2390,11 +2431,15 @@ function openGoalEditor() {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 function closeGoalEditor() { const modal = document.getElementById('goal-editor-modal'); if (modal) modal.remove(); pendingFixtureId = null; }
-function saveGoalsAndFinish() {
+async function saveGoalsAndFinish() {
     const fixture = fixtures.find(f => f.id === pendingFixtureId);
     if (!fixture) return;
+    
+    showToast("Saving match...");
+    
     const goalEntries = document.querySelectorAll('.goal-entry');
     const events = [];
+    
     for (let i = 0; i < goalEntries.length; i++) {
         const entry = goalEntries[i];
         const team = entry.querySelector('.goal-team').value;
@@ -2402,33 +2447,42 @@ function saveGoalsAndFinish() {
         const assist = entry.querySelector('.goal-assist').value.trim();
         const minute = parseInt(entry.querySelector('.goal-minute').value);
         const type = entry.querySelector('.goal-type').value;
-        if (!scorer) { alert(`Please enter scorer name for goal #${i+1}`); return; }
-        if (isNaN(minute) || minute < 1 || minute > 120) { alert(`Please enter a valid minute (1-120)`); return; }
+        
+        if (!scorer) { alert(`Enter scorer name for goal #${i+1}`); return; }
+        if (isNaN(minute) || minute < 1 || minute > 120) { alert(`Enter valid minute (1-120)`); return; }
+        
         events.push({ minute, type: 'goal', team, player: scorer, assist: assist || null, goalType: type });
     }
     events.sort((a,b) => a.minute - b.minute);
-    const report = generateRichReportFromEvents(fixture.home, fixture.away, pendingHomeScore, pendingAwayScore, events);
+    
+    const aiComment = await generateAIMatchComment(
+        fixture.home, 
+        fixture.away, 
+        pendingHomeScore, 
+        pendingAwayScore, 
+        events
+    );
+    
     fixture.homeScore = pendingHomeScore;
     fixture.awayScore = pendingAwayScore;
     fixture.played = true;
-    fixture.report = report;
+    fixture.report = aiComment;
     fixture.events = events;
     if (!fixture.predictions) fixture.predictions = [];
     if (!fixture.banter) fixture.banter = [];
+    
     updateTableCalculations();
     saveToStorage();
+    
     showToast(`Saved: ${fixture.home} ${pendingHomeScore}-${pendingAwayScore} ${fixture.away}`);
     closeGoalEditor();
     pendingFixtureId = null;
     renderTable();
     renderFixtures();
     generateTickerFacts();
+    
     if (typeof confetti === 'function') confetti({ particleCount: 60, spread: 45, origin: { y: 0.7 } });
-    
-    // Check if first half is now completed
     checkAndShowFirstHalfReview();
-    
-    // Auto-validate integrity
     validateFixtureIntegrity();
 }
 
@@ -2683,6 +2737,7 @@ function resetTournament() {
 
 // ==================== INIT ====================
 window.onload = () => {
+    initGroqClient();  // ADD THIS LINE
     initRealtimeDatabaseSync();
     const savedRole = sessionStorage.getItem('tournamentRole');
     if (savedRole === 'viewer' || savedRole === 'admin') {
