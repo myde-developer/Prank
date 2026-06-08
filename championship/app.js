@@ -10,24 +10,10 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// Groq API Configuration
-const GROQ_API_KEY = "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"; 
-let groqClient = null;
-
-function initGroqClient() {
-    if (GROQ_API_KEY && GROQ_API_KEY !== "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") {
-        try {
-            groqClient = new Groq({
-                apiKey: GROQ_API_KEY,
-                dangerouslyAllowBrowser: true
-            });
-            console.log("🤖 Groq AI ready");
-        } catch(e) {
-            console.warn("Groq not available:", e);
-            groqClient = null;
-        }
-    }
-}
+ // Backend API configuration
+const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:3000'
+    : 'https://YOUR-RENDER-APP-NAME.onrender.com'; 
 
 // LOCKED TO CHAMPIONSHIP LEAGUE ONLY
 const CURRENT_LEAGUE = 'championship';
@@ -2332,41 +2318,16 @@ function saveResult(fixtureId) {
 }
 
 async function generateAIMatchComment(homeTeam, awayTeam, homeScore, awayScore, events) {
-    if (!groqClient) {
-        return generateBasicComment(homeTeam, awayTeam, homeScore, awayScore, events);
-    }
-    
-    let eventsDescription = "";
-    if (events && events.length > 0) {
-        eventsDescription = events.map(ev => {
-            const assistText = ev.assist ? ` (assist: ${ev.assist})` : '';
-            const typeText = ev.goalType !== 'Open play' ? ` [${ev.goalType}]` : '';
-            return `${ev.minute}': ${ev.player} (${ev.team})${typeText}${assistText}`;
-        }).join('\n');
-    } else {
-        eventsDescription = "No goal details recorded.";
-    }
-    
-    const prompt = `Write a short, exciting football match report (2-3 sentences) for ${homeTeam} vs ${awayTeam} that ended ${homeScore}-${awayScore}.
-
-Events:
-${eventsDescription}
-
-Make it energetic and sound like a real commentator. Be concise. Don't use quotes.`;
-
     try {
-        const response = await groqClient.chat.completions.create({
-            messages: [{ role: "user", content: prompt }],
-            model: "llama3-8b-8192",
-            temperature: 0.7,
-            max_tokens: 120,
+        const response = await fetch(`${API_URL}/api/generate-comment`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ homeTeam, awayTeam, homeScore, awayScore, events })
         });
-        
-        let comment = response.choices[0]?.message?.content || "";
-        comment = comment.replace(/["']/g, '').trim();
-        return comment || generateBasicComment(homeTeam, awayTeam, homeScore, awayScore, events);
+        const data = await response.json();
+        return data.comment;
     } catch (error) {
-        console.error("Groq error:", error);
+        console.error("Backend error:", error);
         return generateBasicComment(homeTeam, awayTeam, homeScore, awayScore, events);
     }
 }
@@ -2382,6 +2343,7 @@ function generateBasicComment(homeTeam, awayTeam, homeScore, awayScore, events) 
     if (margin === 2) return `${winner} secured a ${Math.max(homeScore, awayScore)}-${Math.min(homeScore, awayScore)} win.`;
     return `${winner} edged it ${Math.max(homeScore, awayScore)}-${Math.min(homeScore, awayScore)} in a tight contest!`;
 }
+
 
 function openGoalEditor() {
     const fixture = fixtures.find(f => f.id === pendingFixtureId);
