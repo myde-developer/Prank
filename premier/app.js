@@ -264,39 +264,42 @@ function isGameweekReleased(roundNumber) {
     return releasedGameweeks[roundNumber] === true;
 }
 // ==================== FIXTURE GENERATION ====================
-function generateRandomRoundRobin(teamNames) {
-    let n = teamNames.length;
-    if (n % 2 !== 0) { teamNames.push("BYE"); n++; }
-    let shuffled = [...teamNames];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    const numRounds = n - 1;
-    const halfSize = n / 2;
-    let firstHalfRounds = [];
-    for (let round = 0; round < numRounds; round++) {
+function generateStrictRoundRobin(teamNames) {
+    let teams = [...teamNames];
+    const n = teams.length;
+    const isOdd = n % 2 !== 0;
+    if (isOdd) teams.push("BYE");
+    const m = teams.length;
+    const half = m / 2;
+    const rounds = [];
+
+    // Fixed rotation (no random round shuffle)
+    for (let round = 0; round < m - 1; round++) {
         const roundFixtures = [];
-        for (let i = 0; i < halfSize; i++) {
-            const home = shuffled[i];
-            const away = shuffled[n - 1 - i];
+        for (let i = 0; i < half; i++) {
+            const home = teams[i];
+            const away = teams[m - 1 - i];
             if (home !== "BYE" && away !== "BYE") {
-                if (Math.random() < 0.5) roundFixtures.push({ home, away });
-                else roundFixtures.push({ home: away, away: home });
+                // Alternate home/away to balance; you can keep as-is or add a pattern
+                // Here we make first round home/away based on round parity
+                if ((round + i) % 2 === 0) {
+                    roundFixtures.push({ home, away });
+                } else {
+                    roundFixtures.push({ home: away, away: home });
+                }
             }
         }
-        firstHalfRounds.push(roundFixtures);
-        const last = shuffled.pop();
-        shuffled.splice(1, 0, last);
+        rounds.push(roundFixtures);
+        // Rotate (keep first fixed, move others)
+        const last = teams.pop();
+        teams.splice(1, 0, last);
     }
-    for (let i = firstHalfRounds.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [firstHalfRounds[i], firstHalfRounds[j]] = [firstHalfRounds[j], firstHalfRounds[i]];
-    }
-    const secondHalfRounds = firstHalfRounds.map(roundFixtures => {
-        return roundFixtures.map(fixture => ({ home: fixture.away, away: fixture.home }));
-    });
-    return [...firstHalfRounds, ...secondHalfRounds];
+
+    // Second half mirrors first with swapped home/away
+    const secondHalf = rounds.map(r => r.map(f => ({ home: f.away, away: f.home })));
+    return [...rounds, ...secondHalf];
+
+const generateRandomRoundRobin = generateStrictRoundRobin;
 }
 
 // ==================== DIRECT FIXTURE EDITOR ====================
