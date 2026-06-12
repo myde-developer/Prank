@@ -11,7 +11,7 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 // ==================== BACKEND PROXY FOR GROQ  ====================
-const BACKEND_URL = "https://your-groq-proxy.onrender.com";
+const BACKEND_URL = "https://groq-vision-proxy.onrender.com";
 
 // LOCKED TO LIGUE 1 ONLY
 const CURRENT_LEAGUE = 'ligue1';
