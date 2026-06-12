@@ -58,23 +58,23 @@ app.post('/parse-match', upload.single('image'), async (req, res) => {
         `;
 
         const response = await groq.chat.completions.create({
-            model: "llama-3.2-90b-vision-preview",
-            messages: [
+    model: "llama-3.2-11b-vision-preview",  
+    messages: [
+        {
+            role: "user",
+            content: [
+                { type: "text", text: prompt },
                 {
-                    role: "user",
-                    content: [
-                        { type: "text", text: prompt },
-                        {
-                            type: "image_url",
-                            image_url: {
-                                url: `data:image/jpeg;base64,${imageBase64}`
-                            }
-                        }
-                    ]
+                    type: "image_url",
+                    image_url: {
+                        url: `data:image/jpeg;base64,${imageBase64}`
+                    }
                 }
-            ],
-            response_format: { type: "json_object" }
-        });
+            ]
+        }
+    ],
+    response_format: { type: "json_object" }
+});
 
         const extracted = JSON.parse(response.choices[0].message.content);
         res.json({ success: true, ...extracted });
