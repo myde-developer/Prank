@@ -10,6 +10,9 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
+// ==================== BACKEND PROXY FOR GROQ====================
+const BACKEND_URL = "https://your-groq-proxy.onrender.com";
+
 // LOCKED TO PREMIER LEAGUE ONLY
 const CURRENT_LEAGUE = 'premier';
 
@@ -939,6 +942,124 @@ function generateTickerFacts() {
     }
 }
 
+// ==================== SCREENSHOT UPLOAD & GROQ VISION ====================
+async function uploadScreenshot(fixtureId) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const base64 = event.target.result.split(',')[1];
+            showToast("Processing screenshot with AI...");
+            
+            try {
+                const extracted = await callGroqVision(base64);
+                applyExtractedDataToFixture(fixtureId, extracted);
+            } catch (err) {
+                console.error(err);
+                showToast("Failed to parse screenshot. Check backend or image quality.");
+            }
+        };
+        reader.readAsDataURL(file);
+    };
+    input.click();
+}
+
+async function callGroqVision(base64Image) {
+    const response = await fetch(`${BACKEND_URL}/parse-match`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: base64Image })
+    });
+    
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Backend error");
+    }
+    
+    const data = await response.json();
+    if (!data.success) throw new Error("Extraction failed");
+    return data; // { home, away, homeScore, awayScore, events }
+}
+
+function applyExtractedDataToFixture(fixtureId, extracted) {
+    const fixture = fixtures.find(f => f.id === fixtureId);
+    if (!fixture) return;
+    
+    // Optional team name mismatch warning
+    if (fixture.home !== extracted.home || fixture.away !== extracted.away) {
+        if (!confirm(`⚠️ Screenshot shows ${extracted.home} vs ${extracted.away}\nCurrent fixture is ${fixture.home} vs ${fixture.away}\nStill apply?`)) {
+            return;
+        }
+    }
+    
+    document.getElementById(`home-score-${fixtureId}`).value = extracted.homeScore;
+    document.getElementById(`away-score-${fixtureId}`).value = extracted.awayScore;
+    
+    pendingFixtureId = fixtureId;
+    pendingHomeScore = extracted.homeScore;
+    pendingAwayScore = extracted.awayScore;
+    
+    openGoalEditorWithEvents(extracted.events);
+}
+
+function openGoalEditorWithEvents(existingEvents) {
+    const fixture = fixtures.find(f => f.id === pendingFixtureId);
+    const totalGoals = pendingHomeScore + pendingAwayScore;
+    
+    let modalHtml = `<div id="goal-editor-modal" class="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-5 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white">
+                <h3 class="font-bold text-lg">⚽ Review Goal Details (AI extracted)</h3>
+                <button onclick="closeGoalEditor()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+            </div>
+            <div class="p-5 space-y-4">
+                <p class="text-sm text-gray-600">Match: ${fixture.home} vs ${fixture.away}</p>
+                <p class="text-sm font-semibold">Score: ${pendingHomeScore} - ${pendingAwayScore}</p>
+                <div id="goals-list-container" class="space-y-3">`;
+    
+    for (let i = 0; i < totalGoals; i++) {
+        const ev = existingEvents[i] || {};
+        modalHtml += `
+            <div class="goal-entry border rounded-xl p-3 bg-gray-50" data-goal-index="${i}">
+                <div class="font-medium mb-2">Goal #${i+1}</div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <select class="goal-team border rounded-lg px-3 py-2 text-sm bg-white">
+                        <option value="${fixture.home}" ${ev.team === fixture.home ? 'selected' : ''}>${fixture.home}</option>
+                        <option value="${fixture.away}" ${ev.team === fixture.away ? 'selected' : ''}>${fixture.away}</option>
+                    </select>
+                    <input type="text" class="goal-scorer border rounded-lg px-3 py-2 text-sm" placeholder="Scorer name" value="${escapeHtml(ev.player || '')}">
+                    <input type="text" class="goal-assist border rounded-lg px-3 py-2 text-sm" placeholder="Assist (optional)" value="${escapeHtml(ev.assist || '')}">
+                    <input type="number" class="goal-minute border rounded-lg px-3 py-2 text-sm" placeholder="Minute" value="${ev.minute || ''}">
+                    <select class="goal-type border rounded-lg px-3 py-2 text-sm bg-white">
+                        <option value="Open play" ${ev.goalType === 'Open play' ? 'selected' : ''}>⚽ Open play</option>
+                        <option value="Penalty" ${ev.goalType === 'Penalty' ? 'selected' : ''}>🎯 Penalty</option>
+                        <option value="Free kick" ${ev.goalType === 'Free kick' ? 'selected' : ''}>🦵 Free kick</option>
+                        <option value="Header" ${ev.goalType === 'Header' ? 'selected' : ''}>👑 Header</option>
+                        <option value="Own goal" ${ev.goalType === 'Own goal' ? 'selected' : ''}>😵 Own goal</option>
+                    </select>
+                </div>
+            </div>`;
+    }
+    
+    modalHtml += `</div>
+                <div class="flex justify-end gap-3 pt-4">
+                    <button onclick="closeGoalEditor()" class="px-4 py-2 border rounded-lg">Cancel</button>
+                    <button onclick="saveGoalsAndFinish()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg">Save Match & Report</button>
+                </div>
+            </div>
+        </div>
+    </div>`;
+    
+    const existingModal = document.getElementById('goal-editor-modal');
+    if (existingModal) existingModal.remove();
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
 // ==================== ADMIN MODE ====================
 function handleAdminToggleClick() { if (!isAdmin) { document.getElementById('admin-password-input').value = ""; document.getElementById('password-error').classList.add('hidden'); document.getElementById('password-modal').classList.remove('hidden'); } else deactivateAdminMode(); }
 function closePasswordModal() { document.getElementById('password-modal').classList.add('hidden'); }
@@ -1716,7 +1837,7 @@ function renderFixtures() {
         if (isAdmin) {
             let homeDisplay = f.home === "VACANT" ? `<span class="font-semibold text-sm text-red-500 cursor-pointer" onclick="editFixtureTeamName(${f.id}, 'home')">[VACANT]</span>` : `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'home')">${f.home}</span>`;
             let awayDisplay = f.away === "VACANT" ? `<span class="font-semibold text-sm text-red-500 cursor-pointer" onclick="editFixtureTeamName(${f.id}, 'away')">[VACANT]</span>` : `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'away')">${f.away}</span>`;
-            container.innerHTML += `<div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div class="flex-1 flex items-center justify-center gap-2 text-center">${homeDisplay}</div><div class="flex items-center justify-center"><div class="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full"><input type="number" id="home-score-${f.id}" value="${played ? f.homeScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm"><span class="text-gray-400">:</span><input type="number" id="away-score-${f.id}" value="${played ? f.awayScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm"></div></div><div class="flex-1 flex items-center justify-center gap-2 text-center">${awayDisplay}</div></div><div class="mt-2 flex justify-center gap-1"><button onclick="swapFixture(${f.id})" class="text-[10px] font-bold bg-amber-50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100">🔄 Swap</button><button onclick="saveResult(${f.id})" class="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full hover:bg-indigo-100">💾 Save</button><button onclick="showMatchComment(${f.id})" class="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-full hover:bg-gray-200">📖</button><button onclick="openBanterModal(${f.id})" class="text-[10px] font-bold bg-purple-50 text-purple-600 px-2 py-1 rounded-full hover:bg-purple-100">🤣 Banter</button></div></div>`;
+            container.innerHTML += `<div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div class="flex-1 flex items-center justify-center gap-2 text-center">${homeDisplay}</div><div class="flex items-center justify-center"><div class="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full"><input type="number" id="home-score-${f.id}" value="${played ? f.homeScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm"><span class="text-gray-400">:</span><input type="number" id="away-score-${f.id}" value="${played ? f.awayScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm"></div></div><div class="flex-1 flex items-center justify-center gap-2 text-center">${awayDisplay}</div></div><div class="mt-2 flex justify-center gap-1"><button onclick="swapFixture(${f.id})" class="text-[10px] font-bold bg-amber-50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100">🔄 Swap</button><button onclick="saveResult(${f.id})" class="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full hover:bg-indigo-100">💾 Save</button>  <button onclick="uploadScreenshot(${f.id})" class="text-[10px] font-bold bg-green-50 text-green-700 px-2 py-1 rounded-full hover:bg-green-100">📸 Upload Screenshot</button><button onclick="showMatchComment(${f.id})" class="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-full hover:bg-gray-200">📖</button><button onclick="openBanterModal(${f.id})" class="text-[10px] font-bold bg-purple-50 text-purple-600 px-2 py-1 rounded-full hover:bg-purple-100">🤣 Banter</button></div></div>`;
         } else {
             let homeName = f.home === "VACANT" ? "TBD" : f.home;
             let awayName = f.away === "VACANT" ? "TBD" : f.away;
@@ -2757,3 +2878,4 @@ window.toggleGameweekRelease = toggleGameweekRelease;
 window.releaseNextRound = releaseNextRound;
 window.lockGameweek = lockGameweek;
 window.isGameweekReleased = isGameweekReleased;
+window.uploadScreenshot = uploadScreenshot;
