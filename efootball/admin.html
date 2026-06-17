@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin – eFootball Tournament</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- Login Page (shown when not logged in) -->
+  <div id="login-page">
+    <div class="login-box glass-card">
+      <h2>⚽ Admin Login</h2>
+      <input type="email" id="login-email" placeholder="Email" />
+      <input type="password" id="login-password" placeholder="Password" />
+      <button class="neon-btn" id="login-btn">Login / Register</button>
+      <p id="login-error" class="error"></p>
+    </div>
+  </div>
+
+  <!-- Dashboard (hidden until logged in) -->
+  <div id="admin-dashboard" style="display:none;">
+    <header>
+      <h1>⚽ Admin Panel</h1>
+      <button id="logout-btn" class="neon-btn small">Logout</button>
+    </header>
+
+    <div class="dashboard-grid">
+      <section class="card">
+        <h2>Teams</h2>
+        <div class="input-group">
+          <input type="text" id="team-name-input" placeholder="Team name..." />
+          <button id="add-team-btn" class="neon-btn small">Add</button>
+        </div>
+        <ul id="team-list"></ul>
+        <p><span id="active-count">0</span> active teams</p>
+      </section>
+
+      <section class="card">
+        <h2>Controls</h2>
+        <button id="generate-btn" class="neon-btn full">Generate Next Round</button>
+        <button id="trim-btn" class="neon-btn full danger">Trim Bottom 2</button>
+        <div id="status-msg" class="status"></div>
+      </section>
+
+      <section class="card full-width">
+        <h2>Matches</h2>
+        <div id="matches-container"></div>
+      </section>
+    </div>
+  </div>
+
+  <script type="module" src="js/admin.js"></script>
+</body>
+</html>
