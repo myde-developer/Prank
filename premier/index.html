@@ -205,16 +205,20 @@
             </div>
         </div>
     </div>
-
 <!-- ==================== MATCH CENTER MODAL (Light Theme) ==================== -->
-<div id="match-center-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+<div id="match-center-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onclick="if(event.target === this) closeMatchCenterModal()">
     <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
         
-        <!-- Header -->
+        <!-- Header with Properly Positioned Close Button -->
         <div class="p-6 bg-gradient-to-b from-indigo-50 to-white border-b border-gray-200 text-center relative shrink-0">
-            <button onclick="closeMatchCenterModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-semibold transition">
-                &times;
+            
+            <!-- Close Button -->
+            <button onclick="closeMatchCenterModal()" 
+                    class="absolute top-3 right-3 text-gray-400 hover:text-gray-700 text-2xl font-bold transition bg-white rounded-full w-8 h-8 flex items-center justify-center shadow-md hover:shadow-lg border border-gray-200"
+                    style="z-index: 50; line-height: 1;">
+                ✕
             </button>
+            
             <div class="text-[10px] font-black uppercase tracking-widest text-indigo-600 mb-2" id="mc-round-label">GAMEWEEK --</div>
             
             <div class="flex items-center justify-between px-2">
@@ -256,16 +260,16 @@
                     <!-- Dynamically populated by JavaScript -->
                 </div>
 
-                <!-- Admin Actions (reuses existing functions) -->
+                <!-- Admin Actions -->
                 <div id="admin-commentary-actions" class="hidden pt-4 border-t border-gray-200 space-y-3">
                     
-                    <!-- Add Goal Event - Opens existing goal editor -->
+                    <!-- Add Goal Event -->
                     <button onclick="openGoalEditorFromCenter()" 
                             class="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 rounded-xl text-sm font-bold transition flex items-center justify-center gap-2">
                         ⚽ Add Goal Event
                     </button>
                     
-                    <!-- Edit Match Report - Opens existing comment modal -->
+                    <!-- Edit Match Report -->
                     <button onclick="openCommentModalFromCenter()" 
                             class="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-xl text-sm font-bold transition flex items-center justify-center gap-2">
                         📝 Edit Match Report
