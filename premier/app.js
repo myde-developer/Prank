@@ -1677,6 +1677,7 @@ function closeIntegrityModal() {
 }
 
 // ==================== RENDER FIXTURES ====================
+// ==================== RENDER FIXTURES ====================
 function renderFixtures() {
     const container = document.getElementById('fixtures-container');
     const scheduleSection = document.getElementById('schedule-section');
@@ -1719,12 +1720,42 @@ function renderFixtures() {
         if (isAdmin) {
             let homeDisplay = f.home === "VACANT" ? `<span class="font-semibold text-sm text-red-500 cursor-pointer" onclick="editFixtureTeamName(${f.id}, 'home')">[VACANT]</span>` : `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'home')">${f.home}</span>`;
             let awayDisplay = f.away === "VACANT" ? `<span class="font-semibold text-sm text-red-500 cursor-pointer" onclick="editFixtureTeamName(${f.id}, 'away')">[VACANT]</span>` : `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'away')">${f.away}</span>`;
-            container.innerHTML += `<div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div class="flex-1 flex items-center justify-center gap-2 text-center">${homeDisplay}</div><div class="flex items-center justify-center"><div class="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full"><input type="number" id="home-score-${f.id}" value="${played ? f.homeScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm"><span class="text-gray-400">:</span><input type="number" id="away-score-${f.id}" value="${played ? f.awayScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm"></div></div><div class="flex-1 flex items-center justify-center gap-2 text-center">${awayDisplay}</div></div><div class="mt-2 flex justify-center gap-1"><button onclick="swapFixture(${f.id})" class="text-[10px] font-bold bg-amber-50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100">🔄 Swap</button><button onclick="saveResult(${f.id})" class="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full hover:bg-indigo-100">💾 Save</button><button onclick="showMatchComment(${f.id})" class="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-full hover:bg-gray-200">📖</button><button onclick="openBanterModal(${f.id})" class="text-[10px] font-bold bg-purple-50 text-purple-600 px-2 py-1 rounded-full hover:bg-purple-100">🤣 Banter</button></div></div>`;
+            container.innerHTML += `<div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div class="flex-1 flex items-center justify-center gap-2 text-center">${homeDisplay}</div>
+                    <div class="flex items-center justify-center">
+                        <div class="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">
+                            <input type="number" id="home-score-${f.id}" value="${played ? f.homeScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm">
+                            <span class="text-gray-400">:</span>
+                            <input type="number" id="away-score-${f.id}" value="${played ? f.awayScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm">
+                        </div>
+                    </div>
+                    <div class="flex-1 flex items-center justify-center gap-2 text-center">${awayDisplay}</div>
+                </div>
+                <div class="mt-2 flex flex-wrap justify-center gap-1">
+                    <button onclick="swapFixture(${f.id})" class="text-[10px] font-bold bg-amber-50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100">🔄 Swap</button>
+                    <button onclick="saveResult(${f.id})" class="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full hover:bg-indigo-100">💾 Save</button>
+                    <button onclick="showMatchComment(${f.id})" class="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-full hover:bg-gray-200">📖</button>
+                    <button onclick="openBanterModal(${f.id})" class="text-[10px] font-bold bg-purple-50 text-purple-600 px-2 py-1 rounded-full hover:bg-purple-100">🤣 Banter</button>
+                    ${played ? `<button onclick="openMatchStatsModal(${f.id})" class="text-[10px] font-bold bg-blue-50 text-blue-700 px-2 py-1 rounded-full hover:bg-blue-100">📊 Stats</button>` : ''}
+                </div>
+            </div>`;
         } else {
             let homeName = f.home === "VACANT" ? "TBD" : f.home;
             let awayName = f.away === "VACANT" ? "TBD" : f.away;
             const predictionBtn = !played ? `<button onclick="openPredictionsModal(${f.id})" class="text-[11px] bg-gray-100 hover:bg-indigo-50 px-3 py-1 rounded-full">🔮 Predictions</button>` : `<div class="bg-gray-100 px-3 py-1 rounded-full font-mono font-bold text-sm">${f.homeScore} - ${f.awayScore}</div>`;
-            container.innerHTML += `<div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div class="flex-1 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${homeName}</div><div class="flex justify-center">${predictionBtn}</div><div class="flex-1 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${awayName}</div></div><div class="mt-2 flex justify-center gap-1"><button onclick="showMatchComment(${f.id})" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full">📖</button><button onclick="openBanterModal(${f.id})" class="text-[11px] bg-purple-50 hover:bg-purple-100 px-3 py-1 rounded-full">🤣 Banter</button></div></div>`;
+            container.innerHTML += `<div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div class="flex-1 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${homeName}</div>
+                    <div class="flex justify-center">${predictionBtn}</div>
+                    <div class="flex-1 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${awayName}</div>
+                </div>
+                <div class="mt-2 flex flex-wrap justify-center gap-1">
+                    <button onclick="showMatchComment(${f.id})" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full">📖</button>
+                    <button onclick="openBanterModal(${f.id})" class="text-[11px] bg-purple-50 hover:bg-purple-100 px-3 py-1 rounded-full">🤣 Banter</button>
+                    ${played ? `<button onclick="openMatchStatsModal(${f.id})" class="text-[11px] bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-full">📊 Stats</button>` : ''}
+                </div>
+            </div>`;
         }
     });
 }
@@ -2433,6 +2464,259 @@ function saveGoalsAndFinish() {
     
     // Auto-validate integrity
     validateFixtureIntegrity();
+}
+
+// ==================== MATCH STATS ====================
+
+function openMatchStatsModal(fixtureId) {
+    const fixture = fixtures.find(f => f.id === fixtureId);
+    if (!fixture) return;
+    if (!fixture.played) {
+        showToast("⚠️ Match must be played before adding stats.");
+        return;
+    }
+    
+    const stats = fixture.stats || {};
+    
+    // Build modal HTML
+    let modalHtml = `
+        <div id="stats-modal" class="fixed inset-0 z-50 bg-gray-900/70 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4" onclick="if(event.target === this) closeStatsModal()">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[95vh] overflow-y-auto">
+                <div class="p-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white sticky top-0 z-10 flex justify-between items-center">
+                    <div>
+                        <h3 class="font-bold text-lg">📊 Match Stats</h3>
+                        <p class="text-xs text-white/80">${fixture.home} vs ${fixture.away}</p>
+                    </div>
+                    <button onclick="closeStatsModal()" class="text-white/80 hover:text-white text-2xl leading-5">&times;</button>
+                </div>
+                <div class="p-5 space-y-5">
+                    <!-- Score summary -->
+                    <div class="text-center p-3 bg-gray-50 rounded-xl">
+                        <span class="font-bold text-lg">${fixture.home}</span>
+                        <span class="text-2xl font-bold mx-4 text-indigo-600">${fixture.homeScore} - ${fixture.awayScore}</span>
+                        <span class="font-bold text-lg">${fixture.away}</span>
+                    </div>
+                    
+                    <!-- Stats Grid -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- Possession -->
+                        <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                            <p class="text-xs font-semibold text-gray-500 mb-2">🎯 POSSESSION</p>
+                            <div class="flex items-center gap-4">
+                                <span class="w-20 text-right font-bold text-sm">${stats.possession?.home ?? 50}%</span>
+                                <div class="flex-1 h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                                    <div class="h-full bg-indigo-600 rounded-full" style="width: ${stats.possession?.home ?? 50}%"></div>
+                                </div>
+                                <span class="w-20 text-left font-bold text-sm">${stats.possession?.away ?? 50}%</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Shots -->
+                        <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                            <p class="text-xs font-semibold text-gray-500 mb-2">⚽ SHOTS</p>
+                            <div class="flex items-center gap-4">
+                                <span class="w-20 text-right font-bold text-sm">${stats.shots?.home ?? 0}%</span>
+                                <div class="flex-1 h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                                    <div class="h-full bg-emerald-600 rounded-full" style="width: ${stats.shots?.home ?? 0}%"></div>
+                                </div>
+                                <span class="w-20 text-left font-bold text-sm">${stats.shots?.away ?? 0}%</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Tackles Completion -->
+                        <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                            <p class="text-xs font-semibold text-gray-500 mb-2">🛡️ TACKLES COMPLETION</p>
+                            <div class="flex items-center gap-4">
+                                <span class="w-20 text-right font-bold text-sm">${stats.tacklesCompletion?.home ?? 0}%</span>
+                                <div class="flex-1 h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                                    <div class="h-full bg-amber-600 rounded-full" style="width: ${stats.tacklesCompletion?.home ?? 0}%"></div>
+                                </div>
+                                <span class="w-20 text-left font-bold text-sm">${stats.tacklesCompletion?.away ?? 0}%</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Shot Accuracy -->
+                        <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                            <p class="text-xs font-semibold text-gray-500 mb-2">🎯 SHOT ACCURACY</p>
+                            <div class="flex items-center gap-4">
+                                <span class="w-20 text-right font-bold text-sm">${stats.shotAccuracy?.home ?? 0}%</span>
+                                <div class="flex-1 h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                                    <div class="h-full bg-rose-600 rounded-full" style="width: ${stats.shotAccuracy?.home ?? 0}%"></div>
+                                </div>
+                                <span class="w-20 text-left font-bold text-sm">${stats.shotAccuracy?.away ?? 0}%</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Stats Row 2: Numbers -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div class="bg-gray-50 p-3 rounded-xl text-center border border-gray-200">
+                            <p class="text-[10px] text-gray-500">TACKLES SUCCESS</p>
+                            <p class="font-bold text-lg">${stats.tackleSuccess?.home ?? 0} <span class="text-gray-400 text-sm">/</span> ${stats.tackleSuccess?.away ?? 0}</p>
+                        </div>
+                        <div class="bg-gray-50 p-3 rounded-xl text-center border border-gray-200">
+                            <p class="text-[10px] text-gray-500">PASSES</p>
+                            <p class="font-bold text-lg">${stats.passes?.home ?? 0} <span class="text-gray-400 text-sm">/</span> ${stats.passes?.away ?? 0}</p>
+                        </div>
+                        <div class="bg-gray-50 p-3 rounded-xl text-center border border-gray-200">
+                            <p class="text-[10px] text-gray-500">CORNERS</p>
+                            <p class="font-bold text-lg">${stats.corners?.home ?? 0} <span class="text-gray-400 text-sm">/</span> ${stats.corners?.away ?? 0}</p>
+                        </div>
+                        <div class="bg-gray-50 p-3 rounded-xl text-center border border-gray-200">
+                            <p class="text-[10px] text-gray-500">FOULS</p>
+                            <p class="font-bold text-lg">${stats.fouls?.home ?? 0} <span class="text-gray-400 text-sm">/</span> ${stats.fouls?.away ?? 0}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Stats Row 3 -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div class="bg-gray-50 p-3 rounded-xl text-center border border-gray-200">
+                            <p class="text-[10px] text-gray-500">BOOKINGS</p>
+                            <p class="font-bold text-lg">${stats.bookings?.home ?? 0} <span class="text-gray-400 text-sm">/</span> ${stats.bookings?.away ?? 0}</p>
+                        </div>
+                        <div class="bg-gray-50 p-3 rounded-xl text-center border border-gray-200">
+                            <p class="text-[10px] text-gray-500">GOALS</p>
+                            <p class="font-bold text-lg">${stats.goals?.home ?? 0} <span class="text-gray-400 text-sm">/</span> ${stats.goals?.away ?? 0}</p>
+                        </div>
+                        <div class="bg-gray-50 p-3 rounded-xl text-center border border-gray-200">
+                            <p class="text-[10px] text-gray-500">ASSISTS</p>
+                            <p class="font-bold text-lg">${stats.assists?.home ?? 0} <span class="text-gray-400 text-sm">/</span> ${stats.assists?.away ?? 0}</p>
+                        </div>
+                        <div class="bg-gray-50 p-3 rounded-xl text-center border border-gray-200">
+                            <p class="text-[10px] text-gray-500">OFFSIDES</p>
+                            <p class="font-bold text-lg">${stats.offsides?.home ?? 0} <span class="text-gray-400 text-sm">/</span> ${stats.offsides?.away ?? 0}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Player of the Match -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-gradient-to-br from-yellow-50 to-amber-50 p-4 rounded-xl border-2 border-amber-300 text-center">
+                            <p class="text-[10px] font-bold text-amber-700">🏆 PLAYER OF THE MATCH</p>
+                            <p class="text-lg font-bold text-amber-900">${stats.playerOfMatch?.home || '-'}</p>
+                            <p class="text-sm font-mono text-amber-700">⭐ ${stats.playerOfMatch?.homeRating || '0.0'}</p>
+                        </div>
+                        <div class="bg-gradient-to-br from-yellow-50 to-amber-50 p-4 rounded-xl border-2 border-amber-300 text-center">
+                            <p class="text-[10px] font-bold text-amber-700">🏆 PLAYER OF THE MATCH</p>
+                            <p class="text-lg font-bold text-amber-900">${stats.playerOfMatch?.away || '-'}</p>
+                            <p class="text-sm font-mono text-amber-700">⭐ ${stats.playerOfMatch?.awayRating || '0.0'}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Admin Edit Section -->
+                    ${isAdmin ? `
+                    <div class="border-t pt-4 mt-2">
+                        <p class="text-xs font-semibold text-gray-500 mb-3">✏️ Edit Stats (Admin)</p>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            <div><label class="text-[10px] text-gray-500">Possession %</label><div class="flex gap-1"><input type="number" id="stats-possession-home" value="${stats.possession?.home ?? 50}" class="w-full bg-gray-50 border rounded px-2 py-1 text-sm"><span class="text-xs self-center">/</span><input type="number" id="stats-possession-away" value="${stats.possession?.away ?? 50}" class="w-full bg-gray-50 border rounded px-2 py-1 text-sm"></div></div>
+                            <div><label class="text-[10px] text-gray-500">Shots %</label><div class="flex gap-1"><input type="number" id="stats-shots-home" value="${stats.shots?.home ?? 0}" class="w-full bg-gray-50 border rounded px-2 py-1 text-sm"><span class="text-xs self-center">/</span><input type="number" id="stats-shots-away" value="${stats.shots?.away ?? 0}" class="w-full bg-gray-50 border rounded px-2 py-1 text-sm"></div></div>
+                            <div><label class="text-[10px] text-gray-500">Tackles Completion %</label><div class="flex gap-1"><input type="number" id="stats-tackles-home" value="${stats.tacklesCompletion?.home ?? 0}" class="w-full bg-gray-50 border rounded px-2 py-1 text-sm"><span class="text-xs self-center">/</span><input type="number" id="stats-tackles-away" value="${stats.tacklesCompletion?.away ?? 0}" class="w-full bg-gray-50 border rounded px-2 py-1 text-sm"></div></div>
+                            <div><label class="text-[10px] text-gray-500">Shot Accuracy %</label><div class="flex gap-1"><input type="number" id="stats-accuracy-home" value="${stats.shotAccuracy?.home ?? 0}" class="w-full bg-gray-50 border rounded px-2 py-1 text-sm"><span class="text-xs self-center">/</span><input type="number" id="stats-accuracy-away" value="${stats.shotAccuracy?.away ?? 0}" class="w-full bg-gray-50 border rounded px-2 py-1 text-sm"></div></div>
+                            <div><label class="text-[10px] text-gray-500">Tackles Success</label><div class="flex gap-1"><input type="number" id="stats-tackleSuccess-home" value="${stats.tackleSuccess?.home ?? 0}" class="w-full bg-gray-50 border rounded px-2 py-1 text-sm"><span class="text-xs self-center">/</span><input type="number" id="stats-tackleSuccess-away" value="${stats.tackleSuccess?.away ?? 0}" class="w-full bg-gray-50 border rounded px-2 py-1 text-sm"></div></div>
+                            <div><label class="text-[10px] text-gray-500">Passes</label><div class="flex gap-1"><input type="number" id="stats-passes-home" value="${stats.passes?.home ?? 0}" class="w-full bg-gray-50 border rounded px-2 py-1 text-sm"><span class="text-xs self-center">/</span><input type="number" id="stats-passes-away" value="${stats.passes?.away ?? 0}" class="w-full bg-gray-50 border rounded px-2 py-1 text-sm"></div></div>
+                            <div><label class="text-[10px] text-gray-500">Corners</label><div class="flex gap-1"><input type="number" id="stats-corners-home" value="${stats.corners?.home ?? 0}" class="w-full bg-gray-50 border rounded px-2 py-1 text-sm"><span class="text-xs self-center">/</span><input type="number" id="stats-corners-away" value="${stats.corners?.away ?? 0}" class="w-full bg-gray-50 border rounded px-2 py-1 text-sm"></div></div>
+                            <div><label class="text-[10px] text-gray-500">Fouls</label><div class="flex gap-1"><input type="number" id="stats-fouls-home" value="${stats.fouls?.home ?? 0}" class="w-full bg-gray-50 border rounded px-2 py-1 text-sm"><span class="text-xs self-center">/</span><input type="number" id="stats-fouls-away" value="${stats.fouls?.away ?? 0}" class="w-full bg-gray-50 border rounded px-2 py-1 text-sm"></div></div>
+                            <div><label class="text-[10px] text-gray-500">Bookings</label><div class="flex gap-1"><input type="number" id="stats-bookings-home" value="${stats.bookings?.home ?? 0}" class="w-full bg-gray-50 border rounded px-2 py-1 text-sm"><span class="text-xs self-center">/</span><input type="number" id="stats-bookings-away" value="${stats.bookings?.away ?? 0}" class="w-full bg-gray-50 border rounded px-2 py-1 text-sm"></div></div>
+                            <div><label class="text-[10px] text-gray-500">Goals</label><div class="flex gap-1"><input type="number" id="stats-goals-home" value="${stats.goals?.home ?? 0}" class="w-full bg-gray-50 border rounded px-2 py-1 text-sm"><span class="text-xs self-center">/</span><input type="number" id="stats-goals-away" value="${stats.goals?.away ?? 0}" class="w-full bg-gray-50 border rounded px-2 py-1 text-sm"></div></div>
+                            <div><label class="text-[10px] text-gray-500">Assists</label><div class="flex gap-1"><input type="number" id="stats-assists-home" value="${stats.assists?.home ?? 0}" class="w-full bg-gray-50 border rounded px-2 py-1 text-sm"><span class="text-xs self-center">/</span><input type="number" id="stats-assists-away" value="${stats.assists?.away ?? 0}" class="w-full bg-gray-50 border rounded px-2 py-1 text-sm"></div></div>
+                            <div><label class="text-[10px] text-gray-500">Offsides</label><div class="flex gap-1"><input type="number" id="stats-offsides-home" value="${stats.offsides?.home ?? 0}" class="w-full bg-gray-50 border rounded px-2 py-1 text-sm"><span class="text-xs self-center">/</span><input type="number" id="stats-offsides-away" value="${stats.offsides?.away ?? 0}" class="w-full bg-gray-50 border rounded px-2 py-1 text-sm"></div></div>
+                            <div><label class="text-[10px] text-gray-500">POTM Home</label><div class="flex gap-1"><input type="text" id="stats-potm-home" value="${stats.playerOfMatch?.home || ''}" class="w-full bg-gray-50 border rounded px-2 py-1 text-sm" placeholder="Name"><input type="number" id="stats-potm-rating-home" value="${stats.playerOfMatch?.homeRating || 0}" class="w-16 bg-gray-50 border rounded px-2 py-1 text-sm" step="0.1" placeholder="Rating"></div></div>
+                            <div><label class="text-[10px] text-gray-500">POTM Away</label><div class="flex gap-1"><input type="text" id="stats-potm-away" value="${stats.playerOfMatch?.away || ''}" class="w-full bg-gray-50 border rounded px-2 py-1 text-sm" placeholder="Name"><input type="number" id="stats-potm-rating-away" value="${stats.playerOfMatch?.awayRating || 0}" class="w-16 bg-gray-50 border rounded px-2 py-1 text-sm" step="0.1" placeholder="Rating"></div></div>
+                        </div>
+                        <button onclick="saveMatchStats(${fixtureId})" class="w-full mt-4 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-xl text-sm font-bold transition">💾 Save Stats</button>
+                    </div>
+                    ` : ''}
+                    
+                    <div class="text-center text-[10px] text-gray-400 pt-2 border-t">
+                        Stats last updated: ${stats.updatedAt ? new Date(stats.updatedAt).toLocaleString() : 'Never'}
+                    </div>
+                </div>
+                <div class="p-3 bg-gray-50 text-right rounded-b-2xl">
+                    <button onclick="closeStatsModal()" class="px-5 py-2 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition">Close</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const existingModal = document.getElementById('stats-modal');
+    if (existingModal) existingModal.remove();
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    document.getElementById('stats-modal').classList.remove('hidden');
+    document.getElementById('stats-modal').classList.add('flex');
+}
+
+function closeStatsModal() {
+    const modal = document.getElementById('stats-modal');
+    if (modal) modal.remove();
+}
+
+function saveMatchStats(fixtureId) {
+    const fixture = fixtures.find(f => f.id === fixtureId);
+    if (!fixture) return;
+    
+    const stats = {
+        possession: {
+            home: parseInt(document.getElementById('stats-possession-home').value) || 0,
+            away: parseInt(document.getElementById('stats-possession-away').value) || 0
+        },
+        shots: {
+            home: parseInt(document.getElementById('stats-shots-home').value) || 0,
+            away: parseInt(document.getElementById('stats-shots-away').value) || 0
+        },
+        tacklesCompletion: {
+            home: parseInt(document.getElementById('stats-tackles-home').value) || 0,
+            away: parseInt(document.getElementById('stats-tackles-away').value) || 0
+        },
+        shotAccuracy: {
+            home: parseInt(document.getElementById('stats-accuracy-home').value) || 0,
+            away: parseInt(document.getElementById('stats-accuracy-away').value) || 0
+        },
+        tackleSuccess: {
+            home: parseInt(document.getElementById('stats-tackleSuccess-home').value) || 0,
+            away: parseInt(document.getElementById('stats-tackleSuccess-away').value) || 0
+        },
+        passes: {
+            home: parseInt(document.getElementById('stats-passes-home').value) || 0,
+            away: parseInt(document.getElementById('stats-passes-away').value) || 0
+        },
+        corners: {
+            home: parseInt(document.getElementById('stats-corners-home').value) || 0,
+            away: parseInt(document.getElementById('stats-corners-away').value) || 0
+        },
+        fouls: {
+            home: parseInt(document.getElementById('stats-fouls-home').value) || 0,
+            away: parseInt(document.getElementById('stats-fouls-away').value) || 0
+        },
+        bookings: {
+            home: parseInt(document.getElementById('stats-bookings-home').value) || 0,
+            away: parseInt(document.getElementById('stats-bookings-away').value) || 0
+        },
+        goals: {
+            home: parseInt(document.getElementById('stats-goals-home').value) || 0,
+            away: parseInt(document.getElementById('stats-goals-away').value) || 0
+        },
+        assists: {
+            home: parseInt(document.getElementById('stats-assists-home').value) || 0,
+            away: parseInt(document.getElementById('stats-assists-away').value) || 0
+        },
+        offsides: {
+            home: parseInt(document.getElementById('stats-offsides-home').value) || 0,
+            away: parseInt(document.getElementById('stats-offsides-away').value) || 0
+        },
+        playerOfMatch: {
+            home: document.getElementById('stats-potm-home').value.trim() || null,
+            homeRating: parseFloat(document.getElementById('stats-potm-rating-home').value) || null,
+            away: document.getElementById('stats-potm-away').value.trim() || null,
+            awayRating: parseFloat(document.getElementById('stats-potm-rating-away').value) || null
+        },
+        updatedAt: Date.now()
+    };
+    
+    fixture.stats = stats;
+    saveToStorage();
+    showToast("✅ Match stats saved!");
+    closeStatsModal();
+    // Re-open to show updated stats
+    openMatchStatsModal(fixtureId);
 }
 
 // ==================== EDIT EXISTING MATCH EVENTS ====================
