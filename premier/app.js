@@ -1677,7 +1677,6 @@ function closeIntegrityModal() {
 }
 
 // ==================== RENDER FIXTURES ====================
-// ==================== RENDER FIXTURES ====================
 function renderFixtures() {
     const container = document.getElementById('fixtures-container');
     const scheduleSection = document.getElementById('schedule-section');

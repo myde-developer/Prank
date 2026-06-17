@@ -2421,6 +2421,9 @@ function saveGoalsAndFinish() {
     if (!fixture.banter) fixture.banter = [];
     updateTableCalculations();
     saveToStorage();
+if (isAdmin) {
+    setTimeout(() => openMatchStatsModal(pendingFixtureId), 400);
+}
     showToast(`Saved: ${fixture.home} ${pendingHomeScore}-${pendingAwayScore} ${fixture.away}`);
     closeGoalEditor();
     pendingFixtureId = null;
