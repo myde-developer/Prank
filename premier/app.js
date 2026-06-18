@@ -15,38 +15,6 @@ const CURRENT_LEAGUE = 'premier';
 
 function getTournamentRef() {
     return db.ref(`${CURRENT_LEAGUE}/tournament_data`);
-}function saveResult(fixtureId) {
-    const fixture = fixtures.find(f => f.id === fixtureId);
-    const totalRounds = Math.max(...fixtures.map(f => f.round));
-    const halfRounds = totalRounds / 2;
-    const isFirstHalf = fixture.round <= halfRounds;
-    
-    // Find highest completed round
-    let highestCompletedRound = 0;
-    for (let round = 1; round <= (isFirstHalf ? halfRounds : totalRounds); round++) {
-        const roundFixtures = fixtures.filter(f => f.round === round);
-        const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
-        if (allResolved) {
-            highestCompletedRound = round;
-        } else {
-            break;
-        }
-    }
-    
-    // Prevent editing scores in completed rounds
-    if (fixture.round <= highestCompletedRound) {
-        alert(`⚠️ Cannot edit score for Round ${fixture.round} because this round has already been completed!\n\nAll matches in this round have been played.`);
-        return;
-    }
-    
-    const homeScore = document.getElementById(`home-score-${fixtureId}`).value;
-    const awayScore = document.getElementById(`away-score-${fixtureId}`).value;
-    if (homeScore === "" || awayScore === "") { alert("Enter both scores"); return; }
-    if (fixture.home === 'BYE' || fixture.away === 'BYE') { alert("Cannot save match with BYE team."); return; }
-    pendingFixtureId = fixtureId;
-    pendingHomeScore = parseInt(homeScore);
-    pendingAwayScore = parseInt(awayScore);
-    openGoalEditor();
 }
 function getChatRef() {
     return db.ref(`${CURRENT_LEAGUE}/chat_messages`);
@@ -273,16 +241,15 @@ function generateStrictRoundRobin(teamNames) {
     const half = m / 2;
     const rounds = [];
 
-    // Fixed rotation (no random round shuffle)
+    // Fixed rotation – no random shuffling
     for (let round = 0; round < m - 1; round++) {
         const roundFixtures = [];
         for (let i = 0; i < half; i++) {
             const home = teams[i];
             const away = teams[m - 1 - i];
             if (home !== "BYE" && away !== "BYE") {
-                // Alternate home/away to balance; you can keep as-is or add a pattern
-                // Here we make first round home/away based on round parity
-                if ((round + i) % 2 === 0) {
+                // Alternate home/away based on round index to balance
+                if (round % 2 === 0) {
                     roundFixtures.push({ home, away });
                 } else {
                     roundFixtures.push({ home: away, away: home });
@@ -290,7 +257,7 @@ function generateStrictRoundRobin(teamNames) {
             }
         }
         rounds.push(roundFixtures);
-        // Rotate (keep first fixed, move others)
+        // Rotate (keep first fixed, shift others)
         const last = teams.pop();
         teams.splice(1, 0, last);
     }
@@ -298,8 +265,6 @@ function generateStrictRoundRobin(teamNames) {
     // Second half mirrors first with swapped home/away
     const secondHalf = rounds.map(r => r.map(f => ({ home: f.away, away: f.home })));
     return [...rounds, ...secondHalf];
-
-const generateRandomRoundRobin = generateStrictRoundRobin;
 }
 
 // ==================== DIRECT FIXTURE EDITOR ====================
@@ -999,7 +964,7 @@ function initializeTournament() {
     teams = {};
     list.forEach(item => { if (item.name !== "BYE") teams[item.name] = { name: item.name, mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0, deductedPoints: 0, formHistory: [], relegated: false }; });
     const teamNames = Object.keys(teams);
-    const rounds = generateRandomRoundRobin(teamNames);
+    const rounds = generateStrictRoundRobin(teamNames);
     fixtures = [];
     let fixtureId = 0;
     rounds.forEach((roundFixtures, roundIndex) => {
@@ -1060,9 +1025,28 @@ function confirmReplaceTeam() {
 function swapFixture(fixtureId) {
     if (!isAdmin) return;
     const f = fixtures.find(f => f.id === fixtureId);
+    const totalRounds = Math.max(...fixtures.map(f => f.round));
+    const halfRounds = totalRounds / 2;
+    if (f.round > halfRounds) {
+        alert("You cannot swap a second‑half fixture directly – it mirrors the first half.");
+        return;
+    }
+    // Swap home/away
     [f.home, f.away] = [f.away, f.home];
-    f.homeScore = null; f.awayScore = null; f.played = false; f.comment = null; f.cancelled = false;
-    saveToStorage(); showToast(`Swapped ${f.home} vs ${f.away}`); renderFixtures(); renderTable(); generateTickerFacts();
+    f.homeScore = null; f.awayScore = null; f.played = false; f.cancelled = false;
+    // Also update the mirrored fixture in the second half
+    const mirrorRound = f.round + halfRounds;
+    const mirror = fixtures.find(fi => fi.round === mirrorRound && fi.home === f.away && fi.away === f.home);
+    if (mirror) {
+        mirror.home = f.away;
+        mirror.away = f.home;
+        mirror.homeScore = null; mirror.awayScore = null; mirror.played = false; mirror.cancelled = false;
+    }
+    saveToStorage();
+    showToast(`Swapped ${f.home} vs ${f.away}`);
+    renderFixtures();
+    renderTable();
+    generateTickerFacts();
 }
 function editFixtureTeamName(fixtureId, side) {
     if (!isAdmin) return;
@@ -2351,6 +2335,11 @@ function checkAndShowFirstHalfReview() {
         localStorage.setItem('firstHalfReviewShown', 'true');
         showFirstHalfReviewModal();
     }
+}
+
+function closeFirstHalfReviewModal() {
+    const modal = document.getElementById('first-half-review-modal');
+    if (modal) modal.remove();
 }
 
 // ==================== SAVE RESULT & GOAL EDITOR ====================
