@@ -2433,13 +2433,14 @@ function saveGoalsAndFinish() {
     // Auto-validate integrity
     validateFixtureIntegrity();
 }
+
 // ==================== MATCH CENTER (Stats + Commentary) ====================
 
 // Global tracked Match ID for the active modal session
 let activeMatchCenterFixtureId = null;
 
-// Helper function to create stat rows with progress bars (Light Theme)
-function createStatRow(label, homeVal, awayVal, isPercentage = false, maxVal = null) {
+// Helper function to create stat rows - EXACTLY LIKE IMAGE
+function createStatRowImageStyle(label, homeVal, awayVal, isPercentage = false, maxVal = null) {
     const total = homeVal + awayVal || 1;
     let homePercent, awayPercent;
     
@@ -2454,20 +2455,44 @@ function createStatRow(label, homeVal, awayVal, isPercentage = false, maxVal = n
         awayPercent = Math.round((awayVal / total) * 100);
     }
     
+    // Bar colors based on stat type
+    let homeColor = 'bg-indigo-500';
+    let awayColor = 'bg-purple-500';
+    
+    if (label === 'Possession') {
+        homeColor = 'bg-indigo-500';
+        awayColor = 'bg-purple-500';
+    } else if (label === 'Shots' || label === 'Shots on Target') {
+        homeColor = 'bg-emerald-500';
+        awayColor = 'bg-teal-500';
+    } else if (label === 'Tackles') {
+        homeColor = 'bg-amber-500';
+        awayColor = 'bg-orange-500';
+    } else if (label === 'Fouls') {
+        homeColor = 'bg-rose-500';
+        awayColor = 'bg-red-500';
+    } else if (label === 'Yellow Cards') {
+        homeColor = 'bg-yellow-500';
+        awayColor = 'bg-amber-500';
+    } else if (label === 'Red Cards') {
+        homeColor = 'bg-red-600';
+        awayColor = 'bg-red-700';
+    }
+    
     return `
         <div class="bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
-            <div class="flex justify-between text-[10px] font-bold tracking-wider text-gray-500 uppercase mb-1.5">
+            <div class="flex justify-between text-[10px] font-bold tracking-wider text-gray-500 uppercase mb-1">
                 <span>${label}</span>
             </div>
             <div class="flex items-center gap-3">
-                <span class="w-8 text-right font-bold text-xs text-gray-700">${homeVal}</span>
-                <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div class="h-full bg-indigo-600 rounded-full transition-all duration-300" style="width: ${homePercent}%"></div>
+                <span class="w-8 text-right font-bold text-sm text-gray-700">${homeVal}</span>
+                <div class="flex-1 h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                    <div class="h-full ${homeColor} rounded-full transition-all duration-300" style="width: ${homePercent}%"></div>
                 </div>
-                <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div class="h-full bg-purple-600 rounded-full transition-all duration-300" style="width: ${awayPercent}%"></div>
+                <div class="flex-1 h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                    <div class="h-full ${awayColor} rounded-full transition-all duration-300" style="width: ${awayPercent}%"></div>
                 </div>
-                <span class="w-8 text-left font-bold text-xs text-gray-700">${awayVal}</span>
+                <span class="w-8 text-left font-bold text-sm text-gray-700">${awayVal}</span>
             </div>
             <div class="flex justify-between text-[8px] text-gray-400 mt-0.5">
                 <span>${document.getElementById('mc-home-name')?.innerText || 'Home'}</span>
@@ -2485,13 +2510,13 @@ window.switchMatchCenterTab = function(tabName) {
     const panelComments = document.getElementById('panel-mc-comments');
 
     if (tabName === 'stats') {
-        btnStats.className = "flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl transition duration-200 bg-indigo-600 text-white";
-        btnComments.className = "flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl transition duration-200 text-gray-500 hover:text-gray-700 hover:bg-gray-200/50";
+        btnStats.className = "flex-1 py-2.5 text-[11px] font-bold uppercase tracking-wider rounded-xl transition duration-200 bg-indigo-600 text-white";
+        btnComments.className = "flex-1 py-2.5 text-[11px] font-bold uppercase tracking-wider rounded-xl transition duration-200 text-gray-500 hover:text-gray-700 hover:bg-gray-200/50";
         panelStats.classList.remove('hidden');
         panelComments.classList.add('hidden');
     } else {
-        btnComments.className = "flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl transition duration-200 bg-indigo-600 text-white";
-        btnStats.className = "flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl transition duration-200 text-gray-500 hover:text-gray-700 hover:bg-gray-200/50";
+        btnComments.className = "flex-1 py-2.5 text-[11px] font-bold uppercase tracking-wider rounded-xl transition duration-200 bg-indigo-600 text-white";
+        btnStats.className = "flex-1 py-2.5 text-[11px] font-bold uppercase tracking-wider rounded-xl transition duration-200 text-gray-500 hover:text-gray-700 hover:bg-gray-200/50";
         panelComments.classList.remove('hidden');
         panelStats.classList.add('hidden');
     }
@@ -2507,7 +2532,7 @@ window.openMatchCenterModal = function(fixtureId) {
 
     activeMatchCenterFixtureId = fixtureId;
 
-    // Load Scoreboards data 
+    // Load data
     document.getElementById('mc-round-label').innerText = `GAMEWEEK ${fixture.round}`;
     document.getElementById('mc-home-name').innerText = fixture.home;
     document.getElementById('mc-away-name').innerText = fixture.away;
@@ -2517,7 +2542,7 @@ window.openMatchCenterModal = function(fixtureId) {
     if (isPlayed) {
         document.getElementById('mc-score-label').innerText = `${fixture.homeScore} - ${fixture.awayScore}`;
     } else {
-        document.getElementById('mc-score-label').innerHTML = `<span class="text-2xl font-bold text-amber-600">VS</span>`;
+        document.getElementById('mc-score-label').innerHTML = `<span class="text-2xl font-black text-indigo-600">VS</span>`;
     }
 
     // --- SUB-PANEL A: BUILD MATCH STATS ---
@@ -2530,7 +2555,6 @@ window.openMatchCenterModal = function(fixtureId) {
                 <h3 class="text-lg font-bold text-amber-600">Match Not Played Yet</h3>
                 <p class="text-sm text-gray-500 max-w-xs mx-auto">
                     The match between ${fixture.home} and ${fixture.away} hasn't been played yet.
-                    Check back after the match for stats and commentary!
                 </p>
                 <div class="flex justify-center gap-2 mt-4">
                     <span class="px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-600">${fixture.home}</span>
@@ -2547,39 +2571,21 @@ window.openMatchCenterModal = function(fixtureId) {
     } else if (fixture.stats) {
         const s = fixture.stats;
         
-        let timeAgo = 'Just now';
-        if (s.updatedAt) {
-            const now = Date.now();
-            const diff = Math.floor((now - s.updatedAt) / 1000);
-            if (diff < 60) {
-                timeAgo = 'Just now';
-            } else if (diff < 3600) {
-                const mins = Math.floor(diff / 60);
-                timeAgo = `${mins} min${mins > 1 ? 's' : ''} ago`;
-            } else if (diff < 86400) {
-                const hours = Math.floor(diff / 3600);
-                timeAgo = `${hours} hour${hours > 1 ? 's' : ''} ago`;
-            } else {
-                const days = Math.floor(diff / 86400);
-                timeAgo = `${days} day${days > 1 ? 's' : ''} ago`;
-            }
-        }
-        
         statsContainer.innerHTML = `
-            ${createStatRow('Possession', s.possession?.home ?? 50, s.possession?.away ?? 50, true)}
-            ${createStatRow('Shots', s.shots?.home ?? 0, s.shots?.away ?? 0)}
-            ${createStatRow('Shots on Target', s.shotsOnTarget?.home ?? 0, s.shotsOnTarget?.away ?? 0)}
-            ${createStatRow('Tackles', s.tackles?.home ?? 0, s.tackles?.away ?? 0)}
-            ${createStatRow('Fouls', s.fouls?.home ?? 0, s.fouls?.away ?? 0)}
-            ${createStatRow('Yellow Cards', s.yellowCards?.home ?? 0, s.yellowCards?.away ?? 0)}
-            ${createStatRow('Red Cards', s.redCards?.home ?? 0, s.redCards?.away ?? 0, false, 5)}
+            ${createStatRowImageStyle('Possession', s.possession?.home ?? 54, s.possession?.away ?? 46, true)}
+            ${createStatRowImageStyle('Shots', s.shots?.home ?? 12, s.shots?.away ?? 8)}
+            ${createStatRowImageStyle('Shots on Target', s.shotsOnTarget?.home ?? 6, s.shotsOnTarget?.away ?? 3)}
+            ${createStatRowImageStyle('Tackles', s.tackles?.home ?? 19, s.tackles?.away ?? 14)}
+            ${createStatRowImageStyle('Fouls', s.fouls?.home ?? 11, s.fouls?.away ?? 15)}
+            ${createStatRowImageStyle('Yellow Cards', s.yellowCards?.home ?? 2, s.yellowCards?.away ?? 3)}
+            ${createStatRowImageStyle('Red Cards', s.redCards?.home ?? 0, s.redCards?.away ?? 0, false, 5)}
         `;
         
         if (s.playerOfMatch && (s.playerOfMatch?.home || s.playerOfMatch?.away)) {
             statsContainer.innerHTML += `
-                <div class="bg-gradient-to-br from-amber-50 to-yellow-50 border-2 border-amber-300 rounded-xl p-4 text-center">
-                    <p class="text-[10px] font-bold text-amber-700 uppercase tracking-wider mb-2">🏆 Player of the Match</p>
-                    <div class="flex justify-around items-center">
+                <div class="bg-gradient-to-br from-amber-50 to-yellow-50 border-2 border-amber-300 rounded-xl p-3 text-center">
+                    <p class="text-[10px] font-bold text-amber-700 uppercase tracking-wider">🏆 Player of the Match</p>
+                    <div class="flex justify-around items-center mt-1">
                         <div>
                             <p class="text-sm font-bold text-gray-800">${s.playerOfMatch?.home || '-'}</p>
                             <p class="text-xs font-mono text-amber-700">⭐ ${s.playerOfMatch?.homeRating || 0}</p>
@@ -2593,14 +2599,6 @@ window.openMatchCenterModal = function(fixtureId) {
                 </div>
             `;
         }
-        
-        statsContainer.innerHTML += `
-            <div class="text-center pt-2 border-t border-gray-200">
-                <p class="text-[9px] text-gray-400 font-mono tracking-wider">
-                    🕐 Stats updated: ${timeAgo}
-                </p>
-            </div>
-        `;
         
         if (isAdmin) {
             statsContainer.innerHTML += `
@@ -2619,13 +2617,10 @@ window.openMatchCenterModal = function(fixtureId) {
                     The match has been played but stats haven't been added yet.
                 </p>
                 ${isAdmin ? `
-                    <div class="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
-                        <p class="text-xs text-indigo-700">🔑 Admin: Click the button below to add match stats!</p>
-                        <button onclick="closeMatchCenterModal(); openMatchStatsModal(${fixture.id})" 
-                                class="mt-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition">
-                            ✏️ Add Stats
-                        </button>
-                    </div>
+                    <button onclick="closeMatchCenterModal(); openMatchStatsModal(${fixture.id})" 
+                            class="mt-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition">
+                        ✏️ Add Stats
+                    </button>
                 ` : ''}
             </div>
         `;
@@ -2670,7 +2665,7 @@ function renderMatchCenterCommentaryList(fixture) {
 
     let items = [];
 
-    // 1. Add match report (from fixture.report)
+    // 1. Add match report
     if (fixture.report) {
         items.push({
             type: 'report',
@@ -2680,7 +2675,7 @@ function renderMatchCenterCommentaryList(fixture) {
         });
     }
 
-    // 2. Add goal events (from fixture.events)
+    // 2. Add goal events
     if (fixture.events && fixture.events.length > 0) {
         fixture.events.forEach(ev => {
             if (ev.type === 'goal') {
@@ -2698,7 +2693,7 @@ function renderMatchCenterCommentaryList(fixture) {
         });
     }
 
-    // 3. Add custom comments (from fixture.comments)
+    // 3. Add custom comments
     if (fixture.comments && Object.keys(fixture.comments).length > 0) {
         Object.entries(fixture.comments).forEach(([commentId, commentObj]) => {
             items.push({
@@ -2738,20 +2733,11 @@ function renderMatchCenterCommentaryList(fixture) {
             </button>
         ` : '';
         
-        // Edit button for report
-        const editBtn = (isAdmin && item.type === 'report') ? `
-            <button onclick="openCommentModalFromCenter()" 
-                    class="text-indigo-500 hover:text-indigo-700 text-xs font-bold transition ml-2">
-                ✏️ Edit
-            </button>
-        ` : '';
-        
         div.innerHTML = `
             <div class="flex-1 font-sans leading-relaxed">
                 <div class="flex items-center gap-2 mb-1">
                     <span class="text-sm">${item.icon}</span>
                     <span class="text-[10px] text-gray-500">${item.label}</span>
-                    ${editBtn}
                 </div>
                 <div class="text-gray-700 whitespace-pre-wrap">${item.text}</div>
             </div>
@@ -2777,26 +2763,6 @@ window.openGoalEditorFromCenter = function() {
     
     closeMatchCenterModal();
     openGoalEditor();
-};
-
-// Open comment modal from Match Center
-window.openCommentModalFromCenter = function() {
-    if (!isAdmin || !activeMatchCenterFixtureId) {
-        showToast("⚠️ Admin access required");
-        return;
-    }
-    
-    const fixture = fixtures.find(f => f.id === parseInt(activeMatchCenterFixtureId));
-    if (!fixture) return;
-    
-    pendingFixtureId = activeMatchCenterFixtureId;
-    
-    document.getElementById('comment-match-name').innerHTML = `${fixture.home} vs ${fixture.away}`;
-    document.getElementById('comment-text').value = fixture.report || '';
-    document.getElementById('comment-modal').classList.remove('hidden');
-    document.getElementById('comment-modal').classList.add('flex');
-    
-    closeMatchCenterModal();
 };
 
 // Submit custom commentary
@@ -2860,92 +2826,61 @@ window.deleteMatchCenterCommentary = function(commentId) {
     }
 };
 
-function saveMatchStats(fixtureId) {
-    const fixture = fixtures.find(f => f.id === fixtureId);
+// ==================== REPORT EDITOR ====================
+
+window.openReportEditor = function() {
+    if (!isAdmin || !activeMatchCenterFixtureId) {
+        showToast("⚠️ Admin access required");
+        return;
+    }
+    
+    const fixture = fixtures.find(f => f.id === parseInt(activeMatchCenterFixtureId));
     if (!fixture) return;
-
-    const stats = {
-        possession: {
-            home: parseInt(document.getElementById('stats-possession-home').value) || 0,
-            away: parseInt(document.getElementById('stats-possession-away').value) || 0
-        },
-        shots: {
-            home: parseInt(document.getElementById('stats-shots-home').value) || 0,
-            away: parseInt(document.getElementById('stats-shots-away').value) || 0
-        },
-        shotsOnTarget: {
-            home: parseInt(document.getElementById('stats-shotsOnTarget-home').value) || 0,
-            away: parseInt(document.getElementById('stats-shotsOnTarget-away').value) || 0
-        },
-        tackles: {
-            home: parseInt(document.getElementById('stats-tackles-home').value) || 0,
-            away: parseInt(document.getElementById('stats-tackles-away').value) || 0
-        },
-        tacklesCompletion: {
-            home: parseInt(document.getElementById('stats-tacklesCompletion-home').value) || 0,
-            away: parseInt(document.getElementById('stats-tacklesCompletion-away').value) || 0
-        },
-        shotAccuracy: {
-            home: parseInt(document.getElementById('stats-accuracy-home').value) || 0,
-            away: parseInt(document.getElementById('stats-accuracy-away').value) || 0
-        },
-        tackleSuccess: {
-            home: parseInt(document.getElementById('stats-tackleSuccess-home').value) || 0,
-            away: parseInt(document.getElementById('stats-tackleSuccess-away').value) || 0
-        },
-        passes: {
-            home: parseInt(document.getElementById('stats-passes-home').value) || 0,
-            away: parseInt(document.getElementById('stats-passes-away').value) || 0
-        },
-        corners: {
-            home: parseInt(document.getElementById('stats-corners-home').value) || 0,
-            away: parseInt(document.getElementById('stats-corners-away').value) || 0
-        },
-        fouls: {
-            home: parseInt(document.getElementById('stats-fouls-home').value) || 0,
-            away: parseInt(document.getElementById('stats-fouls-away').value) || 0
-        },
-        yellowCards: {
-            home: parseInt(document.getElementById('stats-yellowCards-home').value) || 0,
-            away: parseInt(document.getElementById('stats-yellowCards-away').value) || 0
-        },
-        redCards: {
-            home: parseInt(document.getElementById('stats-redCards-home').value) || 0,
-            away: parseInt(document.getElementById('stats-redCards-away').value) || 0
-        },
-        bookings: {
-            home: parseInt(document.getElementById('stats-bookings-home').value) || 0,
-            away: parseInt(document.getElementById('stats-bookings-away').value) || 0
-        },
-        goals: {
-            home: parseInt(document.getElementById('stats-goals-home').value) || 0,
-            away: parseInt(document.getElementById('stats-goals-away').value) || 0
-        },
-        assists: {
-            home: parseInt(document.getElementById('stats-assists-home').value) || 0,
-            away: parseInt(document.getElementById('stats-assists-away').value) || 0
-        },
-        offsides: {
-            home: parseInt(document.getElementById('stats-offsides-home').value) || 0,
-            away: parseInt(document.getElementById('stats-offsides-away').value) || 0
-        },
-        playerOfMatch: {
-            home: document.getElementById('stats-potm-home').value.trim() || null,
-            homeRating: parseFloat(document.getElementById('stats-potm-rating-home').value) || null,
-            away: document.getElementById('stats-potm-away').value.trim() || null,
-            awayRating: parseFloat(document.getElementById('stats-potm-rating-away').value) || null
-        },
-        updatedAt: Date.now()
-    };
-
-    fixture.stats = stats;
-    saveToStorage();
-    showToast("✅ Match stats saved!");
-    closeStatsModal();
-    openMatchStatsModal(fixtureId);
+    
+    document.getElementById('report-editor-match-name').innerHTML = `Match: ${fixture.home} vs ${fixture.away}`;
+    document.getElementById('report-editor-text').value = fixture.report || '';
+    
+    document.getElementById('report-editor-modal').classList.remove('hidden');
+    document.getElementById('report-editor-modal').classList.add('flex');
 }
 
-// ==================== MATCH STATS EDITOR ====================
+window.closeReportEditor = function() {
+    document.getElementById('report-editor-modal').classList.add('hidden');
+    document.getElementById('report-editor-modal').classList.remove('flex');
+}
+
+window.saveReportEditor = function() {
+    if (!isAdmin || !activeMatchCenterFixtureId) {
+        showToast("⚠️ Admin access required");
+        return;
+    }
+    
+    const fixture = fixtures.find(f => f.id === parseInt(activeMatchCenterFixtureId));
+    if (!fixture) return;
+    
+    const reportText = document.getElementById('report-editor-text').value.trim();
+    if (!reportText) {
+        showToast("⚠️ Please enter a match report");
+        return;
+    }
+    
+    fixture.report = reportText;
+    
+    const targetRef = getTournamentRef().child(`fixtures/${activeMatchCenterFixtureId}/report`);
+    targetRef.set(reportText)
+        .then(() => {
+            saveToStorage();
+            showToast("✅ Match report updated!");
+            closeReportEditor();
+            renderMatchCenterCommentaryList(fixture);
+        })
+        .catch(error => {
+            console.error(error);
+            showToast("Error saving report");
+        });
+}
+
+// ==================== STATS EDITOR ====================
 
 function openMatchStatsModal(fixtureId) {
     const fixture = fixtures.find(f => f.id === fixtureId);
@@ -2959,33 +2894,101 @@ function createSimpleStatsEditor(fixture) {
     const s = fixture.stats || {};
     
     const html = `
-        <div id="simple-stats-modal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="font-bold text-lg">📊 Edit Stats - ${fixture.home} vs ${fixture.away}</h3>
-                    <button onclick="closeSimpleStatsEditor()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+        <div id="simple-stats-modal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onclick="if(event.target === this) closeSimpleStatsEditor()">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="p-4 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white rounded-t-2xl">
+                    <h3 class="font-bold text-lg text-gray-800">📊 Edit Stats - ${fixture.home} vs ${fixture.away}</h3>
+                    <button onclick="closeSimpleStatsEditor()" class="text-gray-400 hover:text-gray-600 text-2xl font-semibold transition">
+                        &times;
+                    </button>
                 </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div><label class="text-xs text-gray-500">Possession Home</label><input type="number" id="stats-possession-home" value="${s.possession?.home || 50}" class="w-full border rounded p-2"></div>
-                    <div><label class="text-xs text-gray-500">Possession Away</label><input type="number" id="stats-possession-away" value="${s.possession?.away || 50}" class="w-full border rounded p-2"></div>
-                    <div><label class="text-xs text-gray-500">Shots Home</label><input type="number" id="stats-shots-home" value="${s.shots?.home || 0}" class="w-full border rounded p-2"></div>
-                    <div><label class="text-xs text-gray-500">Shots Away</label><input type="number" id="stats-shots-away" value="${s.shots?.away || 0}" class="w-full border rounded p-2"></div>
-                    <div><label class="text-xs text-gray-500">Shots on Target Home</label><input type="number" id="stats-shotsOnTarget-home" value="${s.shotsOnTarget?.home || 0}" class="w-full border rounded p-2"></div>
-                    <div><label class="text-xs text-gray-500">Shots on Target Away</label><input type="number" id="stats-shotsOnTarget-away" value="${s.shotsOnTarget?.away || 0}" class="w-full border rounded p-2"></div>
-                    <div><label class="text-xs text-gray-500">Tackles Home</label><input type="number" id="stats-tackles-home" value="${s.tackles?.home || 0}" class="w-full border rounded p-2"></div>
-                    <div><label class="text-xs text-gray-500">Tackles Away</label><input type="number" id="stats-tackles-away" value="${s.tackles?.away || 0}" class="w-full border rounded p-2"></div>
-                    <div><label class="text-xs text-gray-500">Fouls Home</label><input type="number" id="stats-fouls-home" value="${s.fouls?.home || 0}" class="w-full border rounded p-2"></div>
-                    <div><label class="text-xs text-gray-500">Fouls Away</label><input type="number" id="stats-fouls-away" value="${s.fouls?.away || 0}" class="w-full border rounded p-2"></div>
-                    <div><label class="text-xs text-gray-500">Yellow Cards Home</label><input type="number" id="stats-yellowCards-home" value="${s.yellowCards?.home || 0}" class="w-full border rounded p-2"></div>
-                    <div><label class="text-xs text-gray-500">Yellow Cards Away</label><input type="number" id="stats-yellowCards-away" value="${s.yellowCards?.away || 0}" class="w-full border rounded p-2"></div>
-                    <div><label class="text-xs text-gray-500">Red Cards Home</label><input type="number" id="stats-redCards-home" value="${s.redCards?.home || 0}" class="w-full border rounded p-2"></div>
-                    <div><label class="text-xs text-gray-500">Red Cards Away</label><input type="number" id="stats-redCards-away" value="${s.redCards?.away || 0}" class="w-full border rounded p-2"></div>
-                    <div><label class="text-xs text-gray-500">POTM Home</label><input type="text" id="stats-potm-home" value="${s.playerOfMatch?.home || ''}" class="w-full border rounded p-2" placeholder="Name"></div>
-                    <div><label class="text-xs text-gray-500">POTM Rating</label><input type="number" id="stats-potm-rating-home" value="${s.playerOfMatch?.homeRating || 0}" class="w-full border rounded p-2" step="0.1"></div>
-                    <div><label class="text-xs text-gray-500">POTM Away</label><input type="text" id="stats-potm-away" value="${s.playerOfMatch?.away || ''}" class="w-full border rounded p-2" placeholder="Name"></div>
-                    <div><label class="text-xs text-gray-500">POTM Rating</label><input type="number" id="stats-potm-rating-away" value="${s.playerOfMatch?.awayRating || 0}" class="w-full border rounded p-2" step="0.1"></div>
+                <div class="p-6 space-y-4">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-xs font-semibold text-gray-500">Possession Home</label>
+                            <input type="number" id="stats-possession-home" value="${s.possession?.home || 50}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-500">Possession Away</label>
+                            <input type="number" id="stats-possession-away" value="${s.possession?.away || 50}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-500">Shots Home</label>
+                            <input type="number" id="stats-shots-home" value="${s.shots?.home || 0}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-500">Shots Away</label>
+                            <input type="number" id="stats-shots-away" value="${s.shots?.away || 0}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-500">Shots on Target Home</label>
+                            <input type="number" id="stats-shotsOnTarget-home" value="${s.shotsOnTarget?.home || 0}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-500">Shots on Target Away</label>
+                            <input type="number" id="stats-shotsOnTarget-away" value="${s.shotsOnTarget?.away || 0}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-500">Tackles Home</label>
+                            <input type="number" id="stats-tackles-home" value="${s.tackles?.home || 0}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-500">Tackles Away</label>
+                            <input type="number" id="stats-tackles-away" value="${s.tackles?.away || 0}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-500">Fouls Home</label>
+                            <input type="number" id="stats-fouls-home" value="${s.fouls?.home || 0}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-500">Fouls Away</label>
+                            <input type="number" id="stats-fouls-away" value="${s.fouls?.away || 0}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-500">Yellow Cards Home</label>
+                            <input type="number" id="stats-yellowCards-home" value="${s.yellowCards?.home || 0}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-500">Yellow Cards Away</label>
+                            <input type="number" id="stats-yellowCards-away" value="${s.yellowCards?.away || 0}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-500">Red Cards Home</label>
+                            <input type="number" id="stats-redCards-home" value="${s.redCards?.home || 0}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-500">Red Cards Away</label>
+                            <input type="number" id="stats-redCards-away" value="${s.redCards?.away || 0}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-500">POTM Home</label>
+                            <input type="text" id="stats-potm-home" value="${s.playerOfMatch?.home || ''}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500" placeholder="Name">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-500">POTM Rating</label>
+                            <input type="number" id="stats-potm-rating-home" value="${s.playerOfMatch?.homeRating || 0}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500" step="0.1">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-500">POTM Away</label>
+                            <input type="text" id="stats-potm-away" value="${s.playerOfMatch?.away || ''}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500" placeholder="Name">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-500">POTM Rating</label>
+                            <input type="number" id="stats-potm-rating-away" value="${s.playerOfMatch?.awayRating || 0}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500" step="0.1">
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-3 pt-4 border-t border-gray-200">
+                        <button onclick="closeSimpleStatsEditor()" 
+                                class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 py-2.5 rounded-xl text-sm font-bold transition">
+                            Cancel
+                        </button>
+                        <button onclick="saveSimpleStats(${fixture.id})" 
+                                class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-sm font-bold transition">
+                            💾 Save Stats
+                        </button>
+                    </div>
                 </div>
-                <button onclick="saveSimpleStats(${fixture.id})" class="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-xl text-sm font-bold transition">💾 Save Stats</button>
             </div>
         </div>
     `;
