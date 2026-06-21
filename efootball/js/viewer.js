@@ -1,5 +1,5 @@
 import { db } from "./firebase-config.js";
-import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { ref, onValue } from "firebase/database";
 import { calculateStandings } from "./tournament-engine.js";
 
 const statusEl = document.getElementById('tournament-status');
@@ -9,14 +9,31 @@ const matchList = document.getElementById('match-list');
 let allTeams = [];
 let allMatches = [];
 
-onSnapshot(collection(db, 'teams'), (snap) => {
-  allTeams = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+// Listen to teams
+const teamsRef = ref(db, 'teams');
+onValue(teamsRef, (snapshot) => {
+  allTeams = [];
+  if (snapshot.exists()) {
+    const data = snapshot.val();
+    for (const key in data) {
+      allTeams.push({ id: key, ...data[key] });
+    }
+  }
   updateStatus();
 });
 
-const q = query(collection(db, 'matches'), orderBy('round', 'asc'));
-onSnapshot(q, (snap) => {
-  allMatches = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+// Listen to matches
+const matchesRef = ref(db, 'matches');
+onValue(matchesRef, (snapshot) => {
+  allMatches = [];
+  if (snapshot.exists()) {
+    const data = snapshot.val();
+    for (const key in data) {
+      allMatches.push({ id: key, ...data[key] });
+    }
+  }
+  // Sort by round
+  allMatches.sort((a, b) => (a.round || 0) - (b.round || 0));
   renderStandings();
   renderMatchList();
   updateStatus();

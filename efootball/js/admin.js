@@ -1,28 +1,34 @@
 import { db } from "./firebase-config.js";
-import {
-  collection, query, where, getDocs, addDoc,
-  updateDoc, doc, onSnapshot, orderBy
-} from "firebase/firestore";
+import { 
+  ref, set, update, push, onValue, get, child 
+} from "firebase/database";
 import { generateRoundRobin, calculateStandings } from "./tournament-engine.js";
 
-// ===== DOM refs =====
+// ============================================================
+// ===== DOM REFS =====
+// ============================================================
 const authPage = document.getElementById('auth-page');
 const dashboard = document.getElementById('admin-dashboard');
-const loginForm = document.getElementById('login-form');
+
 const registerForm = document.getElementById('register-form');
-const loginTab = document.getElementById('login-tab');
+const loginForm = document.getElementById('login-form');
 const registerTab = document.getElementById('register-tab');
-const loginBtn = document.getElementById('login-btn');
-const registerBtn = document.getElementById('register-btn');
-const logoutBtn = document.getElementById('logout-btn');
-const loginEmail = document.getElementById('login-email');
-const loginPassword = document.getElementById('login-password');
-const loginError = document.getElementById('login-error');
+const loginTab = document.getElementById('login-tab');
+
 const registerEmail = document.getElementById('register-email');
 const registerPassword = document.getElementById('register-password');
 const registerConfirm = document.getElementById('register-confirm');
+const registerCode = document.getElementById('register-code');
+const registerBtn = document.getElementById('register-btn');
 const registerError = document.getElementById('register-error');
 const registerSuccess = document.getElementById('register-success');
+
+const loginEmail = document.getElementById('login-email');
+const loginPassword = document.getElementById('login-password');
+const loginBtn = document.getElementById('login-btn');
+const loginError = document.getElementById('login-error');
+
+const logoutBtn = document.getElementById('logout-btn');
 const teamNameInput = document.getElementById('team-name-input');
 const addTeamBtn = document.getElementById('add-team-btn');
 const teamList = document.getElementById('team-list');
@@ -32,7 +38,18 @@ const trimBtn = document.getElementById('trim-btn');
 const statusMsg = document.getElementById('status-msg');
 const matchesContainer = document.getElementById('matches-container');
 
-// ===== SHA‑256 hashing =====
+// Admin code modal
+const setCodeBtn = document.getElementById('set-code-btn');
+const codeModal = document.getElementById('code-modal');
+const adminCodeInput = document.getElementById('admin-code-input');
+const saveCodeBtn = document.getElementById('save-code-btn');
+const closeCodeModal = document.getElementById('close-code-modal');
+const codeStatus = document.getElementById('code-status');
+const currentCodeDisplay = document.getElementById('current-code-display');
+
+// ============================================================
+// ===== HASHING =====
+// ============================================================
 async function hashPassword(password) {
   const encoder = new TextEncoder();
   const data = encoder.encode(password);
@@ -41,7 +58,9 @@ async function hashPassword(password) {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// ===== Login state =====
+// ============================================================
+// ===== LOGIN STATE =====
+// ============================================================
 function isLoggedIn() {
   return localStorage.getItem('adminLoggedIn') === 'true';
 }
@@ -57,7 +76,36 @@ function logout() {
   location.reload();
 }
 
-// ===== Check login on load =====
+// ============================================================
+// ===== TAB SWITCHING =====
+// ============================================================
+registerTab.classList.add('active');
+registerForm.style.display = 'block';
+loginForm.style.display = 'none';
+
+registerTab.addEventListener('click', () => {
+  registerTab.classList.add('active');
+  loginTab.classList.remove('active');
+  registerForm.style.display = 'block';
+  loginForm.style.display = 'none';
+  registerError.textContent = '';
+  registerSuccess.style.display = 'none';
+  loginError.textContent = '';
+});
+
+loginTab.addEventListener('click', () => {
+  loginTab.classList.add('active');
+  registerTab.classList.remove('active');
+  loginForm.style.display = 'block';
+  registerForm.style.display = 'none';
+  loginError.textContent = '';
+  registerError.textContent = '';
+  registerSuccess.style.display = 'none';
+});
+
+// ============================================================
+// ===== CHECK LOGIN ON LOAD =====
+// ============================================================
 if (isLoggedIn()) {
   authPage.style.display = 'none';
   dashboard.style.display = 'block';
@@ -67,29 +115,85 @@ if (isLoggedIn()) {
   dashboard.style.display = 'none';
 }
 
-// ===== Tab switching =====
-loginTab.addEventListener('click', () => {
-  loginTab.classList.add('active');
-  registerTab.classList.remove('active');
-  loginForm.style.display = 'block';
-  registerForm.style.display = 'none';
-  registerError.textContent = '';
-  registerSuccess.style.display = 'none';
+// ============================================================
+// ===== ADMIN CODE FUNCTIONS (Realtime DB) =====
+// ============================================================
+async function getAdminCode() {
+  try {
+    const snapshot = await get(child(ref(db), 'settings/adminCode'));
+    if (snapshot.exists()) {
+      return snapshot.val();
+    }
+    return null;
+  } catch (e) {
+    console.error('Error fetching admin code:', e);
+    return null;
+  }
+}
+
+async function setAdminCode(newCode) {
+  try {
+    await set(ref(db, 'settings/adminCode'), newCode);
+    return true;
+  } catch (e) {
+    console.error('Error setting admin code:', e);
+    return false;
+  }
+}
+
+async function displayCurrentCode() {
+  const code = await getAdminCode();
+  if (code) {
+    currentCodeDisplay.textContent = `Current Admin Code: ${code}`;
+  } else {
+    currentCodeDisplay.textContent = 'No admin code set. Set one to allow other admins.';
+  }
+}
+
+// ============================================================
+// ===== MODAL EVENTS =====
+// ============================================================
+setCodeBtn.addEventListener('click', () => {
+  codeModal.style.display = 'flex';
+  adminCodeInput.value = '';
+  codeStatus.textContent = '';
 });
 
-registerTab.addEventListener('click', () => {
-  registerTab.classList.add('active');
-  loginTab.classList.remove('active');
-  registerForm.style.display = 'block';
-  loginForm.style.display = 'none';
-  loginError.textContent = '';
+closeCodeModal.addEventListener('click', () => {
+  codeModal.style.display = 'none';
 });
 
+codeModal.addEventListener('click', (e) => {
+  if (e.target === codeModal) codeModal.style.display = 'none';
+});
+
+saveCodeBtn.addEventListener('click', async () => {
+  const newCode = adminCodeInput.value.trim();
+  if (!newCode) {
+    codeStatus.textContent = 'Please enter a code.';
+    codeStatus.style.color = '#cc3333';
+    return;
+  }
+  const success = await setAdminCode(newCode);
+  if (success) {
+    codeStatus.textContent = '✅ Admin code updated!';
+    codeStatus.style.color = '#006600';
+    displayCurrentCode();
+    setTimeout(() => { codeModal.style.display = 'none'; }, 1500);
+  } else {
+    codeStatus.textContent = '❌ Failed to update code. Check console.';
+    codeStatus.style.color = '#cc3333';
+  }
+});
+
+// ============================================================
 // ===== REGISTER =====
+// ============================================================
 registerBtn.addEventListener('click', async () => {
   const email = registerEmail.value.trim();
   const password = registerPassword.value.trim();
   const confirm = registerConfirm.value.trim();
+  const enteredCode = registerCode.value.trim();
 
   registerError.textContent = '';
   registerSuccess.style.display = 'none';
@@ -108,33 +212,52 @@ registerBtn.addEventListener('click', async () => {
   }
 
   try {
+    // Check if admin code is required
+    const existingCode = await getAdminCode();
+    if (existingCode) {
+      if (enteredCode !== existingCode) {
+        registerError.textContent = 'Invalid admin code. Please enter the correct code.';
+        return;
+      }
+    } else {
+      // First admin – no code required, but we can optionally auto-set one later.
+      // We'll allow registration without code.
+    }
+
     // Check if email already exists
-    const q = query(collection(db, 'admins'), where('email', '==', email));
-    const snapshot = await getDocs(q);
-    if (!snapshot.empty) {
+    const adminsSnapshot = await get(child(ref(db), 'admins'));
+    let exists = false;
+    if (adminsSnapshot.exists()) {
+      const admins = adminsSnapshot.val();
+      for (const key in admins) {
+        if (admins[key].email === email) {
+          exists = true;
+          break;
+        }
+      }
+    }
+    if (exists) {
       registerError.textContent = 'Email already registered. Please login.';
       return;
     }
 
     // Hash password and save
     const hashedPassword = await hashPassword(password);
-    await addDoc(collection(db, 'admins'), {
+    const newAdminRef = push(ref(db, 'admins'));
+    await set(newAdminRef, {
       email: email,
       passwordHash: hashedPassword,
       createdAt: new Date().toISOString()
     });
 
-    // Success!
     registerSuccess.style.display = 'block';
     registerSuccess.textContent = '✅ Registration successful! Please login.';
     registerError.textContent = '';
-    
-    // Clear fields
     registerEmail.value = '';
     registerPassword.value = '';
     registerConfirm.value = '';
+    registerCode.value = '';
 
-    // Auto-switch to login tab after 2 seconds
     setTimeout(() => {
       loginTab.click();
     }, 1500);
@@ -145,11 +268,12 @@ registerBtn.addEventListener('click', async () => {
   }
 });
 
+// ============================================================
 // ===== LOGIN =====
+// ============================================================
 loginBtn.addEventListener('click', async () => {
   const email = loginEmail.value.trim();
   const password = loginPassword.value.trim();
-
   loginError.textContent = '';
 
   if (!email || !password) {
@@ -158,23 +282,33 @@ loginBtn.addEventListener('click', async () => {
   }
 
   try {
-    const q = query(collection(db, 'admins'), where('email', '==', email));
-    const snapshot = await getDocs(q);
-    if (snapshot.empty) {
+    const adminsSnapshot = await get(child(ref(db), 'admins'));
+    if (!adminsSnapshot.exists()) {
       loginError.textContent = 'Account not found. Please register first.';
       return;
     }
-
-    const adminDoc = snapshot.docs[0];
-    const storedHash = adminDoc.data().passwordHash;
+    const admins = adminsSnapshot.val();
+    let found = false;
+    let storedHash = '';
+    for (const key in admins) {
+      if (admins[key].email === email) {
+        storedHash = admins[key].passwordHash;
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      loginError.textContent = 'Account not found. Please register first.';
+      return;
+    }
     const enteredHash = await hashPassword(password);
-
     if (enteredHash === storedHash) {
       setLoggedIn(email);
       authPage.style.display = 'none';
       dashboard.style.display = 'block';
       loginError.textContent = '';
       listenToData();
+      displayCurrentCode();
     } else {
       loginError.textContent = '❌ Incorrect password.';
     }
@@ -186,30 +320,50 @@ loginBtn.addEventListener('click', async () => {
 
 logoutBtn.addEventListener('click', logout);
 
-// ===== State =====
+// ============================================================
+// ===== STATE & LISTENERS (Realtime DB) =====
+// ============================================================
 let allTeams = [];
 let allMatches = [];
 
 function setStatus(msg, isError = false) {
   statusMsg.textContent = msg;
-  statusMsg.style.color = isError ? '#ff6b6b' : '#00ffcc';
+  statusMsg.style.color = isError ? '#cc3333' : '#006600';
 }
 
-// ===== Firestore listeners =====
 function listenToData() {
-  onSnapshot(collection(db, 'teams'), (snap) => {
-    allTeams = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  // Teams
+  const teamsRef = ref(db, 'teams');
+  onValue(teamsRef, (snapshot) => {
+    allTeams = [];
+    if (snapshot.exists()) {
+      const data = snapshot.val();
+      for (const key in data) {
+        allTeams.push({ id: key, ...data[key] });
+      }
+    }
     renderTeams();
   });
 
-  const q = query(collection(db, 'matches'), orderBy('round', 'asc'));
-  onSnapshot(q, (snap) => {
-    allMatches = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  // Matches – we'll sort client-side by round
+  const matchesRef = ref(db, 'matches');
+  onValue(matchesRef, (snapshot) => {
+    allMatches = [];
+    if (snapshot.exists()) {
+      const data = snapshot.val();
+      for (const key in data) {
+        allMatches.push({ id: key, ...data[key] });
+      }
+    }
+    // Sort by round
+    allMatches.sort((a, b) => (a.round || 0) - (b.round || 0));
     renderMatches();
   });
 }
 
-// ===== Render teams =====
+// ============================================================
+// ===== RENDER TEAMS =====
+// ============================================================
 function renderTeams() {
   const active = allTeams.filter(t => !t.eliminated);
   const eliminated = allTeams.filter(t => t.eliminated);
@@ -220,18 +374,23 @@ function renderTeams() {
   teamList.innerHTML = html;
 }
 
-// ===== Add team =====
+// ============================================================
+// ===== ADD TEAM =====
+// ============================================================
 addTeamBtn.addEventListener('click', async () => {
   const name = teamNameInput.value.trim();
   if (!name) return alert('Enter a team name');
   try {
-    await addDoc(collection(db, 'teams'), { name, eliminated: false });
+    const newTeamRef = push(ref(db, 'teams'));
+    await set(newTeamRef, { name, eliminated: false });
     teamNameInput.value = '';
     setStatus(`Added ${name}`);
   } catch (e) { setStatus(e.message, true); }
 });
 
-// ===== Render matches =====
+// ============================================================
+// ===== RENDER MATCHES =====
+// ============================================================
 function renderMatches() {
   if (!allMatches.length) {
     matchesContainer.innerHTML = '<p class="empty">No matches scheduled yet.</p>';
@@ -277,14 +436,16 @@ function renderMatches() {
 
 async function saveMatchResult(matchId, homeScore, awayScore) {
   try {
-    await updateDoc(doc(db, 'matches', matchId), {
+    await update(ref(db, `matches/${matchId}`), {
       homeScore, awayScore, status: 'played'
     });
     setStatus('Score saved!');
   } catch (e) { setStatus(e.message, true); }
 }
 
-// ===== Generate next round =====
+// ============================================================
+// ===== GENERATE NEXT ROUND =====
+// ============================================================
 generateBtn.addEventListener('click', async () => {
   const active = allTeams.filter(t => !t.eliminated);
   if (active.length < 2) return setStatus('Need at least 2 active teams.', true);
@@ -332,7 +493,8 @@ generateBtn.addEventListener('click', async () => {
       return setStatus('No fixtures to generate.', true);
     }
     for (const f of roundFixtures) {
-      await addDoc(collection(db, 'matches'), {
+      const newMatchRef = push(ref(db, 'matches'));
+      await set(newMatchRef, {
         homeTeam: f.home,
         awayTeam: f.away,
         round: nextRound,
@@ -360,7 +522,8 @@ async function generateSemiLeg(activeTeams, leg) {
     { home: sorted[1].name, away: sorted[2].name }
   ];
   for (const m of matchups) {
-    await addDoc(collection(db, 'matches'), {
+    const newMatchRef = push(ref(db, 'matches'));
+    await set(newMatchRef, {
       homeTeam: m.home,
       awayTeam: m.away,
       round: 99,
@@ -389,7 +552,8 @@ async function generateFinal(activeTeams, semiMatches) {
     else if (goals2 > goals1) winners.push(away1);
     else winners.push(home1);
   }
-  await addDoc(collection(db, 'matches'), {
+  const newMatchRef = push(ref(db, 'matches'));
+  await set(newMatchRef, {
     homeTeam: winners[0],
     awayTeam: winners[1],
     round: 100,
@@ -416,7 +580,7 @@ trimBtn.addEventListener('click', async () => {
   for (const team of bottom) {
     const teamDoc = allTeams.find(t => t.name === team.team);
     if (teamDoc && !teamDoc.eliminated) {
-      await updateDoc(doc(db, 'teams', teamDoc.id), { eliminated: true });
+      await update(ref(db, `teams/${teamDoc.id}`), { eliminated: true });
     }
   }
   setStatus(`Eliminated: ${bottom.map(b => b.team).join(', ')}`);
