@@ -9,7 +9,7 @@ const matchList = document.getElementById('match-list');
 let allTeams = [];
 let allMatches = [];
 
-// Listen to teams
+// ---- Listen to teams ----
 const teamsRef = ref(db, 'teams');
 onValue(teamsRef, (snapshot) => {
   allTeams = [];
@@ -20,9 +20,10 @@ onValue(teamsRef, (snapshot) => {
     }
   }
   updateStatus();
+  renderStandings(); // re-render standings when teams change
 });
 
-// Listen to matches
+// ---- Listen to matches ----
 const matchesRef = ref(db, 'matches');
 onValue(matchesRef, (snapshot) => {
   allMatches = [];
@@ -32,7 +33,6 @@ onValue(matchesRef, (snapshot) => {
       allMatches.push({ id: key, ...data[key] });
     }
   }
-  // Sort by round
   allMatches.sort((a, b) => (a.round || 0) - (b.round || 0));
   renderStandings();
   renderMatchList();
@@ -45,29 +45,89 @@ function updateStatus() {
   statusEl.textContent = `${active} Teams • ${total} Matches Played`;
 }
 
+// ---- Render Standings ----
 function renderStandings() {
+  // 1. Get active teams (not eliminated)
+  const activeTeams = allTeams.filter(t => !t.eliminated);
+
+  // 2. Get played group matches
   const groupPlayed = allMatches.filter(m => m.stage === 'group' && m.status === 'played');
-  const standings = calculateStandings(groupPlayed);
-  let html = '';
-  standings.forEach((s, i) => {
-    html += `
-      <tr>
-        <td>${i + 1}</td>
-        <td><strong>${s.team}</strong></td>
-        <td>${s.played}</td>
-        <td>${s.won}</td>
-        <td>${s.drawn}</td>
-        <td>${s.lost}</td>
-        <td>${s.gf}</td>
-        <td>${s.ga}</td>
-        <td>${s.gd}</td>
-        <td><strong>${s.pts}</strong></td>
-      </tr>
-    `;
+
+  // 3. Build stats object with all active teams initialized to 0
+  const stats = {};
+  activeTeams.forEach(t => {
+    stats[t.name] = {
+      team: t.name,
+      played: 0,
+      won: 0,
+      drawn: 0,
+      lost: 0,
+      gf: 0,
+      ga: 0,
+      gd: 0,
+      pts: 0
+    };
   });
-  standingsBody.innerHTML = html || '<tr><td colspan="10">No matches played yet.</td></tr>';
+
+  // 4. Process played matches (add stats)
+  groupPlayed.forEach(m => {
+    const { homeTeam, awayTeam, homeScore, awayScore } = m;
+    // Skip if team is not in active list (shouldn't happen, but safe)
+    if (!stats[homeTeam] || !stats[awayTeam]) return;
+
+    const h = stats[homeTeam];
+    const a = stats[awayTeam];
+    h.played += 1; a.played += 1;
+    h.gf += homeScore; h.ga += awayScore;
+    a.gf += awayScore; a.ga += homeScore;
+    h.gd = h.gf - h.ga;
+    a.gd = a.gf - a.ga;
+
+    if (homeScore > awayScore) {
+      h.won += 1; h.pts += 3;
+      a.lost += 1;
+    } else if (homeScore < awayScore) {
+      a.won += 1; a.pts += 3;
+      h.lost += 1;
+    } else {
+      h.drawn += 1; h.pts += 1;
+      a.drawn += 1; a.pts += 1;
+    }
+  });
+
+  // 5. Convert to array and sort (Points > GD > GF)
+  const sorted = Object.values(stats).sort((a, b) => {
+    if (b.pts !== a.pts) return b.pts - a.pts;
+    if (b.gd !== a.gd) return b.gd - a.gd;
+    return b.gf - a.gf;
+  });
+
+  // 6. Render table
+  let html = '';
+  if (sorted.length === 0) {
+    html = '<tr><td colspan="10">No teams added yet.</td></tr>';
+  } else {
+    sorted.forEach((s, i) => {
+      html += `
+        <tr>
+          <td>${i + 1}</td>
+          <td><strong>${s.team}</strong></td>
+          <td>${s.played}</td>
+          <td>${s.won}</td>
+          <td>${s.drawn}</td>
+          <td>${s.lost}</td>
+          <td>${s.gf}</td>
+          <td>${s.ga}</td>
+          <td>${s.gd}</td>
+          <td><strong>${s.pts}</strong></td>
+        </tr>
+      `;
+    });
+  }
+  standingsBody.innerHTML = html;
 }
 
+// ---- Render Match List (unchanged) ----
 function renderMatchList() {
   let html = '';
   let lastStage = '';
