@@ -8,33 +8,38 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <!-- ===== LOGIN / REGISTER PAGE ===== -->
+
+  <!-- ===== TOAST ===== -->
+  <div id="toast" class="toast" style="display:none;"></div>
+
+  <!-- ===== AUTH PAGE ===== -->
   <div id="auth-page">
-    <div class="auth-box glass-card">
+    <div class="auth-box">
       <h2>⚽ Admin</h2>
       
       <!-- Tab Buttons -->
       <div class="auth-tabs">
-        <button id="login-tab" class="auth-tab active">Login</button>
-        <button id="register-tab" class="auth-tab">Register</button>
+        <button class="auth-tab active" id="register-tab">Register</button>
+        <button class="auth-tab" id="login-tab">Login</button>
       </div>
 
-      <!-- Login Form -->
-      <div id="login-form" class="auth-form">
+      <!-- Register Form (visible by default) -->
+      <div id="register-form" class="auth-form">
+        <input type="email" id="register-email" placeholder="Email" />
+        <input type="password" id="register-password" placeholder="Password (min 6 chars)" />
+        <input type="password" id="register-confirm" placeholder="Confirm Password" />
+        <input type="text" id="register-code" placeholder="Admin Code (if required)" />
+        <button class="neon-btn full" id="register-btn">Register</button>
+        <p id="register-error" class="auth-error"></p>
+        <p id="register-success" class="auth-success" style="display:none;"></p>
+      </div>
+
+      <!-- Login Form (hidden by default) -->
+      <div id="login-form" class="auth-form" style="display:none;">
         <input type="email" id="login-email" placeholder="Email" />
         <input type="password" id="login-password" placeholder="Password" />
         <button class="neon-btn full" id="login-btn">Login</button>
         <p id="login-error" class="auth-error"></p>
-      </div>
-
-      <!-- Register Form -->
-      <div id="register-form" class="auth-form" style="display:none;">
-        <input type="email" id="register-email" placeholder="Email" />
-        <input type="password" id="register-password" placeholder="Password (min 6 chars)" />
-        <input type="password" id="register-confirm" placeholder="Confirm Password" />
-        <button class="neon-btn full" id="register-btn">Register</button>
-        <p id="register-error" class="auth-error"></p>
-        <p id="register-success" class="auth-success" style="display:none;"></p>
       </div>
     </div>
   </div>
@@ -47,6 +52,7 @@
     </header>
 
     <div class="dashboard-grid">
+      <!-- Teams -->
       <section class="card">
         <h2>Teams</h2>
         <div class="input-group">
@@ -57,6 +63,7 @@
         <p><span id="active-count">0</span> active teams</p>
       </section>
 
+      <!-- Controls -->
       <section class="card">
         <h2>Controls</h2>
         <button id="generate-btn" class="neon-btn full">Generate Next Round</button>
@@ -64,10 +71,32 @@
         <div id="status-msg" class="status"></div>
       </section>
 
+      <!-- Settings -->
+      <section class="card">
+        <h2>Settings</h2>
+        <button id="set-code-btn" class="neon-btn full">Set Admin Code</button>
+        <p id="current-code-display" style="font-size:0.8rem; margin-top:8px; color:#4a4a6a;"></p>
+      </section>
+
+      <!-- Matches -->
       <section class="card full-width">
         <h2>Matches</h2>
         <div id="matches-container"></div>
       </section>
+    </div>
+  </div>
+
+  <!-- ===== MODAL for Admin Code ===== -->
+  <div id="code-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <h3>Set Admin Code</h3>
+      <p>This code will be required for new admins to register.</p>
+      <input type="text" id="admin-code-input" placeholder="Enter code (e.g. 1234)" />
+      <div style="display:flex; gap:10px; margin-top:12px;">
+        <button id="save-code-btn" class="neon-btn">Save</button>
+        <button id="close-code-modal" class="neon-btn danger">Cancel</button>
+      </div>
+      <p id="code-status" style="margin-top:8px;"></p>
     </div>
   </div>
 

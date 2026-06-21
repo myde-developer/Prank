@@ -4,17 +4,25 @@ import {
 } from "firebase/database";
 import { generateRoundRobin, calculateStandings } from "./tournament-engine.js";
 
-// ============================================================
+// ===== TOAST SYSTEM =====
+function showToast(message, type = 'success') {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.className = 'toast ' + type;
+  toast.style.display = 'block';
+  clearTimeout(toast._timeout);
+  toast._timeout = setTimeout(() => {
+    toast.style.display = 'none';
+  }, 3000);
+}
+
 // ===== DOM REFS =====
-// ============================================================
 const authPage = document.getElementById('auth-page');
 const dashboard = document.getElementById('admin-dashboard');
-
 const registerForm = document.getElementById('register-form');
 const loginForm = document.getElementById('login-form');
 const registerTab = document.getElementById('register-tab');
 const loginTab = document.getElementById('login-tab');
-
 const registerEmail = document.getElementById('register-email');
 const registerPassword = document.getElementById('register-password');
 const registerConfirm = document.getElementById('register-confirm');
@@ -22,12 +30,10 @@ const registerCode = document.getElementById('register-code');
 const registerBtn = document.getElementById('register-btn');
 const registerError = document.getElementById('register-error');
 const registerSuccess = document.getElementById('register-success');
-
 const loginEmail = document.getElementById('login-email');
 const loginPassword = document.getElementById('login-password');
 const loginBtn = document.getElementById('login-btn');
 const loginError = document.getElementById('login-error');
-
 const logoutBtn = document.getElementById('logout-btn');
 const teamNameInput = document.getElementById('team-name-input');
 const addTeamBtn = document.getElementById('add-team-btn');
@@ -37,8 +43,6 @@ const generateBtn = document.getElementById('generate-btn');
 const trimBtn = document.getElementById('trim-btn');
 const statusMsg = document.getElementById('status-msg');
 const matchesContainer = document.getElementById('matches-container');
-
-// Admin code modal
 const setCodeBtn = document.getElementById('set-code-btn');
 const codeModal = document.getElementById('code-modal');
 const adminCodeInput = document.getElementById('admin-code-input');
@@ -47,9 +51,7 @@ const closeCodeModal = document.getElementById('close-code-modal');
 const codeStatus = document.getElementById('code-status');
 const currentCodeDisplay = document.getElementById('current-code-display');
 
-// ============================================================
 // ===== HASHING =====
-// ============================================================
 async function hashPassword(password) {
   const encoder = new TextEncoder();
   const data = encoder.encode(password);
@@ -58,9 +60,7 @@ async function hashPassword(password) {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// ============================================================
 // ===== LOGIN STATE =====
-// ============================================================
 function isLoggedIn() {
   return localStorage.getItem('adminLoggedIn') === 'true';
 }
@@ -76,9 +76,7 @@ function logout() {
   location.reload();
 }
 
-// ============================================================
 // ===== TAB SWITCHING =====
-// ============================================================
 registerTab.classList.add('active');
 registerForm.style.display = 'block';
 loginForm.style.display = 'none';
@@ -103,9 +101,7 @@ loginTab.addEventListener('click', () => {
   registerSuccess.style.display = 'none';
 });
 
-// ============================================================
 // ===== CHECK LOGIN ON LOAD =====
-// ============================================================
 if (isLoggedIn()) {
   authPage.style.display = 'none';
   dashboard.style.display = 'block';
@@ -115,9 +111,7 @@ if (isLoggedIn()) {
   dashboard.style.display = 'none';
 }
 
-// ============================================================
-// ===== ADMIN CODE FUNCTIONS (Realtime DB) =====
-// ============================================================
+// ===== ADMIN CODE FUNCTIONS =====
 async function getAdminCode() {
   try {
     const snapshot = await get(child(ref(db), 'settings/adminCode'));
@@ -150,9 +144,7 @@ async function displayCurrentCode() {
   }
 }
 
-// ============================================================
 // ===== MODAL EVENTS =====
-// ============================================================
 setCodeBtn.addEventListener('click', () => {
   codeModal.style.display = 'flex';
   adminCodeInput.value = '';
@@ -172,23 +164,24 @@ saveCodeBtn.addEventListener('click', async () => {
   if (!newCode) {
     codeStatus.textContent = 'Please enter a code.';
     codeStatus.style.color = '#cc3333';
+    showToast('❌ Please enter a code.', 'error');
     return;
   }
   const success = await setAdminCode(newCode);
   if (success) {
     codeStatus.textContent = '✅ Admin code updated!';
     codeStatus.style.color = '#006600';
+    showToast('✅ Admin code updated!', 'success');
     displayCurrentCode();
     setTimeout(() => { codeModal.style.display = 'none'; }, 1500);
   } else {
-    codeStatus.textContent = '❌ Failed to update code. Check console.';
+    codeStatus.textContent = '❌ Failed to update code.';
     codeStatus.style.color = '#cc3333';
+    showToast('❌ Failed to update code.', 'error');
   }
 });
 
-// ============================================================
 // ===== REGISTER =====
-// ============================================================
 registerBtn.addEventListener('click', async () => {
   const email = registerEmail.value.trim();
   const password = registerPassword.value.trim();
@@ -200,31 +193,30 @@ registerBtn.addEventListener('click', async () => {
 
   if (!email || !password || !confirm) {
     registerError.textContent = 'Please fill in all fields.';
+    showToast('❌ Please fill in all fields.', 'error');
     return;
   }
   if (password.length < 6) {
     registerError.textContent = 'Password must be at least 6 characters.';
+    showToast('❌ Password must be at least 6 characters.', 'error');
     return;
   }
   if (password !== confirm) {
     registerError.textContent = 'Passwords do not match.';
+    showToast('❌ Passwords do not match.', 'error');
     return;
   }
 
   try {
-    // Check if admin code is required
     const existingCode = await getAdminCode();
     if (existingCode) {
       if (enteredCode !== existingCode) {
-        registerError.textContent = 'Invalid admin code. Please enter the correct code.';
+        registerError.textContent = 'Invalid admin code.';
+        showToast('❌ Invalid admin code.', 'error');
         return;
       }
-    } else {
-      // First admin – no code required, but we can optionally auto-set one later.
-      // We'll allow registration without code.
     }
 
-    // Check if email already exists
     const adminsSnapshot = await get(child(ref(db), 'admins'));
     let exists = false;
     if (adminsSnapshot.exists()) {
@@ -237,11 +229,11 @@ registerBtn.addEventListener('click', async () => {
       }
     }
     if (exists) {
-      registerError.textContent = 'Email already registered. Please login.';
+      registerError.textContent = 'Email already registered.';
+      showToast('❌ Email already registered.', 'error');
       return;
     }
 
-    // Hash password and save
     const hashedPassword = await hashPassword(password);
     const newAdminRef = push(ref(db, 'admins'));
     await set(newAdminRef, {
@@ -252,6 +244,7 @@ registerBtn.addEventListener('click', async () => {
 
     registerSuccess.style.display = 'block';
     registerSuccess.textContent = '✅ Registration successful! Please login.';
+    showToast('✅ Registration successful! Please login.', 'success');
     registerError.textContent = '';
     registerEmail.value = '';
     registerPassword.value = '';
@@ -265,12 +258,11 @@ registerBtn.addEventListener('click', async () => {
   } catch (e) {
     console.error('Registration error:', e);
     registerError.textContent = 'Error: ' + e.message;
+    showToast('❌ ' + e.message, 'error');
   }
 });
 
-// ============================================================
 // ===== LOGIN =====
-// ============================================================
 loginBtn.addEventListener('click', async () => {
   const email = loginEmail.value.trim();
   const password = loginPassword.value.trim();
@@ -278,6 +270,7 @@ loginBtn.addEventListener('click', async () => {
 
   if (!email || !password) {
     loginError.textContent = 'Please fill in both fields.';
+    showToast('❌ Please fill in both fields.', 'error');
     return;
   }
 
@@ -285,6 +278,7 @@ loginBtn.addEventListener('click', async () => {
     const adminsSnapshot = await get(child(ref(db), 'admins'));
     if (!adminsSnapshot.exists()) {
       loginError.textContent = 'Account not found. Please register first.';
+      showToast('❌ Account not found. Please register first.', 'error');
       return;
     }
     const admins = adminsSnapshot.val();
@@ -299,6 +293,7 @@ loginBtn.addEventListener('click', async () => {
     }
     if (!found) {
       loginError.textContent = 'Account not found. Please register first.';
+      showToast('❌ Account not found. Please register first.', 'error');
       return;
     }
     const enteredHash = await hashPassword(password);
@@ -307,22 +302,26 @@ loginBtn.addEventListener('click', async () => {
       authPage.style.display = 'none';
       dashboard.style.display = 'block';
       loginError.textContent = '';
+      showToast('✅ Welcome back, ' + email + '!', 'success');
       listenToData();
       displayCurrentCode();
     } else {
       loginError.textContent = '❌ Incorrect password.';
+      showToast('❌ Incorrect password.', 'error');
     }
   } catch (e) {
     console.error('Login error:', e);
     loginError.textContent = 'Error: ' + e.message;
+    showToast('❌ ' + e.message, 'error');
   }
 });
 
-logoutBtn.addEventListener('click', logout);
+logoutBtn.addEventListener('click', () => {
+  logout();
+  showToast('✅ Logged out.', 'info');
+});
 
-// ============================================================
-// ===== STATE & LISTENERS (Realtime DB) =====
-// ============================================================
+// ===== STATE & LISTENERS =====
 let allTeams = [];
 let allMatches = [];
 
@@ -332,7 +331,6 @@ function setStatus(msg, isError = false) {
 }
 
 function listenToData() {
-  // Teams
   const teamsRef = ref(db, 'teams');
   onValue(teamsRef, (snapshot) => {
     allTeams = [];
@@ -345,7 +343,6 @@ function listenToData() {
     renderTeams();
   });
 
-  // Matches – we'll sort client-side by round
   const matchesRef = ref(db, 'matches');
   onValue(matchesRef, (snapshot) => {
     allMatches = [];
@@ -355,15 +352,12 @@ function listenToData() {
         allMatches.push({ id: key, ...data[key] });
       }
     }
-    // Sort by round
     allMatches.sort((a, b) => (a.round || 0) - (b.round || 0));
     renderMatches();
   });
 }
 
-// ============================================================
 // ===== RENDER TEAMS =====
-// ============================================================
 function renderTeams() {
   const active = allTeams.filter(t => !t.eliminated);
   const eliminated = allTeams.filter(t => t.eliminated);
@@ -374,23 +368,26 @@ function renderTeams() {
   teamList.innerHTML = html;
 }
 
-// ============================================================
 // ===== ADD TEAM =====
-// ============================================================
 addTeamBtn.addEventListener('click', async () => {
   const name = teamNameInput.value.trim();
-  if (!name) return alert('Enter a team name');
+  if (!name) {
+    showToast('❌ Enter a team name.', 'error');
+    return;
+  }
   try {
     const newTeamRef = push(ref(db, 'teams'));
     await set(newTeamRef, { name, eliminated: false });
     teamNameInput.value = '';
     setStatus(`Added ${name}`);
-  } catch (e) { setStatus(e.message, true); }
+    showToast('✅ Team added: ' + name, 'success');
+  } catch (e) { 
+    setStatus(e.message, true);
+    showToast('❌ ' + e.message, 'error');
+  }
 });
 
-// ============================================================
 // ===== RENDER MATCHES =====
-// ============================================================
 function renderMatches() {
   if (!allMatches.length) {
     matchesContainer.innerHTML = '<p class="empty">No matches scheduled yet.</p>';
@@ -427,7 +424,8 @@ function renderMatches() {
       const home = parseInt(homeInput.value);
       const away = parseInt(awayInput.value);
       if (isNaN(home) || isNaN(away) || home < 0 || away < 0) {
-        return alert('Enter valid scores (0-99)');
+        showToast('❌ Enter valid scores (0-99)', 'error');
+        return;
       }
       await saveMatchResult(id, home, away);
     });
@@ -440,15 +438,20 @@ async function saveMatchResult(matchId, homeScore, awayScore) {
       homeScore, awayScore, status: 'played'
     });
     setStatus('Score saved!');
-  } catch (e) { setStatus(e.message, true); }
+    showToast('✅ Score saved!', 'success');
+  } catch (e) { 
+    setStatus(e.message, true);
+    showToast('❌ ' + e.message, 'error');
+  }
 }
 
-// ============================================================
 // ===== GENERATE NEXT ROUND =====
-// ============================================================
 generateBtn.addEventListener('click', async () => {
   const active = allTeams.filter(t => !t.eliminated);
-  if (active.length < 2) return setStatus('Need at least 2 active teams.', true);
+  if (active.length < 2) {
+    showToast('❌ Need at least 2 active teams.', 'error');
+    return;
+  }
 
   const groupMatches = allMatches.filter(m => m.stage === 'group');
   const semiMatches = allMatches.filter(m => m.stage === 'semi');
@@ -457,7 +460,8 @@ generateBtn.addEventListener('click', async () => {
   if (active.length === 4) {
     if (semiMatches.length === 0) {
       await generateSemiLeg(active, 1);
-      return setStatus('Semi Final Leg 1 generated.');
+      showToast('✅ Semi Final Leg 1 generated.', 'success');
+      return;
     }
     const leg1 = semiMatches.filter(m => m.leg === 1);
     const leg1Played = leg1.every(m => m.status === 'played');
@@ -465,19 +469,24 @@ generateBtn.addEventListener('click', async () => {
       const leg2 = semiMatches.filter(m => m.leg === 2);
       if (leg2.length === 0) {
         await generateSemiLeg(active, 2);
-        return setStatus('Semi Final Leg 2 generated.');
+        showToast('✅ Semi Final Leg 2 generated.', 'success');
+        return;
       }
       const leg2Played = leg2.every(m => m.status === 'played');
       if (leg2Played && finalMatches.length === 0) {
         await generateFinal(active, semiMatches);
-        return setStatus('Final generated!');
+        showToast('✅ Final generated!', 'success');
+        return;
       }
       if (leg2Played && finalMatches.length > 0) {
-        return setStatus('Tournament complete!');
+        showToast('🏆 Tournament complete!', 'info');
+        return;
       }
-      return setStatus('Please finish Leg 2 first.');
+      showToast('⏳ Please finish Leg 2 first.', 'info');
+      return;
     }
-    return setStatus('Please finish Leg 1 first.');
+    showToast('⏳ Please finish Leg 1 first.', 'info');
+    return;
   }
 
   if (active.length > 4) {
@@ -486,11 +495,13 @@ generateBtn.addEventListener('click', async () => {
     const names = active.map(t => t.name);
     const allRounds = generateRoundRobin(names);
     if (nextRound > allRounds.length) {
-      return setStatus('All rounds generated. Time to trim bottom 2.', true);
+      showToast('⏳ All rounds generated. Time to trim bottom 2.', 'info');
+      return;
     }
     const roundFixtures = allRounds[nextRound - 1];
     if (!roundFixtures || roundFixtures.length === 0) {
-      return setStatus('No fixtures to generate.', true);
+      showToast('❌ No fixtures to generate.', 'error');
+      return;
     }
     for (const f of roundFixtures) {
       const newMatchRef = push(ref(db, 'matches'));
@@ -506,6 +517,7 @@ generateBtn.addEventListener('click', async () => {
       });
     }
     setStatus(`Round ${nextRound} generated (${roundFixtures.length} matches).`);
+    showToast(`✅ Round ${nextRound} generated.`, 'success');
   }
 });
 
@@ -567,7 +579,10 @@ async function generateFinal(activeTeams, semiMatches) {
 
 trimBtn.addEventListener('click', async () => {
   const active = allTeams.filter(t => !t.eliminated);
-  if (active.length <= 4) return setStatus('Cannot trim when 4 or fewer remain.', true);
+  if (active.length <= 4) {
+    showToast('❌ Cannot trim when 4 or fewer remain.', 'error');
+    return;
+  }
   const groupPlayed = allMatches.filter(m => m.stage === 'group' && m.status === 'played');
   const standings = calculateStandings(groupPlayed);
   const sorted = standings.sort((a, b) => {
@@ -576,7 +591,10 @@ trimBtn.addEventListener('click', async () => {
     return b.gf - a.gf;
   });
   const bottom = sorted.slice(-2);
-  if (bottom.length < 2) return setStatus('Not enough played matches.', true);
+  if (bottom.length < 2) {
+    showToast('❌ Not enough played matches.', 'error');
+    return;
+  }
   for (const team of bottom) {
     const teamDoc = allTeams.find(t => t.name === team.team);
     if (teamDoc && !teamDoc.eliminated) {
@@ -584,4 +602,5 @@ trimBtn.addEventListener('click', async () => {
     }
   }
   setStatus(`Eliminated: ${bottom.map(b => b.team).join(', ')}`);
+  showToast(`✅ Eliminated: ${bottom.map(b => b.team).join(', ')}`, 'success');
 });
