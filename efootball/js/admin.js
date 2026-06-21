@@ -61,6 +61,11 @@ if (isLoggedIn()) {
 loginBtn.addEventListener('click', async () => {
   const email = loginEmail.value.trim();
   const password = loginPassword.value.trim();
+  
+  console.log('Login button clicked');
+  console.log('Email:', email);
+  console.log('Password length:', password.length);
+  
   if (!email || !password) {
     loginError.textContent = 'Please fill in both fields.';
     return;
@@ -71,17 +76,23 @@ loginBtn.addEventListener('click', async () => {
   }
 
   try {
+    console.log('Checking if admin exists...');
     const q = query(collection(db, 'admins'), where('email', '==', email));
     const snapshot = await getDocs(q);
+    console.log('Snapshot size:', snapshot.size);
+    
     const hashedPassword = await hashPassword(password);
+    console.log('Hashed password generated');
 
     if (snapshot.empty) {
       // First time – create account
+      console.log('No admin found. Creating new account...');
       await addDoc(collection(db, 'admins'), {
         email: email,
         passwordHash: hashedPassword,
         createdAt: new Date().toISOString()
       });
+      console.log('Account created!');
       loginError.textContent = '';
       loginError.style.color = '#00ffcc';
       loginError.textContent = '✅ Account created! Logging in...';
@@ -94,19 +105,26 @@ loginBtn.addEventListener('click', async () => {
       }, 500);
     } else {
       // Existing – verify password
+      console.log('Admin found. Verifying password...');
       const adminDoc = snapshot.docs[0];
       const storedHash = adminDoc.data().passwordHash;
+      console.log('Stored hash:', storedHash.substring(0, 10) + '...');
+      console.log('Entered hash:', hashedPassword.substring(0, 10) + '...');
+      
       if (hashedPassword === storedHash) {
+        console.log('Password matched! Logging in...');
         setLoggedIn(email);
         loginPage.style.display = 'none';
         dashboard.style.display = 'block';
         loginError.textContent = '';
         listenToData();
       } else {
+        console.log('Password mismatch!');
         loginError.textContent = '❌ Incorrect password.';
       }
     }
   } catch (e) {
+    console.error('Login error:', e);
     loginError.textContent = 'Error: ' + e.message;
   }
 });
@@ -120,18 +138,27 @@ let allMatches = [];
 function setStatus(msg, isError = false) {
   statusMsg.textContent = msg;
   statusMsg.style.color = isError ? '#ff6b6b' : '#00ffcc';
+  console.log('Status:', msg);
 }
 
 // ===== Firestore listeners =====
 function listenToData() {
+  console.log('Starting Firestore listeners...');
   onSnapshot(collection(db, 'teams'), (snap) => {
     allTeams = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    console.log('Teams updated:', allTeams.length);
     renderTeams();
+  }, (error) => {
+    console.error('Teams listener error:', error);
   });
+  
   const q = query(collection(db, 'matches'), orderBy('round', 'asc'));
   onSnapshot(q, (snap) => {
     allMatches = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    console.log('Matches updated:', allMatches.length);
     renderMatches();
+  }, (error) => {
+    console.error('Matches listener error:', error);
   });
 }
 
@@ -154,7 +181,10 @@ addTeamBtn.addEventListener('click', async () => {
     await addDoc(collection(db, 'teams'), { name, eliminated: false });
     teamNameInput.value = '';
     setStatus(`Added ${name}`);
-  } catch (e) { setStatus(e.message, true); }
+  } catch (e) { 
+    console.error('Add team error:', e);
+    setStatus(e.message, true); 
+  }
 });
 
 // ===== Render matches =====
@@ -207,12 +237,18 @@ async function saveMatchResult(matchId, homeScore, awayScore) {
       homeScore, awayScore, status: 'played'
     });
     setStatus('Score saved!');
-  } catch (e) { setStatus(e.message, true); }
+  } catch (e) { 
+    console.error('Save score error:', e);
+    setStatus(e.message, true); 
+  }
 }
 
 // ===== Generate next round =====
 generateBtn.addEventListener('click', async () => {
+  console.log('Generate button clicked');
   const active = allTeams.filter(t => !t.eliminated);
+  console.log('Active teams:', active.length);
+  
   if (active.length < 2) return setStatus('Need at least 2 active teams.', true);
 
   const groupMatches = allMatches.filter(m => m.stage === 'group');
@@ -250,6 +286,8 @@ generateBtn.addEventListener('click', async () => {
     const nextRound = lastRound + 1;
     const names = active.map(t => t.name);
     const allRounds = generateRoundRobin(names);
+    console.log('All rounds:', allRounds.length);
+    
     if (nextRound > allRounds.length) {
       return setStatus('All rounds generated. Time to trim bottom 2.', true);
     }
@@ -328,6 +366,7 @@ async function generateFinal(activeTeams, semiMatches) {
 }
 
 trimBtn.addEventListener('click', async () => {
+  console.log('Trim button clicked');
   const active = allTeams.filter(t => !t.eliminated);
   if (active.length <= 4) return setStatus('Cannot trim when 4 or fewer remain.', true);
   const groupPlayed = allMatches.filter(m => m.stage === 'group' && m.status === 'played');
