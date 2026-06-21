@@ -3,23 +3,43 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin – eFootball Tournament</title>
+  <title>Admin – eFootball Cup</title>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <!-- Login Page (shown when not logged in) -->
-  <div id="login-page">
-    <div class="login-box glass-card">
-      <h2>⚽ Admin Login</h2>
-      <input type="email" id="login-email" placeholder="Email" />
-      <input type="password" id="login-password" placeholder="Password" />
-      <button class="neon-btn" id="login-btn">Login / Register</button>
-      <p id="login-error" class="error"></p>
+  <!-- ===== LOGIN / REGISTER PAGE ===== -->
+  <div id="auth-page">
+    <div class="auth-box glass-card">
+      <h2>⚽ Admin</h2>
+      
+      <!-- Tab Buttons -->
+      <div class="auth-tabs">
+        <button id="login-tab" class="auth-tab active">Login</button>
+        <button id="register-tab" class="auth-tab">Register</button>
+      </div>
+
+      <!-- Login Form -->
+      <div id="login-form" class="auth-form">
+        <input type="email" id="login-email" placeholder="Email" />
+        <input type="password" id="login-password" placeholder="Password" />
+        <button class="neon-btn full" id="login-btn">Login</button>
+        <p id="login-error" class="auth-error"></p>
+      </div>
+
+      <!-- Register Form -->
+      <div id="register-form" class="auth-form" style="display:none;">
+        <input type="email" id="register-email" placeholder="Email" />
+        <input type="password" id="register-password" placeholder="Password (min 6 chars)" />
+        <input type="password" id="register-confirm" placeholder="Confirm Password" />
+        <button class="neon-btn full" id="register-btn">Register</button>
+        <p id="register-error" class="auth-error"></p>
+        <p id="register-success" class="auth-success" style="display:none;"></p>
+      </div>
     </div>
   </div>
 
-  <!-- Dashboard (hidden until logged in) -->
+  <!-- ===== DASHBOARD (hidden until logged in) ===== -->
   <div id="admin-dashboard" style="display:none;">
     <header>
       <h1>⚽ Admin Panel</h1>
