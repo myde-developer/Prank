@@ -2,7 +2,7 @@ import { db } from "./firebase-config.js";
 import { 
   ref, set, update, push, onValue, get, child 
 } from "firebase/database";
-import { generateRoundRobin, calculateStandings } from "./tournament-engine.js";
+import { generateDoubleRoundRobin, calculateStandings } from "./tournament-engine.js";
 
 // ===== TOAST SYSTEM =====
 function showToast(message, type = 'success') {
@@ -445,7 +445,7 @@ async function saveMatchResult(matchId, homeScore, awayScore) {
   }
 }
 
-// ===== GENERATE NEXT ROUND =====
+// ===== GENERATE NEXT ROUND (Double Round-Robin) =====
 generateBtn.addEventListener('click', async () => {
   const active = allTeams.filter(t => !t.eliminated);
   if (active.length < 2) {
@@ -457,70 +457,96 @@ generateBtn.addEventListener('click', async () => {
   const semiMatches = allMatches.filter(m => m.stage === 'semi');
   const finalMatches = allMatches.filter(m => m.stage === 'final');
 
-  if (active.length === 4) {
-    if (semiMatches.length === 0) {
-      await generateSemiLeg(active, 1);
-      showToast('✅ Semi Final Leg 1 generated.', 'success');
+  // ---- 4 teams or fewer => knockout ----
+  if (active.length <= 4) {
+    if (active.length === 4) {
+      if (semiMatches.length === 0) {
+        await generateSemiLeg(active, 1);
+        showToast('✅ Semi Final Leg 1 generated.', 'success');
+        return;
+      }
+      const leg1 = semiMatches.filter(m => m.leg === 1);
+      const leg1Played = leg1.every(m => m.status === 'played');
+      if (leg1Played && leg1.length > 0) {
+        const leg2 = semiMatches.filter(m => m.leg === 2);
+        if (leg2.length === 0) {
+          await generateSemiLeg(active, 2);
+          showToast('✅ Semi Final Leg 2 generated.', 'success');
+          return;
+        }
+        const leg2Played = leg2.every(m => m.status === 'played');
+        if (leg2Played && finalMatches.length === 0) {
+          await generateFinal(active, semiMatches);
+          showToast('✅ Final generated!', 'success');
+          return;
+        }
+        if (leg2Played && finalMatches.length > 0) {
+          showToast('🏆 Tournament complete!', 'info');
+          return;
+        }
+        showToast('⏳ Please finish Leg 2 first.', 'info');
+        return;
+      }
+      showToast('⏳ Please finish Leg 1 first.', 'info');
+      return;
+    } else {
+      // 2 or 3 teams - can't do knockout
+      showToast('⏳ Need exactly 4 teams for knockout stage.', 'info');
       return;
     }
-    const leg1 = semiMatches.filter(m => m.leg === 1);
-    const leg1Played = leg1.every(m => m.status === 'played');
-    if (leg1Played && leg1.length > 0) {
-      const leg2 = semiMatches.filter(m => m.leg === 2);
-      if (leg2.length === 0) {
-        await generateSemiLeg(active, 2);
-        showToast('✅ Semi Final Leg 2 generated.', 'success');
-        return;
-      }
-      const leg2Played = leg2.every(m => m.status === 'played');
-      if (leg2Played && finalMatches.length === 0) {
-        await generateFinal(active, semiMatches);
-        showToast('✅ Final generated!', 'success');
-        return;
-      }
-      if (leg2Played && finalMatches.length > 0) {
-        showToast('🏆 Tournament complete!', 'info');
-        return;
-      }
-      showToast('⏳ Please finish Leg 2 first.', 'info');
-      return;
-    }
-    showToast('⏳ Please finish Leg 1 first.', 'info');
+  }
+
+  // ---- More than 4 teams => Double Round-Robin ----
+  const names = active.map(t => t.name);
+  const doubleRR = generateDoubleRoundRobin(names);
+  const totalRounds = doubleRR.totalRounds;
+
+  const lastRound = groupMatches.reduce((max, m) => Math.max(max, m.round), 0);
+  const nextRound = lastRound + 1;
+
+  if (nextRound > totalRounds) {
+    showToast('⏳ All rounds generated! Season complete.', 'info');
     return;
   }
 
-  if (active.length > 4) {
-    const lastRound = groupMatches.reduce((max, m) => Math.max(max, m.round), 0);
-    const nextRound = lastRound + 1;
-    const names = active.map(t => t.name);
-    const allRounds = generateRoundRobin(names);
-    if (nextRound > allRounds.length) {
-      showToast('⏳ All rounds generated. Time to trim bottom 2.', 'info');
-      return;
-    }
-    const roundFixtures = allRounds[nextRound - 1];
-    if (!roundFixtures || roundFixtures.length === 0) {
-      showToast('❌ No fixtures to generate.', 'error');
-      return;
-    }
-    for (const f of roundFixtures) {
-      const newMatchRef = push(ref(db, 'matches'));
-      await set(newMatchRef, {
-        homeTeam: f.home,
-        awayTeam: f.away,
-        round: nextRound,
-        stage: 'group',
-        status: 'pending',
-        homeScore: 0,
-        awayScore: 0,
-        leg: 0
-      });
-    }
-    setStatus(`Round ${nextRound} generated (${roundFixtures.length} matches).`);
-    showToast(`✅ Round ${nextRound} generated.`, 'success');
+  const firstHalfRounds = doubleRR.firstHalf.length;
+  let roundFixtures = [];
+  let roundLabel = '';
+
+  if (nextRound <= firstHalfRounds) {
+    roundFixtures = doubleRR.firstHalf[nextRound - 1];
+    roundLabel = `Round ${nextRound} (First Half)`;
+  } else {
+    const secondHalfIndex = nextRound - firstHalfRounds - 1;
+    roundFixtures = doubleRR.secondHalf[secondHalfIndex];
+    roundLabel = `Round ${nextRound} (Second Half)`;
   }
+
+  if (!roundFixtures || roundFixtures.length === 0) {
+    showToast('❌ No fixtures to generate.', 'error');
+    return;
+  }
+
+  for (const f of roundFixtures) {
+    const newMatchRef = push(ref(db, 'matches'));
+    await set(newMatchRef, {
+      homeTeam: f.home,
+      awayTeam: f.away,
+      round: nextRound,
+      stage: 'group',
+      status: 'pending',
+      homeScore: 0,
+      awayScore: 0,
+      leg: 0,
+      half: nextRound <= firstHalfRounds ? 'first' : 'second'
+    });
+  }
+
+  setStatus(`${roundLabel} generated (${roundFixtures.length} matches).`);
+  showToast(`✅ ${roundLabel} generated.`, 'success');
 });
 
+// ----- Helper: generate semi leg -----
 async function generateSemiLeg(activeTeams, leg) {
   const groupPlayed = allMatches.filter(m => m.stage === 'group' && m.status === 'played');
   const standings = calculateStandings(groupPlayed);
@@ -548,6 +574,7 @@ async function generateSemiLeg(activeTeams, leg) {
   }
 }
 
+// ----- Helper: generate final -----
 async function generateFinal(activeTeams, semiMatches) {
   const leg1 = semiMatches.filter(m => m.leg === 1);
   const leg2 = semiMatches.filter(m => m.leg === 2);
@@ -577,6 +604,7 @@ async function generateFinal(activeTeams, semiMatches) {
   });
 }
 
+// ===== TRIM BOTTOM 2 =====
 trimBtn.addEventListener('click', async () => {
   const active = allTeams.filter(t => !t.eliminated);
   if (active.length <= 4) {

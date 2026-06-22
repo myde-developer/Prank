@@ -1,3 +1,9 @@
+/**
+ * Generates a single round-robin fixture list.
+ * Returns an array of rounds, each round is an array of matches:
+ *   { home: string, away: string }
+ * If odd number of teams, adds a "BYE" (ignored later).
+ */
 export function generateRoundRobin(teamNames) {
   if (teamNames.length < 2) return [];
   const teams = [...teamNames];
@@ -13,6 +19,7 @@ export function generateRoundRobin(teamNames) {
       const home = teams[i];
       const away = teams[n - 1 - i];
       if (home !== "BYE" && away !== "BYE") {
+        // Alternate home/away for fairness
         if (i === 0 && round % 2 === 1) {
           roundMatches.push({ home: away, away: home });
         } else {
@@ -21,11 +28,35 @@ export function generateRoundRobin(teamNames) {
       }
     }
     rounds.push(roundMatches);
+    // Rotate array (keep first fixed)
     teams.splice(1, 0, teams.pop());
   }
   return rounds;
 }
 
+/**
+ * Generates a DOUBLE round-robin fixture list.
+ * First half: normal fixtures.
+ * Second half: mirrors first half with home/away swapped.
+ * Returns an object: { firstHalf: [rounds], secondHalf: [rounds], totalRounds: number }
+ */
+export function generateDoubleRoundRobin(teamNames) {
+  const firstHalf = generateRoundRobin(teamNames);
+  const secondHalf = firstHalf.map(round =>
+    round.map(match => ({ home: match.away, away: match.home }))
+  );
+  return {
+    firstHalf,
+    secondHalf,
+    totalRounds: firstHalf.length * 2
+  };
+}
+
+/**
+ * Calculates standings from an array of matches (only 'played' ones).
+ * Returns array sorted by: Points > Goal Difference > Goals For.
+ * Each entry: { team, played, won, drawn, lost, gf, ga, gd, pts }
+ */
 export function calculateStandings(matches) {
   const stats = {};
   matches.forEach(m => {
