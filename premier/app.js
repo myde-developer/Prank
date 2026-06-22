@@ -1972,6 +1972,85 @@ function showTeamDetails(teamName) {
 }
 function closeTeamModal() { document.getElementById('team-modal').classList.add('hidden'); }
 
+// ==================== UPCOMING FIXTURES MODAL ====================
+function showUpcomingFixtures(teamName) {
+    if (!teamName) {
+        showToast("Team name not found");
+        return;
+    }
+    
+    // Filter unplayed, not cancelled fixtures for this team
+    const upcoming = fixtures.filter(f =>
+        (f.home === teamName || f.away === teamName) &&
+        !f.played &&
+        !f.cancelled
+    );
+    
+    // For viewers, only show released gameweeks
+    const isAdmin = userRole === 'admin';
+    const filtered = upcoming.filter(f => isAdmin || isGameweekReleased(f.round));
+    
+    // Sort by round
+    filtered.sort((a, b) => a.round - b.round);
+    
+    const modal = document.getElementById('upcoming-fixtures-modal');
+    const teamNameSpan = document.getElementById('upcoming-team-name');
+    const listContainer = document.getElementById('upcoming-fixtures-list');
+    
+    if (!modal || !teamNameSpan || !listContainer) {
+        showToast("Modal elements not found");
+        return;
+    }
+    
+    teamNameSpan.innerText = `📌 ${teamName}`;
+    
+    if (filtered.length === 0) {
+        listContainer.innerHTML = `
+            <div class="text-center text-gray-400 py-6">
+                <span class="text-3xl block mb-2">✅</span>
+                <p>No upcoming fixtures for ${teamName}</p>
+                <p class="text-xs mt-1">All matches played or released?</p>
+            </div>
+        `;
+    } else {
+        listContainer.innerHTML = filtered.map(f => {
+            const isHome = f.home === teamName;
+            const opponent = isHome ? f.away : f.home;
+            const location = isHome ? '🏠 Home' : '✈️ Away';
+            const isReleased = isGameweekReleased(f.round);
+            const status = f.played ? '✅ Played' : (isReleased ? '📢 Released' : '🔒 Locked');
+            const statusColor = f.played ? 'text-green-600' : (isReleased ? 'text-emerald-600' : 'text-gray-400');
+            
+            return `
+                <div class="bg-gray-50 rounded-xl p-3 border border-gray-200 flex flex-wrap justify-between items-center gap-2">
+                    <div class="flex-1 min-w-[120px]">
+                        <span class="font-mono text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">GW ${f.round}</span>
+                        <span class="text-xs font-medium ml-2">${location}</span>
+                    </div>
+                    <div class="flex-1 text-center font-semibold text-sm">
+                        ${isHome ? teamName : opponent} vs ${isHome ? opponent : teamName}
+                    </div>
+                    <div class="text-xs font-mono ${statusColor}">
+                        ${status}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    // Show modal
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeUpcomingFixturesModal() {
+    const modal = document.getElementById('upcoming-fixtures-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
 // ==================== RICH REPORT ====================
 function generateRichReportFromEvents(home, away, homeScore, awayScore, events) {
     const goalEvents = events.filter(e => e.type === 'goal');
