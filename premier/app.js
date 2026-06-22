@@ -2828,3 +2828,5 @@ window.toggleGameweekRelease = toggleGameweekRelease;
 window.releaseNextRound = releaseNextRound;
 window.lockGameweek = lockGameweek;
 window.isGameweekReleased = isGameweekReleased;
+window.showUpcomingFixtures = showUpcomingFixtures;
+window.closeUpcomingFixturesModal = closeUpcomingFixturesModal;

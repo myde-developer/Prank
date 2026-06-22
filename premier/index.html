@@ -148,53 +148,64 @@
     </main>
 
     <!-- ====== MODALS ====== -->
-
-    <!-- Team Modal -->
-    <div id="team-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-gray-200 overflow-y-auto max-h-[90vh]">
-            <div class="p-5 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white">
-                <h3 id="team-modal-name" class="text-xl font-bold text-gray-800"></h3>
-                <button onclick="closeTeamModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+<!-- Team Modal -->
+<div id="team-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-gray-200 overflow-y-auto max-h-[90vh]">
+        <div class="p-5 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white">
+            <h3 id="team-modal-name" class="text-xl font-bold text-gray-800"></h3>
+            <button onclick="closeTeamModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+        </div>
+        <div class="p-5 space-y-5">
+            <!-- Basic stats -->
+            <div class="grid grid-cols-2 gap-3 text-sm">
+                <div class="bg-gray-50 p-3 rounded-xl text-center">
+                    <p class="text-gray-500 text-xs">Matches</p>
+                    <p class="text-2xl font-bold" id="modal-mp">-</p>
+                </div>
+                <div class="bg-gray-50 p-3 rounded-xl text-center">
+                    <p class="text-gray-500 text-xs">Points</p>
+                    <p class="text-2xl font-bold text-indigo-600" id="modal-pts">-</p>
+                </div>
             </div>
-            <div class="p-5 space-y-5">
-                <div class="grid grid-cols-2 gap-3 text-sm">
-                    <div class="bg-gray-50 p-3 rounded-xl text-center"><p class="text-gray-500 text-xs">Matches</p><p class="text-2xl font-bold" id="modal-mp">-</p></div>
-                    <div class="bg-gray-50 p-3 rounded-xl text-center"><p class="text-gray-500 text-xs">Points</p><p class="text-2xl font-bold text-indigo-600" id="modal-pts">-</p></div>
-                </div>
-                <div class="grid grid-cols-3 gap-2 text-center">
-                    <div><p class="text-emerald-600 font-bold text-lg" id="modal-w">-</p><p class="text-[10px] text-gray-500">Wins</p></div>
-                    <div><p class="text-amber-600 font-bold text-lg" id="modal-d">-</p><p class="text-[10px] text-gray-500">Draws</p></div>
-                    <div><p class="text-rose-600 font-bold text-lg" id="modal-l">-</p><p class="text-[10px] text-gray-500">Losses</p></div>
-                </div>
-                <div class="grid grid-cols-2 gap-2 text-center">
-                    <div><span class="text-gray-700 font-medium">GF:</span> <span id="modal-gf">-</span></div>
-                    <div><span class="text-gray-700 font-medium">GA:</span> <span id="modal-ga">-</span></div>
-                    <div><span class="text-gray-700 font-medium">GD:</span> <span id="modal-gd" class="font-bold">-</span></div>
-                    <div><span class="text-gray-700 font-medium">Penalty:</span> <span id="modal-penalty" class="text-rose-500">-</span></div>
-                </div>
-                <div class="border-t pt-3 mt-2">
-                    <p class="text-xs font-bold text-gray-500 mb-2">📊 Advanced Stats</p>
-                    <div class="grid grid-cols-2 gap-2 text-sm">
-                        <div class="bg-indigo-50/30 p-2 rounded-lg text-center"><span class="text-gray-600 text-xs">Clean sheets</span><br><span id="modal-clean-sheets" class="font-bold text-indigo-600">-</span></div>
-                        <div class="bg-indigo-50/30 p-2 rounded-lg text-center"><span class="text-gray-600 text-xs">Avg GF/match</span><br><span id="modal-avg-gf" class="font-bold">-</span></div>
-                    </div>
-                    <div class="mt-2">
-                        <p class="text-xs text-gray-500">🏠 Home record (W-D-L): <span id="modal-home-record" class="font-mono">-</span></p>
-                        <p class="text-xs text-gray-500">✈️ Away record (W-D-L): <span id="modal-away-record" class="font-mono">-</span></p>
-                    </div>
-                </div>
-                <div><p class="text-xs font-semibold text-gray-500 mb-2">Recent Form (last 5)</p><div id="modal-form" class="flex gap-2 justify-center"></div></div>
-                <p id="modal-summary" class="text-xs text-gray-600 italic bg-gray-50 p-3 rounded-xl"></p>
+            <div class="grid grid-cols-3 gap-2 text-center">
+                <div><p class="text-emerald-600 font-bold text-lg" id="modal-w">-</p><p class="text-[10px] text-gray-500">Wins</p></div>
+                <div><p class="text-amber-600 font-bold text-lg" id="modal-d">-</p><p class="text-[10px] text-gray-500">Draws</p></div>
+                <div><p class="text-rose-600 font-bold text-lg" id="modal-l">-</p><p class="text-[10px] text-gray-500">Losses</p></div>
             </div>
-            <div class="p-4 bg-gray-50 flex flex-wrap gap-2 justify-end rounded-b-2xl">
-                <button onclick="closeTeamModal()" class="px-5 py-2 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition">Close</button>
-                <!-- NEW: Upcoming Fixtures button (visible to everyone) -->
-                <button onclick="showUpcomingFixtures('' + (document.getElementById('team-modal-name')?.innerText || ''))" class="px-5 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">📅 Upcoming Fixtures</button>
-                <button id="modal-penalty-btn" onclick="closeTeamModal(); openPenaltyModal('')" class="hidden px-5 py-2 text-sm font-medium bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition">⚖️ Edit Penalty</button>
-                <button id="modal-replace-btn" onclick="closeTeamModal(); openReplaceTeamModal('')" class="hidden px-5 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">🔄 Replace Team</button>
+            <div class="grid grid-cols-2 gap-2 text-center">
+                <div><span class="text-gray-700 font-medium">GF:</span> <span id="modal-gf">-</span></div>
+                <div><span class="text-gray-700 font-medium">GA:</span> <span id="modal-ga">-</span></div>
+                <div><span class="text-gray-700 font-medium">GD:</span> <span id="modal-gd" class="font-bold">-</span></div>
+                <div><span class="text-gray-700 font-medium">Penalty:</span> <span id="modal-penalty" class="text-rose-500">-</span></div>
             </div>
+            <!-- Advanced stats -->
+            <div class="border-t pt-3 mt-2">
+                <p class="text-xs font-bold text-gray-500 mb-2">📊 Advanced Stats</p>
+                <div class="grid grid-cols-2 gap-2 text-sm">
+                    <div class="bg-indigo-50/30 p-2 rounded-lg text-center"><span class="text-gray-600 text-xs">Clean sheets</span><br><span id="modal-clean-sheets" class="font-bold text-indigo-600">-</span></div>
+                    <div class="bg-indigo-50/30 p-2 rounded-lg text-center"><span class="text-gray-600 text-xs">Avg GF/match</span><br><span id="modal-avg-gf" class="font-bold">-</span></div>
+                </div>
+                <div class="mt-2">
+                    <p class="text-xs text-gray-500">🏠 Home record (W-D-L): <span id="modal-home-record" class="font-mono">-</span></p>
+                    <p class="text-xs text-gray-500">✈️ Away record (W-D-L): <span id="modal-away-record" class="font-mono">-</span></p>
+                </div>
+            </div>
+            <!-- Form -->
+            <div><p class="text-xs font-semibold text-gray-500 mb-2">Recent Form (last 5)</p><div id="modal-form" class="flex gap-2 justify-center"></div></div>
+            <!-- Summary -->
+            <p id="modal-summary" class="text-xs text-gray-600 italic bg-gray-50 p-3 rounded-xl"></p>
+        </div>
+        <!-- Footer with buttons -->
+        <div class="p-4 bg-gray-50 flex flex-wrap gap-2 justify-end rounded-b-2xl">
+            <button onclick="closeTeamModal()" class="px-5 py-2 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition">Close</button>
+            <!-- NEW Upcoming Fixtures button -->
+            <button onclick="showUpcomingFixtures(document.getElementById('team-modal-name').innerText)" class="px-5 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">📅 Upcoming Fixtures</button>
+            <!-- Admin-only buttons (hidden by default, shown via JS when admin) -->
+            <button id="modal-penalty-btn" onclick="closeTeamModal(); openPenaltyModal(document.getElementById('team-modal-name').innerText)" class="hidden px-5 py-2 text-sm font-medium bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition">⚖️ Edit Penalty</button>
+            <button id="modal-replace-btn" onclick="closeTeamModal(); openReplaceTeamModal(document.getElementById('team-modal-name').innerText)" class="hidden px-5 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">🔄 Replace Team</button>
         </div>
     </div>
+</div>
 
     <!-- Upcoming Fixtures Modal -->
     <div id="upcoming-fixtures-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
