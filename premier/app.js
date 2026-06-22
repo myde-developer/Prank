@@ -1965,40 +1965,43 @@ function showTeamDetails(teamName) {
     document.getElementById('team-modal').classList.remove('hidden');
     document.getElementById('team-modal').classList.add('flex');
 }
-function closeTeamModal() { document.getElementById('team-modal').classList.add('hidden'); }
 
+function closeTeamModal() {
+    const modal = document.getElementById('team-modal');
+    if (modal) modal.remove();
+}
 // ==================== UPCOMING FIXTURES MODAL ====================
 function showUpcomingFixtures(teamName) {
+    // Close the team modal first
+    closeTeamModal();
+
     if (!teamName) {
         showToast("Team name not found");
         return;
     }
-    
-    // Filter unplayed, not cancelled fixtures for this team
+
+    // Rest of the function – filter fixtures, build list, show modal
     const upcoming = fixtures.filter(f =>
         (f.home === teamName || f.away === teamName) &&
         !f.played &&
         !f.cancelled
     );
-    
-    // For viewers, only show released gameweeks
+
     const isAdmin = userRole === 'admin';
     const filtered = upcoming.filter(f => isAdmin || isGameweekReleased(f.round));
-    
-    // Sort by round
     filtered.sort((a, b) => a.round - b.round);
-    
+
     const modal = document.getElementById('upcoming-fixtures-modal');
     const teamNameSpan = document.getElementById('upcoming-team-name');
     const listContainer = document.getElementById('upcoming-fixtures-list');
-    
+
     if (!modal || !teamNameSpan || !listContainer) {
         showToast("Modal elements not found");
         return;
     }
-    
+
     teamNameSpan.innerText = `📌 ${teamName}`;
-    
+
     if (filtered.length === 0) {
         listContainer.innerHTML = `
             <div class="text-center text-gray-400 py-6">
@@ -2013,9 +2016,9 @@ function showUpcomingFixtures(teamName) {
             const opponent = isHome ? f.away : f.home;
             const location = isHome ? '🏠 Home' : '✈️ Away';
             const isReleased = isGameweekReleased(f.round);
-            const status = f.played ? '✅ Played' : (isReleased ? '📢 Released' : '🔒 Locked');
-            const statusColor = f.played ? 'text-green-600' : (isReleased ? 'text-emerald-600' : 'text-gray-400');
-            
+            const status = isReleased ? '📢 Released' : '🔒 Locked';
+            const statusColor = isReleased ? 'text-emerald-600' : 'text-gray-400';
+
             return `
                 <div class="bg-gray-50 rounded-xl p-3 border border-gray-200 flex flex-wrap justify-between items-center gap-2">
                     <div class="flex-1 min-w-[120px]">
@@ -2032,8 +2035,8 @@ function showUpcomingFixtures(teamName) {
             `;
         }).join('');
     }
-    
-    // Show modal
+
+    // Show upcoming fixtures modal
     modal.classList.remove('hidden');
     modal.classList.add('flex');
 }
