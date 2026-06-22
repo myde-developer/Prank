@@ -1717,27 +1717,25 @@ function renderFixtures() {
 function showTeamDetails(teamName) {
     const team = teams[teamName];
     if (!team) return;
-    
+
     // Get all matches for this team
-    const teamMatches = fixtures.filter(f => 
-        (f.home === teamName || f.away === teamName) && 
-        f.played && 
+    const teamMatches = fixtures.filter(f =>
+        (f.home === teamName || f.away === teamName) &&
+        f.played &&
         !f.cancelled
-    ).sort((a, b) => b.round - a.round); // Most recent first
-    
-    // Calculate advanced stats
+    ).sort((a, b) => b.round - a.round);
+
+    // Calculate advanced stats (same as before)
     let cleanSheets = 0;
     let homeWins = 0, homeDraws = 0, homeLosses = 0;
     let homeGF = 0, homeGA = 0;
     let awayWins = 0, awayDraws = 0, awayLosses = 0;
     let awayGF = 0, awayGA = 0;
-    let goalsScored = [];
-    let goalsConceded = [];
+    let goalsScored = [], goalsConceded = [];
     let biggestWin = { score: "", opponent: "" };
     let biggestLoss = { score: "", opponent: "" };
     let currentStreak = { type: "", length: 0 };
-    
-    // Process each match
+
     teamMatches.forEach(f => {
         const isHome = f.home === teamName;
         const scored = isHome ? f.homeScore : f.awayScore;
@@ -1745,15 +1743,11 @@ function showTeamDetails(teamName) {
         const opponent = isHome ? f.away : f.home;
         const won = (isHome && f.homeScore > f.awayScore) || (!isHome && f.awayScore > f.homeScore);
         const lost = (isHome && f.homeScore < f.awayScore) || (!isHome && f.awayScore < f.homeScore);
-        
-        // Clean sheets
+
         if (conceded === 0) cleanSheets++;
-        
-        // Goals tracking
         goalsScored.push(scored);
         goalsConceded.push(conceded);
-        
-        // Biggest win/loss
+
         const margin = scored - conceded;
         if (margin > 0 && margin > (parseInt(biggestWin.score.split('-')[0]) || 0)) {
             biggestWin = { score: `${scored}-${conceded}`, opponent };
@@ -1761,8 +1755,7 @@ function showTeamDetails(teamName) {
         if (margin < 0 && Math.abs(margin) > (parseInt(biggestLoss.score.split('-')[1]) || 0)) {
             biggestLoss = { score: `${scored}-${conceded}`, opponent };
         }
-        
-        // Home/Away breakdown
+
         if (isHome) {
             if (won) homeWins++;
             else if (lost) homeLosses++;
@@ -1777,46 +1770,37 @@ function showTeamDetails(teamName) {
             awayGA += conceded;
         }
     });
-    
-    // Calculate current streak
+
+    // Current streak
     if (teamMatches.length > 0) {
-        let streak = 0;
-        let streakType = null;
+        let streak = 0, streakType = null;
         for (let i = 0; i < teamMatches.length; i++) {
             const f = teamMatches[i];
             const isHome = f.home === teamName;
             const won = (isHome && f.homeScore > f.awayScore) || (!isHome && f.awayScore > f.homeScore);
             const lost = (isHome && f.homeScore < f.awayScore) || (!isHome && f.awayScore < f.homeScore);
-            
             if (i === 0) {
                 streakType = won ? 'W' : (lost ? 'L' : 'D');
                 streak = 1;
             } else {
                 const prevWon = (teamMatches[i-1].home === teamName && teamMatches[i-1].homeScore > teamMatches[i-1].awayScore) ||
-                               (teamMatches[i-1].away === teamName && teamMatches[i-1].awayScore > teamMatches[i-1].homeScore);
+                                (teamMatches[i-1].away === teamName && teamMatches[i-1].awayScore > teamMatches[i-1].homeScore);
                 const prevLost = (teamMatches[i-1].home === teamName && teamMatches[i-1].homeScore < teamMatches[i-1].awayScore) ||
-                                (teamMatches[i-1].away === teamName && teamMatches[i-1].awayScore < teamMatches[i-1].homeScore);
+                                 (teamMatches[i-1].away === teamName && teamMatches[i-1].awayScore < teamMatches[i-1].homeScore);
                 const prevType = prevWon ? 'W' : (prevLost ? 'L' : 'D');
-                
                 if ((won && prevType === 'W') || (lost && prevType === 'L') || (!won && !lost && prevType === 'D')) {
                     streak++;
-                } else {
-                    break;
-                }
+                } else break;
             }
         }
         currentStreak = { type: streakType, length: streak };
     }
-    
+
+    const ppg = (team.pts / (team.mp || 1)).toFixed(2);
     const streakColor = currentStreak.type === 'W' ? 'text-emerald-600' : (currentStreak.type === 'L' ? 'text-rose-600' : 'text-amber-600');
     const streakIcon = currentStreak.type === 'W' ? '🔥' : (currentStreak.type === 'L' ? '📉' : '🤝');
-    
-    // Calculate PPG and form ranking
-    const ppg = (team.pts / (team.mp || 1)).toFixed(2);
-    const avgGF = (team.gf / (team.mp || 1)).toFixed(2);
-    const avgGA = (team.ga / (team.mp || 1)).toFixed(2);
-    
-    // Build match history HTML
+
+    // Match history HTML
     let matchHistoryHtml = '';
     if (teamMatches.length > 0) {
         matchHistoryHtml = teamMatches.slice(0, 8).map(f => {
@@ -1829,7 +1813,6 @@ function showTeamDetails(teamName) {
             const resultClass = won ? 'bg-emerald-100 text-emerald-700' : (lost ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700');
             const resultIcon = won ? 'W' : (lost ? 'L' : 'D');
             const locationIcon = isHome ? '🏠' : '✈️';
-            
             return `
                 <div class="flex items-center justify-between p-2 border-b border-gray-100 hover:bg-gray-50 rounded-lg transition">
                     <div class="flex items-center gap-2 w-24">
@@ -1849,12 +1832,26 @@ function showTeamDetails(teamName) {
     } else {
         matchHistoryHtml = '<p class="text-gray-400 text-sm text-center py-4">No matches played yet</p>';
     }
-    
-    // Build the modal HTML
+
+    // Build footer buttons
+    let footerButtons = `
+        <button onclick="closeTeamModal()" class="px-5 py-2 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition">Close</button>
+        <button onclick="showUpcomingFixtures('${teamName}')" class="px-5 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">📅 Upcoming Fixtures</button>
+    `;
+
+    // Admin-only buttons
+    if (isAdmin) {
+        footerButtons += `
+            <button onclick="closeTeamModal(); openPenaltyModal('${teamName}')" class="px-5 py-2 text-sm font-medium bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition">⚖️ Edit Penalty</button>
+            <button onclick="closeTeamModal(); openReplaceTeamModal('${teamName}')" class="px-5 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">🔄 Replace Team</button>
+        `;
+    }
+
+    // Build the full modal HTML
     const modalHtml = `
         <div id="team-modal" class="fixed inset-0 z-50 bg-gray-900/80 backdrop-blur-sm flex items-center justify-center p-4" onclick="if(event.target === this) closeTeamModal()">
             <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                <!-- Header with team name and gradient -->
+                <!-- Header -->
                 <div class="bg-gradient-to-r from-indigo-600 to-purple-600 p-5 text-white sticky top-0">
                     <div class="flex justify-between items-start">
                         <div>
@@ -1864,7 +1861,7 @@ function showTeamDetails(teamName) {
                         <button onclick="closeTeamModal()" class="text-white/80 hover:text-white text-2xl leading-5">&times;</button>
                     </div>
                 </div>
-                
+
                 <div class="p-5 space-y-5">
                     <!-- Quick Stats Grid -->
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -1885,7 +1882,7 @@ function showTeamDetails(teamName) {
                             <p class="text-[10px] text-gray-500">CONCEDED</p>
                         </div>
                     </div>
-                    
+
                     <!-- Form & Streak -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div class="bg-gray-50 rounded-xl p-3">
@@ -1904,7 +1901,7 @@ function showTeamDetails(teamName) {
                             <p class="text-lg font-bold ${streakColor}">${streakIcon} ${currentStreak.length > 0 ? currentStreak.length : 0} ${currentStreak.type === 'W' ? 'Wins' : (currentStreak.type === 'L' ? 'Losses' : 'Draws')}</p>
                         </div>
                     </div>
-                    
+
                     <!-- Home/Away Split -->
                     <div>
                         <p class="text-xs font-semibold text-gray-500 mb-2">🏠 HOME vs ✈️ AWAY</p>
@@ -1921,7 +1918,7 @@ function showTeamDetails(teamName) {
                             </div>
                         </div>
                     </div>
-                    
+
                     <!-- Records -->
                     <div class="grid grid-cols-2 gap-3">
                         <div class="bg-emerald-50 rounded-xl p-2 text-center">
@@ -1935,7 +1932,7 @@ function showTeamDetails(teamName) {
                             <p class="text-xs text-gray-600">vs ${biggestLoss.opponent || '-'}</p>
                         </div>
                     </div>
-                    
+
                     <!-- Match History -->
                     <div>
                         <p class="text-xs font-semibold text-gray-500 mb-2">📋 RECENT MATCHES</p>
@@ -1943,28 +1940,26 @@ function showTeamDetails(teamName) {
                             ${matchHistoryHtml}
                         </div>
                     </div>
-                    
-                    <!-- Penalty Info -->
+
                     ${team.deductedPoints > 0 ? `
                     <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
                         <p class="text-xs text-amber-700">⚠️ POINTS DEDUCTION: -${team.deductedPoints} points</p>
                     </div>
                     ` : ''}
                 </div>
-                
-                <div class="p-4 bg-gray-50 flex gap-3 justify-end rounded-b-2xl">
-                    <button onclick="closeTeamModal()" class="px-5 py-2 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition">Close</button>
-                    ${isAdmin ? `<button onclick="closeTeamModal(); openPenaltyModal('${team.name}')" class="px-5 py-2 text-sm font-medium bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition">⚖️ Edit Penalty</button>` : ''}
-                    ${isAdmin ? `<button onclick="closeTeamModal(); openReplaceTeamModal('${team.name}')" class="px-5 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">🔄 Replace Team</button>` : ''}
+
+                <!-- Footer with buttons -->
+                <div class="p-4 bg-gray-50 flex flex-wrap gap-2 justify-end rounded-b-2xl">
+                    ${footerButtons}
                 </div>
             </div>
         </div>
     `;
-    
+
     // Remove existing modal if any
     const existingModal = document.getElementById('team-modal');
     if (existingModal) existingModal.remove();
-    
+
     // Add new modal
     document.body.insertAdjacentHTML('beforeend', modalHtml);
     document.getElementById('team-modal').classList.remove('hidden');
