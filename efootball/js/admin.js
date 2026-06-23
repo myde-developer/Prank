@@ -388,7 +388,8 @@ addTeamBtn.addEventListener('click', async () => {
 });
 
 // ===== RENDER MATCHES =====
-function renderMatches() {
+
+async function saveMatchRefunction renderMatches() {
   if (!allMatches.length) {
     matchesContainer.innerHTML = '<p class="empty">No matches scheduled yet.</p>';
     return;
@@ -396,18 +397,21 @@ function renderMatches() {
   let html = '';
   allMatches.forEach(m => {
     const isPending = m.status === 'pending';
-    const hs = isPending ? '' : m.homeScore;
-    const as = isPending ? '' : m.awayScore;
+    // Always show current score (or empty if pending)
+    const hs = m.status === 'played' ? m.homeScore : '';
+    const as = m.status === 'played' ? m.awayScore : '';
+    const btnText = isPending ? 'Save Score' : 'Update Score';
+    const playedClass = isPending ? '' : ' played-match';
     html += `
-      <div class="match-admin-card" data-id="${m.id}">
+      <div class="match-admin-card${playedClass}" data-id="${m.id}">
         <span class="match-teams">${m.homeTeam} vs ${m.awayTeam}</span>
         <div class="score-inputs">
-          <input type="number" min="0" max="99" class="score-home" value="${hs}" ${isPending ? '' : 'disabled'} />
+          <input type="number" min="0" max="99" class="score-home" value="${hs}" />
           <span>–</span>
-          <input type="number" min="0" max="99" class="score-away" value="${as}" ${isPending ? '' : 'disabled'} />
+          <input type="number" min="0" max="99" class="score-away" value="${as}" />
         </div>
-        <button class="save-score-btn neon-btn small" data-id="${m.id}" ${isPending ? '' : 'disabled'}>
-          ${isPending ? 'Save Score' : '✓ Played'}
+        <button class="save-score-btn neon-btn small" data-id="${m.id}">
+          ${btnText}
         </button>
         <span class="match-stage-badge">${m.stage === 'semi' ? '🔹 Semi' : m.stage === 'final' ? '🏆 Final' : `R${m.round}`}</span>
       </div>
@@ -415,6 +419,7 @@ function renderMatches() {
   });
   matchesContainer.innerHTML = html;
 
+  // Attach click events to all save buttons
   document.querySelectorAll('.save-score-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const card = e.target.closest('.match-admin-card');
@@ -435,10 +440,12 @@ function renderMatches() {
 async function saveMatchResult(matchId, homeScore, awayScore) {
   try {
     await update(ref(db, `matches/${matchId}`), {
-      homeScore, awayScore, status: 'played'
+      homeScore,
+      awayScore,
+      status: 'played'
     });
-    setStatus('Score saved!');
-    showToast('✅ Score saved!', 'success');
+    setStatus('Score saved/updated!');
+    showToast('✅ Score saved/updated!', 'success');
   } catch (e) { 
     setStatus(e.message, true);
     showToast('❌ ' + e.message, 'error');
