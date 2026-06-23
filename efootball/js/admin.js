@@ -40,7 +40,6 @@ const addTeamBtn = document.getElementById('add-team-btn');
 const teamList = document.getElementById('team-list');
 const activeCount = document.getElementById('active-count');
 const generateBtn = document.getElementById('generate-btn');
-const trimBtn = document.getElementById('trim-btn');
 const statusMsg = document.getElementById('status-msg');
 const matchesContainer = document.getElementById('matches-container');
 const setCodeBtn = document.getElementById('set-code-btn');
@@ -387,9 +386,8 @@ addTeamBtn.addEventListener('click', async () => {
   }
 });
 
-// ===== RENDER MATCHES =====
-
-async function saveMatchRefunction renderMatches() {
+// ===== RENDER MATCHES (EDITABLE SCORES) =====
+function renderMatches() {
   if (!allMatches.length) {
     matchesContainer.innerHTML = '<p class="empty">No matches scheduled yet.</p>';
     return;
@@ -397,7 +395,6 @@ async function saveMatchRefunction renderMatches() {
   let html = '';
   allMatches.forEach(m => {
     const isPending = m.status === 'pending';
-    // Always show current score (or empty if pending)
     const hs = m.status === 'played' ? m.homeScore : '';
     const as = m.status === 'played' ? m.awayScore : '';
     const btnText = isPending ? 'Save Score' : 'Update Score';
@@ -413,13 +410,12 @@ async function saveMatchRefunction renderMatches() {
         <button class="save-score-btn neon-btn small" data-id="${m.id}">
           ${btnText}
         </button>
-        <span class="match-stage-badge">${m.stage === 'semi' ? '🔹 Semi' : m.stage === 'final' ? '🏆 Final' : `R${m.round}`}</span>
+        <span class="match-stage-badge">R${m.round}</span>
       </div>
     `;
   });
   matchesContainer.innerHTML = html;
 
-  // Attach click events to all save buttons
   document.querySelectorAll('.save-score-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const card = e.target.closest('.match-admin-card');
@@ -437,6 +433,7 @@ async function saveMatchRefunction renderMatches() {
   });
 }
 
+// ===== SAVE/UPDATE SCORE =====
 async function saveMatchResult(matchId, homeScore, awayScore) {
   try {
     await update(ref(db, `matches/${matchId}`), {
@@ -452,7 +449,7 @@ async function saveMatchResult(matchId, homeScore, awayScore) {
   }
 }
 
-// ===== GENERATE NEXT ROUND (Double Round-Robin) =====
+// ===== GENERATE NEXT ROUND (Double Round-Robin only) =====
 generateBtn.addEventListener('click', async () => {
   const active = allTeams.filter(t => !t.eliminated);
   if (active.length < 2) {
@@ -460,50 +457,10 @@ generateBtn.addEventListener('click', async () => {
     return;
   }
 
+  // Get only group matches (ignore any leftover knockout matches if any)
   const groupMatches = allMatches.filter(m => m.stage === 'group');
-  const semiMatches = allMatches.filter(m => m.stage === 'semi');
-  const finalMatches = allMatches.filter(m => m.stage === 'final');
 
-  // ---- 4 teams or fewer => knockout ----
-  if (active.length <= 4) {
-    if (active.length === 4) {
-      if (semiMatches.length === 0) {
-        await generateSemiLeg(active, 1);
-        showToast('✅ Semi Final Leg 1 generated.', 'success');
-        return;
-      }
-      const leg1 = semiMatches.filter(m => m.leg === 1);
-      const leg1Played = leg1.every(m => m.status === 'played');
-      if (leg1Played && leg1.length > 0) {
-        const leg2 = semiMatches.filter(m => m.leg === 2);
-        if (leg2.length === 0) {
-          await generateSemiLeg(active, 2);
-          showToast('✅ Semi Final Leg 2 generated.', 'success');
-          return;
-        }
-        const leg2Played = leg2.every(m => m.status === 'played');
-        if (leg2Played && finalMatches.length === 0) {
-          await generateFinal(active, semiMatches);
-          showToast('✅ Final generated!', 'success');
-          return;
-        }
-        if (leg2Played && finalMatches.length > 0) {
-          showToast('🏆 Tournament complete!', 'info');
-          return;
-        }
-        showToast('⏳ Please finish Leg 2 first.', 'info');
-        return;
-      }
-      showToast('⏳ Please finish Leg 1 first.', 'info');
-      return;
-    } else {
-      // 2 or 3 teams - can't do knockout
-      showToast('⏳ Need exactly 4 teams for knockout stage.', 'info');
-      return;
-    }
-  }
-
-  // ---- More than 4 teams => Double Round-Robin ----
+  // Double Round-Robin
   const names = active.map(t => t.name);
   const doubleRR = generateDoubleRoundRobin(names);
   const totalRounds = doubleRR.totalRounds;
@@ -544,98 +501,10 @@ generateBtn.addEventListener('click', async () => {
       status: 'pending',
       homeScore: 0,
       awayScore: 0,
-      leg: 0,
       half: nextRound <= firstHalfRounds ? 'first' : 'second'
     });
   }
 
   setStatus(`${roundLabel} generated (${roundFixtures.length} matches).`);
   showToast(`✅ ${roundLabel} generated.`, 'success');
-});
-
-// ----- Helper: generate semi leg -----
-async function generateSemiLeg(activeTeams, leg) {
-  const groupPlayed = allMatches.filter(m => m.stage === 'group' && m.status === 'played');
-  const standings = calculateStandings(groupPlayed);
-  const sorted = activeTeams.sort((a, b) => {
-    const aPts = standings.find(s => s.team === a.name)?.pts || 0;
-    const bPts = standings.find(s => s.team === b.name)?.pts || 0;
-    return bPts - aPts;
-  });
-  const matchups = [
-    { home: sorted[0].name, away: sorted[3].name },
-    { home: sorted[1].name, away: sorted[2].name }
-  ];
-  for (const m of matchups) {
-    const newMatchRef = push(ref(db, 'matches'));
-    await set(newMatchRef, {
-      homeTeam: m.home,
-      awayTeam: m.away,
-      round: 99,
-      stage: 'semi',
-      status: 'pending',
-      homeScore: 0,
-      awayScore: 0,
-      leg: leg
-    });
-  }
-}
-
-// ----- Helper: generate final -----
-async function generateFinal(activeTeams, semiMatches) {
-  const leg1 = semiMatches.filter(m => m.leg === 1);
-  const leg2 = semiMatches.filter(m => m.leg === 2);
-  const winners = [];
-  for (let i = 0; i < leg1.length; i++) {
-    const m1 = leg1[i];
-    const m2 = leg2[i];
-    const home1 = m1.homeTeam, away1 = m1.awayTeam;
-    let goals1 = (home1 === m1.homeTeam ? m1.homeScore : m1.awayScore) +
-                 (home1 === m2.homeTeam ? m2.homeScore : m2.awayScore);
-    let goals2 = (away1 === m1.homeTeam ? m1.homeScore : m1.awayScore) +
-                 (away1 === m2.homeTeam ? m2.homeScore : m2.awayScore);
-    if (goals1 > goals2) winners.push(home1);
-    else if (goals2 > goals1) winners.push(away1);
-    else winners.push(home1);
-  }
-  const newMatchRef = push(ref(db, 'matches'));
-  await set(newMatchRef, {
-    homeTeam: winners[0],
-    awayTeam: winners[1],
-    round: 100,
-    stage: 'final',
-    status: 'pending',
-    homeScore: 0,
-    awayScore: 0,
-    leg: 0
-  });
-}
-
-// ===== TRIM BOTTOM 2 =====
-trimBtn.addEventListener('click', async () => {
-  const active = allTeams.filter(t => !t.eliminated);
-  if (active.length <= 4) {
-    showToast('❌ Cannot trim when 4 or fewer remain.', 'error');
-    return;
-  }
-  const groupPlayed = allMatches.filter(m => m.stage === 'group' && m.status === 'played');
-  const standings = calculateStandings(groupPlayed);
-  const sorted = standings.sort((a, b) => {
-    if (b.pts !== a.pts) return b.pts - a.pts;
-    if (b.gd !== a.gd) return b.gd - a.gd;
-    return b.gf - a.gf;
-  });
-  const bottom = sorted.slice(-2);
-  if (bottom.length < 2) {
-    showToast('❌ Not enough played matches.', 'error');
-    return;
-  }
-  for (const team of bottom) {
-    const teamDoc = allTeams.find(t => t.name === team.team);
-    if (teamDoc && !teamDoc.eliminated) {
-      await update(ref(db, `teams/${teamDoc.id}`), { eliminated: true });
-    }
-  }
-  setStatus(`Eliminated: ${bottom.map(b => b.team).join(', ')}`);
-  showToast(`✅ Eliminated: ${bottom.map(b => b.team).join(', ')}`, 'success');
 });
