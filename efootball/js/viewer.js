@@ -4,10 +4,12 @@ import { calculateStandings } from "./tournament-engine.js";
 
 const statusEl = document.getElementById('tournament-status');
 const standingsBody = document.getElementById('standings-body');
-const matchList = document.getElementById('match-list');
+const weekTabs = document.getElementById('week-tabs');
+const weekMatches = document.getElementById('week-matches');
 
 let allTeams = [];
 let allMatches = [];
+let currentWeek = 1;
 
 // ---- Listen to teams ----
 const teamsRef = ref(db, 'teams');
@@ -20,7 +22,7 @@ onValue(teamsRef, (snapshot) => {
     }
   }
   updateStatus();
-  renderStandings(); // re-render standings when teams change
+  renderStandings();
 });
 
 // ---- Listen to matches ----
@@ -35,7 +37,8 @@ onValue(matchesRef, (snapshot) => {
   }
   allMatches.sort((a, b) => (a.round || 0) - (b.round || 0));
   renderStandings();
-  renderMatchList();
+  renderWeekTabs();
+  renderWeekMatches(currentWeek);
   updateStatus();
 });
 
@@ -45,15 +48,11 @@ function updateStatus() {
   statusEl.textContent = `${active} Teams • ${total} Matches Played`;
 }
 
-// ---- Render Standings ----
+// ---- Render Standings (shows all active teams) ----
 function renderStandings() {
-  // 1. Get active teams (not eliminated)
   const activeTeams = allTeams.filter(t => !t.eliminated);
-
-  // 2. Get played group matches
   const groupPlayed = allMatches.filter(m => m.stage === 'group' && m.status === 'played');
 
-  // 3. Build stats object with all active teams initialized to 0
   const stats = {};
   activeTeams.forEach(t => {
     stats[t.name] = {
@@ -69,12 +68,9 @@ function renderStandings() {
     };
   });
 
-  // 4. Process played matches (add stats)
   groupPlayed.forEach(m => {
     const { homeTeam, awayTeam, homeScore, awayScore } = m;
-    // Skip if team is not in active list (shouldn't happen, but safe)
     if (!stats[homeTeam] || !stats[awayTeam]) return;
-
     const h = stats[homeTeam];
     const a = stats[awayTeam];
     h.played += 1; a.played += 1;
@@ -82,7 +78,6 @@ function renderStandings() {
     a.gf += awayScore; a.ga += homeScore;
     h.gd = h.gf - h.ga;
     a.gd = a.gf - a.ga;
-
     if (homeScore > awayScore) {
       h.won += 1; h.pts += 3;
       a.lost += 1;
@@ -95,23 +90,22 @@ function renderStandings() {
     }
   });
 
-  // 5. Convert to array and sort (Points > GD > GF)
   const sorted = Object.values(stats).sort((a, b) => {
     if (b.pts !== a.pts) return b.pts - a.pts;
     if (b.gd !== a.gd) return b.gd - a.gd;
     return b.gf - a.gf;
   });
 
-  // 6. Render table
   let html = '';
   if (sorted.length === 0) {
     html = '<tr><td colspan="10">No teams added yet.</td></tr>';
   } else {
     sorted.forEach((s, i) => {
+      const isChampion = i === 0 && s.played > 0 && allTeams.filter(t => !t.eliminated).length > 1;
       html += `
         <tr>
-          <td>${i + 1}</td>
-          <td><strong>${s.team}</strong></td>
+          <td>${i + 1} ${isChampion ? '🏆' : ''}</td>
+          <td class="team-name"><strong>${s.team}</strong></td>
           <td>${s.played}</td>
           <td>${s.won}</td>
           <td>${s.drawn}</td>
@@ -119,7 +113,7 @@ function renderStandings() {
           <td>${s.gf}</td>
           <td>${s.ga}</td>
           <td>${s.gd}</td>
-          <td><strong>${s.pts}</strong></td>
+          <td class="pts"><strong>${s.pts}</strong></td>
         </tr>
       `;
     });
@@ -127,47 +121,64 @@ function renderStandings() {
   standingsBody.innerHTML = html;
 }
 
-// ---- Render Match List (unchanged) ----
-function renderMatchList() {
+// ---- Render Week Tabs ----
+function renderWeekTabs() {
+  const groupMatches = allMatches.filter(m => m.stage === 'group');
+  const weeks = new Set();
+  groupMatches.forEach(m => weeks.add(m.round));
+  const sortedWeeks = Array.from(weeks).sort((a, b) => a - b);
+
+  if (sortedWeeks.length === 0) {
+    weekTabs.innerHTML = '<p class="empty">No fixtures scheduled yet.</p>';
+    return;
+  }
+
+  let tabsHtml = '';
+  sortedWeeks.forEach(week => {
+    const active = week === currentWeek ? 'active' : '';
+    tabsHtml += `<button class="week-tab ${active}" data-week="${week}">Week ${week}</button>`;
+  });
+  weekTabs.innerHTML = tabsHtml;
+
+  // Attach click events
+  document.querySelectorAll('.week-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const week = parseInt(btn.dataset.week);
+      currentWeek = week;
+      // Update active class
+      document.querySelectorAll('.week-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderWeekMatches(week);
+    });
+  });
+
+  // If currentWeek is not in the list, set to first
+  if (!sortedWeeks.includes(currentWeek)) {
+    currentWeek = sortedWeeks[0];
+    document.querySelectorAll('.week-tab').forEach(b => b.classList.remove('active'));
+    document.querySelector(`.week-tab[data-week="${currentWeek}"]`)?.classList.add('active');
+    renderWeekMatches(currentWeek);
+  }
+}
+
+// ---- Render Matches for a specific Week ----
+function renderWeekMatches(week) {
+  const weekMatchesData = allMatches.filter(m => m.stage === 'group' && m.round === week);
+  if (weekMatchesData.length === 0) {
+    weekMatches.innerHTML = '<p class="empty">No matches for this week.</p>';
+    return;
+  }
+
   let html = '';
-  let lastStage = '';
-  let lastRound = -1;
-
-  allMatches.forEach(m => {
-    let header = '';
-    const round = m.round || 0;
-
-    if (m.stage === 'group') {
-      if (round !== lastRound) {
-        header = `<h3 class="round-header">Round ${round}</h3>`;
-        lastRound = round;
-      }
-      lastStage = 'group';
-    } else if (m.stage === 'semi') {
-      if (lastStage !== 'semi') {
-        header = `<h2 class="phase-header semi-header">⚡ Semi Finals</h2>`;
-        lastStage = 'semi';
-      }
-      lastRound = -1;
-    } else if (m.stage === 'final') {
-      if (lastStage !== 'final') {
-        header = `<h2 class="phase-header final-header">🏆 Final</h2>`;
-        lastStage = 'final';
-      }
-      lastRound = -1;
-    }
-
+  weekMatchesData.forEach(m => {
     const isPlayed = m.status === 'played';
     const homeScore = isPlayed ? m.homeScore : '?';
     const awayScore = isPlayed ? m.awayScore : '?';
     const scoreDisplay = isPlayed
       ? `<span class="score">${homeScore} – ${awayScore}</span>`
       : `<span class="vs">vs</span>`;
-
-    const isKnockout = (m.stage === 'semi' || m.stage === 'final');
     html += `
-      ${header}
-      <div class="match-card ${isKnockout ? 'knockout-match' : ''}">
+      <div class="match-card">
         <span class="team home">${m.homeTeam}</span>
         ${scoreDisplay}
         <span class="team away">${m.awayTeam}</span>
@@ -175,6 +186,5 @@ function renderMatchList() {
       </div>
     `;
   });
-
-  matchList.innerHTML = html || '<p class="empty">No matches scheduled yet.</p>';
+  weekMatches.innerHTML = html;
 }
