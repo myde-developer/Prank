@@ -3,32 +3,41 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>eFootball Tournament</title>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet" />
+  <title>eFootball League</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
-<script type="importmap">
-{
-  "imports": {
-    "firebase/app": "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js",
-    "firebase/database": "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js"
+  <script type="importmap">
+  {
+    "imports": {
+      "firebase/app": "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js",
+      "firebase/database": "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js"
+    }
   }
-}
-</script>
+  </script>
 </head>
 <body>
   <header>
-    <h1>eFootball Tournament</h1>
+    <h1>⚽ eFootball League</h1>
     <p id="tournament-status">Loading...</p>
   </header>
 
+  <!-- Standings Table -->
   <section id="standings-section">
-    <h2>Standings</h2>
+    <h2>League Table</h2>
     <div class="table-wrapper">
       <table id="standings-table">
         <thead>
           <tr>
-            <th>#</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th>
-            <th>GF</th><th>GA</th><th>GD</th><th>Pts</th>
+            <th>#</th>
+            <th>Team</th>
+            <th>P</th>
+            <th>W</th>
+            <th>D</th>
+            <th>L</th>
+            <th>GF</th>
+            <th>GA</th>
+            <th>GD</th>
+            <th>Pts</th>
           </tr>
         </thead>
         <tbody id="standings-body"></tbody>
@@ -36,9 +45,11 @@
     </div>
   </section>
 
-  <section id="match-list-section">
-    <h2>Matches</h2>
-    <div id="match-list"></div>
+  <!-- Fixtures with Week Tabs -->
+  <section id="fixtures-section">
+    <h2>Fixtures</h2>
+    <div id="week-tabs" class="week-tabs"></div>
+    <div id="week-matches" class="week-matches"></div>
   </section>
 
   <script type="module" src="js/viewer.js"></script>
