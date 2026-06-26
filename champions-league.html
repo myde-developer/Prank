@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Champions League</title>
+    <title>Champions League - Group Stage</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1"></script>
     <style>
         body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #0f0c29, #302b63, #24243e); min-height: 100vh; }
         .card { background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); }
@@ -22,9 +21,9 @@
             transform: translateY(-4px);
             box-shadow: 0 10px 30px rgba(0,0,0,0.15);
         }
-        .admin-section {
-            border: 2px dashed #4f46e5;
-            background: rgba(79, 70, 229, 0.05);
+        .admin-badge {
+            background: rgba(255,255,255,0.9);
+            backdrop-filter: blur(10px);
         }
     </style>
 </head>
@@ -36,69 +35,14 @@
                     <h1 class="text-4xl font-bold text-gray-800 mb-2">🏆 Champions League</h1>
                     <p class="text-gray-600">Group Stage</p>
                 </div>
-                <div class="flex gap-3">
-                    <button onclick="window.location.href='admin-panel.html'" class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-xl font-bold transition">
-                        ← Back to Admin
-                    </button>
-                    <button id="admin-toggle-btn" onclick="toggleAdminMode()" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold transition">
-                        🔒 Admin Mode
+                <div id="admin-controls" class="hidden">
+                    <button onclick="window.location.href='admin-panel.html'" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold transition">
+                        ⚙️ Admin Panel
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- Admin Controls (Hidden by default) -->
-        <div id="admin-controls" class="hidden mb-6">
-            <div class="card rounded-2xl shadow-xl p-6 admin-section">
-                <h3 class="text-xl font-bold text-indigo-700 mb-4">🛠️ Admin Controls</h3>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <!-- Update Scores -->
-                    <div class="bg-white rounded-lg p-4 shadow-sm">
-                        <h4 class="font-bold text-gray-700 mb-2">📝 Update Scores</h4>
-                        <div id="score-update-form" class="space-y-2">
-                            <select id="match-select" class="w-full p-2 border rounded-lg text-sm">
-                                <option value="">Select match...</option>
-                            </select>
-                            <div class="flex gap-2">
-                                <input id="home-score" type="number" placeholder="Home" class="w-1/2 p-2 border rounded-lg text-sm" min="0">
-                                <input id="away-score" type="number" placeholder="Away" class="w-1/2 p-2 border rounded-lg text-sm" min="0">
-                            </div>
-                            <button onclick="updateMatchScore()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg transition text-sm">
-                                ✅ Update Score
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Match Management -->
-                    <div class="bg-white rounded-lg p-4 shadow-sm">
-                        <h4 class="font-bold text-gray-700 mb-2">⚙️ Match Actions</h4>
-                        <div class="space-y-2">
-                            <button onclick="resetAllMatches()" class="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 rounded-lg transition text-sm">
-                                🔄 Reset All Matches
-                            </button>
-                            <button onclick="simulateMatchday()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 rounded-lg transition text-sm">
-                                🎲 Simulate Next Matchday
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Tournament Management -->
-                    <div class="bg-white rounded-lg p-4 shadow-sm">
-                        <h4 class="font-bold text-gray-700 mb-2">🏆 Tournament</h4>
-                        <div class="space-y-2">
-                            <button onclick="deleteChampionsLeague()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-lg transition text-sm">
-                                🗑️ Delete Tournament
-                            </button>
-                            <button onclick="regenerateChampionsLeague()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-lg transition text-sm">
-                                🔄 Regenerate Tournament
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Main Content -->
         <div id="champions-data" class="space-y-6">
             <p class="text-white text-center">Loading Champions League data...</p>
         </div>
@@ -116,68 +60,27 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        let isAdmin = false;
-        let adminMode = false;
-        let currentData = null;
-
-        // Check admin status
-        async function checkAdminStatus() {
-            const entered = prompt("Enter admin password to access admin features:");
-            if (entered === null) {
-                isAdmin = false;
-                document.getElementById('admin-toggle-btn').classList.add('hidden');
-                return;
-            }
-            
-            try {
-                const snap = await db.ref('premier/tournament_data/password').once('value');
-                const storedPass = snap.val();
-                if (entered === storedPass || entered === "090541") {
-                    isAdmin = true;
-                    document.getElementById('admin-toggle-btn').classList.remove('hidden');
-                    document.getElementById('admin-toggle-btn').textContent = '🔓 Admin Mode (ON)';
-                    adminMode = true;
-                    document.getElementById('admin-controls').classList.remove('hidden');
-                    loadChampionsLeague();
-                } else {
-                    isAdmin = false;
-                    document.getElementById('admin-toggle-btn').classList.add('hidden');
-                    alert('Wrong password!');
-                }
-            } catch (error) {
-                console.error('Error checking admin status:', error);
-                isAdmin = false;
-            }
-        }
-
-        function toggleAdminMode() {
-            if (!isAdmin) {
-                checkAdminStatus();
-                return;
-            }
-            
-            adminMode = !adminMode;
-            if (adminMode) {
-                document.getElementById('admin-controls').classList.remove('hidden');
-                document.getElementById('admin-toggle-btn').textContent = '🔓 Admin Mode (ON)';
-                loadChampionsLeague();
-            } else {
-                document.getElementById('admin-controls').classList.add('hidden');
-                document.getElementById('admin-toggle-btn').textContent = '🔒 Admin Mode (OFF)';
-            }
+        // Check if user is admin (sessionStorage)
+        const isAdmin = sessionStorage.getItem('championsAdmin') === 'true';
+        if (isAdmin) {
+            document.getElementById('admin-controls').classList.remove('hidden');
         }
 
         async function loadChampionsLeague() {
             try {
                 const snap = await db.ref('champions_league').once('value');
                 const data = snap.val();
-                currentData = data;
                 
                 if (!data) {
                     document.getElementById('champions-data').innerHTML = `
                         <div class="card rounded-2xl shadow-xl p-8 text-center">
-                            <p class="text-gray-600 text-xl">No Champions League data found.</p>
-                            <p class="text-gray-500 mt-2">Generate the draw from the admin panel.</p>
+                            <p class="text-gray-600 text-xl">🏆 No Champions League data found.</p>
+                            <p class="text-gray-500 mt-2">The tournament hasn't been created yet.</p>
+                            ${isAdmin ? `
+                                <button onclick="window.location.href='admin-panel.html'" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold transition">
+                                    Create Champions League →
+                                </button>
+                            ` : ''}
                         </div>
                     `;
                     return;
@@ -195,11 +98,6 @@
                 `;
                 
                 document.getElementById('champions-data').innerHTML = html;
-                
-                // Update match dropdown if admin
-                if (adminMode && isAdmin) {
-                    populateMatchDropdown(data);
-                }
                 
             } catch (error) {
                 console.error('Error loading Champions League:', error);
@@ -271,6 +169,7 @@
         
         function renderFixtures(data) {
             let html = '';
+            const matchdays = data.totalMatchdays || 8;
             
             ['A', 'B'].forEach(letter => {
                 const fixtures = data.fixtures[letter];
@@ -295,7 +194,7 @@
                             <p class="text-sm font-semibold text-gray-600 mb-2">Matchday ${round}</p>
                             <div class="space-y-1">
                                 ${roundFixtures.map(f => `
-                                    <div class="flex items-center gap-4 p-2 bg-white rounded-lg shadow-sm" data-match-id="${f.id}">
+                                    <div class="flex items-center gap-4 p-2 bg-white rounded-lg shadow-sm">
                                         <span class="font-medium w-32 text-right">${f.home}</span>
                                         <span class="text-gray-400">vs</span>
                                         <span class="font-medium w-32">${f.away}</span>
@@ -304,11 +203,6 @@
                                         ` : `
                                             <span class="ml-auto text-gray-400 text-sm">⏳ Not played</span>
                                         `}
-                                        ${adminMode && isAdmin ? `
-                                            <button onclick="editMatch(${f.id})" class="ml-2 text-xs text-indigo-600 hover:text-indigo-800 font-bold">
-                                                ✏️ Edit
-                                            </button>
-                                        ` : ''}
                                     </div>
                                 `).join('')}
                             </div>
@@ -321,434 +215,12 @@
             
             return html || '<p class="text-gray-500">No fixtures available</p>';
         }
-
-        function populateMatchDropdown(data) {
-            const select = document.getElementById('match-select');
-            select.innerHTML = '<option value="">Select match...</option>';
-            
-            ['A', 'B'].forEach(letter => {
-                const fixtures = data.fixtures[letter];
-                if (!fixtures) return;
-                
-                fixtures.forEach(f => {
-                    const option = document.createElement('option');
-                    option.value = f.id;
-                    const status = f.played ? '✅' : '⏳';
-                    option.textContent = `Group ${letter}: ${f.home} vs ${f.away} ${status}`;
-                    select.appendChild(option);
-                });
-            });
-        }
-
-        function editMatch(matchId) {
-            const select = document.getElementById('match-select');
-            select.value = matchId;
-            document.getElementById('admin-controls').scrollIntoView({ behavior: 'smooth' });
-        }
-
-        // ============== ADMIN FUNCTIONS ==============
-        async function updateMatchScore() {
-            if (!isAdmin || !adminMode) return;
-            
-            const matchId = document.getElementById('match-select').value;
-            const homeScore = parseInt(document.getElementById('home-score').value);
-            const awayScore = parseInt(document.getElementById('away-score').value);
-            
-            if (!matchId) {
-                alert('Please select a match.');
-                return;
-            }
-            
-            if (isNaN(homeScore) || isNaN(awayScore)) {
-                alert('Please enter valid scores.');
-                return;
-            }
-            
-            try {
-                // Find the match in the data
-                let matchFound = false;
-                let groupLetter = '';
-                let matchData = null;
-                
-                ['A', 'B'].forEach(letter => {
-                    const fixtures = currentData.fixtures[letter];
-                    if (!fixtures) return;
-                    
-                    const match = fixtures.find(f => f.id === parseInt(matchId));
-                    if (match) {
-                        matchFound = true;
-                        groupLetter = letter;
-                        matchData = match;
-                    }
-                });
-                
-                if (!matchFound) {
-                    alert('Match not found.');
-                    return;
-                }
-                
-                // Update match
-                matchData.played = true;
-                matchData.homeScore = homeScore;
-                matchData.awayScore = awayScore;
-                
-                // Update group standings
-                const group = currentData.groups[groupLetter];
-                const homeTeam = group.find(t => t.name === matchData.home);
-                const awayTeam = group.find(t => t.name === matchData.away);
-                
-                if (homeTeam && awayTeam) {
-                    // Home team stats
-                    homeTeam.mp = (homeTeam.mp || 0) + 1;
-                    homeTeam.gf_cl = (homeTeam.gf_cl || 0) + homeScore;
-                    homeTeam.ga_cl = (homeTeam.ga_cl || 0) + awayScore;
-                    homeTeam.gd_cl = (homeTeam.gf_cl || 0) - (homeTeam.ga_cl || 0);
-                    
-                    if (homeScore > awayScore) {
-                        homeTeam.w = (homeTeam.w || 0) + 1;
-                        homeTeam.pts_cl = (homeTeam.pts_cl || 0) + 3;
-                    } else if (homeScore === awayScore) {
-                        homeTeam.d = (homeTeam.d || 0) + 1;
-                        homeTeam.pts_cl = (homeTeam.pts_cl || 0) + 1;
-                    } else {
-                        homeTeam.l = (homeTeam.l || 0) + 1;
-                    }
-                    
-                    // Away team stats
-                    awayTeam.mp = (awayTeam.mp || 0) + 1;
-                    awayTeam.gf_cl = (awayTeam.gf_cl || 0) + awayScore;
-                    awayTeam.ga_cl = (awayTeam.ga_cl || 0) + homeScore;
-                    awayTeam.gd_cl = (awayTeam.gf_cl || 0) - (awayTeam.ga_cl || 0);
-                    
-                    if (awayScore > homeScore) {
-                        awayTeam.w = (awayTeam.w || 0) + 1;
-                        awayTeam.pts_cl = (awayTeam.pts_cl || 0) + 3;
-                    } else if (awayScore === homeScore) {
-                        awayTeam.d = (awayTeam.d || 0) + 1;
-                        awayTeam.pts_cl = (awayTeam.pts_cl || 0) + 1;
-                    } else {
-                        awayTeam.l = (awayTeam.l || 0) + 1;
-                    }
-                }
-                
-                // Save to Firebase
-                await db.ref('champions_league').set(currentData);
-                
-                showToast('✅ Match score updated successfully!');
-                loadChampionsLeague();
-                
-                // Confetti for goals
-                if (typeof confetti !== 'undefined') {
-                    confetti({
-                        particleCount: 30,
-                        spread: 60,
-                        origin: { y: 0.6 }
-                    });
-                }
-                
-            } catch (error) {
-                console.error('Error updating match:', error);
-                alert('Error updating match: ' + error.message);
-            }
-        }
-
-        async function resetAllMatches() {
-            if (!isAdmin || !adminMode) return;
-            if (!confirm('⚠️ Reset all matches? This will clear all scores and standings.')) return;
-            
-            try {
-                // Reset fixtures
-                ['A', 'B'].forEach(letter => {
-                    const fixtures = currentData.fixtures[letter];
-                    if (!fixtures) return;
-                    
-                    fixtures.forEach(f => {
-                        f.played = false;
-                        f.homeScore = null;
-                        f.awayScore = null;
-                    });
-                });
-                
-                // Reset group standings
-                ['A', 'B'].forEach(letter => {
-                    const group = currentData.groups[letter];
-                    if (!group) return;
-                    
-                    group.forEach(team => {
-                        team.mp = 0;
-                        team.w = 0;
-                        team.d = 0;
-                        team.l = 0;
-                        team.gf_cl = 0;
-                        team.ga_cl = 0;
-                        team.gd_cl = 0;
-                        team.pts_cl = 0;
-                    });
-                });
-                
-                await db.ref('champions_league').set(currentData);
-                showToast('🔄 All matches have been reset!');
-                loadChampionsLeague();
-                
-            } catch (error) {
-                console.error('Error resetting matches:', error);
-                alert('Error resetting matches: ' + error.message);
-            }
-        }
-
-        async function simulateMatchday() {
-            if (!isAdmin || !adminMode) return;
-            if (!confirm('🎲 Simulate next matchday? This will generate random results for all unplayed matches in the next round.')) return;
-            
-            try {
-                let matchesSimulated = 0;
-                
-                ['A', 'B'].forEach(letter => {
-                    const fixtures = currentData.fixtures[letter];
-                    if (!fixtures) return;
-                    
-                    // Find the next unplayed round
-                    const unplayedRounds = [...new Set(fixtures.filter(f => !f.played).map(f => f.round))].sort((a, b) => a - b);
-                    
-                    if (unplayedRounds.length === 0) return;
-                    
-                    const nextRound = unplayedRounds[0];
-                    const roundFixtures = fixtures.filter(f => f.round === nextRound && !f.played);
-                    
-                    roundFixtures.forEach(f => {
-                        const homeScore = Math.floor(Math.random() * 5);
-                        const awayScore = Math.floor(Math.random() * 5);
-                        
-                        f.played = true;
-                        f.homeScore = homeScore;
-                        f.awayScore = awayScore;
-                        
-                        // Update standings
-                        const group = currentData.groups[letter];
-                        const homeTeam = group.find(t => t.name === f.home);
-                        const awayTeam = group.find(t => t.name === f.away);
-                        
-                        if (homeTeam && awayTeam) {
-                            homeTeam.mp = (homeTeam.mp || 0) + 1;
-                            homeTeam.gf_cl = (homeTeam.gf_cl || 0) + homeScore;
-                            homeTeam.ga_cl = (homeTeam.ga_cl || 0) + awayScore;
-                            homeTeam.gd_cl = (homeTeam.gf_cl || 0) - (homeTeam.ga_cl || 0);
-                            
-                            if (homeScore > awayScore) {
-                                homeTeam.w = (homeTeam.w || 0) + 1;
-                                homeTeam.pts_cl = (homeTeam.pts_cl || 0) + 3;
-                            } else if (homeScore === awayScore) {
-                                homeTeam.d = (homeTeam.d || 0) + 1;
-                                homeTeam.pts_cl = (homeTeam.pts_cl || 0) + 1;
-                            } else {
-                                homeTeam.l = (homeTeam.l || 0) + 1;
-                            }
-                            
-                            awayTeam.mp = (awayTeam.mp || 0) + 1;
-                            awayTeam.gf_cl = (awayTeam.gf_cl || 0) + awayScore;
-                            awayTeam.ga_cl = (awayTeam.ga_cl || 0) + homeScore;
-                            awayTeam.gd_cl = (awayTeam.gf_cl || 0) - (awayTeam.ga_cl || 0);
-                            
-                            if (awayScore > homeScore) {
-                                awayTeam.w = (awayTeam.w || 0) + 1;
-                                awayTeam.pts_cl = (awayTeam.pts_cl || 0) + 3;
-                            } else if (awayScore === homeScore) {
-                                awayTeam.d = (awayTeam.d || 0) + 1;
-                                awayTeam.pts_cl = (awayTeam.pts_cl || 0) + 1;
-                            } else {
-                                awayTeam.l = (awayTeam.l || 0) + 1;
-                            }
-                        }
-                        
-                        matchesSimulated++;
-                    });
-                });
-                
-                await db.ref('champions_league').set(currentData);
-                showToast(`🎲 Simulated ${matchesSimulated} matches!`);
-                loadChampionsLeague();
-                
-            } catch (error) {
-                console.error('Error simulating matches:', error);
-                alert('Error simulating matches: ' + error.message);
-            }
-        }
-
-        async function deleteChampionsLeague() {
-            if (!isAdmin || !adminMode) return;
-            if (!confirm('⚠️ Delete Champions League?\n\nThis will permanently remove all Champions League data.')) return;
-            
-            try {
-                await db.ref('champions_league').remove();
-                showToast('🗑️ Champions League deleted successfully');
-                window.location.reload();
-            } catch (error) {
-                console.error('Error deleting Champions League:', error);
-                alert('Error deleting: ' + error.message);
-            }
-        }
-
-        async function regenerateChampionsLeague() {
-            if (!isAdmin || !adminMode) return;
-            if (!confirm('🔄 Regenerate Champions League?\n\nThis will delete the current tournament and create a new one with the same teams.')) return;
-            
-            try {
-                // Get current teams
-                const pot1Teams = currentData.pot1Teams || [];
-                const pot2Teams = currentData.pot2Teams || [];
-                
-                if (pot1Teams.length < 5 || pot2Teams.length < 5) {
-                    alert('Need 5 teams in each pot to regenerate.');
-                    return;
-                }
-                
-                // Shuffle pots
-                const shuffledPot1 = [...pot1Teams];
-                const shuffledPot2 = [...pot2Teams];
-                for (let i = shuffledPot1.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [shuffledPot1[i], shuffledPot1[j]] = [shuffledPot1[j], shuffledPot1[i]];
-                }
-                for (let i = shuffledPot2.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [shuffledPot2[i], shuffledPot2[j]] = [shuffledPot2[j], shuffledPot2[i]];
-                }
-                
-                // Create groups
-                const groups = { A: [], B: [] };
-                
-                shuffledPot1.forEach((team, index) => {
-                    const groupKey = index % 2 === 0 ? 'A' : 'B';
-                    groups[groupKey].push({
-                        name: team,
-                        pot: 1,
-                        pts: 0, gd: 0, gf: 0, ga: 0,
-                        mp: 0, w: 0, d: 0, l: 0,
-                        gf_cl: 0, ga_cl: 0, gd_cl: 0, pts_cl: 0
-                    });
-                });
-                
-                shuffledPot2.forEach((team, index) => {
-                    const groupKey = index % 2 === 0 ? 'B' : 'A';
-                    groups[groupKey].push({
-                        name: team,
-                        pot: 2,
-                        pts: 0, gd: 0, gf: 0, ga: 0,
-                        mp: 0, w: 0, d: 0, l: 0,
-                        gf_cl: 0, ga_cl: 0, gd_cl: 0, pts_cl: 0
-                    });
-                });
-                
-                // Generate fixtures
-                const groupAFixtures = generateCLFixtures(groups.A.map(t => t.name));
-                const groupBFixtures = generateCLFixtures(groups.B.map(t => t.name));
-                
-                const newData = {
-                    groups: groups,
-                    fixtures: { A: groupAFixtures, B: groupBFixtures },
-                    currentMatchday: 1,
-                    totalMatchdays: 8,
-                    groupStageComplete: false,
-                    knockoutMatches: [],
-                    champion: null,
-                    created: new Date().toISOString(),
-                    pot1Teams: pot1Teams,
-                    pot2Teams: pot2Teams
-                };
-                
-                await db.ref('champions_league').set(newData);
-                showToast('🔄 Champions League regenerated successfully!');
-                window.location.reload();
-                
-            } catch (error) {
-                console.error('Error regenerating:', error);
-                alert('Error regenerating: ' + error.message);
-            }
-        }
-
-        function generateCLFixtures(teamNames) {
-            const fixtures = [];
-            let id = 0;
-            let teams = [...teamNames];
-            const n = teams.length;
-            
-            if (n % 2 !== 0) teams.push("BYE");
-            const numTeams = teams.length;
-            const halfSize = numTeams / 2;
-            const numRounds = numTeams - 1;
-            
-            for (let round = 0; round < numRounds; round++) {
-                for (let i = 0; i < halfSize; i++) {
-                    const home = teams[i];
-                    const away = teams[numTeams - 1 - i];
-                    if (home !== "BYE" && away !== "BYE") {
-                        fixtures.push({
-                            id: id++,
-                            round: round + 1,
-                            home, away,
-                            homeScore: null, awayScore: null,
-                            played: false, cancelled: false
-                        });
-                    }
-                }
-                const last = teams.pop();
-                teams.splice(1, 0, last);
-            }
-            
-            const firstHalfCount = fixtures.length;
-            for (let i = 0; i < firstHalfCount; i++) {
-                const f = fixtures[i];
-                fixtures.push({
-                    id: id++,
-                    round: f.round + numRounds,
-                    home: f.away,
-                    away: f.home,
-                    homeScore: null, awayScore: null,
-                    played: false, cancelled: false
-                });
-            }
-            
-            const totalRounds = numRounds * 2;
-            const rounds = [];
-            for (let r = 1; r <= totalRounds; r++) {
-                rounds.push(fixtures.filter(f => f.round === r));
-            }
-            for (let i = rounds.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [rounds[i], rounds[j]] = [rounds[j], rounds[i]];
-            }
-            
-            const shuffledFixtures = [];
-            rounds.forEach((roundFixtures, index) => {
-                roundFixtures.forEach(f => {
-                    shuffledFixtures.push({ ...f, round: index + 1 });
-                });
-            });
-            
-            return shuffledFixtures;
-        }
-
-        function showToast(msg) {
-            const toast = document.createElement('div');
-            toast.className = 'fixed bottom-5 right-5 bg-gray-800 text-white px-4 py-3 rounded-lg shadow-lg z-50 max-w-md';
-            toast.innerText = msg;
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 4000);
-        }
-
-        // ============== INITIALIZATION ==============
-        // Check admin status on load
-        checkAdminStatus();
         
-        // Auto-load
+        // Auto-load on page open
         loadChampionsLeague();
         
         // Refresh every 30 seconds
-        setInterval(() => {
-            if (!adminMode || !isAdmin) {
-                loadChampionsLeague();
-            }
-        }, 30000);
+        setInterval(loadChampionsLeague, 30000);
     </script>
 </body>
 </html>
