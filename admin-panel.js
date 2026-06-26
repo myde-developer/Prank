@@ -14,7 +14,6 @@ let isAdmin = false;
 // Admin authentication
 const entered = prompt("Enter admin master password:");
 if (entered === null) { window.location.href = '../premier/index.html'; }
-// Check premier league password as master (or fallback)
 db.ref('premier/tournament_data/password').once('value', (snapshot) => {
     const storedPass = snapshot.val();
     if (entered === storedPass || entered === "090541") {
@@ -53,19 +52,6 @@ async function loadAllLeagueStatus() {
         updateUI('championship', false, 0);
     }
 
-    // Load Ligue 1
-    const ligue1Snap = await db.ref('ligue1/tournament_data').once('value');
-    const ligue1Data = ligue1Snap.val();
-    let ligue1Complete = false, ligue1Teams = [], ligue1Fixtures = [];
-    if (ligue1Data?.teams) {
-        ligue1Teams = Object.values(ligue1Data.teams).filter(t => !t.relegated);
-        ligue1Fixtures = ligue1Data.fixtures || [];
-        ligue1Complete = ligue1Fixtures.length > 0 && ligue1Fixtures.every(f => f.played || f.cancelled);
-        updateUI('ligue1', ligue1Complete, ligue1Teams.length);
-    } else {
-        updateUI('ligue1', false, 0);
-    }
-
     // Store globally
     window.premierComplete = premierComplete;
     window.premierTeams = premierTeams;
@@ -73,13 +59,10 @@ async function loadAllLeagueStatus() {
     window.championshipComplete = champComplete;
     window.championshipTeams = champTeams;
     window.championshipData = champData;
-    window.ligue1Complete = ligue1Complete;
-    window.ligue1Teams = ligue1Teams;
-    window.ligue1Data = ligue1Data;
 
-    // Enable button only if all three leagues are complete
+    // Enable button only if both leagues are complete
     const btn = document.getElementById('promote-relegate-btn');
-    if (premierComplete && champComplete && ligue1Complete) {
+    if (premierComplete && champComplete) {
         btn.disabled = false;
         btn.classList.remove('opacity-50');
     } else {
@@ -108,59 +91,49 @@ function updateUI(league, complete, teamCount) {
 
 async function processPromotionRelegation() {
     if (!isAdmin) return;
-    if (!confirm("⚠️ END ALL SEASONS? This will:\n- Relegate bottom 3 from Premier to Championship\n- Promote top 3 from Championship to Premier\n- Relegate bottom 3 from Championship to Ligue 1\n- Promote top 3 from Ligue 1 to Championship\n\nAll leagues will be reset with new squads. Continue?")) return;
+    if (!confirm("⚠️ END BOTH SEASONS? This will:\n- Relegate bottom 3 from Premier to Championship\n- Promote top 3 from Championship to Premier\n- The bottom 3 of Championship will remain in the Championship (no relegation)\n\nBoth leagues will be reset with new squads. Continue?")) return;
 
-    // Get fresh data from globals (already loaded)
     let premierTeams = window.premierTeams;
     let champTeams = window.championshipTeams;
-    let ligue1Teams = window.ligue1Teams;
 
-    if (premierTeams.length < 3 || champTeams.length < 6 || ligue1Teams.length < 3) {
-        alert("Need at least 3 teams in Premier, 6 in Championship, 3 in Ligue 1 to process.");
+    if (premierTeams.length < 3 || champTeams.length < 6) {
+        alert("Need at least 3 teams in Premier and 6 in Championship to process.");
         return;
     }
 
     const sortFn = (a,b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf;
     const sortedPremier = [...premierTeams].sort(sortFn);
     const sortedChamp = [...champTeams].sort(sortFn);
-    const sortedLigue1 = [...ligue1Teams].sort(sortFn);
 
     const relegatedFromPremier = sortedPremier.slice(-3).map(t => t.name);
     const promotedToPremier = sortedChamp.slice(0,3).map(t => t.name);
-    const relegatedFromChamp = sortedChamp.slice(-3).map(t => t.name);
-    const promotedToChamp = sortedLigue1.slice(0,3).map(t => t.name);
+    const bottomThreeChampStay = sortedChamp.slice(-3).map(t => t.name); // these stay in Championship
 
     // Build new team lists
+    // Premier: remove relegated, add promoted
     let newPremierNames = sortedPremier.filter(t => !relegatedFromPremier.includes(t.name)).map(t => t.name);
     newPremierNames.push(...promotedToPremier);
 
-    let newChampNames = sortedChamp.filter(t => !promotedToPremier.includes(t.name) && !relegatedFromChamp.includes(t.name)).map(t => t.name);
+    // Championship: remove promoted (they leave), keep everyone else (including bottom 3), add relegated from Premier
+    let newChampNames = sortedChamp.filter(t => !promotedToPremier.includes(t.name)).map(t => t.name);
     newChampNames.push(...relegatedFromPremier);
-    newChampNames.push(...promotedToChamp);
-
-    let newLigue1Names = sortedLigue1.filter(t => !promotedToChamp.includes(t.name)).map(t => t.name);
-    newLigue1Names.push(...relegatedFromChamp);
 
     // Display results
     document.getElementById('result-display').classList.remove('hidden');
     document.getElementById('relegated-from-premier').innerHTML = `<strong class="text-red-700">⬇️ Relegated from Premier League:</strong><br>${relegatedFromPremier.join(', ') || 'none'}`;
     document.getElementById('promoted-to-premier').innerHTML = `<strong class="text-green-700">⬆️ Promoted to Premier League:</strong><br>${promotedToPremier.join(', ')}`;
-    document.getElementById('relegated-from-championship').innerHTML = `<strong class="text-red-700">⬇️ Relegated from Championship:</strong><br>${relegatedFromChamp.join(', ')}`;
-    document.getElementById('promoted-to-championship').innerHTML = `<strong class="text-green-700">⬆️ Promoted to Championship:</strong><br>${promotedToChamp.join(', ')}`;
-    document.getElementById('promoted-from-ligue1').innerHTML = `<strong class="text-green-700">⬆️ Promoted from Ligue 1:</strong><br>${promotedToChamp.join(', ')}`;
+    document.getElementById('championship-bottom-stay').innerHTML = `<strong class="text-blue-700">🔄 Remain in Championship:</strong><br>${bottomThreeChampStay.join(', ')}`;
+    document.getElementById('relegated-from-championship').innerHTML = `<strong class="text-gray-700">ℹ️ No teams relegated from Championship (bottom 3 stay).</strong>`;
 
     // Reset leagues with new squads
     const premierPass = window.premierData?.password || "090541";
     const champPass = window.championshipData?.password || "090541";
-    const ligue1Pass = window.ligue1Data?.password || "090541";
 
     await resetLeagueWithTeams('premier', newPremierNames, premierPass);
     await resetLeagueWithTeams('championship', newChampNames, champPass);
-    await resetLeagueWithTeams('ligue1', newLigue1Names, ligue1Pass);
 
-    showToast(`✅ Promotion/Relegation complete!\n\nPremier: ${relegatedFromPremier.join(', ')} out | ${promotedToPremier.join(', ')} in\nChampionship: ${relegatedFromChamp.join(', ')} out | ${promotedToChamp.join(', ')} in\nLigue 1: ${promotedToChamp.join(', ')} promoted`);
+    showToast(`✅ Promotion/Relegation complete!\n\nPremier: ${relegatedFromPremier.join(', ')} out | ${promotedToPremier.join(', ')} in\nChampionship: ${promotedToPremier.join(', ')} promoted out | ${relegatedFromPremier.join(', ')} in\nBottom 3 (${bottomThreeChampStay.join(', ')}) remain.`);
 
-    // Reload status after 2 seconds
     setTimeout(() => loadAllLeagueStatus(), 2000);
 }
 
@@ -184,7 +157,6 @@ async function resetLeagueWithTeams(leagueId, teamNames, password) {
         });
     });
     
-    // Preserve releasedGameweeks? We'll reset to GW1 released.
     const resetData = {
         teams: newTeams,
         fixtures: fixturesList,
@@ -243,5 +215,4 @@ function showToast(msg) {
     setTimeout(() => toast.remove(), 4000);
 }
 
-// Expose function globally
 window.processPromotionRelegation = processPromotionRelegation;
