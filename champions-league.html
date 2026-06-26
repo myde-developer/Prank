@@ -10,21 +10,10 @@
     <style>
         body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #0f0c29, #302b63, #24243e); min-height: 100vh; }
         .card { background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); }
-        .group-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-        .group-card {
-            border: 1px solid #e5e7eb;
-            transition: all 0.3s;
-        }
-        .group-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-        }
-        .admin-badge {
-            background: rgba(255,255,255,0.9);
-            backdrop-filter: blur(10px);
-        }
+        .group-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .group-card { border: 1px solid #e5e7eb; transition: all 0.3s; }
+        .group-card:hover { transform: translateY(-4px); box-shadow: 0 10px 30px rgba(0,0,0,0.15); }
+        .admin-badge { background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); }
     </style>
 </head>
 <body class="p-8">
@@ -70,7 +59,7 @@
             try {
                 const snap = await db.ref('champions_league').once('value');
                 const data = snap.val();
-                
+
                 if (!data) {
                     document.getElementById('champions-data').innerHTML = `
                         <div class="card rounded-2xl shadow-xl p-8 text-center">
@@ -85,7 +74,7 @@
                     `;
                     return;
                 }
-                
+
                 let html = `
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         ${renderGroup(data, 'A')}
@@ -96,9 +85,16 @@
                         ${renderFixtures(data)}
                     </div>
                 `;
-                
+
+                // Knockout stage if exists
+                const koSnap = await db.ref('champions_league/knockout').once('value');
+                const koData = koSnap.val();
+                if (koData) {
+                    html += renderKnockoutViewer(koData);
+                }
+
                 document.getElementById('champions-data').innerHTML = html;
-                
+
             } catch (error) {
                 console.error('Error loading Champions League:', error);
                 document.getElementById('champions-data').innerHTML = `
@@ -108,18 +104,15 @@
                 `;
             }
         }
-        
+
         function renderGroup(data, letter) {
             const groupData = data.groups[letter];
             if (!groupData) return '';
-            
-            // Sort by points, then GD, then GF
             const sorted = [...groupData].sort((a, b) => {
                 if (b.pts_cl !== a.pts_cl) return b.pts_cl - a.pts_cl;
                 if (b.gd_cl !== a.gd_cl) return b.gd_cl - a.gd_cl;
                 return b.gf_cl - a.gf_cl;
             });
-            
             return `
                 <div class="card rounded-2xl shadow-xl p-6 group-card">
                     <div class="group-header text-white rounded-xl p-4 mb-4">
@@ -166,27 +159,19 @@
                 </div>
             `;
         }
-        
+
         function renderFixtures(data) {
             let html = '';
-            const matchdays = data.totalMatchdays || 8;
-            
             ['A', 'B'].forEach(letter => {
                 const fixtures = data.fixtures[letter];
                 if (!fixtures || fixtures.length === 0) return;
-                
                 html += `<div class="mb-8"><h4 class="font-bold text-gray-700 mb-3 text-lg">Group ${letter}</h4>`;
-                
-                // Group fixtures by round
                 const fixturesByRound = {};
                 fixtures.forEach(f => {
                     if (!fixturesByRound[f.round]) fixturesByRound[f.round] = [];
                     fixturesByRound[f.round].push(f);
                 });
-                
-                // Sort rounds
                 const sortedRounds = Object.keys(fixturesByRound).sort((a, b) => a - b);
-                
                 sortedRounds.forEach(round => {
                     const roundFixtures = fixturesByRound[round];
                     html += `
@@ -198,28 +183,60 @@
                                         <span class="font-medium w-32 text-right">${f.home}</span>
                                         <span class="text-gray-400">vs</span>
                                         <span class="font-medium w-32">${f.away}</span>
-                                        ${f.played ? `
-                                            <span class="ml-auto font-bold text-blue-600">${f.homeScore} - ${f.awayScore}</span>
-                                        ` : `
-                                            <span class="ml-auto text-gray-400 text-sm">⏳ Not played</span>
-                                        `}
+                                        ${f.played ? `<span class="ml-auto font-bold text-blue-600">${f.homeScore} - ${f.awayScore}</span>` : `<span class="ml-auto text-gray-400 text-sm">⏳ Not played</span>`}
                                     </div>
                                 `).join('')}
                             </div>
                         </div>
                     `;
                 });
-                
                 html += `</div>`;
             });
-            
             return html || '<p class="text-gray-500">No fixtures available</p>';
         }
-        
-        // Auto-load on page open
+
+        function renderKnockoutViewer(koData) {
+            const semis = koData.semiFixtures || [];
+            const final = koData.finalFixture;
+            let html = `<div class="card rounded-2xl shadow-xl p-6 mt-6"><h3 class="text-xl font-bold text-gray-800 mb-4">🏆 Knockout Stage</h3>`;
+            // Semis
+            html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">`;
+            semis.forEach(f => {
+                html += `
+                    <div class="bg-white p-4 rounded-lg shadow">
+                        <p class="font-bold text-gray-600">${f.round || 'Semi-final'}</p>
+                        <div class="flex items-center gap-2">
+                            <span>${f.home}</span>
+                            <span class="text-gray-400">vs</span>
+                            <span>${f.away}</span>
+                            ${f.played ? `<span class="ml-auto font-bold text-blue-600">${f.homeScore} - ${f.awayScore}</span>` : `<span class="ml-auto text-gray-400">⏳</span>`}
+                        </div>
+                        ${f.played ? `<p class="text-sm text-green-600">Winner: ${f.homeScore > f.awayScore ? f.home : f.away}</p>` : ''}
+                    </div>
+                `;
+            });
+            html += `</div>`;
+            // Final
+            if (final) {
+                html += `
+                    <div class="bg-yellow-50 p-4 rounded-lg border-2 border-yellow-400">
+                        <p class="font-bold text-gray-700">Final</p>
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold">${final.home || '?'}</span>
+                            <span class="text-gray-400">vs</span>
+                            <span class="font-bold">${final.away || '?'}</span>
+                            ${final.played ? `<span class="ml-auto font-bold text-blue-600">${final.homeScore} - ${final.awayScore}</span>` : `<span class="ml-auto text-gray-400">⏳</span>`}
+                        </div>
+                        ${koData.champion ? `<p class="text-xl font-bold text-yellow-800 mt-2">🏆 Champion: ${koData.champion}</p>` : ''}
+                    </div>
+                `;
+            }
+            html += `</div>`;
+            return html;
+        }
+
+        // Auto-load
         loadChampionsLeague();
-        
-        // Refresh every 30 seconds
         setInterval(loadChampionsLeague, 30000);
     </script>
 </body>
