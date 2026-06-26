@@ -20,6 +20,8 @@ db.ref('premier/tournament_data/password').once('value', (snapshot) => {
     const storedPass = snapshot.val();
     if (entered === storedPass || entered === "090541") {
         isAdmin = true;
+        // Set sessionStorage for admin access to viewer
+        sessionStorage.setItem('championsAdmin', 'true');
         loadAllLeagueStatus();
         checkChampionsLeagueStatus();
     } else {
@@ -596,6 +598,7 @@ async function deleteChampionsLeague() {
 }
 
 function viewChampionsLeague() {
+    // Open in new tab - viewer will check sessionStorage for admin status
     window.open('champions-league.html', '_blank');
 }
 
