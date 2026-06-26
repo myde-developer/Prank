@@ -27,6 +27,7 @@
         .nav-tab:hover:not(.active) {
             background: #e5e7eb;
         }
+        .cl-score, .ko-score { width: 50px; text-align: center; }
     </style>
 </head>
 <body class="p-8">
@@ -118,7 +119,7 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <h2 class="text-2xl font-bold text-gray-800 mb-2">🌟 Champions League Management</h2>
-                        <p class="text-gray-600">Top 5 from Premier League & Championship qualify at the half-season mark</p>
+                        <p class="text-gray-600">Top 6 from Premier League & Championship qualify at the half-season mark</p>
                     </div>
                     <button onclick="viewChampionsLeague()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold transition">
                         View Champions League →
@@ -133,24 +134,24 @@
 
             <!-- Pots Display -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                <!-- Pot 1 (Premier League Top 5) -->
+                <!-- Pot 1 (Premier League Top 6) -->
                 <div class="card rounded-2xl shadow-xl p-6">
                     <div class="flex items-center gap-3 mb-4">
                         <span class="text-3xl">🏆</span>
                         <h2 class="text-2xl font-bold text-indigo-700">Pot 1</h2>
-                        <span class="text-sm text-gray-500 ml-auto">Premier League Top 5</span>
+                        <span class="text-sm text-gray-500 ml-auto">Premier League Top 6</span>
                     </div>
                     <div id="cl-pot1-teams" class="space-y-2">
                         <p class="text-gray-500">Loading...</p>
                     </div>
                 </div>
 
-                <!-- Pot 2 (Championship Top 5) -->
+                <!-- Pot 2 (Championship Top 6) -->
                 <div class="card rounded-2xl shadow-xl p-6">
                     <div class="flex items-center gap-3 mb-4">
                         <span class="text-3xl">📈</span>
                         <h2 class="text-2xl font-bold text-emerald-700">Pot 2</h2>
-                        <span class="text-sm text-gray-500 ml-auto">Championship Top 5</span>
+                        <span class="text-sm text-gray-500 ml-auto">Championship Top 6</span>
                     </div>
                     <div id="cl-pot2-teams" class="space-y-2">
                         <p class="text-gray-500">Loading...</p>
@@ -165,7 +166,7 @@
                         🎲 Perform Champions League Draw
                     </button>
                     <p class="text-sm text-gray-500 mt-3">
-                        Randomly draws teams into 2 groups of 5 (alternating from Pot 1 & Pot 2)
+                        Randomly draws teams into 2 groups of 6 (alternating from Pot 1 & Pot 2)
                     </p>
                 </div>
             </div>
@@ -192,6 +193,64 @@
                         <button onclick="deleteChampionsLeague()" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-xl transition">
                             🗑️ Delete Champions League
                         </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Champions League Management (appears when CL exists) -->
+            <div id="cl-management" class="mt-8 hidden">
+                <div class="card rounded-2xl shadow-xl p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-2xl font-bold text-gray-800">📋 Manage Champions League</h3>
+                        <div class="flex gap-2">
+                            <button id="cl-prev-matchday" onclick="changeCLMatchday(-1)" class="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded-lg font-bold transition disabled:opacity-50" disabled>
+                                ◀ Prev
+                            </button>
+                            <span id="cl-matchday-label" class="text-lg font-bold text-gray-700 px-4 py-2">Matchday 1 / 10</span>
+                            <button id="cl-next-matchday" onclick="changeCLMatchday(1)" class="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded-lg font-bold transition disabled:opacity-50" disabled>
+                                Next ▶
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Standings -->
+                    <div id="cl-standings" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8"></div>
+
+                    <!-- Fixtures for current matchday -->
+                    <div id="cl-fixtures-container" class="space-y-4">
+                        <h4 class="text-xl font-bold text-gray-700">Matchday <span id="cl-current-round-display">1</span> Fixtures</h4>
+                        <div id="cl-fixtures-list" class="space-y-3"></div>
+                        <div class="flex justify-end gap-4 mt-4">
+                            <button onclick="saveAllCLMatches()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg transition">
+                                💾 Save All
+                            </button>
+                            <button onclick="simulateCLMatchday()" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-6 rounded-lg transition">
+                                🎲 Simulate Matchday
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Completion message -->
+                    <div id="cl-complete-message" class="hidden mt-4 p-4 bg-green-100 text-green-700 rounded-lg text-center font-bold">
+                        ✅ Group Stage Complete! All matches played.
+                    </div>
+
+                    <!-- Generate Knockout Button -->
+                    <div id="cl-generate-knockout-container" class="mt-4">
+                        <button onclick="generateKnockoutStage()" id="cl-generate-knockout-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-6 rounded-lg transition hidden">
+                            🏆 Generate Knockout Stage
+                        </button>
+                    </div>
+
+                    <!-- Knockout Stage -->
+                    <div id="cl-knockout-container" class="mt-8 hidden">
+                        <h4 class="text-xl font-bold text-gray-700 mb-4">🏆 Knockout Stage</h4>
+                        <div id="cl-knockout-bracket" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4"></div>
+                        <div id="cl-knockout-fixtures" class="space-y-4"></div>
+                        <div id="cl-champion-display" class="hidden mt-6 p-6 bg-yellow-100 rounded-xl text-center">
+                            <span class="text-4xl">🏆</span>
+                            <h3 class="text-2xl font-bold text-yellow-800">Champion: <span id="cl-champion-name"></span></h3>
+                        </div>
                     </div>
                 </div>
             </div>
