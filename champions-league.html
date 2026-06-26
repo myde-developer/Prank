@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Champions League - Group Stage</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #0f0c29, #302b63, #24243e); min-height: 100vh; }
+        .card { background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); }
+        .group-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .group-card {
+            border: 1px solid #e5e7eb;
+            transition: all 0.3s;
+        }
+        .group-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        }
+        .table-header {
+            background: linear-gradient(135deg, #f7971e, #ffd200);
+        }
+    </style>
+</head>
+<body class="p-8">
+    <div class="max-w-7xl mx-auto">
+        <div class="card rounded-2xl shadow-2xl p-8 mb-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-4xl font-bold text-gray-800 mb-2">🏆 Champions League</h1>
+                    <p class="text-gray-600">Group Stage</p>
+                </div>
+                <button onclick="window.location.href='admin-panel.html'" class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-xl font-bold transition">
+                    ← Back to Admin
+                </button>
+            </div>
+        </div>
+
+        <div id="champions-data" class="space-y-6">
+            <p class="text-white text-center">Loading Champions League data...</p>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBmy0tmvaYcw9KsQQRH7RLKcXC8EN6WFqY",
+            authDomain: "dls-premier-league.firebaseapp.com",
+            projectId: "dls-premier-league",
+            storageBucket: "dls-premier-league.firebasestorage.app",
+            messagingSenderId: "975087030284",
+            appId: "1:975087030284:web:7708718fffd9180c009e29"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        async function loadChampionsLeague() {
+            try {
+                const snap = await db.ref('champions_league').once('value');
+                const data = snap.val();
+                
+                if (!data) {
+                    document.getElementById('champions-data').innerHTML = `
+                        <div class="card rounded-2xl shadow-xl p-8 text-center">
+                            <p class="text-gray-600 text-xl">No Champions League data found.</p>
+                            <p class="text-gray-500 mt-2">Generate the draw from the admin panel.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let html = `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        ${renderGroup(data, 'A')}
+                        ${renderGroup(data, 'B')}
+                    </div>
+                    <div class="card rounded-2xl shadow-xl p-6 mt-6">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4">📋 Match Fixtures</h3>
+                        ${renderFixtures(data)}
+                    </div>
+                `;
+                
+                document.getElementById('champions-data').innerHTML = html;
+                
+            } catch (error) {
+                console.error('Error loading Champions League:', error);
+                document.getElementById('champions-data').innerHTML = `
+                    <div class="card rounded-2xl shadow-xl p-8 text-center text-red-600">
+                        Error loading data: ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        function renderGroup(data, letter) {
+            const groupData = data.groups[letter];
+            if (!groupData) return '';
+            
+            // Sort by points, then GD, then GF
+            const sorted = [...groupData].sort((a, b) => {
+                if (b.pts_cl !== a.pts_cl) return b.pts_cl - a.pts_cl;
+                if (b.gd_cl !== a.gd_cl) return b.gd_cl - a.gd_cl;
+                return b.gf_cl - a.gf_cl;
+            });
+            
+            return `
+                <div class="card rounded-2xl shadow-xl p-6 group-card">
+                    <div class="group-header text-white rounded-xl p-4 mb-4">
+                        <h4 class="text-2xl font-bold flex items-center gap-2">
+                            <span>Group ${letter}</span>
+                        </h4>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="text-gray-500 border-b-2">
+                                    <th class="text-left py-2">Team</th>
+                                    <th class="text-center">P</th>
+                                    <th class="text-center">W</th>
+                                    <th class="text-center">D</th>
+                                    <th class="text-center">L</th>
+                                    <th class="text-center">GF</th>
+                                    <th class="text-center">GA</th>
+                                    <th class="text-center">GD</th>
+                                    <th class="text-center font-bold">Pts</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${sorted.map((team, i) => `
+                                    <tr class="${i % 2 === 0 ? 'bg-gray-50' : ''} border-b">
+                                        <td class="py-2 font-medium flex items-center gap-2">
+                                            <span class="text-sm text-gray-400 w-5">${i + 1}</span>
+                                            ${team.name}
+                                            <span class="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">Pot ${team.pot}</span>
+                                        </td>
+                                        <td class="text-center">${team.mp || 0}</td>
+                                        <td class="text-center">${team.w || 0}</td>
+                                        <td class="text-center">${team.d || 0}</td>
+                                        <td class="text-center">${team.l || 0}</td>
+                                        <td class="text-center">${team.gf_cl || 0}</td>
+                                        <td class="text-center">${team.ga_cl || 0}</td>
+                                        <td class="text-center ${(team.gd_cl || 0) > 0 ? 'text-green-600' : (team.gd_cl || 0) < 0 ? 'text-red-600' : ''}">${team.gd_cl || 0}</td>
+                                        <td class="text-center font-bold text-blue-600">${team.pts_cl || 0}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function renderFixtures(data) {
+            let html = '';
+            const matchdays = data.totalMatchdays || 8;
+            
+            ['A', 'B'].forEach(letter => {
+                const fixtures = data.fixtures[letter];
+                if (!fixtures || fixtures.length === 0) return;
+                
+                html += `<div class="mb-8"><h4 class="font-bold text-gray-700 mb-3 text-lg">Group ${letter}</h4>`;
+                
+                // Group fixtures by round
+                const fixturesByRound = {};
+                fixtures.forEach(f => {
+                    if (!fixturesByRound[f.round]) fixturesByRound[f.round] = [];
+                    fixturesByRound[f.round].push(f);
+                });
+                
+                // Sort rounds
+                const sortedRounds = Object.keys(fixturesByRound).sort((a, b) => a - b);
+                
+                sortedRounds.forEach(round => {
+                    const roundFixtures = fixturesByRound[round];
+                    html += `
+                        <div class="mb-4 bg-gray-50 rounded-lg p-3">
+                            <p class="text-sm font-semibold text-gray-600 mb-2">Matchday ${round}</p>
+                            <div class="space-y-1">
+                                ${roundFixtures.map(f => `
+                                    <div class="flex items-center gap-4 p-2 bg-white rounded-lg shadow-sm">
+                                        <span class="font-medium w-32 text-right">${f.home}</span>
+                                        <span class="text-gray-400">vs</span>
+                                        <span class="font-medium w-32">${f.away}</span>
+                                        ${f.played ? `
+                                            <span class="ml-auto font-bold text-blue-600">${f.homeScore} - ${f.awayScore}</span>
+                                        ` : `
+                                            <span class="ml-auto text-gray-400 text-sm">⏳ Not played</span>
+                                        `}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += `</div>`;
+            });
+            
+            return html || '<p class="text-gray-500">No fixtures available</p>';
+        }
+        
+        // Auto-load on page open
+        loadChampionsLeague();
+        
+        // Refresh every 30 seconds
+        setInterval(loadChampionsLeague, 30000);
+    </script>
+</body>
+</html>
