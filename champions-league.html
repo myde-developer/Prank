@@ -1,243 +1,149 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Champions League</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Champions League – Welcome</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #0f0c29, #302b63, #24243e); min-height: 100vh; }
-        .card { background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); }
-        .group-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .group-card { border: 1px solid #e5e7eb; transition: all 0.3s; }
-        .group-card:hover { transform: translateY(-4px); box-shadow: 0 10px 30px rgba(0,0,0,0.15); }
-        .admin-badge { background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            padding: 20px;
+        }
+        .landing-container {
+            max-width: 800px;
+            width: 100%;
+            text-align: center;
+            color: #fff;
+        }
+        .message {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin: 0.5rem 0;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.8s ease, transform 0.8s ease;
+        }
+        .message.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .message:nth-child(1) { color: #ffd700; } /* gold */
+        .message:nth-child(2) { color: #f0f0f0; }
+        .message:nth-child(3) { color: #a78bfa; }
+        .message:nth-child(4) { color: #34d399; }
+        .message:nth-child(5) { color: #fbbf24; }
+
+        .enter-btn {
+            margin-top: 2.5rem;
+            padding: 1rem 3rem;
+            font-size: 1.25rem;
+            font-weight: 700;
+            border: none;
+            border-radius: 50px;
+            background: linear-gradient(135deg, #f7971e, #ffd200);
+            color: #1e1e2f;
+            cursor: pointer;
+            opacity: 0;
+            transform: scale(0.9);
+            transition: opacity 0.6s ease, transform 0.4s ease, box-shadow 0.3s;
+            box-shadow: 0 8px 25px rgba(255, 215, 0, 0.3);
+        }
+        .enter-btn.show {
+            opacity: 1;
+            transform: scale(1);
+        }
+        .enter-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 12px 35px rgba(255, 215, 0, 0.5);
+        }
+
+        .trophy-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .sub-text {
+            font-size: 1rem;
+            opacity: 0.7;
+            margin-top: 1rem;
+        }
+
+        @media (max-width: 640px) {
+            .message { font-size: 1.8rem; }
+            .enter-btn { padding: 0.8rem 2rem; font-size: 1rem; }
+        }
     </style>
 </head>
-<body class="p-8">
-    <div class="max-w-7xl mx-auto">
-        <div class="card rounded-2xl shadow-2xl p-8 mb-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-4xl font-bold text-gray-800 mb-2">🏆 Champions League</h1>
-                    <p class="text-gray-600">Group Stage</p>
-                </div>
-                <div id="admin-controls" class="hidden">
-                    <button onclick="window.location.href='admin-panel.html'" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold transition">
-                        ⚙️ Admin Panel
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <div id="champions-data" class="space-y-6">
-            <p class="text-white text-center">Loading Champions League data...</p>
-        </div>
+<body>
+    <div class="landing-container">
+        <div class="trophy-icon">🏆</div>
+        <div id="message-container"></div>
+        <button id="enter-btn" class="enter-btn" onclick="goToTournament()">
+            🌟 Enter Tournament
+        </button>
+        <p class="sub-text" id="sub-text" style="display:none;">The ultimate club competition awaits.</p>
     </div>
 
     <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyBmy0tmvaYcw9KsQQRH7RLKcXC8EN6WFqY",
-            authDomain: "dls-premier-league.firebaseapp.com",
-            projectId: "dls-premier-league",
-            storageBucket: "dls-premier-league.firebasestorage.app",
-            messagingSenderId: "975087030284",
-            appId: "1:975087030284:web:7708718fffd9180c009e29"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
+        // Array of messages to display sequentially
+        const messages = [
+            "Welcome to the Champions League",
+            "The pinnacle of club football",
+            "Where legends are made",
+            "12 teams, 2 groups, 1 trophy",
+            "Experience the journey"
+        ];
 
-        // Check if user is admin (sessionStorage)
-        const isAdmin = sessionStorage.getItem('championsAdmin') === 'true';
-        if (isAdmin) {
-            document.getElementById('admin-controls').classList.remove('hidden');
-        }
+        let index = 0;
+        const container = document.getElementById('message-container');
+        const enterBtn = document.getElementById('enter-btn');
+        const subText = document.getElementById('sub-text');
 
-        async function loadChampionsLeague() {
-            try {
-                const snap = await db.ref('champions_league').once('value');
-                const data = snap.val();
-
-                if (!data) {
-                    document.getElementById('champions-data').innerHTML = `
-                        <div class="card rounded-2xl shadow-xl p-8 text-center">
-                            <p class="text-gray-600 text-xl">🏆 No Champions League data found.</p>
-                            <p class="text-gray-500 mt-2">The tournament hasn't been created yet.</p>
-                            ${isAdmin ? `
-                                <button onclick="window.location.href='admin-panel.html'" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold transition">
-                                    Create Champions League →
-                                </button>
-                            ` : ''}
-                        </div>
-                    `;
-                    return;
-                }
-
-                let html = `
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        ${renderGroup(data, 'A')}
-                        ${renderGroup(data, 'B')}
-                    </div>
-                    <div class="card rounded-2xl shadow-xl p-6 mt-6">
-                        <h3 class="text-xl font-bold text-gray-800 mb-4">📋 Match Fixtures</h3>
-                        ${renderFixtures(data)}
-                    </div>
-                `;
-
-                // Knockout stage if exists
-                const koSnap = await db.ref('champions_league/knockout').once('value');
-                const koData = koSnap.val();
-                if (koData) {
-                    html += renderKnockoutViewer(koData);
-                }
-
-                document.getElementById('champions-data').innerHTML = html;
-
-            } catch (error) {
-                console.error('Error loading Champions League:', error);
-                document.getElementById('champions-data').innerHTML = `
-                    <div class="card rounded-2xl shadow-xl p-8 text-center text-red-600">
-                        Error loading data: ${error.message}
-                    </div>
-                `;
+        function showNextMessage() {
+            if (index < messages.length) {
+                const div = document.createElement('div');
+                div.className = 'message';
+                div.textContent = messages[index];
+                container.appendChild(div);
+                // Trigger reflow for animation
+                requestAnimationFrame(() => {
+                    div.classList.add('show');
+                });
+                index++;
+                setTimeout(showNextMessage, 800); // adjust speed
+            } else {
+                // All messages shown – reveal button and subtext
+                enterBtn.classList.add('show');
+                subText.style.display = 'block';
+                subText.style.opacity = '0';
+                setTimeout(() => {
+                    subText.style.transition = 'opacity 1s';
+                    subText.style.opacity = '0.7';
+                }, 200);
             }
         }
 
-        function renderGroup(data, letter) {
-            const groupData = data.groups[letter];
-            if (!groupData) return '';
-            const sorted = [...groupData].sort((a, b) => {
-                if (b.pts_cl !== a.pts_cl) return b.pts_cl - a.pts_cl;
-                if (b.gd_cl !== a.gd_cl) return b.gd_cl - a.gd_cl;
-                return b.gf_cl - a.gf_cl;
-            });
-            return `
-                <div class="card rounded-2xl shadow-xl p-6 group-card">
-                    <div class="group-header text-white rounded-xl p-4 mb-4">
-                        <h4 class="text-2xl font-bold flex items-center gap-2">
-                            <span>Group ${letter}</span>
-                        </h4>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead>
-                                <tr class="text-gray-500 border-b-2">
-                                    <th class="text-left py-2">Team</th>
-                                    <th class="text-center">P</th>
-                                    <th class="text-center">W</th>
-                                    <th class="text-center">D</th>
-                                    <th class="text-center">L</th>
-                                    <th class="text-center">GF</th>
-                                    <th class="text-center">GA</th>
-                                    <th class="text-center">GD</th>
-                                    <th class="text-center font-bold">Pts</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${sorted.map((team, i) => `
-                                    <tr class="${i % 2 === 0 ? 'bg-gray-50' : ''} border-b">
-                                        <td class="py-2 font-medium flex items-center gap-2">
-                                            <span class="text-sm text-gray-400 w-5">${i + 1}</span>
-                                            ${team.name}
-                                            <span class="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">Pot ${team.pot}</span>
-                                        </td>
-                                        <td class="text-center">${team.mp || 0}</td>
-                                        <td class="text-center">${team.w || 0}</td>
-                                        <td class="text-center">${team.d || 0}</td>
-                                        <td class="text-center">${team.l || 0}</td>
-                                        <td class="text-center">${team.gf_cl || 0}</td>
-                                        <td class="text-center">${team.ga_cl || 0}</td>
-                                        <td class="text-center ${(team.gd_cl || 0) > 0 ? 'text-green-600' : (team.gd_cl || 0) < 0 ? 'text-red-600' : ''}">${team.gd_cl || 0}</td>
-                                        <td class="text-center font-bold text-blue-600">${team.pts_cl || 0}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            `;
-        }
+        // Start after a short delay
+        setTimeout(showNextMessage, 600);
 
-        function renderFixtures(data) {
-            let html = '';
-            ['A', 'B'].forEach(letter => {
-                const fixtures = data.fixtures[letter];
-                if (!fixtures || fixtures.length === 0) return;
-                html += `<div class="mb-8"><h4 class="font-bold text-gray-700 mb-3 text-lg">Group ${letter}</h4>`;
-                const fixturesByRound = {};
-                fixtures.forEach(f => {
-                    if (!fixturesByRound[f.round]) fixturesByRound[f.round] = [];
-                    fixturesByRound[f.round].push(f);
-                });
-                const sortedRounds = Object.keys(fixturesByRound).sort((a, b) => a - b);
-                sortedRounds.forEach(round => {
-                    const roundFixtures = fixturesByRound[round];
-                    html += `
-                        <div class="mb-4 bg-gray-50 rounded-lg p-3">
-                            <p class="text-sm font-semibold text-gray-600 mb-2">Matchday ${round}</p>
-                            <div class="space-y-1">
-                                ${roundFixtures.map(f => `
-                                    <div class="flex items-center gap-4 p-2 bg-white rounded-lg shadow-sm">
-                                        <span class="font-medium w-32 text-right">${f.home}</span>
-                                        <span class="text-gray-400">vs</span>
-                                        <span class="font-medium w-32">${f.away}</span>
-                                        ${f.played ? `<span class="ml-auto font-bold text-blue-600">${f.homeScore} - ${f.awayScore}</span>` : `<span class="ml-auto text-gray-400 text-sm">⏳ Not played</span>`}
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    `;
-                });
-                html += `</div>`;
-            });
-            return html || '<p class="text-gray-500">No fixtures available</p>';
+        // Navigate to the detailed tournament view
+        function goToTournament() {
+            window.location.href = 'champions-league-view.html';
         }
-
-        function renderKnockoutViewer(koData) {
-            const semis = koData.semiFixtures || [];
-            const final = koData.finalFixture;
-            let html = `<div class="card rounded-2xl shadow-xl p-6 mt-6"><h3 class="text-xl font-bold text-gray-800 mb-4">🏆 Knockout Stage</h3>`;
-            // Semis
-            html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">`;
-            semis.forEach(f => {
-                html += `
-                    <div class="bg-white p-4 rounded-lg shadow">
-                        <p class="font-bold text-gray-600">${f.round || 'Semi-final'}</p>
-                        <div class="flex items-center gap-2">
-                            <span>${f.home}</span>
-                            <span class="text-gray-400">vs</span>
-                            <span>${f.away}</span>
-                            ${f.played ? `<span class="ml-auto font-bold text-blue-600">${f.homeScore} - ${f.awayScore}</span>` : `<span class="ml-auto text-gray-400">⏳</span>`}
-                        </div>
-                        ${f.played ? `<p class="text-sm text-green-600">Winner: ${f.homeScore > f.awayScore ? f.home : f.away}</p>` : ''}
-                    </div>
-                `;
-            });
-            html += `</div>`;
-            // Final
-            if (final) {
-                html += `
-                    <div class="bg-yellow-50 p-4 rounded-lg border-2 border-yellow-400">
-                        <p class="font-bold text-gray-700">Final</p>
-                        <div class="flex items-center gap-2">
-                            <span class="font-bold">${final.home || '?'}</span>
-                            <span class="text-gray-400">vs</span>
-                            <span class="font-bold">${final.away || '?'}</span>
-                            ${final.played ? `<span class="ml-auto font-bold text-blue-600">${final.homeScore} - ${final.awayScore}</span>` : `<span class="ml-auto text-gray-400">⏳</span>`}
-                        </div>
-                        ${koData.champion ? `<p class="text-xl font-bold text-yellow-800 mt-2">🏆 Champion: ${koData.champion}</p>` : ''}
-                    </div>
-                `;
-            }
-            html += `</div>`;
-            return html;
-        }
-
-        // Auto-load
-        loadChampionsLeague();
-        setInterval(loadChampionsLeague, 30000);
     </script>
 </body>
 </html>
