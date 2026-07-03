@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Champions League – Welcome</title>
+    <title>Champions League</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -98,18 +98,22 @@
             <div id="typewriter" class="typewriter-text"></div>
         </div>
         <button id="enter-btn" class="enter-btn" onclick="goToTournament()">
-            Enter Tournament
+            🌟 Enter Tournament
         </button>
         <p id="sub-text" class="sub-text">The ultimate club competition awaits.</p>
     </div>
 
     <script>
+        // ✨ Add as many sentences as you like – each will be typed letter‑by‑letter
         const messages = [
             "Welcome to the Champions League",
             "The pinnacle of club football",
             "Where legends are made",
             "12 teams, 2 groups, 1 trophy",
-            "Experience the journey"
+            "Every match matters",
+            "Glory awaits the brave",
+            "The road to the final starts here",
+            "Are you ready to witness history?"
         ];
 
         let msgIndex = 0;
@@ -120,24 +124,29 @@
         const enterBtn = document.getElementById('enter-btn');
         const subText = document.getElementById('sub-text');
 
+        // Configurable speeds (milliseconds)
+        const TYPING_SPEED = 80;        // how fast each letter appears
+        const DELETING_SPEED = 40;       // how fast each letter disappears
+        const PAUSE_AFTER_FULL = 2500;   // pause after a complete sentence
+
         function typeEffect() {
             const fullText = messages[msgIndex];
 
             if (!isDeleting) {
-                // Typing
+                // Typing phase
                 currentText = fullText.substring(0, charIndex + 1);
                 typewriterEl.textContent = currentText;
                 charIndex++;
 
                 if (charIndex === fullText.length) {
-                    // Finished typing this sentence
+                    // Finished typing this sentence → pause, then delete
                     isDeleting = true;
-                    setTimeout(typeEffect, 2000); // Pause before deleting
+                    setTimeout(typeEffect, PAUSE_AFTER_FULL);
                     return;
                 }
-                setTimeout(typeEffect, 100); // typing speed (adjust as needed)
+                setTimeout(typeEffect, TYPING_SPEED);
             } else {
-                // Deleting
+                // Deleting phase
                 currentText = fullText.substring(0, charIndex - 1);
                 typewriterEl.textContent = currentText;
                 charIndex--;
@@ -147,17 +156,17 @@
                     isDeleting = false;
                     msgIndex++;
                     if (msgIndex >= messages.length) {
-                        // All sentences shown → show button
+                        // All sentences shown → show the button and subtitle
                         typewriterEl.textContent = '';
                         enterBtn.classList.add('show');
                         subText.classList.add('show');
                         return;
                     }
-                    // Slight pause before typing next
-                    setTimeout(typeEffect, 400);
+                    // Slight pause before typing the next sentence
+                    setTimeout(typeEffect, 500);
                     return;
                 }
-                setTimeout(typeEffect, 50); // deletion speed (faster)
+                setTimeout(typeEffect, DELETING_SPEED);
             }
         }
 

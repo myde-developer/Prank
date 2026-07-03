@@ -537,7 +537,7 @@ async function deleteChampionsLeague() {
 }
 
 function viewChampionsLeague() {
-    window.open('champions-league.html', '_blank');
+    window.open('champions-league-view.html', '_blank');
 }
 
 // ============== CHAMPIONS LEAGUE MANAGEMENT ==============
