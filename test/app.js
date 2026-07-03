@@ -11,7 +11,7 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 // LOCKED TO PREMIER LEAGUE ONLY
-const CURRENT_LEAGUE = 'premier';
+const CURRENT_LEAGUE = 'test';
 
 function getTournamentRef() {
     return db.ref(`${CURRENT_LEAGUE}/tournament_data`);
@@ -80,7 +80,7 @@ const setupSection = document.getElementById('setup-section');
     if (setupSection) setupSection.classList.add('hidden');
     
     const tbody = document.getElementById('league-table-body');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="12" class="text-center py-8 text-gray-400">Loading Premier League...</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="12" class="text-center py-8 text-gray-400">Loading Test League...</td></tr>';
     const fixturesContainer = document.getElementById('fixtures-container');
     if (fixturesContainer) fixturesContainer.innerHTML = '<div class="skeleton h-24 w-full rounded-xl"></div>';
     
@@ -105,7 +105,7 @@ const setupSection = document.getElementById('setup-section');
                 document.getElementById('setup-section')?.classList.add('hidden');
                 const roleSelector = document.getElementById('role-selector');
                 if (roleSelector) {
-                    roleSelector.innerHTML = `<div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center"><div class="mb-4"><div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3"><span class="text-3xl">🏆</span></div><h2 class="text-2xl font-bold text-gray-800">No Premier League Yet</h2><p class="text-gray-500 text-sm mt-1">An admin hasn't started the Premier League.</p></div><button onclick="selectRole('admin')" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition">🔑 Switch to Admin to Create</button></div>`;
+                    roleSelector.innerHTML = `<div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center"><div class="mb-4"><div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3"><span class="text-3xl">🏆</span></div><h2 class="text-2xl font-bold text-gray-800">No Test League Yet</h2><p class="text-gray-500 text-sm mt-1">An admin hasn't started the Test League.</p></div><button onclick="selectRole('admin')" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition">🔑 Switch to Admin to Create</button></div>`;
                     roleSelector.style.display = 'flex';
                 }
             } else if (userRole === 'admin') {
@@ -113,7 +113,7 @@ const setupSection = document.getElementById('setup-section');
                 document.getElementById('dashboard-section')?.classList.add('hidden');
                 document.getElementById('admin-toggle-container')?.classList.add('hidden');
                 document.getElementById('floating-admin-menu')?.classList.add('hidden');
-                showToast("Setup mode – create Premier League");
+                showToast("Setup mode – create Test League");
             }
         }
     }).catch(error => { console.error(error); showToast("Error loading data"); });
@@ -897,7 +897,7 @@ function generateTickerFacts() {
         if (sortedGF.length) topScorer = sortedGF[0];
     }
     fixtures.forEach(f => { if (f.played && f.homeScore !== null && !teams[f.home]?.relegated && !teams[f.away]?.relegated) { const total = f.homeScore + f.awayScore; if (!biggestWin || total > biggestWin.total) biggestWin = { home: f.home, away: f.away, homeScore: f.homeScore, awayScore: f.awayScore, total }; } });
-    tickerFacts = [`🏆 DLS Vawulence Premier League`, `⚽ ${totalTeams} teams`, `📊 ${totalMatchesPlayed}/${totalMatches} played`, leader ? `👑 Leader: ${leader.name} (${leader.pts} pts)` : null, topScorer ? `🔥 Top scorer: ${topScorer.name} (${topScorer.gf} goals)` : null, biggestWin ? `🎯 Biggest win: ${biggestWin.home} ${biggestWin.homeScore}-${biggestWin.awayScore} ${biggestWin.away}` : null, `🔮 Predict matches & post banter!`].filter(f => f);
+    tickerFacts = [`🏆 DLS Vawulence Test League`, `⚽ ${totalTeams} teams`, `📊 ${totalMatchesPlayed}/${totalMatches} played`, leader ? `👑 Leader: ${leader.name} (${leader.pts} pts)` : null, topScorer ? `🔥 Top scorer: ${topScorer.name} (${topScorer.gf} goals)` : null, biggestWin ? `🎯 Biggest win: ${biggestWin.home} ${biggestWin.homeScore}-${biggestWin.awayScore} ${biggestWin.away}` : null, `🔮 Predict matches & post banter!`].filter(f => f);
     if (tickerFacts.length) {
         const el = document.getElementById('news-ticker');
         if (el) el.innerHTML = `<span class="inline-flex items-center gap-2"><span class="w-2 h-2 bg-white rounded-full animate-pulse"></span> ${tickerFacts[0]}</span>`;
@@ -979,7 +979,7 @@ function initializeTournament() {
     currentSelectedRound = 1;
    releasedGameweeks = { 1: true };
     saveToStorage();
-    showToast(`Premier League launched with ${count} teams!`);
+    showToast(`Test League launched with ${count} teams!`);
 }
 
 function openReplaceTeamModal(teamName) {
@@ -2272,7 +2272,7 @@ function showFirstHalfReviewModal() {
                         <div>
                             <h2 class="text-xl font-bold">🏆 FIRST HALF COMPLETED!</h2>
 
-                            <p class="text-xs text-white/80">Rounds 1 - ${halfRounds} | ${CURRENT_LEAGUE === 'premier' ? 'Premier League' : 'Championship'}</p>
+                            <p class="text-xs text-white/80">Rounds 1 - ${halfRounds} | ${CURRENT_LEAGUE === 'Test' ? 'Test League' : 'Championship'}</p>
 
                         </div>
                         <button onclick="closeFirstHalfReviewModal()" class="text-white/80 hover:text-white text-2xl leading-5">&times;</button>
@@ -2792,7 +2792,7 @@ function escapeHtml(str) { return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<'
 
 // ==================== RESET ====================
 function resetTournament() { 
-    if (confirm("Wipe ALL data for Premier League? Cannot be undone.")) 
+    if (confirm("Wipe ALL data for Test League? Cannot be undone.")) 
         getTournamentRef().remove().then(() => location.reload()); 
 }
 
