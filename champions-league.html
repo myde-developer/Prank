@@ -22,23 +22,36 @@
             text-align: center;
             color: #fff;
         }
-        .message {
+        .trophy-icon {
+            font-size: 4rem;
+            margin-bottom: 1.5rem;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .typewriter-container {
+            min-height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .typewriter-text {
             font-size: 2.5rem;
             font-weight: 700;
-            margin: 0.5rem 0;
-            opacity: 0;
-            transform: translateY(20px);
-            transition: opacity 0.8s ease, transform 0.8s ease;
+            color: #ffd700;
+            letter-spacing: 1px;
+            border-right: 3px solid #ffd700;
+            padding-right: 5px;
+            white-space: pre-wrap;
+            word-break: break-word;
         }
-        .message.show {
-            opacity: 1;
-            transform: translateY(0);
+        @media (max-width: 640px) {
+            .typewriter-text { font-size: 1.8rem; }
         }
-        .message:nth-child(1) { color: #ffd700; } /* gold */
-        .message:nth-child(2) { color: #f0f0f0; }
-        .message:nth-child(3) { color: #a78bfa; }
-        .message:nth-child(4) { color: #34d399; }
-        .message:nth-child(5) { color: #fbbf24; }
 
         .enter-btn {
             margin-top: 2.5rem;
@@ -54,52 +67,43 @@
             transform: scale(0.9);
             transition: opacity 0.6s ease, transform 0.4s ease, box-shadow 0.3s;
             box-shadow: 0 8px 25px rgba(255, 215, 0, 0.3);
+            pointer-events: none;
         }
         .enter-btn.show {
             opacity: 1;
             transform: scale(1);
+            pointer-events: auto;
         }
         .enter-btn:hover {
             transform: scale(1.05);
             box-shadow: 0 12px 35px rgba(255, 215, 0, 0.5);
         }
 
-        .trophy-icon {
-            font-size: 4rem;
-            margin-bottom: 1rem;
-            opacity: 0;
-            animation: pulse 2s infinite;
-        }
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
-        }
-
         .sub-text {
             font-size: 1rem;
             opacity: 0.7;
             margin-top: 1rem;
+            opacity: 0;
+            transition: opacity 1s;
         }
-
-        @media (max-width: 640px) {
-            .message { font-size: 1.8rem; }
-            .enter-btn { padding: 0.8rem 2rem; font-size: 1rem; }
+        .sub-text.show {
+            opacity: 0.7;
         }
     </style>
 </head>
 <body>
     <div class="landing-container">
         <div class="trophy-icon">🏆</div>
-        <div id="message-container"></div>
+        <div class="typewriter-container">
+            <div id="typewriter" class="typewriter-text"></div>
+        </div>
         <button id="enter-btn" class="enter-btn" onclick="goToTournament()">
-            🌟 Enter Tournament
+            Enter Tournament
         </button>
-        <p class="sub-text" id="sub-text" style="display:none;">The ultimate club competition awaits.</p>
+        <p id="sub-text" class="sub-text">The ultimate club competition awaits.</p>
     </div>
 
     <script>
-        // Array of messages to display sequentially
         const messages = [
             "Welcome to the Champions League",
             "The pinnacle of club football",
@@ -108,39 +112,58 @@
             "Experience the journey"
         ];
 
-        let index = 0;
-        const container = document.getElementById('message-container');
+        let msgIndex = 0;
+        let charIndex = 0;
+        let isDeleting = false;
+        let currentText = '';
+        const typewriterEl = document.getElementById('typewriter');
         const enterBtn = document.getElementById('enter-btn');
         const subText = document.getElementById('sub-text');
 
-        function showNextMessage() {
-            if (index < messages.length) {
-                const div = document.createElement('div');
-                div.className = 'message';
-                div.textContent = messages[index];
-                container.appendChild(div);
-                // Trigger reflow for animation
-                requestAnimationFrame(() => {
-                    div.classList.add('show');
-                });
-                index++;
-                setTimeout(showNextMessage, 800); // adjust speed
+        function typeEffect() {
+            const fullText = messages[msgIndex];
+
+            if (!isDeleting) {
+                // Typing
+                currentText = fullText.substring(0, charIndex + 1);
+                typewriterEl.textContent = currentText;
+                charIndex++;
+
+                if (charIndex === fullText.length) {
+                    // Finished typing this sentence
+                    isDeleting = true;
+                    setTimeout(typeEffect, 2000); // Pause before deleting
+                    return;
+                }
+                setTimeout(typeEffect, 100); // typing speed (adjust as needed)
             } else {
-                // All messages shown – reveal button and subtext
-                enterBtn.classList.add('show');
-                subText.style.display = 'block';
-                subText.style.opacity = '0';
-                setTimeout(() => {
-                    subText.style.transition = 'opacity 1s';
-                    subText.style.opacity = '0.7';
-                }, 200);
+                // Deleting
+                currentText = fullText.substring(0, charIndex - 1);
+                typewriterEl.textContent = currentText;
+                charIndex--;
+
+                if (charIndex === 0) {
+                    // Finished deleting – move to next sentence
+                    isDeleting = false;
+                    msgIndex++;
+                    if (msgIndex >= messages.length) {
+                        // All sentences shown → show button
+                        typewriterEl.textContent = '';
+                        enterBtn.classList.add('show');
+                        subText.classList.add('show');
+                        return;
+                    }
+                    // Slight pause before typing next
+                    setTimeout(typeEffect, 400);
+                    return;
+                }
+                setTimeout(typeEffect, 50); // deletion speed (faster)
             }
         }
 
-        // Start after a short delay
-        setTimeout(showNextMessage, 600);
+        // Start the typewriter effect after a short delay
+        setTimeout(typeEffect, 600);
 
-        // Navigate to the detailed tournament view
         function goToTournament() {
             window.location.href = 'champions-league-view.html';
         }
