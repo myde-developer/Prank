@@ -7,346 +7,408 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            background: #0d1117;
-            color: #f0f6fc;
-            min-height: 100vh;
-            padding: 2rem;
-        }
-        .container {
-            max-width: 1300px;
-            margin: 0 auto;
-        }
-        h1 {
-            font-size: 2.5rem;
-            margin-bottom: 0.3rem;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-        .subtitle {
-            color: #8b949e;
-            margin-bottom: 2rem;
-        }
-        .grid-2 {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 2rem;
-        }
-        .card {
-            background: #161b22;
-            border-radius: 16px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            border: 1px solid #30363d;
-        }
-        .card h2 {
-            font-weight: 500;
-            font-size: 1.1rem;
-            margin-bottom: 1rem;
-            color: #f0f6fc;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        .card h2 .badge {
-            background: #21262d;
-            font-size: 0.6rem;
-            padding: 0.1rem 0.6rem;
-            border-radius: 12px;
-            color: #8b949e;
-        }
-        .flex {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.8rem;
-            align-items: center;
-        }
-        .flex input,
-        .flex select {
-            padding: 0.6rem 1rem;
-            border-radius: 8px;
-            border: 1px solid #30363d;
-            background: #0d1117;
-            color: #fff;
-            flex: 1 1 150px;
-        }
-        .flex input:focus,
-        .flex select:focus {
-            outline: 2px solid #2ea043;
-            border-color: transparent;
-        }
-        button {
-            padding: 0.6rem 1.5rem;
-            border-radius: 8px;
-            border: none;
-            font-weight: 600;
-            cursor: pointer;
-            transition: 0.2s;
-            background: #2ea043;
-            color: #fff;
-        }
-        button:hover {
-            transform: scale(1.02);
-            filter: brightness(1.1);
-        }
-        button.danger {
-            background: #da3633;
-        }
-        button.danger:hover {
-            background: #f85149;
-        }
-        button.warning {
-            background: #d29922;
-        }
-        button.warning:hover {
-            background: #e3b341;
-        }
-        button.secondary {
-            background: #21262d;
-            color: #c9d1d9;
-        }
-        button.secondary:hover {
-            background: #30363d;
-        }
-        button.ucl-btn {
-            background: #667eea;
-        }
-        button.ucl-btn:hover {
-            background: #5a6fd6;
-        }
-        .team-chip {
-            background: #1f2937;
-            padding: 0.3rem 0.8rem;
-            border-radius: 20px;
-            display: inline-block;
-            margin: 0.2rem;
-            border: 1px solid #30363d;
-        }
-        .team-chip button {
-            background: transparent;
-            border: none;
-            color: #f85149;
-            margin-left: 0.5rem;
-            cursor: pointer;
-            padding: 0;
-            font-size: 0.9rem;
-        }
-        .team-chip button:hover {
-            transform: none;
-            filter: none;
-            color: #ff6b6b;
-        }
-        .log {
-            background: #0d1117;
-            padding: 1rem;
-            border-radius: 8px;
-            max-height: 250px;
-            overflow-y: auto;
-            font-family: 'Courier New', monospace;
-            font-size: 0.8rem;
-            border: 1px solid #21262d;
-        }
-        .log p {
-            margin: 0.15rem 0;
-            color: #8b949e;
-        }
-        .log p.success {
-            color: #3fb950;
-        }
-        .log p.error {
-            color: #f85149;
-        }
-        .log p.warning {
-            color: #d29922;
-        }
-        .status-box {
-            background: #0d1117;
-            border-radius: 8px;
-            padding: 0.8rem 1rem;
-            border: 1px solid #21262d;
-            margin-top: 0.5rem;
-            font-size: 0.85rem;
-            color: #8b949e;
-        }
-        .status-box .green {
-            color: #3fb950;
-        }
-        .status-box .red {
-            color: #f85149;
-        }
-        .status-box .yellow {
-            color: #d29922;
-        }
-        .inline-flex {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-        .report-goal-item,
-        .report-card-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 0.2rem 0;
-            border-bottom: 1px solid #21262d;
-        }
-        .report-goal-item .remove,
-        .report-card-item .remove {
-            background: transparent;
-            border: none;
-            color: #f85149;
-            cursor: pointer;
-            padding: 0 0.3rem;
-        }
-        .report-goal-item .remove:hover,
-        .report-card-item .remove:hover {
-            transform: none;
-            filter: none;
-            color: #ff6b6b;
-        }
+/* ================================================================
+   BLOCK 2: COMPLETE CSS STYLES
+   ================================================================ */
 
-        /* Auth Modal */
-        .auth-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            backdrop-filter: blur(10px);
-            z-index: 9999;
-            justify-content: center;
-            align-items: center;
-            padding: 1.5rem;
-        }
-        .auth-overlay.active {
-            display: flex;
-        }
-        .auth-box {
-            background: #161b22;
-            border-radius: 20px;
-            border: 1px solid #30363d;
-            padding: 2.5rem;
-            max-width: 420px;
-            width: 100%;
-            text-align: center;
-        }
-        .auth-box h2 {
-            font-size: 1.8rem;
-            margin-bottom: 0.5rem;
-        }
-        .auth-box p {
-            color: #8b949e;
-            font-size: 0.9rem;
-            margin-bottom: 1.5rem;
-        }
-        .auth-box input {
-            width: 100%;
-            padding: 0.8rem 1rem;
-            border-radius: 10px;
-            border: 1px solid #30363d;
-            background: #0d1117;
-            color: #fff;
-            font-size: 1rem;
-            margin-bottom: 0.5rem;
-        }
-        .auth-box input:focus {
-            outline: 2px solid #2ea043;
-            border-color: transparent;
-        }
-        .auth-box .error {
-            color: #f85149;
-            font-size: 0.85rem;
-            min-height: 1.5rem;
-            margin-bottom: 0.5rem;
-        }
-        .auth-box button {
-            width: 100%;
-            padding: 0.8rem;
-            font-size: 1rem;
-            background: #2ea043;
-            border: none;
-            border-radius: 10px;
-            color: #fff;
-            font-weight: 600;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .auth-box button:hover {
-            filter: brightness(1.1);
-        }
-        .auth-box .role-btns {
-            display: flex;
-            gap: 0.8rem;
-            margin-top: 1rem;
-        }
-        .auth-box .role-btns button {
-            flex: 1;
-            padding: 0.6rem;
-            font-size: 0.9rem;
-            background: #21262d;
-        }
-        .auth-box .role-btns button:hover {
-            background: #30363d;
-        }
-        .auth-box .role-btns button.admin-btn {
-            background: #1f6feb;
-        }
-        .auth-box .role-btns button.admin-btn:hover {
-            background: #388bfd;
-        }
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0d1117;
+    color: #f0f6fc;
+    min-height: 100vh;
+    padding: 1.5rem;
+}
+.container {
+    max-width: 1300px;
+    margin: 0 auto;
+}
 
-        .hidden {
-            display: none !important;
-        }
+/* Header */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #30363d;
+}
+.header h1 {
+    font-size: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+.header .subtitle {
+    color: #8b949e;
+    font-size: 0.9rem;
+}
+.header .admin-badge {
+    background: #1f6feb;
+    padding: 0.3rem 1rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
 
-        @media (max-width: 900px) {
-            .grid-2 {
-                grid-template-columns: 1fr;
-            }
-            .auth-box {
-                padding: 1.5rem;
-            }
-        }
+/* Tabs */
+.tabs {
+    display: flex;
+    gap: 0.3rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+    border-bottom: 2px solid #21262d;
+    padding-bottom: 0.5rem;
+}
+.tab-btn {
+    padding: 0.6rem 1.5rem;
+    border: none;
+    border-radius: 10px 10px 0 0;
+    background: transparent;
+    color: #8b949e;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: 0.2s;
+}
+.tab-btn:hover {
+    color: #f0f6fc;
+    background: #161b22;
+}
+.tab-btn.active {
+    color: #fff;
+    background: #1f6feb;
+}
+.tab-content {
+    display: none;
+    animation: fadeIn 0.3s ease;
+}
+.tab-content.active {
+    display: block;
+}
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
 
-        /* Toast container */
-        #toast-container {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        #toast-container .toast {
-            background: #161b22;
-            border: 1px solid #30363d;
-            padding: 12px 20px;
-            border-radius: 12px;
-            color: #f0f6fc;
-            font-size: 0.9rem;
-            animation: slideIn 0.3s ease;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-        }
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateX(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
+/* Cards */
+.card {
+    background: #161b22;
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid #30363d;
+}
+.card h2 {
+    font-weight: 500;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    color: #f0f6fc;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.card h2 .badge {
+    background: #21262d;
+    font-size: 0.6rem;
+    padding: 0.1rem 0.6rem;
+    border-radius: 12px;
+    color: #8b949e;
+}
+
+.flex {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+    align-items: center;
+}
+.flex input,
+.flex select {
+    padding: 0.6rem 1rem;
+    border-radius: 8px;
+    border: 1px solid #30363d;
+    background: #0d1117;
+    color: #fff;
+    flex: 1 1 150px;
+}
+.flex input:focus,
+.flex select:focus {
+    outline: 2px solid #2ea043;
+    border-color: transparent;
+}
+
+button {
+    padding: 0.6rem 1.5rem;
+    border-radius: 8px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+    background: #2ea043;
+    color: #fff;
+}
+button:hover {
+    transform: scale(1.02);
+    filter: brightness(1.1);
+}
+button.danger {
+    background: #da3633;
+}
+button.danger:hover {
+    background: #f85149;
+}
+button.warning {
+    background: #d29922;
+}
+button.warning:hover {
+    background: #e3b341;
+}
+button.secondary {
+    background: #21262d;
+    color: #c9d1d9;
+}
+button.secondary:hover {
+    background: #30363d;
+}
+button.ucl-btn {
+    background: #667eea;
+}
+button.ucl-btn:hover {
+    background: #5a6fd6;
+}
+button.small {
+    padding: 0.3rem 0.8rem;
+    font-size: 0.75rem;
+}
+
+.team-chip {
+    background: #1f2937;
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    display: inline-block;
+    margin: 0.2rem;
+    border: 1px solid #30363d;
+}
+.team-chip button {
+    background: transparent;
+    border: none;
+    color: #f85149;
+    margin-left: 0.5rem;
+    cursor: pointer;
+    padding: 0;
+    font-size: 0.9rem;
+}
+.team-chip button:hover {
+    transform: none;
+    filter: none;
+    color: #ff6b6b;
+}
+
+.log {
+    background: #0d1117;
+    padding: 1rem;
+    border-radius: 8px;
+    max-height: 250px;
+    overflow-y: auto;
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    border: 1px solid #21262d;
+}
+.log p {
+    margin: 0.15rem 0;
+    color: #8b949e;
+}
+.log p.success {
+    color: #3fb950;
+}
+.log p.error {
+    color: #f85149;
+}
+.log p.warning {
+    color: #d29922;
+}
+
+.status-box {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 0.8rem 1rem;
+    border: 1px solid #21262d;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: #8b949e;
+}
+.status-box .green {
+    color: #3fb950;
+}
+.status-box .red {
+    color: #f85149;
+}
+.status-box .yellow {
+    color: #d29922;
+}
+
+.grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+.inline-flex {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.report-goal-item,
+.report-card-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.2rem 0;
+    border-bottom: 1px solid #21262d;
+}
+.report-goal-item .remove,
+.report-card-item .remove {
+    background: transparent;
+    border: none;
+    color: #f85149;
+    cursor: pointer;
+    padding: 0 0.3rem;
+}
+
+/* Auth Modal */
+.auth-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    backdrop-filter: blur(10px);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+    padding: 1.5rem;
+}
+.auth-overlay.active {
+    display: flex;
+}
+.auth-box {
+    background: #161b22;
+    border-radius: 20px;
+    border: 1px solid #30363d;
+    padding: 2.5rem;
+    max-width: 420px;
+    width: 100%;
+    text-align: center;
+}
+.auth-box h2 {
+    font-size: 1.8rem;
+    margin-bottom: 0.5rem;
+}
+.auth-box p {
+    color: #8b949e;
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+}
+.auth-box input {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    border-radius: 10px;
+    border: 1px solid #30363d;
+    background: #0d1117;
+    color: #fff;
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+}
+.auth-box input:focus {
+    outline: 2px solid #2ea043;
+    border-color: transparent;
+}
+.auth-box .error {
+    color: #f85149;
+    font-size: 0.85rem;
+    min-height: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+.auth-box button {
+    width: 100%;
+    padding: 0.8rem;
+    font-size: 1rem;
+    background: #2ea043;
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+}
+.auth-box button:hover {
+    filter: brightness(1.1);
+}
+
+.hidden {
+    display: none !important;
+}
+
+#toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+#toast-container .toast {
+    background: #161b22;
+    border: 1px solid #30363d;
+    padding: 12px 20px;
+    border-radius: 12px;
+    color: #f0f6fc;
+    font-size: 0.9rem;
+    animation: slideIn 0.3s ease;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@media (max-width: 900px) {
+    .grid-2 {
+        grid-template-columns: 1fr;
+    }
+    .auth-box {
+        padding: 1.5rem;
+    }
+    .tabs {
+        gap: 0.2rem;
+    }
+    .tab-btn {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.75rem;
+    }
+}
     </style>
 </head>
 <body>
@@ -354,29 +416,43 @@
     <!-- ===== AUTH OVERLAY ===== -->
     <div class="auth-overlay active" id="authOverlay">
         <div class="auth-box">
-            <h2>⚙️ Admin Access</h2>
-            <p>Select your role to continue</p>
-            <div class="role-btns" id="roleBtns">
-                <button onclick="selectRole('viewer')" class="viewer-btn">👀 Viewer</button>
-                <button onclick="selectRole('admin')" class="admin-btn">🔑 Admin</button>
-            </div>
-            <div id="adminAuthSection" class="hidden" style="margin-top:1rem;">
-                <input type="password" id="adminPassword" placeholder="Enter master password" />
-                <div class="error" id="authError"></div>
-                <button onclick="verifyAdminPassword()">Authenticate</button>
-            </div>
+            <h2>🔑 Admin Access</h2>
+            <p>Enter the master password to continue</p>
+            <input type="password" id="adminPassword" placeholder="Enter master password" />
+            <div class="error" id="authError"></div>
+            <button onclick="verifyAdminPassword()">Authenticate</button>
         </div>
     </div>
 
     <!-- ===== MAIN CONTENT ===== -->
     <div class="container" id="mainContent" style="display:none;">
-        <h1>⚙️ DLS Admin Panel</h1>
-        <p class="subtitle">Full control over Premier League &amp; La Liga</p>
 
-        <div class="grid-2">
-            <!-- LEFT COLUMN -->
+        <!-- Header -->
+        <div class="header">
             <div>
-                <!-- League Selector -->
+                <h1>⚙️ DLS Admin Panel</h1>
+                <span class="subtitle">Full control over Premier League &amp; La Liga</span>
+            </div>
+            <div>
+                <span class="admin-badge">🔑 Admin</span>
+                <button onclick="logout()" class="small danger" style="margin-left:0.5rem;">Logout</button>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="teams">🏷️ Teams</button>
+            <button class="tab-btn" data-tab="fixtures">📅 Fixtures</button>
+            <button class="tab-btn" data-tab="results">📝 Results</button>
+            <button class="tab-btn" data-tab="reports">📋 Reports</button>
+            <button class="tab-btn" data-tab="ucl">🏆 Champions League</button>
+            <button class="tab-btn" data-tab="season">⚡ Season</button>
+            <button class="tab-btn" data-tab="logs">📊 Logs</button>
+        </div>
+
+        <!-- ===== TAB 1: TEAMS ===== -->
+        <div id="tab-teams" class="tab-content active">
+            <div class="grid-2">
                 <div class="card">
                     <h2>🏷️ Select League</h2>
                     <select id="leagueSelect" onchange="loadLeague()" style="width:100%; padding:0.6rem 1rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;">
@@ -384,8 +460,6 @@
                         <option value="laliga">🇪🇸 La Liga</option>
                     </select>
                 </div>
-
-                <!-- Teams Management -->
                 <div class="card">
                     <h2>➕ Add / Remove Teams</h2>
                     <div class="flex">
@@ -397,8 +471,12 @@
                         <span id="teamCount">0</span> teams in this league
                     </div>
                 </div>
+            </div>
+        </div>
 
-                <!-- Fixture Generation -->
+        <!-- ===== TAB 2: FIXTURES ===== -->
+        <div id="tab-fixtures" class="tab-content">
+            <div class="grid-2">
                 <div class="card">
                     <h2>📅 Generate Fixtures <span class="badge">Ultimate Random</span></h2>
                     <div class="flex">
@@ -409,8 +487,100 @@
                         Ready to generate fixtures
                     </div>
                 </div>
+                <div class="card">
+                    <h2>📊 Fixture Stats</h2>
+                    <div id="fixtureStats" class="status-box">
+                        No fixtures generated yet
+                    </div>
+                </div>
+            </div>
+        </div>
 
-                <!-- Champions League Management -->
+        <!-- ===== TAB 3: RESULTS ===== -->
+        <div id="tab-results" class="tab-content">
+            <div class="card">
+                <h2>📝 Submit Match Result</h2>
+                <div class="flex" style="gap:0.5rem;">
+                    <select id="resultLeague" style="flex:0 0 100px;">
+                        <option value="premier">PL</option>
+                        <option value="laliga">LL</option>
+                    </select>
+                    <input id="resWeek" placeholder="Week #" type="number" style="width:80px;" />
+                    <input id="resHome" placeholder="Home" />
+                    <input id="resAway" placeholder="Away" />
+                    <input id="resHScore" placeholder="H" type="number" style="width:60px;" />
+                    <input id="resAScore" placeholder="A" type="number" style="width:60px;" />
+                    <button onclick="submitResult()">Submit</button>
+                </div>
+                <div id="resultMsg" style="margin-top:0.5rem; font-size:0.9rem;"></div>
+            </div>
+        </div>
+
+<!-- ===== TAB 4: REPORTS ===== -->
+<div id="tab-reports" class="tab-content">
+    <div class="card">
+        <h2>📝 Match Report Editor</h2>
+        <div class="flex" style="gap:0.5rem; flex-wrap:wrap;">
+            <select id="reportLeague" style="flex:0 0 100px; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;">
+                <option value="premier">PL</option>
+                <option value="laliga">LL</option>
+            </select>
+            <input id="reportWeek" placeholder="Week #" type="number" style="width:80px; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
+            <input id="reportHome" placeholder="Home" style="flex:1; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
+            <input id="reportAway" placeholder="Away" style="flex:1; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
+            <button onclick="loadMatchForReport()">Load</button>
+        </div>
+        <div id="reportEditor" style="margin-top:1rem; display:none;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; margin-bottom:0.5rem;">
+                <input id="reportHomeScore" placeholder="Home Score" type="number" style="padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
+                <input id="reportAwayScore" placeholder="Away Score" type="number" style="padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
+            </div>
+            
+            <!-- ===== MATCH COMMENTS ===== -->
+            <div style="margin-bottom:0.5rem;">
+                <label style="display:block; font-size:0.8rem; color:#8b949e; margin-bottom:0.3rem;">📝 Match Report / Comments</label>
+                <textarea id="reportComments" placeholder="Write a detailed match report...&#10;&#10;Example:&#10;BARCELONA FC secured a convincing 2-0 league match victory over HYPEMAN RICHIE ADO EKITI!&#10;The possession battle was split perfectly down the middle at 50% apiece, but the hosts proved far more clinical with their opportunities. After a scoreless first half, Barcelona FC broke the deadlock in the 61st minute when Mbappé turned playmaker, picking out Bellingham to fire home the opening goal.&#10;The hosts doubled their advantage in the 75th minute when Vini Jr. confidently stepped up to bury a clinical penalty kick.&#10;The match wrapped up at the 90-minute mark with the opponent leaving the match. For opening the scoring and controlling the midfield tempo, Bellingham was deservingly awarded the Player of the Match honors with a 7.2 rating." style="width:100%; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff; min-height:180px; font-family:inherit; resize:vertical;"></textarea>
+                <div style="display:flex; justify-content:space-between; margin-top:0.2rem;">
+                    <span style="font-size:0.7rem; color:#8b949e;">Write a detailed match report with goals, assists, stats, and player ratings</span>
+                    <span style="font-size:0.7rem; color:#8b949e;" id="commentCharCount">0 characters</span>
+                </div>
+            </div>
+
+            <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.5rem;">
+                <input id="reportGoalScorer" placeholder="Scorer" style="flex:1; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
+                <input id="reportGoalMinute" placeholder="Minute" type="number" style="width:80px; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
+                <select id="reportGoalTeam" style="padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;">
+                    <option value="home">🏠 Home</option>
+                    <option value="away">✈️ Away</option>
+                </select>
+                <input id="reportGoalAssist" placeholder="Assist" style="flex:1; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
+                <button onclick="addGoalToReport()" style="padding:0.6rem 1.5rem; background:#2ea043;">Add Goal</button>
+            </div>
+            <div id="reportGoalsList" style="background:#0d1117; padding:0.5rem; border-radius:8px; margin-bottom:0.5rem; font-size:0.85rem; max-height:100px; overflow-y:auto; border:1px solid #21262d;"></div>
+
+            <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.5rem;">
+                <input id="reportCardPlayer" placeholder="Player" style="flex:1; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
+                <select id="reportCardType" style="padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;">
+                    <option value="yellow">🟨 Yellow</option>
+                    <option value="red">🟥 Red</option>
+                </select>
+                <select id="reportCardTeam" style="padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;">
+                    <option value="home">🏠 Home</option>
+                    <option value="away">✈️ Away</option>
+                </select>
+                <button onclick="addCardToReport()" style="padding:0.6rem 1.5rem; background:#d29922;">Add Card</button>
+            </div>
+            <div id="reportCardsList" style="background:#0d1117; padding:0.5rem; border-radius:8px; margin-bottom:0.5rem; font-size:0.85rem; max-height:100px; overflow-y:auto; border:1px solid #21262d;"></div>
+
+            <button onclick="saveMatchReport()" style="width:100%; padding:0.8rem; background:#4cc9f0; border:none; border-radius:8px; color:#0b001a; font-weight:bold; font-size:1rem; cursor:pointer;">💾 Save Match Report</button>
+        </div>
+        <div id="reportStatus" style="margin-top:0.5rem; font-size:0.9rem;"></div>
+    </div>
+</div>
+
+        <!-- ===== TAB 5: CHAMPIONS LEAGUE ===== -->
+        <div id="tab-ucl" class="tab-content">
+            <div class="grid-2">
                 <div class="card">
                     <h2>🏆 Champions League Management</h2>
                     <div class="flex" style="flex-wrap:wrap; gap:0.5rem;">
@@ -422,81 +592,25 @@
                         Ready to generate Champions League
                     </div>
                 </div>
+                <div class="card">
+                    <h2>📊 UCL Format</h2>
+                    <div class="status-box">
+                        <span style="display:block;">🏆 Top 6 from Premier League</span>
+                        <span style="display:block;">🏆 Top 6 from La Liga</span>
+                        <span style="display:block;">📊 12 teams → 2 groups of 6</span>
+                        <span style="display:block;">🏅 Top 4 from each group advance</span>
+                        <span style="display:block;">⚔️ Quarter-finals (single leg)</span>
+                        <span style="display:block;">⚔️ Semi-finals (two legs)</span>
+                        <span style="display:block;">🏆 Final (single leg)</span>
+                    </div>
+                </div>
             </div>
+        </div>
 
-            <!-- RIGHT COLUMN -->
-            <div>
-                <!-- Submit Result -->
+        <!-- ===== TAB 6: SEASON ===== -->
+        <div id="tab-season" class="tab-content">
+            <div class="grid-2">
                 <div class="card">
-                    <h2>📝 Submit Match Result</h2>
-                    <div class="flex" style="gap:0.5rem;">
-                        <select id="resultLeague" style="flex:0 0 100px;">
-                            <option value="premier">PL</option>
-                            <option value="laliga">LL</option>
-                        </select>
-                        <input id="resWeek" placeholder="Week #" type="number" style="width:80px;" />
-                        <input id="resHome" placeholder="Home" />
-                        <input id="resAway" placeholder="Away" />
-                        <input id="resHScore" placeholder="H" type="number" style="width:60px;" />
-                        <input id="resAScore" placeholder="A" type="number" style="width:60px;" />
-                        <button onclick="submitResult()">Submit</button>
-                    </div>
-                    <div id="resultMsg" style="margin-top:0.5rem; font-size:0.9rem;"></div>
-                </div>
-
-                <!-- Match Report Editor -->
-                <div class="card">
-                    <h2>📝 Match Report Editor</h2>
-                    <div class="flex" style="gap:0.5rem; flex-wrap:wrap;">
-                        <select id="reportLeague" style="flex:0 0 100px; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;">
-                            <option value="premier">PL</option>
-                            <option value="laliga">LL</option>
-                        </select>
-                        <input id="reportWeek" placeholder="Week #" type="number" style="width:80px; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
-                        <input id="reportHome" placeholder="Home" style="flex:1; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
-                        <input id="reportAway" placeholder="Away" style="flex:1; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
-                        <button onclick="loadMatchForReport()">Load</button>
-                    </div>
-                    <div id="reportEditor" style="margin-top:1rem; display:none;">
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; margin-bottom:0.5rem;">
-                            <input id="reportHomeScore" placeholder="Home Score" type="number" style="padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
-                            <input id="reportAwayScore" placeholder="Away Score" type="number" style="padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
-                        </div>
-                        <textarea id="reportSummary" placeholder="Match summary (e.g., 'A thrilling encounter...')" style="width:100%; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff; min-height:60px; margin-bottom:0.5rem;"></textarea>
-
-                        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.5rem;">
-                            <input id="reportGoalScorer" placeholder="Scorer" style="flex:1; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
-                            <input id="reportGoalMinute" placeholder="Minute" type="number" style="width:80px; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
-                            <select id="reportGoalTeam" style="padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;">
-                                <option value="home">🏠 Home</option>
-                                <option value="away">✈️ Away</option>
-                            </select>
-                            <input id="reportGoalAssist" placeholder="Assist (optional)" style="flex:1; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
-                            <button onclick="addGoalToReport()" style="padding:0.6rem 1.5rem; background:#2ea043;">Add Goal</button>
-                        </div>
-                        <div id="reportGoalsList" style="background:#0d1117; padding:0.5rem; border-radius:8px; margin-bottom:0.5rem; font-size:0.85rem; max-height:100px; overflow-y:auto; border:1px solid #21262d;"></div>
-
-                        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.5rem;">
-                            <input id="reportCardPlayer" placeholder="Player" style="flex:1; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
-                            <select id="reportCardType" style="padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;">
-                                <option value="yellow">🟨 Yellow</option>
-                                <option value="red">🟥 Red</option>
-                            </select>
-                            <select id="reportCardTeam" style="padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;">
-                                <option value="home">🏠 Home</option>
-                                <option value="away">✈️ Away</option>
-                            </select>
-                            <button onclick="addCardToReport()" style="padding:0.6rem 1.5rem; background:#d29922;">Add Card</button>
-                        </div>
-                        <div id="reportCardsList" style="background:#0d1117; padding:0.5rem; border-radius:8px; margin-bottom:0.5rem; font-size:0.85rem; max-height:100px; overflow-y:auto; border:1px solid #21262d;"></div>
-
-                        <button onclick="saveMatchReport()" style="width:100%; padding:0.8rem; background:#4cc9f0; border:none; border-radius:8px; color:#0b001a; font-weight:bold; font-size:1rem; cursor:pointer;">💾 Save Match Report</button>
-                    </div>
-                    <div id="reportStatus" style="margin-top:0.5rem; font-size:0.9rem;"></div>
-                </div>
-
-                <!-- Season Actions -->
-               <div class="card">
                     <h2>🏆 Season Management</h2>
                     <div class="inline-flex">
                         <button onclick="triggerEndSeason()" class="danger">🔽 Relegate Bottom 3</button>
@@ -507,8 +621,6 @@
                         Reset: clears all fixtures and standings.
                     </div>
                 </div>
-
-                <!-- Quick Actions -->
                 <div class="card">
                     <h2>⚡ Quick Actions</h2>
                     <div class="inline-flex">
@@ -519,820 +631,929 @@
             </div>
         </div>
 
-        <!-- Activity Log -->
-        <div class="card">
-            <h2>📋 Activity Log</h2>
-            <div id="logContainer" class="log"><p>⏳ Ready...</p></div>
+        <!-- ===== TAB 7: LOGS ===== -->
+        <div id="tab-logs" class="tab-content">
+            <div class="card">
+                <h2>📋 Activity Log</h2>
+                <div id="logContainer" class="log"><p>⏳ Ready...</p></div>
+            </div>
         </div>
+
     </div>
 
+    <!-- ===== JAVASCRIPT WILL BE IN BLOCK 3 ===== -->
     <script>
-        // ================================================================
-        //  🔥 FIREBASE CONFIG
-        // ================================================================
-        const firebaseConfig = {
-            apiKey: "AIzaSyBmy0tmvaYcw9KsQQRH7RLKcXC8EN6WFqY",
-            authDomain: "dls-premier-league.firebaseapp.com",
-            projectId: "dls-premier-league",
-            storageBucket: "dls-premier-league.firebasestorage.app",
-            messagingSenderId: "975087030284",
-            appId: "1:975087030284:web:7708718fffd9180c009e29"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
 
-        // ================================================================
-        //  AUTHENTICATION
-        // ================================================================
-        let isAdmin = false;
-        let currentLeague = 'premier';
-        let allTeams = [];
-        const MASTER_PASSWORD = '090541';
+        /* ================================================================
+   BLOCK 3: COMPLETE JAVASCRIPT
+   ================================================================ */
 
-        function selectRole(role) {
-            if (role === 'admin') {
-                document.getElementById('adminAuthSection').classList.remove('hidden');
-                document.getElementById('roleBtns').style.display = 'none';
-                document.getElementById('authError').textContent = '';
-            } else {
-                isAdmin = false;
-                document.getElementById('authOverlay').classList.remove('active');
-                document.getElementById('mainContent').style.display = 'block';
-                loadLeague();
-                log('👀 Viewer mode activated', 'info');
-                showToast('Viewer mode active');
+// ================================================================
+//  🔥 FIREBASE CONFIG
+// ================================================================
+const firebaseConfig = {
+    apiKey: "AIzaSyBmy0tmvaYcw9KsQQRH7RLKcXC8EN6WFqY",
+    authDomain: "dls-premier-league.firebaseapp.com",
+    projectId: "dls-premier-league",
+    storageBucket: "dls-premier-league.firebasestorage.app",
+    messagingSenderId: "975087030284",
+    appId: "1:975087030284:web:7708718fffd9180c009e29"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ================================================================
+//  AUTHENTICATION (Admin Only)
+// ================================================================
+let isAdmin = false;
+let currentLeague = 'premier';
+let allTeams = [];
+const MASTER_PASSWORD = '090541';
+
+function verifyAdminPassword() {
+    const entered = document.getElementById('adminPassword').value;
+    const storedPassRef = db.ref('tournament_data/password');
+
+    storedPassRef.once('value', (snapshot) => {
+        const storedPass = snapshot.val();
+        const validPassword = storedPass ? entered === storedPass : entered === MASTER_PASSWORD;
+
+        if (validPassword) {
+            isAdmin = true;
+            document.getElementById('authOverlay').classList.remove('active');
+            document.getElementById('mainContent').style.display = 'block';
+            loadLeague();
+            log('🔑 Admin access granted', 'success');
+            showToast('Admin mode ACTIVE');
+        } else {
+            document.getElementById('authError').textContent = '❌ Incorrect password. Try again.';
+        }
+    }).catch(() => {
+        if (entered === MASTER_PASSWORD) {
+            isAdmin = true;
+            document.getElementById('authOverlay').classList.remove('active');
+            document.getElementById('mainContent').style.display = 'block';
+            loadLeague();
+            log('🔑 Admin access granted (fallback)', 'success');
+            showToast('Admin mode ACTIVE');
+        } else {
+            document.getElementById('authError').textContent = '❌ Incorrect password. Try again.';
+        }
+    });
+}
+
+function logout() {
+    if (confirm('Logout from admin?')) {
+        location.reload();
+    }
+}
+
+document.getElementById('adminPassword').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') verifyAdminPassword();
+});
+
+// ================================================================
+//  TAB SWITCHING
+// ================================================================
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
+    });
+});
+
+// ================================================================
+//  TOAST & LOGGING
+// ================================================================
+function showToast(msg) {
+    const container = document.getElementById('toast-container');
+    if (!container) {
+        const div = document.createElement('div');
+        div.id = 'toast-container';
+        document.body.appendChild(div);
+    }
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = msg;
+    document.getElementById('toast-container').appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s';
+        setTimeout(() => toast.remove(), 300);
+    }, 2500);
+}
+
+function log(msg, type = 'info') {
+    const el = document.getElementById('logContainer');
+    const p = document.createElement('p');
+    const time = new Date().toLocaleTimeString();
+    p.textContent = `[${time}] ${msg}`;
+    if (type === 'success') p.className = 'success';
+    else if (type === 'error') p.className = 'error';
+    else if (type === 'warning') p.className = 'warning';
+    el.appendChild(p);
+    el.scrollTop = el.scrollHeight;
+    if (el.children.length > 100) el.removeChild(el.firstChild);
+}
+
+// ================================================================
+//  🔥 ULTIMATE RANDOM FIXTURE GENERATION
+// ================================================================
+function generateStrictRoundRobin(teamNames) {
+    let teams = [...teamNames];
+    const n = teams.length;
+    const isOdd = n % 2 !== 0;
+    if (isOdd) teams.push("BYE");
+    const m = teams.length;
+    const half = m / 2;
+    const rounds = [];
+
+    for (let round = 0; round < m - 1; round++) {
+        const roundFixtures = [];
+        for (let i = 0; i < half; i++) {
+            const home = teams[i];
+            const away = teams[m - 1 - i];
+            if (home !== "BYE" && away !== "BYE") {
+                if (round % 2 === 0) {
+                    roundFixtures.push({ home, away });
+                } else {
+                    roundFixtures.push({ home: away, away: home });
+                }
             }
         }
+        rounds.push(roundFixtures);
+        const last = teams.pop();
+        teams.splice(1, 0, last);
+    }
 
-        function verifyAdminPassword() {
-            const entered = document.getElementById('adminPassword').value;
-            const storedPassRef = db.ref('tournament_data/password');
+    const secondHalf = rounds.map(r => r.map(f => ({ home: f.away, away: f.home })));
 
-            storedPassRef.once('value', (snapshot) => {
-                const storedPass = snapshot.val();
-                const validPassword = storedPass ? entered === storedPass : entered === MASTER_PASSWORD;
+    function ultimateShuffle(array, passes = 10) {
+        const getRandom = () => {
+            if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+                const arr = new Uint32Array(1);
+                crypto.getRandomValues(arr);
+                return arr[0] / 4294967295;
+            }
+            return Math.random();
+        };
 
-                if (validPassword) {
-                    isAdmin = true;
-                    document.getElementById('authOverlay').classList.remove('active');
-                    document.getElementById('mainContent').style.display = 'block';
-                    loadLeague();
-                    log('🔑 Admin access granted', 'success');
-                    showToast('Admin mode ACTIVE');
-                } else {
-                    document.getElementById('authError').textContent = '❌ Incorrect password. Try again.';
+        for (let pass = 0; pass < passes; pass++) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(getRandom() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            if (pass % 2 === 0 && array.length > 3) {
+                const start = Math.floor(getRandom() * (array.length - 2));
+                const end = start + Math.floor(getRandom() * (array.length - start - 1)) + 1;
+                const segment = array.slice(start, end);
+                segment.reverse();
+                array.splice(start, segment.length, ...segment);
+            }
+            if (pass % 3 === 0 && array.length > 4) {
+                for (let s = 0; s < Math.floor(array.length / 2); s++) {
+                    const idx1 = Math.floor(getRandom() * array.length);
+                    const idx2 = Math.floor(getRandom() * array.length);
+                    if (idx1 !== idx2) {
+                        [array[idx1], array[idx2]] = [array[idx2], array[idx1]];
+                    }
                 }
-            }).catch(() => {
-                if (entered === MASTER_PASSWORD) {
-                    isAdmin = true;
-                    document.getElementById('authOverlay').classList.remove('active');
-                    document.getElementById('mainContent').style.display = 'block';
-                    loadLeague();
-                    log('🔑 Admin access granted (fallback)', 'success');
-                    showToast('Admin mode ACTIVE');
-                } else {
-                    document.getElementById('authError').textContent = '❌ Incorrect password. Try again.';
-                }
-            });
+            }
+            if (pass % 5 === 0 && array.length > 5) {
+                const rotateAmount = Math.floor(getRandom() * array.length);
+                const part1 = array.slice(0, rotateAmount);
+                const part2 = array.slice(rotateAmount);
+                array.splice(0, array.length, ...part2, ...part1);
+            }
         }
+        return array;
+    }
 
-        document.getElementById('adminPassword').addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') verifyAdminPassword();
+    ultimateShuffle(rounds, 15);
+    ultimateShuffle(secondHalf, 15);
+
+    for (let round = 0; round < rounds.length; round++) {
+        ultimateShuffle(rounds[round], 20);
+    }
+    for (let round = 0; round < secondHalf.length; round++) {
+        ultimateShuffle(secondHalf[round], 20);
+    }
+
+    for (let round = 0; round < rounds.length; round++) {
+        const fixtures = rounds[round];
+        for (let i = 0; i < fixtures.length; i++) {
+            if (Math.random() < 0.15) {
+                [fixtures[i].home, fixtures[i].away] = [fixtures[i].away, fixtures[i].home];
+            }
+        }
+    }
+
+    const mirroredSecondHalf = rounds.map(r => r.map(f => ({ home: f.away, away: f.home })));
+
+    ultimateShuffle(mirroredSecondHalf, 15);
+    for (let round = 0; round < mirroredSecondHalf.length; round++) {
+        ultimateShuffle(mirroredSecondHalf[round], 20);
+    }
+
+    const firstHalfMatchups = new Set();
+    for (let round = 0; round < rounds.length; round++) {
+        const fixtures = rounds[round];
+        for (const f of fixtures) {
+            const key = `${f.home}|${f.away}`;
+            const reverseKey = `${f.away}|${f.home}`;
+            if (firstHalfMatchups.has(key) || firstHalfMatchups.has(reverseKey)) {
+                [f.home, f.away] = [f.away, f.home];
+            }
+            firstHalfMatchups.add(`${f.home}|${f.away}`);
+        }
+    }
+
+    for (let round = 0; round < rounds.length; round++) {
+        const fixtures = rounds[round];
+        const teamsInRound = new Set();
+        for (const f of fixtures) {
+            if (teamsInRound.has(f.home) || teamsInRound.has(f.away)) {
+                [f.home, f.away] = [f.away, f.home];
+            }
+            teamsInRound.add(f.home);
+            teamsInRound.add(f.away);
+        }
+    }
+
+    return [...rounds, ...mirroredSecondHalf];
+}
+
+// ================================================================
+//  🔥 FIXTURE VALIDATION
+// ================================================================
+function validateFixtureIntegrity(fixtures, teamList, silent = false) {
+    const totalRounds = Math.max(...fixtures.map(f => f.round));
+    const halfRounds = totalRounds / 2;
+    const issues = [];
+    const warnings = [];
+
+    for (let round = 1; round <= totalRounds; round++) {
+        const roundFixtures = fixtures.filter(f => f.round === round);
+        const teamsInRound = [];
+        for (const f of roundFixtures) {
+            if (teamsInRound.includes(f.home)) {
+                issues.push(`❌ Round ${round}: ${f.home} appears twice!`);
+            }
+            if (teamsInRound.includes(f.away)) {
+                issues.push(`❌ Round ${round}: ${f.away} appears twice!`);
+            }
+            teamsInRound.push(f.home, f.away);
+        }
+    }
+
+    const firstHalfMatches = new Set();
+    for (let round = 1; round <= halfRounds; round++) {
+        const roundFixtures = fixtures.filter(f => f.round === round);
+        for (const f of roundFixtures) {
+            const matchup = `${f.home}|${f.away}`;
+            const reverseMatchup = `${f.away}|${f.home}`;
+            if (firstHalfMatches.has(matchup) || firstHalfMatches.has(reverseMatchup)) {
+                issues.push(`❌ Duplicate matchup in first half: ${f.home} vs ${f.away}`);
+            }
+            firstHalfMatches.add(matchup);
+        }
+    }
+
+    for (let round = 1; round <= halfRounds; round++) {
+        const secondHalfRound = round + halfRounds;
+        const firstHalfFixtures = fixtures.filter(f => f.round === round);
+        const secondHalfFixtures = fixtures.filter(f => f.round === secondHalfRound);
+
+        const sortedFirst = [...firstHalfFixtures].sort((a, b) => a.home.localeCompare(b.home));
+        const sortedSecond = [...secondHalfFixtures].sort((a, b) => a.home.localeCompare(b.home));
+
+        for (let i = 0; i < sortedFirst.length; i++) {
+            const first = sortedFirst[i];
+            const second = sortedSecond[i];
+            if (second) {
+                const match = secondHalfFixtures.find(f =>
+                    f.home === first.away && f.away === first.home
+                );
+                if (!match) {
+                    warnings.push(`⚠️ Round ${secondHalfRound} does not mirror Round ${round}: ${first.home} vs ${first.away}`);
+                }
+            }
+        }
+    }
+
+    for (const f of fixtures) {
+        if (f.home === f.away && f.home !== "BYE") {
+            issues.push(`❌ Invalid fixture: ${f.home} vs ${f.away} (team cannot play itself)`);
+        }
+    }
+
+    const homeCount = {};
+    const awayCount = {};
+    for (let round = 1; round <= halfRounds; round++) {
+        const roundFixtures = fixtures.filter(f => f.round === round);
+        for (const f of roundFixtures) {
+            if (f.home !== "BYE") homeCount[f.home] = (homeCount[f.home] || 0) + 1;
+            if (f.away !== "BYE") awayCount[f.away] = (awayCount[f.away] || 0) + 1;
+        }
+    }
+    for (const team in homeCount) {
+        if (homeCount[team] !== awayCount[team]) {
+            warnings.push(`⚠️ ${team} has ${homeCount[team]} home games and ${awayCount[team]} away games in first half`);
+        }
+    }
+
+    const matchCounts = {};
+    for (let round = 1; round <= halfRounds; round++) {
+        const roundFixtures = fixtures.filter(f => f.round === round);
+        for (const f of roundFixtures) {
+            if (f.home !== "BYE") matchCounts[f.home] = (matchCounts[f.home] || 0) + 1;
+            if (f.away !== "BYE") matchCounts[f.away] = (matchCounts[f.away] || 0) + 1;
+        }
+    }
+    const counts = Object.values(matchCounts);
+    if (counts.length > 0) {
+        const expected = counts[0];
+        for (const [team, count] of Object.entries(matchCounts)) {
+            if (count !== expected) {
+                warnings.push(`⚠️ ${team} has ${count} matches, expected ${expected} in first half`);
+            }
+        }
+    }
+
+    const allIssues = [...issues, ...warnings];
+    if (allIssues.length > 0) {
+        console.warn("⚠️ Integrity issues found:", allIssues);
+        if (!silent) showToast(`⚠️ Found ${allIssues.length} issues! Check console.`);
+    } else {
+        console.log("✅ All fixtures are valid!");
+        if (!silent) showToast("✅ Fixture integrity check passed!");
+    }
+
+    return { issues, warnings, valid: issues.length === 0 };
+}
+
+// ================================================================
+//  LEAGUE & TEAMS
+// ================================================================
+function loadLeague() {
+    currentLeague = document.getElementById('leagueSelect').value;
+    loadTeams();
+}
+
+async function loadTeams() {
+    const snap = await db.ref(`leagues/${currentLeague}/teams`).once('value');
+    const teams = snap.val() || {};
+    allTeams = Object.values(teams);
+    const list = document.getElementById('teamList');
+    if (allTeams.length === 0) {
+        list.innerHTML = '<span style="color:#8b949e;">No teams added yet. Add your first team!</span>';
+        document.getElementById('teamCount').textContent = '0';
+        return;
+    }
+    let html = '';
+    for (const [id, name] of Object.entries(teams)) {
+        html += `<span class="team-chip">${name} <button onclick="removeTeam('${id}')">✕</button></span>`;
+    }
+    list.innerHTML = html;
+    document.getElementById('teamCount').textContent = allTeams.length;
+    updateFixtureStats();
+}
+
+async function addTeam() {
+    const input = document.getElementById('teamNameInput');
+    const name = input.value.trim();
+    if (!name) return log('Enter a team name', 'error');
+    const ref = db.ref(`leagues/${currentLeague}/teams`);
+    await ref.push(name);
+    log(`Added "${name}" to ${currentLeague}`, 'success');
+    input.value = '';
+    loadTeams();
+}
+
+async function removeTeam(id) {
+    if (!confirm('Remove this team? This will affect fixtures.')) return;
+    await db.ref(`leagues/${currentLeague}/teams/${id}`).remove();
+    log(`Team removed from ${currentLeague}`, 'success');
+    loadTeams();
+}
+
+// ================================================================
+//  FIXTURE GENERATION
+// ================================================================
+async function generateFixtures() {
+    const teamsSnap = await db.ref(`leagues/${currentLeague}/teams`).once('value');
+    const teams = Object.values(teamsSnap.val() || {});
+    if (teams.length < 3) {
+        log('Need at least 3 teams to generate fixtures', 'error');
+        document.getElementById('fixtureStatus').innerHTML = `<span class="red">❌ Need at least 3 teams</span>`;
+        return;
+    }
+
+    log(`🔄 Generating fixtures for ${teams.length} teams...`, 'info');
+
+    const rounds = generateStrictRoundRobin(teams);
+
+    const matchweeks = {};
+    let fixtureId = 0;
+
+    rounds.forEach((roundFixtures, roundIndex) => {
+        const roundNum = roundIndex + 1;
+        matchweeks[roundNum] = { matches: [] };
+        roundFixtures.forEach(({ home, away }) => {
+            matchweeks[roundNum].matches.push({
+                id: fixtureId++,
+                home: home,
+                away: away,
+                homeScore: null,
+                awayScore: null,
+                played: false,
+                cancelled: false
+            });
+        });
+    });
+
+    const allFixtures = [];
+    for (const round in matchweeks) {
+        const matches = matchweeks[round].matches || [];
+        matches.forEach(m => {
+            allFixtures.push({
+                round: parseInt(round),
+                home: m.home,
+                away: m.away,
+                played: m.played || false,
+                cancelled: m.cancelled || false
+            });
+        });
+    }
+
+    const result = validateFixtureIntegrity(allFixtures, teams, true);
+    if (!result.valid) {
+        log(`❌ Validation failed: ${result.issues.join(', ')}`, 'error');
+        document.getElementById('fixtureStatus').innerHTML =
+            `<span class="red">❌ Validation failed: ${result.issues.join(', ')}</span>`;
+        return;
+    }
+
+    await db.ref(`leagues/${currentLeague}/matchweeks`).set(matchweeks);
+    const totalWeeks = Object.keys(matchweeks).length;
+    const halfRounds = totalWeeks / 2;
+
+    log(`✅ Generated ${totalWeeks} matchweeks (${halfRounds} first half, ${halfRounds} second half) for ${currentLeague}`,
+        'success');
+
+    document.getElementById('fixtureStatus').innerHTML = `
+        <span class="green">✅ ${totalWeeks} matchweeks generated</span>
+        <span style="display:block;font-size:0.8rem;margin-top:0.3rem;">
+            First half: ${halfRounds} weeks | Second half: ${halfRounds} weeks (Ultimate Random)
+        </span>
+        <span style="display:block;font-size:0.8rem;margin-top:0.2rem;color:#8b949e;">
+            ${teams.length} teams • ${allFixtures.length} total matches
+        </span>
+    `;
+
+    updateFixtureStats();
+}
+
+// ================================================================
+//  FIXTURE STATS
+// ================================================================
+async function updateFixtureStats() {
+    const snap = await db.ref(`leagues/${currentLeague}/matchweeks`).once('value');
+    const matchweeks = snap.val() || {};
+    const totalWeeks = Object.keys(matchweeks).length;
+    const halfRounds = totalWeeks / 2;
+
+    let totalMatches = 0;
+    let playedMatches = 0;
+    for (const wk in matchweeks) {
+        const matches = matchweeks[wk].matches || [];
+        totalMatches += matches.length;
+        playedMatches += matches.filter(m => m.played).length;
+    }
+
+    const statsEl = document.getElementById('fixtureStats');
+    if (totalWeeks === 0) {
+        statsEl.innerHTML = 'No fixtures generated yet';
+        return;
+    }
+
+    statsEl.innerHTML = `
+        <span style="display:block;">📊 ${totalWeeks} matchweeks (${halfRounds} first half, ${halfRounds} second half)</span>
+        <span style="display:block;">⚽ ${totalMatches} total matches</span>
+        <span style="display:block;">✅ ${playedMatches} played (${Math.round((playedMatches/totalMatches)*100)}%)</span>
+        <span style="display:block;font-size:0.8rem;color:#8b949e;margin-top:0.3rem;">
+            ${allTeams.length} teams • Each team plays ${allTeams.length - 1} matches
+        </span>
+    `;
+}
+
+// ================================================================
+//  FIXTURE INTEGRITY CHECK
+// ================================================================
+async function checkFixtureIntegrity() {
+    const snap = await db.ref(`leagues/${currentLeague}/matchweeks`).once('value');
+    const matchweeks = snap.val() || {};
+    const teamsSnap = await db.ref(`leagues/${currentLeague}/teams`).once('value');
+    const teams = Object.values(teamsSnap.val() || {});
+
+    if (Object.keys(matchweeks).length === 0) {
+        document.getElementById('fixtureStatus').innerHTML = `<span class="yellow">⚠️ No fixtures to check</span>`;
+        return;
+    }
+
+    const fixtures = [];
+    for (const round in matchweeks) {
+        const matches = matchweeks[round].matches || [];
+        matches.forEach(m => {
+            fixtures.push({
+                round: parseInt(round),
+                home: m.home,
+                away: m.away,
+                played: m.played || false,
+                cancelled: m.cancelled || false
+            });
+        });
+    }
+
+    const result = validateFixtureIntegrity(fixtures, teams, false);
+    const statusEl = document.getElementById('fixtureStatus');
+
+    if (result.valid && result.warnings.length === 0) {
+        const total = Object.keys(matchweeks).length;
+        const halfRounds = total / 2;
+        statusEl.innerHTML = `
+            <span class="green">✅ All fixtures are valid!</span>
+            <span style="display:block;font-size:0.8rem;margin-top:0.3rem;">
+                ${total} matchweeks total (${halfRounds} first half, ${halfRounds} second half)
+            </span>
+            <span style="display:block;font-size:0.8rem;color:#8b949e;">
+                No issues found ✅
+            </span>
+        `;
+        log('✅ Fixture integrity check passed', 'success');
+    } else {
+        let html = '';
+        if (result.issues.length > 0) {
+            html += `<span class="red">❌ ${result.issues.length} critical issue(s):</span>
+                <ul style="margin-top:0.3rem;font-size:0.8rem;list-style:none;padding-left:0;">
+                    ${result.issues.map(e => `<li>• ${e}</li>`).join('')}
+                </ul>`;
+        }
+        if (result.warnings.length > 0) {
+            html += `<span class="yellow">⚠️ ${result.warnings.length} warning(s):</span>
+                <ul style="margin-top:0.3rem;font-size:0.8rem;list-style:none;padding-left:0;">
+                    ${result.warnings.map(e => `<li>• ${e}</li>`).join('')}
+                </ul>`;
+        }
+        html += `
+            <button onclick="fixFixtureIntegrity()" class="warning" style="margin-top:0.5rem;padding:0.3rem 1rem;font-size:0.8rem;">
+                🔧 Attempt Auto-Fix
+            </button>
+        `;
+        statusEl.innerHTML = html;
+        log(`⚠️ Integrity check: ${result.issues.length} issues, ${result.warnings.length} warnings found`, 'warning');
+    }
+}
+
+async function fixFixtureIntegrity() {
+    log('🔄 Attempting to fix fixture integrity...', 'warning');
+    await generateFixtures();
+    log('✅ Fixtures regenerated to fix integrity issues', 'success');
+}
+
+// ================================================================
+//  SUBMIT RESULT
+// ================================================================
+async function submitResult() {
+    const league = document.getElementById('resultLeague').value;
+    const week = document.getElementById('resWeek').value;
+    const home = document.getElementById('resHome').value.trim();
+    const away = document.getElementById('resAway').value.trim();
+    const hs = parseInt(document.getElementById('resHScore').value);
+    const as = parseInt(document.getElementById('resAScore').value);
+
+    if (!week || !home || !away || isNaN(hs) || isNaN(as)) {
+        document.getElementById('resultMsg').innerHTML = '<span style="color:#f85149;">❌ Fill all fields</span>';
+        return;
+    }
+
+    const ref = db.ref(`leagues/${league}/matchweeks/${week}/matches`);
+    const snap = await ref.once('value');
+    const matches = snap.val() || [];
+    let found = false;
+
+    for (let i = 0; i < matches.length; i++) {
+        if (matches[i].home === home && matches[i].away === away) {
+            matches[i].homeScore = hs;
+            matches[i].awayScore = as;
+            matches[i].played = true;
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        matches.push({ home, away, homeScore: hs, awayScore: as, played: true });
+    }
+
+    await ref.set(matches);
+    document.getElementById('resultMsg').innerHTML = `<span style="color:#3fb950;">✅ Result saved!</span>`;
+    log(`Result: ${home} ${hs}–${as} ${away} (${league} wk${week})`, 'success');
+
+    document.getElementById('resHome').value = '';
+    document.getElementById('resAway').value = '';
+    document.getElementById('resHScore').value = '';
+    document.getElementById('resAScore').value = '';
+    updateFixtureStats();
+}
+
+// ================================================================
+//  MATCH REPORT EDITOR (UPDATED with Comments)
+// ================================================================
+let currentReportData = { goals: [], cards: [], matchIndex: -1, league: 'premier', week: '', home: '', away: '' };
+
+async function loadMatchForReport() {
+    const league = document.getElementById('reportLeague').value;
+    const week = document.getElementById('reportWeek').value;
+    const home = document.getElementById('reportHome').value.trim();
+    const away = document.getElementById('reportAway').value.trim();
+
+    if (!week || !home || !away) {
+        document.getElementById('reportStatus').innerHTML = '<span style="color:#f85149;">❌ Fill all fields</span>';
+        return;
+    }
+
+    const ref = db.ref(`leagues/${league}/matchweeks/${week}/matches`);
+    const snap = await ref.once('value');
+    const matches = snap.val() || [];
+    let found = null;
+    let index = -1;
+    for (let i = 0; i < matches.length; i++) {
+        if (matches[i].home === home && matches[i].away === away) {
+            found = matches[i];
+            index = i;
+            break;
+        }
+    }
+
+    if (!found) {
+        document.getElementById('reportStatus').innerHTML = '<span style="color:#f85149;">❌ Match not found</span>';
+        return;
+    }
+
+    document.getElementById('reportEditor').style.display = 'block';
+    document.getElementById('reportHomeScore').value = found.homeScore || '';
+    document.getElementById('reportAwayScore').value = found.awayScore || '';
+    document.getElementById('reportComments').value = found.report?.comment || found.report?.summary || '';
+
+    currentReportData = {
+        goals: found.report?.goals || [],
+        cards: found.report?.cards || [],
+        matchIndex: index,
+        league: league,
+        week: week,
+        home: home,
+        away: away
+    };
+
+    renderReportGoals();
+    renderReportCards();
+    updateCommentCharCount();
+    document.getElementById('reportStatus').innerHTML = `<span style="color:#3fb950;">✅ Match loaded</span>`;
+}
+
+// Character counter for comments
+document.getElementById('reportComments').addEventListener('input', updateCommentCharCount);
+
+function updateCommentCharCount() {
+    const el = document.getElementById('reportComments');
+    const count = el.value.length;
+    document.getElementById('commentCharCount').textContent = count + ' characters';
+}
+
+function addGoalToReport() {
+    const scorer = document.getElementById('reportGoalScorer').value.trim();
+    const minute = document.getElementById('reportGoalMinute').value;
+    const team = document.getElementById('reportGoalTeam').value;
+    const assist = document.getElementById('reportGoalAssist').value.trim();
+
+    if (!scorer || !minute) {
+        document.getElementById('reportStatus').innerHTML = '<span style="color:#f85149;">❌ Scorer and minute required</span>';
+        return;
+    }
+
+    currentReportData.goals.push({ scorer, minute: parseInt(minute), team, assist: assist || null });
+    document.getElementById('reportGoalScorer').value = '';
+    document.getElementById('reportGoalMinute').value = '';
+    document.getElementById('reportGoalAssist').value = '';
+    renderReportGoals();
+    document.getElementById('reportStatus').innerHTML = '<span style="color:#3fb950;">✅ Goal added</span>';
+}
+
+function addCardToReport() {
+    const player = document.getElementById('reportCardPlayer').value.trim();
+    const type = document.getElementById('reportCardType').value;
+    const team = document.getElementById('reportCardTeam').value;
+
+    if (!player) {
+        document.getElementById('reportStatus').innerHTML = '<span style="color:#f85149;">❌ Player name required</span>';
+        return;
+    }
+
+    currentReportData.cards.push({ player, type, team });
+    document.getElementById('reportCardPlayer').value = '';
+    renderReportCards();
+    document.getElementById('reportStatus').innerHTML = '<span style="color:#3fb950;">✅ Card added</span>';
+}
+
+function renderReportGoals() {
+    const container = document.getElementById('reportGoalsList');
+    if (currentReportData.goals.length === 0) {
+        container.innerHTML = '<span style="color:#8b949e;">No goals added</span>';
+        return;
+    }
+    container.innerHTML = currentReportData.goals.map((g, i) => `
+        <div class="report-goal-item">
+            <span>${g.minute}' ${g.scorer} ${g.assist ? '(assist: '+g.assist+')' : ''} (${g.team === 'home' ? '🏠' : '✈️'})</span>
+            <button class="remove" onclick="removeReportGoal(${i})">✕</button>
+        </div>
+    `).join('');
+}
+
+function renderReportCards() {
+    const container = document.getElementById('reportCardsList');
+    if (currentReportData.cards.length === 0) {
+        container.innerHTML = '<span style="color:#8b949e;">No cards added</span>';
+        return;
+    }
+    container.innerHTML = currentReportData.cards.map((c, i) => `
+        <div class="report-card-item">
+            <span>${c.type === 'yellow' ? '🟨' : '🟥'} ${c.player} (${c.team === 'home' ? '🏠' : '✈️'})</span>
+            <button class="remove" onclick="removeReportCard(${i})">✕</button>
+        </div>
+    `).join('');
+}
+
+function removeReportGoal(index) {
+    currentReportData.goals.splice(index, 1);
+    renderReportGoals();
+}
+
+function removeReportCard(index) {
+    currentReportData.cards.splice(index, 1);
+    renderReportCards();
+}
+
+async function saveMatchReport() {
+    const { league, week, home, away, matchIndex, goals, cards } = currentReportData;
+    const homeScore = parseInt(document.getElementById('reportHomeScore').value);
+    const awayScore = parseInt(document.getElementById('reportAwayScore').value);
+    const comments = document.getElementById('reportComments').value.trim();
+
+    if (isNaN(homeScore) || isNaN(awayScore)) {
+        document.getElementById('reportStatus').innerHTML = '<span style="color:#f85149;">❌ Enter valid scores</span>';
+        return;
+    }
+
+    if (!comments) {
+        document.getElementById('reportStatus').innerHTML = '<span style="color:#f85149;">❌ Please write match comments/report</span>';
+        return;
+    }
+
+    const ref = db.ref(`leagues/${league}/matchweeks/${week}/matches`);
+    const snap = await ref.once('value');
+    const matches = snap.val() || [];
+
+    if (matches[matchIndex]) {
+        matches[matchIndex].homeScore = homeScore;
+        matches[matchIndex].awayScore = awayScore;
+        matches[matchIndex].played = true;
+        matches[matchIndex].report = {
+            comment: comments,
+            summary: comments.substring(0, 200) + (comments.length > 200 ? '...' : ''),
+            goals: goals,
+            cards: cards,
+            fullComment: comments
+        };
+        await ref.set(matches);
+        document.getElementById('reportStatus').innerHTML = `<span style="color:#3fb950;">✅ Report saved successfully!</span>`;
+        log(`📝 Match report saved: ${home} ${homeScore}-${awayScore} ${away} (${league} wk${week})`, 'success');
+    }
+}
+
+// ================================================================
+//  CHAMPIONS LEAGUE MANAGEMENT
+// ================================================================
+async function generateChampionsLeague() {
+    if (!confirm('Generate Champions League from top 6 teams from Premier League and La Liga?')) return;
+
+    try {
+        const plSnap = await db.ref('leagues/premier/matchweeks').once('value');
+        const plMatchweeks = plSnap.val() || {};
+        const plTeamsSnap = await db.ref('leagues/premier/teams').once('value');
+        const plTeams = Object.values(plTeamsSnap.val() || {});
+        const plStandings = computeStandingsLocal(plMatchweeks, plTeams);
+        const plTop6 = plStandings.slice(0, 6).map(s => s.name);
+
+        const llSnap = await db.ref('leagues/laliga/matchweeks').once('value');
+        const llMatchweeks = llSnap.val() || {};
+        const llTeamsSnap = await db.ref('leagues/laliga/teams').once('value');
+        const llTeams = Object.values(llTeamsSnap.val() || {});
+        const llStandings = computeStandingsLocal(llMatchweeks, llTeams);
+        const llTop6 = llStandings.slice(0, 6).map(s => s.name);
+
+        const allTeams = [...plTop6, ...llTop6];
+        const groupA = [];
+        const groupB = [];
+
+        allTeams.forEach((team, i) => {
+            if (i % 2 === 0) {
+                groupA.push({
+                    name: team,
+                    pot: Math.floor(i / 2) + 1,
+                    mp: 0, w: 0, d: 0, l: 0,
+                    gf_cl: 0, ga_cl: 0, gd_cl: 0, pts_cl: 0
+                });
+            } else {
+                groupB.push({
+                    name: team,
+                    pot: Math.floor(i / 2) + 1,
+                    mp: 0, w: 0, d: 0, l: 0,
+                    gf_cl: 0, ga_cl: 0, gd_cl: 0, pts_cl: 0
+                });
+            }
         });
 
-        // ================================================================
-        //  TOAST & LOGGING
-        // ================================================================
-        function showToast(msg) {
-            const container = document.getElementById('toast-container');
-            if (!container) {
-                const div = document.createElement('div');
-                div.id = 'toast-container';
-                document.body.appendChild(div);
+        const fixtures = {};
+        ['A', 'B'].forEach(letter => {
+            const groupTeams = letter === 'A' ? groupA.map(t => t.name) : groupB.map(t => t.name);
+            fixtures[letter] = generateGroupFixtures(groupTeams);
+        });
+
+        await db.ref('champions_league').set({
+            groups: { A: groupA, B: groupB },
+            fixtures: fixtures,
+            knockout: {
+                quarterFinals: [],
+                semiFixtures: [],
+                finalFixture: null,
+                champion: null,
+                currentRound: 'group'
             }
-            const toast = document.createElement('div');
-            toast.className = 'toast';
-            toast.textContent = msg;
-            document.getElementById('toast-container').appendChild(toast);
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transition = 'opacity 0.3s';
-                setTimeout(() => toast.remove(), 300);
-            }, 2500);
-        }
+        });
 
-        function log(msg, type = 'info') {
-            const el = document.getElementById('logContainer');
-            const p = document.createElement('p');
-            const time = new Date().toLocaleTimeString();
-            p.textContent = `[${time}] ${msg}`;
-            if (type === 'success') p.className = 'success';
-            else if (type === 'error') p.className = 'error';
-            else if (type === 'warning') p.className = 'warning';
-            el.appendChild(p);
-            el.scrollTop = el.scrollHeight;
-            if (el.children.length > 100) el.removeChild(el.firstChild);
-        }
+        log('✅ Champions League generated successfully!', 'success');
+        document.getElementById('uclStatus').innerHTML = `
+            <span class="green">✅ Champions League created!</span>
+            <span style="display:block;font-size:0.8rem;margin-top:0.3rem;">
+                ${groupA.length} teams in Group A, ${groupB.length} teams in Group B
+            </span>
+            <span style="display:block;font-size:0.8rem;">
+                📊 Top 4 from each group advance to knockout
+            </span>
+        `;
 
-        // ================================================================
-        //  🔥 ULTIMATE RANDOM FIXTURE GENERATION
-        // ================================================================
-        function generateStrictRoundRobin(teamNames) {
-            let teams = [...teamNames];
-            const n = teams.length;
-            const isOdd = n % 2 !== 0;
-            if (isOdd) teams.push("BYE");
-            const m = teams.length;
-            const half = m / 2;
-            const rounds = [];
+    } catch (error) {
+        log('❌ Error generating Champions League: ' + error.message, 'error');
+        document.getElementById('uclStatus').innerHTML = `<span class="red">❌ Error: ${error.message}</span>`;
+    }
+}
 
-            // Fixed rotation – no random shuffling of teams
-            for (let round = 0; round < m - 1; round++) {
-                const roundFixtures = [];
-                for (let i = 0; i < half; i++) {
-                    const home = teams[i];
-                    const away = teams[m - 1 - i];
-                    if (home !== "BYE" && away !== "BYE") {
-                        if (round % 2 === 0) {
-                            roundFixtures.push({ home, away });
-                        } else {
-                            roundFixtures.push({ home: away, away: home });
-                        }
-                    }
-                }
-                rounds.push(roundFixtures);
-                const last = teams.pop();
-                teams.splice(1, 0, last);
-            }
+function generateGroupFixtures(teams) {
+    const fixtures = [];
+    const n = teams.length;
+    if (n < 2) return fixtures;
 
-            // Second half mirrors first with swapped home/away
-            const secondHalf = rounds.map(r => r.map(f => ({ home: f.away, away: f.home })));
+    const totalRounds = n % 2 === 0 ? n - 1 : n;
+    const half = Math.floor(n / 2);
 
-            // ================================================================
-            // 🔥 ULTIMATE RANDOM SHUFFLE ENGINE
-            // ================================================================
+    let pool = [...teams];
+    if (n % 2 !== 0) pool.push('BYE');
 
-            function ultimateShuffle(array, passes = 10) {
-                const getRandom = () => {
-                    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-                        const arr = new Uint32Array(1);
-                        crypto.getRandomValues(arr);
-                        return arr[0] / 4294967295;
-                    }
-                    return Math.random();
-                };
-
-                for (let pass = 0; pass < passes; pass++) {
-                    for (let i = array.length - 1; i > 0; i--) {
-                        const j = Math.floor(getRandom() * (i + 1));
-                        [array[i], array[j]] = [array[j], array[i]];
-                    }
-                    
-                    if (pass % 2 === 0 && array.length > 3) {
-                        const start = Math.floor(getRandom() * (array.length - 2));
-                        const end = start + Math.floor(getRandom() * (array.length - start - 1)) + 1;
-                        const segment = array.slice(start, end);
-                        segment.reverse();
-                        array.splice(start, segment.length, ...segment);
-                    }
-                    
-                    if (pass % 3 === 0 && array.length > 4) {
-                        for (let s = 0; s < Math.floor(array.length / 2); s++) {
-                            const idx1 = Math.floor(getRandom() * array.length);
-                            const idx2 = Math.floor(getRandom() * array.length);
-                            if (idx1 !== idx2) {
-                                [array[idx1], array[idx2]] = [array[idx2], array[idx1]];
-                            }
-                        }
-                    }
-                    
-                    if (pass % 5 === 0 && array.length > 5) {
-                        const rotateAmount = Math.floor(getRandom() * array.length);
-                        const part1 = array.slice(0, rotateAmount);
-                        const part2 = array.slice(rotateAmount);
-                        array.splice(0, array.length, ...part2, ...part1);
-                    }
-                }
-                return array;
-            }
-
-            // Shuffle rounds in both halves
-            ultimateShuffle(rounds, 15);
-            ultimateShuffle(secondHalf, 15);
-
-            // Shuffle positions within each round
-            for (let round = 0; round < rounds.length; round++) {
-                ultimateShuffle(rounds[round], 20);
-            }
-            for (let round = 0; round < secondHalf.length; round++) {
-                ultimateShuffle(secondHalf[round], 20);
-            }
-
-            // Randomly flip some fixtures in first half
-            for (let round = 0; round < rounds.length; round++) {
-                const fixtures = rounds[round];
-                for (let i = 0; i < fixtures.length; i++) {
-                    if (Math.random() < 0.15) {
-                        [fixtures[i].home, fixtures[i].away] = [fixtures[i].away, fixtures[i].home];
-                    }
-                }
-            }
-
-            // Mirror for second half but keep shuffled order
-            const mirroredSecondHalf = rounds.map(r => r.map(f => ({ home: f.away, away: f.home })));
-            
-            ultimateShuffle(mirroredSecondHalf, 15);
-            for (let round = 0; round < mirroredSecondHalf.length; round++) {
-                ultimateShuffle(mirroredSecondHalf[round], 20);
-            }
-
-            // Final sanity check: ensure no fixture is duplicated in first half
-            const firstHalfMatchups = new Set();
-            for (let round = 0; round < rounds.length; round++) {
-                const fixtures = rounds[round];
-                for (const f of fixtures) {
-                    const key = `${f.home}|${f.away}`;
-                    if (firstHalfMatchups.has(key)) {
-                        [f.home, f.away] = [f.away, f.home];
-                    }
-                    firstHalfMatchups.add(`${f.home}|${f.away}`);
-                }
-            }
-
-            return [...rounds, ...mirroredSecondHalf];
-        }
-
-        // ================================================================
-        //  🔥 FIXTURE VALIDATION
-        // ================================================================
-        function validateFixtureIntegrity(fixtures, silent = false) {
-            const totalRounds = Math.max(...fixtures.map(f => f.round));
-            const halfRounds = totalRounds / 2;
-            let issues = [];
-
-            // Check 1: No team plays twice in the same round
-            for (let round = 1; round <= totalRounds; round++) {
-                const roundFixtures = fixtures.filter(f => f.round === round);
-                const teamsInRound = [];
-                for (const f of roundFixtures) {
-                    if (teamsInRound.includes(f.home)) issues.push(`Round ${round}: ${f.home} appears twice!`);
-                    if (teamsInRound.includes(f.away)) issues.push(`Round ${round}: ${f.away} appears twice!`);
-                    teamsInRound.push(f.home, f.away);
-                }
-            }
-
-            // Check 2: No duplicate matchups in the same half
-            const firstHalfMatches = new Set();
-            for (let round = 1; round <= halfRounds; round++) {
-                const roundFixtures = fixtures.filter(f => f.round === round);
-                for (const f of roundFixtures) {
-                    const matchup = `${f.home} vs ${f.away}`;
-                    if (firstHalfMatches.has(matchup)) issues.push(`Duplicate matchup in first half: ${matchup}`);
-                    firstHalfMatches.add(matchup);
-                }
-            }
-
-            // Check 3: Second half mirrors first half
-            for (let round = 1; round <= halfRounds; round++) {
-                const secondHalfRound = round + halfRounds;
-                const firstHalfFixtures = fixtures.filter(f => f.round === round);
-                const secondHalfFixtures = fixtures.filter(f => f.round === secondHalfRound);
-
-                for (let i = 0; i < firstHalfFixtures.length; i++) {
-                    const first = firstHalfFixtures[i];
-                    const second = secondHalfFixtures[i];
-                    if (second && (second.home !== first.away || second.away !== first.home)) {
-                        issues.push(`Round ${secondHalfRound} does not mirror Round ${round}`);
-                    }
-                }
-            }
-
-            // Check 4: No team plays against itself
-            for (const f of fixtures) {
-                if (f.home === f.away && f.home !== "BYE") {
-                    issues.push(`Invalid fixture: ${f.home} vs ${f.away} (team cannot play itself)`);
-                }
-            }
-
-            // Check 5: Each team has equal number of home and away games in first half
-            const homeCount = {};
-            const awayCount = {};
-            for (let round = 1; round <= halfRounds; round++) {
-                const roundFixtures = fixtures.filter(f => f.round === round);
-                for (const f of roundFixtures) {
-                    if (f.home !== "BYE") homeCount[f.home] = (homeCount[f.home] || 0) + 1;
-                    if (f.away !== "BYE") awayCount[f.away] = (awayCount[f.away] || 0) + 1;
-                }
-            }
-            for (const team in homeCount) {
-                if (homeCount[team] !== awayCount[team]) {
-                    issues.push(`${team} has ${homeCount[team]} home games and ${awayCount[team]} away games in first half`);
-                }
-            }
-
-            if (issues.length > 0) {
-                console.warn("⚠️ Integrity issues found:", issues);
-                if (!silent) showToast(`⚠️ Found ${issues.length} integrity issues! Check console.`);
-            } else {
-                console.log("✅ All fixtures are valid!");
-                if (!silent) showToast("✅ Fixture integrity check passed!");
-            }
-
-            return issues;
-        }
-
-function loadLeague() {
-            currentLeague = document.getElementById('leagueSelect').value;
-            loadTeams();
-        }
-
-        async function loadTeams() {
-            const snap = await db.ref(`leagues/${currentLeague}/teams`).once('value');
-            const teams = snap.val() || {};
-            allTeams = Object.values(teams);
-            const list = document.getElementById('teamList');
-            if (allTeams.length === 0) {
-                list.innerHTML = '<span style="color:#8b949e;">No teams added yet. Add your first team!</span>';
-                document.getElementById('teamCount').textContent = '0';
-                return;
-            }
-            let html = '';
-            for (const [id, name] of Object.entries(teams)) {
-                html += `<span class="team-chip">${name} <button onclick="removeTeam('${id}')">✕</button></span>`;
-            }
-            list.innerHTML = html;
-            document.getElementById('teamCount').textContent = allTeams.length;
-        }
-
-        async function addTeam() {
-            const input = document.getElementById('teamNameInput');
-            const name = input.value.trim();
-            if (!name) return log('Enter a team name', 'error');
-            const ref = db.ref(`leagues/${currentLeague}/teams`);
-            await ref.push(name);
-            log(`Added "${name}" to ${currentLeague}`, 'success');
-            input.value = '';
-            loadTeams();
-        }
-
-        async function removeTeam(id) {
-            if (!confirm('Remove this team? This will affect fixtures.')) return;
-            await db.ref(`leagues/${currentLeague}/teams/${id}`).remove();
-            log(`Team removed from ${currentLeague}`, 'success');
-            loadTeams();
-        }
-
-        // ================================================================
-        //  FIXTURE GENERATION (Admin)
-        // ================================================================
-        async function generateFixtures() {
-            const teamsSnap = await db.ref(`leagues/${currentLeague}/teams`).once('value');
-            const teams = Object.values(teamsSnap.val() || {});
-            if (teams.length < 3) {
-                log('Need at least 3 teams to generate fixtures', 'error');
-                document.getElementById('fixtureStatus').innerHTML = `<span class="red">❌ Need at least 3 teams</span>`;
-                return;
-            }
-
-            const rounds = generateStrictRoundRobin(teams);
-
-            const matchweeks = {};
-            let fixtureId = 0;
-
-            rounds.forEach((roundFixtures, roundIndex) => {
-                const roundNum = roundIndex + 1;
-                matchweeks[roundNum] = { matches: [] };
-                roundFixtures.forEach(({ home, away }) => {
-                    matchweeks[roundNum].matches.push({
-                        id: fixtureId++,
-                        home: home,
-                        away: away,
-                        homeScore: null,
-                        awayScore: null,
-                        played: false,
-                        cancelled: false
-                    });
-                });
-            });
-
-            const allFixtures = [];
-            for (const round in matchweeks) {
-                const matches = matchweeks[round].matches || [];
-                matches.forEach(m => {
-                    allFixtures.push({
-                        round: parseInt(round),
-                        home: m.home,
-                        away: m.away,
-                        played: m.played || false,
-                        cancelled: m.cancelled || false
-                    });
+    for (let r = 0; r < totalRounds; r++) {
+        for (let i = 0; i < half; i++) {
+            const home = pool[i];
+            const away = pool[pool.length - 1 - i];
+            if (home !== 'BYE' && away !== 'BYE') {
+                fixtures.push({
+                    round: r + 1,
+                    home: home,
+                    away: away,
+                    played: false,
+                    homeScore: null,
+                    awayScore: null
                 });
             }
-
-            const issues = validateFixtureIntegrity(allFixtures, true);
-            if (issues.length > 0) {
-                log(`❌ Validation failed: ${issues.join(', ')}`, 'error');
-                document.getElementById('fixtureStatus').innerHTML =
-                    `<span class="red">❌ Validation failed: ${issues.join(', ')}</span>`;
-                return;
-            }
-
-            await db.ref(`leagues/${currentLeague}/matchweeks`).set(matchweeks);
-            const totalWeeks = Object.keys(matchweeks).length;
-            const halfRounds = totalWeeks / 2;
-
-            log(`✅ Generated ${totalWeeks} matchweeks (${halfRounds} first half, ${halfRounds} second half - ULTIMATE RANDOM) for ${currentLeague}`,
-                'success');
-
-            document.getElementById('fixtureStatus').innerHTML = `
-                <span class="green">✅ ${totalWeeks} matchweeks generated</span>
-                <span style="display:block;font-size:0.8rem;margin-top:0.3rem;">
-                    First half: ${halfRounds} weeks | Second half: ${halfRounds} weeks (Ultimate Random)
-                </span>
-            `;
         }
+        pool.splice(1, 0, pool.pop());
+    }
 
-        // ================================================================
-        //  FIXTURE INTEGRITY CHECK (Admin)
-        // ================================================================
-        async function checkFixtureIntegrity() {
-            const snap = await db.ref(`leagues/${currentLeague}/matchweeks`).once('value');
-            const matchweeks = snap.val() || {};
-            const teamsSnap = await db.ref(`leagues/${currentLeague}/teams`).once('value');
-            const teams = Object.values(teamsSnap.val() || {});
+    return fixtures;
+}
 
-            if (Object.keys(matchweeks).length === 0) {
-                document.getElementById('fixtureStatus').innerHTML = `<span class="yellow">⚠️ No fixtures to check</span>`;
-                return;
-            }
-
-            const fixtures = [];
-            for (const round in matchweeks) {
-                const matches = matchweeks[round].matches || [];
-                matches.forEach(m => {
-                    fixtures.push({
-                        round: parseInt(round),
-                        home: m.home,
-                        away: m.away,
-                        played: m.played || false,
-                        cancelled: m.cancelled || false
-                    });
-                });
-            }
-
-            const issues = validateFixtureIntegrity(fixtures, false);
-            const statusEl = document.getElementById('fixtureStatus');
-
-            if (issues.length === 0) {
-                const total = Object.keys(matchweeks).length;
-                const halfRounds = total / 2;
-                statusEl.innerHTML = `
-                    <span class="green">✅ All fixtures are valid!</span>
-                    <span style="display:block;font-size:0.8rem;margin-top:0.3rem;">
-                        ${total} matchweeks total (${halfRounds} first half, ${halfRounds} second half)
-                    </span>
-                `;
-                log('✅ Fixture integrity check passed', 'success');
-            } else {
-                statusEl.innerHTML = `
-                    <span class="red">❌ ${issues.length} issue(s) found:</span>
-                    <ul style="margin-top:0.3rem;font-size:0.8rem;list-style:none;padding-left:0;">
-                        ${issues.map(e => `<li>• ${e}</li>`).join('')}
-                    </ul>
-                    <button onclick="fixFixtureIntegrity()" class="warning" style="margin-top:0.5rem;padding:0.3rem 1rem;font-size:0.8rem;">
-                        🔧 Attempt Auto-Fix
-                    </button>
-                `;
-                log(`⚠️ Integrity check: ${issues.length} issues found`, 'warning');
-            }
-        }
-
-        async function fixFixtureIntegrity() {
-            log('🔄 Attempting to fix fixture integrity...', 'warning');
-            await generateFixtures();
-            log('✅ Fixtures regenerated to fix integrity issues', 'success');
-        }
-
-        // ================================================================
-        //  SUBMIT RESULT
-        // ================================================================
-        async function submitResult() {
-            const league = document.getElementById('resultLeague').value;
-            const week = document.getElementById('resWeek').value;
-            const home = document.getElementById('resHome').value.trim();
-            const away = document.getElementById('resAway').value.trim();
-            const hs = parseInt(document.getElementById('resHScore').value);
-            const as = parseInt(document.getElementById('resAScore').value);
-
-            if (!week || !home || !away || isNaN(hs) || isNaN(as)) {
-                document.getElementById('resultMsg').innerHTML = '<span style="color:#f85149;">❌ Fill all fields</span>';
-                return;
-            }
-
-            const ref = db.ref(`leagues/${league}/matchweeks/${week}/matches`);
-            const snap = await ref.once('value');
-            const matches = snap.val() || [];
-            let found = false;
-
-            for (let i = 0; i < matches.length; i++) {
-                if (matches[i].home === home && matches[i].away === away) {
-                    matches[i].homeScore = hs;
-                    matches[i].awayScore = as;
-                    matches[i].played = true;
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found) {
-                matches.push({ home, away, homeScore: hs, awayScore: as, played: true });
-            }
-
-            await ref.set(matches);
-            document.getElementById('resultMsg').innerHTML = `<span style="color:#3fb950;">✅ Result saved!</span>`;
-            log(`Result: ${home} ${hs}–${as} ${away} (${league} wk${week})`, 'success');
-
-            document.getElementById('resHome').value = '';
-            document.getElementById('resAway').value = '';
-            document.getElementById('resHScore').value = '';
-            document.getElementById('resAScore').value = '';
-        }
-
-        // ================================================================
-        //  MATCH REPORT EDITOR
-        // ================================================================
-        let currentReportData = { goals: [], cards: [], matchIndex: -1, league: 'premier', week: '', home: '', away: '' };
-
-        async function loadMatchForReport() {
-            const league = document.getElementById('reportLeague').value;
-            const week = document.getElementById('reportWeek').value;
-            const home = document.getElementById('reportHome').value.trim();
-            const away = document.getElementById('reportAway').value.trim();
-
-            if (!week || !home || !away) {
-                document.getElementById('reportStatus').innerHTML = '<span style="color:#f85149;">❌ Fill all fields</span>';
-                return;
-            }
-
-            const ref = db.ref(`leagues/${league}/matchweeks/${week}/matches`);
-            const snap = await ref.once('value');
-            const matches = snap.val() || [];
-            let found = null;
-            let index = -1;
-            for (let i = 0; i < matches.length; i++) {
-                if (matches[i].home === home && matches[i].away === away) {
-                    found = matches[i];
-                    index = i;
-                    break;
-                }
-            }
-
-            if (!found) {
-                document.getElementById('reportStatus').innerHTML = '<span style="color:#f85149;">❌ Match not found</span>';
-                return;
-            }
-
-            document.getElementById('reportEditor').style.display = 'block';
-            document.getElementById('reportHomeScore').value = found.homeScore || '';
-            document.getElementById('reportAwayScore').value = found.awayScore || '';
-            document.getElementById('reportSummary').value = found.report?.summary || '';
-
-            currentReportData = {
-                goals: found.report?.goals || [],
-                cards: found.report?.cards || [],
-                matchIndex: index,
-                league: league,
-                week: week,
-                home: home,
-                away: away
-            };
-
-            renderReportGoals();
-            renderReportCards();
-            document.getElementById('reportStatus').innerHTML = `<span style="color:#3fb950;">✅ Match loaded</span>`;
-        }
-
-        function addGoalToReport() {
-            const scorer = document.getElementById('reportGoalScorer').value.trim();
-            const minute = document.getElementById('reportGoalMinute').value;
-            const team = document.getElementById('reportGoalTeam').value;
-            const assist = document.getElementById('reportGoalAssist').value.trim();
-
-            if (!scorer || !minute) {
-                document.getElementById('reportStatus').innerHTML = '<span style="color:#f85149;">❌ Scorer and minute required</span>';
-                return;
-            }
-
-            currentReportData.goals.push({ scorer, minute: parseInt(minute), team, assist: assist || null });
-            document.getElementById('reportGoalScorer').value = '';
-            document.getElementById('reportGoalMinute').value = '';
-            document.getElementById('reportGoalAssist').value = '';
-            renderReportGoals();
-            document.getElementById('reportStatus').innerHTML = '<span style="color:#3fb950;">✅ Goal added</span>';
-        }
-
-        function addCardToReport() {
-            const player = document.getElementById('reportCardPlayer').value.trim();
-            const type = document.getElementById('reportCardType').value;
-            const team = document.getElementById('reportCardTeam').value;
-
-            if (!player) {
-                document.getElementById('reportStatus').innerHTML = '<span style="color:#f85149;">❌ Player name required</span>';
-                return;
-            }
-
-            currentReportData.cards.push({ player, type, team });
-            document.getElementById('reportCardPlayer').value = '';
-            renderReportCards();
-            document.getElementById('reportStatus').innerHTML = '<span style="color:#3fb950;">✅ Card added</span>';
-        }
-
-        function renderReportGoals() {
-            const container = document.getElementById('reportGoalsList');
-            if (currentReportData.goals.length === 0) {
-                container.innerHTML = '<span style="color:#8b949e;">No goals added</span>';
-                return;
-            }
-            container.innerHTML = currentReportData.goals.map((g, i) => `
-                <div class="report-goal-item">
-                    <span>${g.minute}' ${g.scorer} ${g.assist ? '(assist: '+g.assist+')' : ''} (${g.team === 'home' ? '🏠' : '✈️'})</span>
-                    <button class="remove" onclick="removeReportGoal(${i})">✕</button>
-                </div>
-            `).join('');
-        }
-
-        function renderReportCards() {
-            const container = document.getElementById('reportCardsList');
-            if (currentReportData.cards.length === 0) {
-                container.innerHTML = '<span style="color:#8b949e;">No cards added</span>';
-                return;
-            }
-            container.innerHTML = currentReportData.cards.map((c, i) => `
-                <div class="report-card-item">
-                    <span>${c.type === 'yellow' ? '🟨' : '🟥'} ${c.player} (${c.team === 'home' ? '🏠' : '✈️'})</span>
-                    <button class="remove" onclick="removeReportCard(${i})">✕</button>
-                </div>
-            `).join('');
-        }
-
-        function removeReportGoal(index) {
-            currentReportData.goals.splice(index, 1);
-            renderReportGoals();
-        }
-
-        function removeReportCard(index) {
-            currentReportData.cards.splice(index, 1);
-            renderReportCards();
-        }
-
-        async function saveMatchReport() {
-            const { league, week, home, away, matchIndex, goals, cards } = currentReportData;
-            const homeScore = parseInt(document.getElementById('reportHomeScore').value);
-            const awayScore = parseInt(document.getElementById('reportAwayScore').value);
-            const summary = document.getElementById('reportSummary').value.trim();
-
-            if (isNaN(homeScore) || isNaN(awayScore)) {
-                document.getElementById('reportStatus').innerHTML = '<span style="color:#f85149;">❌ Enter valid scores</span>';
-                return;
-            }
-
-            const ref = db.ref(`leagues/${league}/matchweeks/${week}/matches`);
-            const snap = await ref.once('value');
-            const matches = snap.val() || [];
-
-            if (matches[matchIndex]) {
-                matches[matchIndex].homeScore = homeScore;
-                matches[matchIndex].awayScore = awayScore;
-                matches[matchIndex].played = true;
-                matches[matchIndex].report = {
-                    summary: summary || null,
-                    goals: goals,
-                    cards: cards
-                };
-                await ref.set(matches);
-                document.getElementById('reportStatus').innerHTML = `<span style="color:#3fb950;">✅ Report saved successfully!</span>`;
-                log(`📝 Match report saved: ${home} ${homeScore}-${awayScore} ${away} (${league} wk${week})`, 'success');
-            }
-        }
-
-        // ================================================================
-        //  CHAMPIONS LEAGUE MANAGEMENT
-        // ================================================================
-        async function generateChampionsLeague() {
-            if (!confirm('Generate Champions League from top 6 teams from Premier League and La Liga?')) return;
-
-            try {
-                const plSnap = await db.ref('leagues/premier/matchweeks').once('value');
-                const plMatchweeks = plSnap.val() || {};
-                const plTeamsSnap = await db.ref('leagues/premier/teams').once('value');
-                const plTeams = Object.values(plTeamsSnap.val() || {});
-                const plStandings = computeStandingsLocal(plMatchweeks, plTeams);
-                const plTop6 = plStandings.slice(0, 6).map(s => s.name);
-
-                const llSnap = await db.ref('leagues/laliga/matchweeks').once('value');
-                const llMatchweeks = llSnap.val() || {};
-                const llTeamsSnap = await db.ref('leagues/laliga/teams').once('value');
-                const llTeams = Object.values(llTeamsSnap.val() || {});
-                const llStandings = computeStandingsLocal(llMatchweeks, llTeams);
-                const llTop6 = llStandings.slice(0, 6).map(s => s.name);
-
-                const allTeams = [...plTop6, ...llTop6];
-                const groupA = [];
-                const groupB = [];
-
-                allTeams.forEach((team, i) => {
-                    if (i % 2 === 0) {
-                        groupA.push({
-                            name: team,
-                            pot: Math.floor(i / 2) + 1,
-                            mp: 0,
-                            w: 0,
-                            d: 0,
-                            l: 0,
-                            gf_cl: 0,
-                            ga_cl: 0,
-                            gd_cl: 0,
-                            pts_cl: 0
-                        });
-                    } else {
-                        groupB.push({
-                            name: team,
-                            pot: Math.floor(i / 2) + 1,
-                            mp: 0,
-                            w: 0,
-                            d: 0,
-                            l: 0,
-                            gf_cl: 0,
-                            ga_cl: 0,
-                            gd_cl: 0,
-                            pts_cl: 0
-                        });
-                    }
-                });
-
-                const fixtures = {};
-                ['A', 'B'].forEach(letter => {
-                    const groupTeams = letter === 'A' ? groupA.map(t => t.name) : groupB.map(t => t.name);
-                    fixtures[letter] = generateGroupFixtures(groupTeams);
-                });
-
-                await db.ref('champions_league').set({
-                    groups: { A: groupA, B: groupB },
-                    fixtures: fixtures,
-                    knockout: {
-                        semiFixtures: [],
-                        finalFixture: null,
-                        champion: null
-                    }
-                });
-
-                log('✅ Champions League generated successfully!', 'success');
-                document.getElementById('uclStatus').innerHTML = `
-                    <span class="green">✅ Champions League created!</span>
-                    <span style="display:block;font-size:0.8rem;margin-top:0.3rem;">
-                        ${groupA.length} teams in Group A, ${groupB.length} teams in Group B
-                    </span>
-                `;
-
-            } catch (error) {
-                log('❌ Error generating Champions League: ' + error.message, 'error');
-                document.getElementById('uclStatus').innerHTML = `<span class="red">❌ Error: ${error.message}</span>`;
-            }
-        }
-
-        function generateGroupFixtures(teams) {
-            const fixtures = [];
-            const n = teams.length;
-            if (n < 2) return fixtures;
-
-            const totalRounds = n % 2 === 0 ? n - 1 : n;
-            const half = Math.floor(n / 2);
-
-            let pool = [...teams];
-            if (n % 2 !== 0) pool.push('BYE');
-
-            for (let r = 0; r < totalRounds; r++) {
-                for (let i = 0; i < half; i++) {
-                    const home = pool[i];
-                    const away = pool[pool.length - 1 - i];
-                    if (home !== 'BYE' && away !== 'BYE') {
-                        fixtures.push({
-                            round: r + 1,
-                            home: home,
-                            away: away,
-                            played: false,
-                            homeScore: null,
-                            awayScore: null
-                        });
-                    }
-                }
-                pool.splice(1, 0, pool.pop());
-            }
-
-            return fixtures;
-        }
-
-        async function generateKnockout() {
+async function generateKnockout() {
     if (!confirm('Generate knockout stage from group standings?')) return;
 
     try {
@@ -1346,27 +1567,14 @@ function loadLeague() {
         const groupA = data.groups.A || [];
         const groupB = data.groups.B || [];
 
-        // Sort groups by points, then GD, then GF
-        const sortedA = [...groupA].sort((a, b) => {
-            if (b.pts_cl !== a.pts_cl) return b.pts_cl - a.pts_cl;
-            if (b.gd_cl !== a.gd_cl) return b.gd_cl - a.gd_cl;
-            return b.gf_cl - a.gf_cl;
-        });
-        const sortedB = [...groupB].sort((a, b) => {
-            if (b.pts_cl !== a.pts_cl) return b.pts_cl - a.pts_cl;
-            if (b.gd_cl !== a.gd_cl) return b.gd_cl - a.gd_cl;
-            return b.gf_cl - a.gf_cl;
-        });
+        const sortedA = [...groupA].sort((a, b) => b.pts_cl - a.pts_cl || b.gd_cl - a.gd_cl);
+        const sortedB = [...groupB].sort((a, b) => b.pts_cl - a.pts_cl || b.gd_cl - a.gd_cl);
 
-        // ============================================================
-        // 🏆 QUARTER-FINALS (Single leg - or two legs if you prefer)
-        // ============================================================
-        // For simplicity, we'll use single leg quarter-finals
         const qfMatchups = [
-            { home: sortedA[0]?.name || 'TBD', away: sortedB[3]?.name || 'TBD' }, // A1 vs B4
-            { home: sortedA[1]?.name || 'TBD', away: sortedB[2]?.name || 'TBD' }, // A2 vs B3
-            { home: sortedA[2]?.name || 'TBD', away: sortedB[1]?.name || 'TBD' }, // A3 vs B2
-            { home: sortedA[3]?.name || 'TBD', away: sortedB[0]?.name || 'TBD' }  // A4 vs B1
+            { home: sortedA[0]?.name || 'TBD', away: sortedB[3]?.name || 'TBD' },
+            { home: sortedA[1]?.name || 'TBD', away: sortedB[2]?.name || 'TBD' },
+            { home: sortedA[2]?.name || 'TBD', away: sortedB[1]?.name || 'TBD' },
+            { home: sortedA[3]?.name || 'TBD', away: sortedB[0]?.name || 'TBD' }
         ];
 
         const quarterFinals = qfMatchups.map((m, i) => ({
@@ -1382,21 +1590,15 @@ function loadLeague() {
             tieId: i + 1
         }));
 
-        // ============================================================
-        // 🏆 SEMI-FINALS (TWO LEGS)
-        // ============================================================
-        // Winners of QF1 vs QF4, QF2 vs QF3
-        // Each tie has 2 legs
+        const semiFixtures = [];
+        const now = Date.now();
+
         const semiTies = [
             { home: 'QF1 Winner', away: 'QF4 Winner', tieId: 1 },
             { home: 'QF2 Winner', away: 'QF3 Winner', tieId: 2 }
         ];
 
-        const semiFixtures = [];
-        const now = Date.now();
-
         semiTies.forEach((tie, idx) => {
-            // Leg 1 - Home team hosts first
             semiFixtures.push({
                 id: now + 100 + (idx * 10),
                 round: 'semi-final',
@@ -1408,9 +1610,8 @@ function loadLeague() {
                 cancelled: false,
                 leg: 1,
                 tieId: tie.tieId,
-                deadline: now + 2 * 24 * 60 * 60 * 1000 // 2 days
+                deadline: now + 2 * 24 * 60 * 60 * 1000
             });
-            // Leg 2 - Away team hosts second (home/away swapped)
             semiFixtures.push({
                 id: now + 101 + (idx * 10),
                 round: 'semi-final',
@@ -1422,13 +1623,10 @@ function loadLeague() {
                 cancelled: false,
                 leg: 2,
                 tieId: tie.tieId,
-                deadline: now + 4 * 24 * 60 * 60 * 1000 // 4 days
+                deadline: now + 4 * 24 * 60 * 60 * 1000
             });
         });
 
-        // ============================================================
-        // 🏆 FINAL (SINGLE LEG - Neutral venue)
-        // ============================================================
         const finalFixture = {
             id: now + 200,
             round: 'final',
@@ -1440,21 +1638,18 @@ function loadLeague() {
             cancelled: false,
             leg: 1,
             tieId: 3,
-            deadline: now + 6 * 24 * 60 * 60 * 1000 // 6 days
+            deadline: now + 6 * 24 * 60 * 60 * 1000
         };
 
-        // ============================================================
-        // 💾 SAVE TO FIREBASE
-        // ============================================================
         await db.ref('champions_league/knockout').set({
             quarterFinals: quarterFinals,
             semiFixtures: semiFixtures,
             finalFixture: finalFixture,
             champion: null,
-            currentRound: 'quarter-finals' // quarter-finals, semi-finals, final, completed
+            currentRound: 'quarter-finals'
         });
 
-        log('✅ Knockout stage generated! Quarter-finals + Two-leg semi-finals + Final', 'success');
+        log('✅ Knockout stage generated!', 'success');
         document.getElementById('uclStatus').innerHTML = `
             <span class="green">✅ Knockout stage created!</span>
             <span style="display:block;font-size:0.8rem;margin-top:0.3rem;">
@@ -1464,7 +1659,7 @@ function loadLeague() {
                 🏆 Semi-finals: ${semiFixtures.length} matches (two legs)
             </span>
             <span style="display:block;font-size:0.8rem;">
-                🏆 Final: 1 match (neutral)
+                🏆 Final: 1 match (single leg)
             </span>
         `;
 
@@ -1473,132 +1668,128 @@ function loadLeague() {
     }
 }
 
-        async function clearChampionsLeague() {
-            if (!confirm('⚠️ Clear all Champions League data? This cannot be undone!')) return;
-            await db.ref('champions_league').remove();
-            log('🗑️ Champions League cleared', 'warning');
-            document.getElementById('uclStatus').innerHTML = `<span class="yellow">⚠️ Champions League cleared</span>`;
-        }
+async function clearChampionsLeague() {
+    if (!confirm('⚠️ Clear all Champions League data? This cannot be undone!')) return;
+    await db.ref('champions_league').remove();
+    log('🗑️ Champions League cleared', 'warning');
+    document.getElementById('uclStatus').innerHTML = `<span class="yellow">⚠️ Champions League cleared</span>`;
+}
 
-        // ================================================================
-        //  SEASON MANAGEMENT
-        // ================================================================
-        async function triggerEndSeason() {
-            if (!confirm('⚠️ Relegate bottom 3 teams from both leagues? This will remove them and reset fixtures.')) return;
+async function triggerEndSeason() {
+    if (!confirm('⚠️ Relegate bottom 3 teams from both leagues? This will remove them and reset fixtures.')) return;
 
-            const leagues = ['premier', 'laliga'];
-            for (const l of leagues) {
-                const snap = await db.ref(`leagues/${l}/matchweeks`).once('value');
-                const matchweeks = snap.val() || {};
-                const teamsSnap = await db.ref(`leagues/${l}/teams`).once('value');
-                const teams = teamsSnap.val() || {};
+    const leagues = ['premier', 'laliga'];
+    for (const l of leagues) {
+        const snap = await db.ref(`leagues/${l}/matchweeks`).once('value');
+        const matchweeks = snap.val() || {};
+        const teamsSnap = await db.ref(`leagues/${l}/teams`).once('value');
+        const teams = teamsSnap.val() || {};
 
-                const stats = computeStandingsLocal(matchweeks, Object.values(teams));
-                const bottom3 = stats.slice(-3).map(s => s.name);
+        const stats = computeStandingsLocal(matchweeks, Object.values(teams));
+        const bottom3 = stats.slice(-3).map(s => s.name);
 
-                for (const [id, name] of Object.entries(teams)) {
-                    if (bottom3.includes(name)) {
-                        await db.ref(`leagues/${l}/teams/${id}`).remove();
-                    }
-                }
-
-                const newTeams = [];
-                for (let i = 0; i < 3; i++) {
-                    const name = prompt(`Enter new team #${i+1} for ${l}:`);
-                    if (name && name.trim()) newTeams.push(name.trim());
-                }
-                for (const name of newTeams) {
-                    await db.ref(`leagues/${l}/teams`).push(name);
-                }
-
-                await db.ref(`leagues/${l}/matchweeks`).set({});
-                log(`${l}: Relegated ${bottom3.join(', ')}. Added ${newTeams.join(', ')}.`, 'success');
+        for (const [id, name] of Object.entries(teams)) {
+            if (bottom3.includes(name)) {
+                await db.ref(`leagues/${l}/teams/${id}`).remove();
             }
-
-            loadTeams();
-            document.getElementById('fixtureStatus').innerHTML = `<span class="yellow">⚠️ Season reset. Generate new fixtures.</span>`;
         }
 
-        async function resetSeason() {
-            if (!confirm('⚠️ Reset the entire season? This will clear all fixtures and results.')) return;
-            if (!confirm('Are you sure? This cannot be undone!')) return;
-
-            await db.ref(`leagues/${currentLeague}/matchweeks`).set({});
-            log(`🔄 Season reset for ${currentLeague}`, 'warning');
-            document.getElementById('fixtureStatus').innerHTML = `<span class="yellow">⚠️ Season reset. Generate new fixtures.</span>`;
+        const newTeams = [];
+        for (let i = 0; i < 3; i++) {
+            const name = prompt(`Enter new team #${i+1} for ${l}:`);
+            if (name && name.trim()) newTeams.push(name.trim());
+        }
+        for (const name of newTeams) {
+            await db.ref(`leagues/${l}/teams`).push(name);
         }
 
-        async function clearAllFixtures() {
-            if (!confirm('Clear all fixtures (keep teams)?')) return;
-            await db.ref(`leagues/${currentLeague}/matchweeks`).set({});
-            log(`🗑️ Fixtures cleared for ${currentLeague}`, 'warning');
-            document.getElementById('fixtureStatus').innerHTML = `<span class="yellow">⚠️ Fixtures cleared</span>`;
-        }
+        await db.ref(`leagues/${l}/matchweeks`).set({});
+        log(`${l}: Relegated ${bottom3.join(', ')}. Added ${newTeams.join(', ')}.`, 'success');
+    }
 
-        async function clearAllResults() {
-            if (!confirm('Clear all match results (keep fixture structure)?')) return;
-            const snap = await db.ref(`leagues/${currentLeague}/matchweeks`).once('value');
-            const matchweeks = snap.val() || {};
-            for (const wk in matchweeks) {
-                const matches = matchweeks[wk].matches || [];
-                for (const m of matches) {
-                    m.played = false;
-                    m.homeScore = null;
-                    m.awayScore = null;
-                    delete m.report;
-                }
-                await db.ref(`leagues/${currentLeague}/matchweeks/${wk}/matches`).set(matches);
-            }
-            log(`🧹 Results cleared for ${currentLeague}`, 'success');
-        }
+    loadTeams();
+    document.getElementById('fixtureStatus').innerHTML = `<span class="yellow">⚠️ Season reset. Generate new fixtures.</span>`;
+    updateFixtureStats();
+}
 
-        // ================================================================
-        //  STANDINGS HELPER
-        // ================================================================
-        function computeStandingsLocal(matchweeks, teamNames) {
-            const stats = {};
-            for (const t of teamNames) {
-                stats[t] = { played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, pts: 0 };
-            }
-            for (const wk in matchweeks) {
-                const matches = matchweeks[wk]?.matches || [];
-                for (const m of matches) {
-                    if (!m.played) continue;
-                    const h = m.home,
-                        a = m.away,
-                        hs = m.homeScore,
-                        as = m.awayScore;
-                    if (!stats[h]) stats[h] = { played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, pts: 0 };
-                    if (!stats[a]) stats[a] = { played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, pts: 0 };
-                    stats[h].played++;
-                    stats[a].played++;
-                    stats[h].gf += hs;
-                    stats[h].ga += as;
-                    stats[a].gf += as;
-                    stats[a].ga += hs;
-                    if (hs > as) { stats[h].won++;
-                        stats[h].pts += 3;
-                        stats[a].lost++; } else if (hs < as) { stats[a].won++;
-                        stats[a].pts += 3;
-                        stats[h].lost++; } else { stats[h].drawn++;
-                        stats[h].pts += 1;
-                        stats[a].drawn++;
-                        stats[a].pts += 1; }
-                }
-            }
-            return Object.entries(stats)
-                .map(([name, s]) => ({ name, ...s, gd: s.gf - s.ga }))
-                .sort((a, b) => {
-                    if (a.pts !== b.pts) return b.pts - a.pts;
-                    if (b.gd !== a.gd) return b.gd - a.gd;
-                    return b.gf - a.gf;
-                });
-        }
+async function resetSeason() {
+    if (!confirm('⚠️ Reset the entire season? This will clear all fixtures and results.')) return;
+    if (!confirm('Are you sure? This cannot be undone!')) return;
 
-        // ================================================================
-        //  INIT
-        // ================================================================
-        // The auth overlay handles the initial load
+    await db.ref(`leagues/${currentLeague}/matchweeks`).set({});
+    log(`🔄 Season reset for ${currentLeague}`, 'warning');
+    document.getElementById('fixtureStatus').innerHTML = `<span class="yellow">⚠️ Season reset. Generate new fixtures.</span>`;
+    updateFixtureStats();
+}
+
+async function clearAllFixtures() {
+    if (!confirm('Clear all fixtures (keep teams)?')) return;
+    await db.ref(`leagues/${currentLeague}/matchweeks`).set({});
+    log(`🗑️ Fixtures cleared for ${currentLeague}`, 'warning');
+    document.getElementById('fixtureStatus').innerHTML = `<span class="yellow">⚠️ Fixtures cleared</span>`;
+    updateFixtureStats();
+}
+
+async function clearAllResults() {
+    if (!confirm('Clear all match results (keep fixture structure)?')) return;
+    const snap = await db.ref(`leagues/${currentLeague}/matchweeks`).once('value');
+    const matchweeks = snap.val() || {};
+    for (const wk in matchweeks) {
+        const matches = matchweeks[wk].matches || [];
+        for (const m of matches) {
+            m.played = false;
+            m.homeScore = null;
+            m.awayScore = null;
+            delete m.report;
+        }
+        await db.ref(`leagues/${currentLeague}/matchweeks/${wk}/matches`).set(matches);
+    }
+    log(`🧹 Results cleared for ${currentLeague}`, 'success');
+    updateFixtureStats();
+}
+
+// ================================================================
+//  STANDINGS HELPER
+// ================================================================
+function computeStandingsLocal(matchweeks, teamNames) {
+    const stats = {};
+    for (const t of teamNames) {
+        stats[t] = { played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, pts: 0 };
+    }
+    for (const wk in matchweeks) {
+        const matches = matchweeks[wk]?.matches || [];
+        for (const m of matches) {
+            if (!m.played) continue;
+            const h = m.home,
+                a = m.away,
+                hs = m.homeScore,
+                as = m.awayScore;
+            if (!stats[h]) stats[h] = { played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, pts: 0 };
+            if (!stats[a]) stats[a] = { played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, pts: 0 };
+            stats[h].played++;
+            stats[a].played++;
+            stats[h].gf += hs;
+            stats[h].ga += as;
+            stats[a].gf += as;
+            stats[a].ga += hs;
+            if (hs > as) { stats[h].won++;
+                stats[h].pts += 3;
+                stats[a].lost++; } else if (hs < as) { stats[a].won++;
+                stats[a].pts += 3;
+                stats[h].lost++; } else { stats[h].drawn++;
+                stats[h].pts += 1;
+                stats[a].drawn++;
+                stats[a].pts += 1; }
+        }
+    }
+    return Object.entries(stats)
+        .map(([name, s]) => ({ name, ...s, gd: s.gf - s.ga }))
+        .sort((a, b) => {
+            if (a.pts !== b.pts) return b.pts - a.pts;
+            if (b.gd !== a.gd) return b.gd - a.gd;
+            return b.gf - a.gf;
+        });
+}
     </script>
 </body>
 </html>
