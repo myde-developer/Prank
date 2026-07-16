@@ -348,60 +348,119 @@
         }
 
         function renderKnockoutViewer(koData) {
-            const semis = koData.semiFixtures || [];
-            const final = koData.finalFixture;
-            let html = `<div class="card rounded-2xl shadow-xl p-6 mt-6"><h3 class="text-xl font-bold text-gray-800 mb-4">🏆 Knockout Stage</h3>`;
-            
-            // Semis
-            if (semis.length > 0) {
-                html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">`;
-                semis.forEach(f => {
-                    const hasReport = f.played && f.report;
-                    html += `
-                        <div class="bg-white p-4 rounded-lg shadow">
-                            <p class="font-bold text-gray-600">${f.round || 'Semi-final'}</p>
-                            <div class="flex items-center gap-2 flex-wrap">
-                                <span>${f.home}</span>
-                                <span class="text-gray-400">vs</span>
-                                <span>${f.away}</span>
-                                ${f.played ? `
-                                    <span class="ml-auto font-bold text-blue-600">${f.homeScore} - ${f.awayScore}</span>
-                                    <button class="report-btn ${hasReport ? 'has-report' : ''}" onclick="openKnockoutReport('semi', ${semis.indexOf(f)})">
-                                        ${hasReport ? '📋' : '📝'}
-                                    </button>
-                                ` : `<span class="ml-auto text-gray-400">⏳</span>`}
-                            </div>
-                            ${f.played ? `<p class="text-sm text-green-600 mt-1">Winner: ${f.homeScore > f.awayScore ? f.home : f.away}</p>` : ''}
-                        </div>
-                    `;
-                });
-                html += `</div>`;
-            }
-
-            // Final
-            if (final) {
-                const hasReport = final.played && final.report;
-                html += `
-                    <div class="bg-yellow-50 p-4 rounded-lg border-2 border-yellow-400">
-                        <p class="font-bold text-gray-700">Final</p>
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <span class="font-bold">${final.home || '?'}</span>
-                            <span class="text-gray-400">vs</span>
-                            <span class="font-bold">${final.away || '?'}</span>
-                            ${final.played ? `
-                                <span class="ml-auto font-bold text-blue-600">${final.homeScore} - ${final.awayScore}</span>
-                                <button class="report-btn ${hasReport ? 'has-report' : ''}" onclick="openKnockoutReport('final', 0)">
-                                    ${hasReport ? '📋' : '📝'}
-                                </button>
-                            ` : `<span class="ml-auto text-gray-400">⏳</span>`}
-                        </div>
-                        ${koData.champion ? `<p class="text-xl font-bold text-yellow-800 mt-2">🏆 Champion: ${koData.champion}</p>` : ''}
+    const quarters = koData.quarterFinals || [];
+    const semis = koData.semiFixtures || [];
+    const final = koData.finalFixture;
+    
+    let html = `<div class="card rounded-2xl shadow-xl p-6 mt-6"><h3 class="text-xl font-bold text-gray-800 mb-4">🏆 Knockout Stage</h3>`;
+    
+    // ============================================================
+    // QUARTER-FINALS
+    // ============================================================
+    if (quarters.length > 0) {
+        html += `<div class="mb-6"><h4 class="font-bold text-gray-700 mb-3 text-lg">⚔️ Quarter-Finals</h4>`;
+        html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-3">`;
+        quarters.forEach(f => {
+            const hasReport = f.played && f.report;
+            html += `
+                <div class="bg-white p-3 rounded-lg shadow">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="font-medium">${f.home}</span>
+                        <span class="text-gray-400">vs</span>
+                        <span class="font-medium">${f.away}</span>
+                        ${f.played ? `
+                            <span class="font-bold text-blue-600">${f.homeScore} - ${f.awayScore}</span>
+                            <button class="report-btn ${hasReport ? 'has-report' : ''}" onclick="openKnockoutReport('quarter', ${quarters.indexOf(f)})">
+                                ${hasReport ? '📋' : '📝'}
+                            </button>
+                        ` : `<span class="text-gray-400 text-sm">⏳</span>`}
                     </div>
-                `;
+                </div>
+            `;
+        });
+        html += `</div></div>`;
+    }
+    
+    // ============================================================
+    // SEMI-FINALS (TWO LEGS)
+    // ============================================================
+    if (semis.length > 0) {
+        html += `<div class="mb-6"><h4 class="font-bold text-gray-700 mb-3 text-lg">⚔️ Semi-Finals (Two Legs)</h4>`;
+        
+        // Group by tieId
+        const ties = {};
+        semis.forEach(f => {
+            if (!ties[f.tieId]) ties[f.tieId] = [];
+            ties[f.tieId].push(f);
+        });
+        
+        for (const tieId in ties) {
+            const legs = ties[tieId].sort((a, b) => a.leg - b.leg);
+            const leg1 = legs.find(l => l.leg === 1);
+            const leg2 = legs.find(l => l.leg === 2);
+            
+            if (!leg1 || !leg2) continue;
+            
+            // Calculate aggregate
+            let aggHome = 0, aggAway = 0, winner = null;
+            if (leg1.played && leg2.played) {
+                aggHome = (leg1.homeScore || 0) + (leg2.awayScore || 0);
+                aggAway = (leg1.awayScore || 0) + (leg2.homeScore || 0);
+                if (aggHome > aggAway) winner = leg1.home;
+                else if (aggAway > aggHome) winner = leg1.away;
+                else winner = leg1.home + ' (on pens)';
             }
-            html += `</div>`;
-            return html;
+            
+            html += `
+                <div class="bg-gray-50 p-4 rounded-lg mb-4 border-l-4 border-indigo-400">
+                    <p class="font-bold text-gray-600 text-sm mb-2">Tie ${tieId}</p>
+                    <div class="space-y-2">
+                        <div class="bg-white p-2 rounded shadow-sm flex items-center justify-between">
+                            <span class="text-sm">Leg 1: ${leg1.home} vs ${leg1.away}</span>
+                            ${leg1.played ? `<span class="font-bold text-blue-600">${leg1.homeScore} - ${leg1.awayScore}</span>` : `<span class="text-gray-400 text-sm">⏳</span>`}
+                            ${leg1.played && leg1.report ? `<button class="report-btn has-report" onclick="openKnockoutReport('semi', ${semis.indexOf(leg1)})">📋</button>` : ''}
+                        </div>
+                        <div class="bg-white p-2 rounded shadow-sm flex items-center justify-between">
+                            <span class="text-sm">Leg 2: ${leg2.home} vs ${leg2.away}</span>
+                            ${leg2.played ? `<span class="font-bold text-blue-600">${leg2.homeScore} - ${leg2.awayScore}</span>` : `<span class="text-gray-400 text-sm">⏳</span>`}
+                            ${leg2.played && leg2.report ? `<button class="report-btn has-report" onclick="openKnockoutReport('semi', ${semis.indexOf(leg2)})">📋</button>` : ''}
+                        </div>
+                        ${winner ? `<div class="text-sm font-bold text-green-600 mt-1">🏆 Winner: ${winner}</div>` : ''}
+                        ${leg1.played && leg2.played ? `<div class="text-xs text-gray-500">Aggregate: ${aggHome} - ${aggAway}</div>` : ''}
+                    </div>
+                </div>
+            `;
         }
+        html += `</div>`;
+    }
+    
+    // ============================================================
+    // FINAL (Single Leg)
+    // ============================================================
+    if (final) {
+        const hasReport = final.played && final.report;
+        html += `
+            <div class="bg-yellow-50 p-4 rounded-lg border-2 border-yellow-400">
+                <p class="font-bold text-gray-700">🏆 Final</p>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="font-bold">${final.home || '?'}</span>
+                    <span class="text-gray-400">vs</span>
+                    <span class="font-bold">${final.away || '?'}</span>
+                    ${final.played ? `
+                        <span class="ml-auto font-bold text-blue-600">${final.homeScore} - ${final.awayScore}</span>
+                        <button class="report-btn ${hasReport ? 'has-report' : ''}" onclick="openKnockoutReport('final', 0)">
+                            ${hasReport ? '📋' : '📝'}
+                        </button>
+                    ` : `<span class="ml-auto text-gray-400">⏳</span>`}
+                </div>
+                ${koData.champion ? `<p class="text-xl font-bold text-yellow-800 mt-2">🏆 Champion: ${koData.champion}</p>` : ''}
+            </div>
+        `;
+    }
+    
+    html += `</div>`;
+    return html;
+}
 
         // ===== MATCH REPORT FUNCTIONS =====
         async function openMatchReport(group, round, matchIndex) {

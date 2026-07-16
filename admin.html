@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Admin Panel</title>
+    <title>DLS Admin Panel</title>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <style>
@@ -16,6 +16,7 @@
             font-family: 'Segoe UI', system-ui, sans-serif;
             background: #0d1117;
             color: #f0f6fc;
+            min-height: 100vh;
             padding: 2rem;
         }
         .container {
@@ -114,6 +115,12 @@
         button.secondary:hover {
             background: #30363d;
         }
+        button.ucl-btn {
+            background: #667eea;
+        }
+        button.ucl-btn:hover {
+            background: #5a6fd6;
+        }
         .team-chip {
             background: #1f2937;
             padding: 0.3rem 0.8rem;
@@ -205,16 +212,164 @@
             color: #ff6b6b;
         }
 
+        /* Auth Modal */
+        .auth-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(10px);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            padding: 1.5rem;
+        }
+        .auth-overlay.active {
+            display: flex;
+        }
+        .auth-box {
+            background: #161b22;
+            border-radius: 20px;
+            border: 1px solid #30363d;
+            padding: 2.5rem;
+            max-width: 420px;
+            width: 100%;
+            text-align: center;
+        }
+        .auth-box h2 {
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+        .auth-box p {
+            color: #8b949e;
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+        .auth-box input {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border-radius: 10px;
+            border: 1px solid #30363d;
+            background: #0d1117;
+            color: #fff;
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+        }
+        .auth-box input:focus {
+            outline: 2px solid #2ea043;
+            border-color: transparent;
+        }
+        .auth-box .error {
+            color: #f85149;
+            font-size: 0.85rem;
+            min-height: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .auth-box button {
+            width: 100%;
+            padding: 0.8rem;
+            font-size: 1rem;
+            background: #2ea043;
+            border: none;
+            border-radius: 10px;
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .auth-box button:hover {
+            filter: brightness(1.1);
+        }
+        .auth-box .role-btns {
+            display: flex;
+            gap: 0.8rem;
+            margin-top: 1rem;
+        }
+        .auth-box .role-btns button {
+            flex: 1;
+            padding: 0.6rem;
+            font-size: 0.9rem;
+            background: #21262d;
+        }
+        .auth-box .role-btns button:hover {
+            background: #30363d;
+        }
+        .auth-box .role-btns button.admin-btn {
+            background: #1f6feb;
+        }
+        .auth-box .role-btns button.admin-btn:hover {
+            background: #388bfd;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
         @media (max-width: 900px) {
             .grid-2 {
                 grid-template-columns: 1fr;
+            }
+            .auth-box {
+                padding: 1.5rem;
+            }
+        }
+
+        /* Toast container */
+        #toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        #toast-container .toast {
+            background: #161b22;
+            border: 1px solid #30363d;
+            padding: 12px 20px;
+            border-radius: 12px;
+            color: #f0f6fc;
+            font-size: 0.9rem;
+            animation: slideIn 0.3s ease;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
             }
         }
     </style>
 </head>
 <body>
 
-    <div class="container">
+    <!-- ===== AUTH OVERLAY ===== -->
+    <div class="auth-overlay active" id="authOverlay">
+        <div class="auth-box">
+            <h2>⚙️ Admin Access</h2>
+            <p>Select your role to continue</p>
+            <div class="role-btns" id="roleBtns">
+                <button onclick="selectRole('viewer')" class="viewer-btn">👀 Viewer</button>
+                <button onclick="selectRole('admin')" class="admin-btn">🔑 Admin</button>
+            </div>
+            <div id="adminAuthSection" class="hidden" style="margin-top:1rem;">
+                <input type="password" id="adminPassword" placeholder="Enter master password" />
+                <div class="error" id="authError"></div>
+                <button onclick="verifyAdminPassword()">Authenticate</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MAIN CONTENT ===== -->
+    <div class="container" id="mainContent" style="display:none;">
         <h1>⚙️ DLS Admin Panel</h1>
         <p class="subtitle">Full control over Premier League &amp; La Liga</p>
 
@@ -245,13 +400,26 @@
 
                 <!-- Fixture Generation -->
                 <div class="card">
-                    <h2>📅 Generate Fixtures <span class="badge">Round-Robin</span></h2>
+                    <h2>📅 Generate Fixtures <span class="badge">Ultimate Random</span></h2>
                     <div class="flex">
                         <button onclick="generateFixtures()" style="flex:1;">⚡ Generate Full Season</button>
-                        <button onclick="checkFixtureIntegrity()" class="warning" style="flex:1;">🔍 Fix Integrity</button>
+                        <button onclick="checkFixtureIntegrity()" class="warning" style="flex:1;">🔍 Check Integrity</button>
                     </div>
                     <div id="fixtureStatus" class="status-box" style="margin-top:0.8rem;">
                         Ready to generate fixtures
+                    </div>
+                </div>
+
+                <!-- Champions League Management -->
+                <div class="card">
+                    <h2>🏆 Champions League Management</h2>
+                    <div class="flex" style="flex-wrap:wrap; gap:0.5rem;">
+                        <button onclick="generateChampionsLeague()" class="ucl-btn" style="flex:1;">🎲 Generate UCL Groups</button>
+                        <button onclick="generateKnockout()" class="warning" style="flex:1;">🏆 Generate Knockout</button>
+                        <button onclick="clearChampionsLeague()" class="danger" style="flex:1;">🗑️ Clear UCL</button>
+                    </div>
+                    <div id="uclStatus" class="status-box" style="margin-top:0.5rem; font-size:0.85rem; color:#8b949e;">
+                        Ready to generate Champions League
                     </div>
                 </div>
             </div>
@@ -327,27 +495,8 @@
                     <div id="reportStatus" style="margin-top:0.5rem; font-size:0.9rem;"></div>
                 </div>
 
-<!-- Champions League Management -->
-<div class="card">
-    <h2>🏆 Champions League Management</h2>
-    <div style="display:flex; flex-wrap:wrap; gap:0.8rem; margin-bottom:0.5rem;">
-        <button onclick="generateChampionsLeague()" style="background:#667eea; color:#fff; padding:0.6rem 1.5rem; border:none; border-radius:8px; font-weight:600; cursor:pointer; transition:0.2s;">
-            🎲 Generate UCL Groups (Top 6 from each)
-        </button>
-        <button onclick="clearChampionsLeague()" class="danger" style="background:#da3633; color:#fff; padding:0.6rem 1.5rem; border:none; border-radius:8px; font-weight:600; cursor:pointer; transition:0.2s;">
-            🗑️ Clear UCL
-        </button>
-        <button onclick="generateKnockout()" class="warning" style="background:#d29922; color:#fff; padding:0.6rem 1.5rem; border:none; border-radius:8px; font-weight:600; cursor:pointer; transition:0.2s;">
-            🏆 Generate Knockout
-        </button>
-    </div>
-    <div id="uclStatus" class="status-box" style="margin-top:0.5rem; font-size:0.85rem; color:#8b949e;">
-        Ready to generate Champions League
-    </div>
-</div>
-
                 <!-- Season Actions -->
-                <div class="card">
+               <div class="card">
                     <h2>🏆 Season Management</h2>
                     <div class="inline-flex">
                         <button onclick="triggerEndSeason()" class="danger">🔽 Relegate Bottom 3</button>
@@ -392,12 +541,86 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
+        // ================================================================
+        //  AUTHENTICATION
+        // ================================================================
+        let isAdmin = false;
         let currentLeague = 'premier';
         let allTeams = [];
+        const MASTER_PASSWORD = '090541';
+
+        function selectRole(role) {
+            if (role === 'admin') {
+                document.getElementById('adminAuthSection').classList.remove('hidden');
+                document.getElementById('roleBtns').style.display = 'none';
+                document.getElementById('authError').textContent = '';
+            } else {
+                isAdmin = false;
+                document.getElementById('authOverlay').classList.remove('active');
+                document.getElementById('mainContent').style.display = 'block';
+                loadLeague();
+                log('👀 Viewer mode activated', 'info');
+                showToast('Viewer mode active');
+            }
+        }
+
+        function verifyAdminPassword() {
+            const entered = document.getElementById('adminPassword').value;
+            const storedPassRef = db.ref('tournament_data/password');
+
+            storedPassRef.once('value', (snapshot) => {
+                const storedPass = snapshot.val();
+                const validPassword = storedPass ? entered === storedPass : entered === MASTER_PASSWORD;
+
+                if (validPassword) {
+                    isAdmin = true;
+                    document.getElementById('authOverlay').classList.remove('active');
+                    document.getElementById('mainContent').style.display = 'block';
+                    loadLeague();
+                    log('🔑 Admin access granted', 'success');
+                    showToast('Admin mode ACTIVE');
+                } else {
+                    document.getElementById('authError').textContent = '❌ Incorrect password. Try again.';
+                }
+            }).catch(() => {
+                if (entered === MASTER_PASSWORD) {
+                    isAdmin = true;
+                    document.getElementById('authOverlay').classList.remove('active');
+                    document.getElementById('mainContent').style.display = 'block';
+                    loadLeague();
+                    log('🔑 Admin access granted (fallback)', 'success');
+                    showToast('Admin mode ACTIVE');
+                } else {
+                    document.getElementById('authError').textContent = '❌ Incorrect password. Try again.';
+                }
+            });
+        }
+
+        document.getElementById('adminPassword').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') verifyAdminPassword();
+        });
 
         // ================================================================
-        //  LOGGING
+        //  TOAST & LOGGING
         // ================================================================
+        function showToast(msg) {
+            const container = document.getElementById('toast-container');
+            if (!container) {
+                const div = document.createElement('div');
+                div.id = 'toast-container';
+                document.body.appendChild(div);
+            }
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = msg;
+            document.getElementById('toast-container').appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s';
+                setTimeout(() => toast.remove(), 300);
+            }, 2500);
+        }
+
         function log(msg, type = 'info') {
             const el = document.getElementById('logContainer');
             const p = document.createElement('p');
@@ -412,9 +635,213 @@
         }
 
         // ================================================================
-        //  LEAGUE & TEAMS
+        //  🔥 ULTIMATE RANDOM FIXTURE GENERATION
         // ================================================================
-        function loadLeague() {
+        function generateStrictRoundRobin(teamNames) {
+            let teams = [...teamNames];
+            const n = teams.length;
+            const isOdd = n % 2 !== 0;
+            if (isOdd) teams.push("BYE");
+            const m = teams.length;
+            const half = m / 2;
+            const rounds = [];
+
+            // Fixed rotation – no random shuffling of teams
+            for (let round = 0; round < m - 1; round++) {
+                const roundFixtures = [];
+                for (let i = 0; i < half; i++) {
+                    const home = teams[i];
+                    const away = teams[m - 1 - i];
+                    if (home !== "BYE" && away !== "BYE") {
+                        if (round % 2 === 0) {
+                            roundFixtures.push({ home, away });
+                        } else {
+                            roundFixtures.push({ home: away, away: home });
+                        }
+                    }
+                }
+                rounds.push(roundFixtures);
+                const last = teams.pop();
+                teams.splice(1, 0, last);
+            }
+
+            // Second half mirrors first with swapped home/away
+            const secondHalf = rounds.map(r => r.map(f => ({ home: f.away, away: f.home })));
+
+            // ================================================================
+            // 🔥 ULTIMATE RANDOM SHUFFLE ENGINE
+            // ================================================================
+
+            function ultimateShuffle(array, passes = 10) {
+                const getRandom = () => {
+                    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+                        const arr = new Uint32Array(1);
+                        crypto.getRandomValues(arr);
+                        return arr[0] / 4294967295;
+                    }
+                    return Math.random();
+                };
+
+                for (let pass = 0; pass < passes; pass++) {
+                    for (let i = array.length - 1; i > 0; i--) {
+                        const j = Math.floor(getRandom() * (i + 1));
+                        [array[i], array[j]] = [array[j], array[i]];
+                    }
+                    
+                    if (pass % 2 === 0 && array.length > 3) {
+                        const start = Math.floor(getRandom() * (array.length - 2));
+                        const end = start + Math.floor(getRandom() * (array.length - start - 1)) + 1;
+                        const segment = array.slice(start, end);
+                        segment.reverse();
+                        array.splice(start, segment.length, ...segment);
+                    }
+                    
+                    if (pass % 3 === 0 && array.length > 4) {
+                        for (let s = 0; s < Math.floor(array.length / 2); s++) {
+                            const idx1 = Math.floor(getRandom() * array.length);
+                            const idx2 = Math.floor(getRandom() * array.length);
+                            if (idx1 !== idx2) {
+                                [array[idx1], array[idx2]] = [array[idx2], array[idx1]];
+                            }
+                        }
+                    }
+                    
+                    if (pass % 5 === 0 && array.length > 5) {
+                        const rotateAmount = Math.floor(getRandom() * array.length);
+                        const part1 = array.slice(0, rotateAmount);
+                        const part2 = array.slice(rotateAmount);
+                        array.splice(0, array.length, ...part2, ...part1);
+                    }
+                }
+                return array;
+            }
+
+            // Shuffle rounds in both halves
+            ultimateShuffle(rounds, 15);
+            ultimateShuffle(secondHalf, 15);
+
+            // Shuffle positions within each round
+            for (let round = 0; round < rounds.length; round++) {
+                ultimateShuffle(rounds[round], 20);
+            }
+            for (let round = 0; round < secondHalf.length; round++) {
+                ultimateShuffle(secondHalf[round], 20);
+            }
+
+            // Randomly flip some fixtures in first half
+            for (let round = 0; round < rounds.length; round++) {
+                const fixtures = rounds[round];
+                for (let i = 0; i < fixtures.length; i++) {
+                    if (Math.random() < 0.15) {
+                        [fixtures[i].home, fixtures[i].away] = [fixtures[i].away, fixtures[i].home];
+                    }
+                }
+            }
+
+            // Mirror for second half but keep shuffled order
+            const mirroredSecondHalf = rounds.map(r => r.map(f => ({ home: f.away, away: f.home })));
+            
+            ultimateShuffle(mirroredSecondHalf, 15);
+            for (let round = 0; round < mirroredSecondHalf.length; round++) {
+                ultimateShuffle(mirroredSecondHalf[round], 20);
+            }
+
+            // Final sanity check: ensure no fixture is duplicated in first half
+            const firstHalfMatchups = new Set();
+            for (let round = 0; round < rounds.length; round++) {
+                const fixtures = rounds[round];
+                for (const f of fixtures) {
+                    const key = `${f.home}|${f.away}`;
+                    if (firstHalfMatchups.has(key)) {
+                        [f.home, f.away] = [f.away, f.home];
+                    }
+                    firstHalfMatchups.add(`${f.home}|${f.away}`);
+                }
+            }
+
+            return [...rounds, ...mirroredSecondHalf];
+        }
+
+        // ================================================================
+        //  🔥 FIXTURE VALIDATION
+        // ================================================================
+        function validateFixtureIntegrity(fixtures, silent = false) {
+            const totalRounds = Math.max(...fixtures.map(f => f.round));
+            const halfRounds = totalRounds / 2;
+            let issues = [];
+
+            // Check 1: No team plays twice in the same round
+            for (let round = 1; round <= totalRounds; round++) {
+                const roundFixtures = fixtures.filter(f => f.round === round);
+                const teamsInRound = [];
+                for (const f of roundFixtures) {
+                    if (teamsInRound.includes(f.home)) issues.push(`Round ${round}: ${f.home} appears twice!`);
+                    if (teamsInRound.includes(f.away)) issues.push(`Round ${round}: ${f.away} appears twice!`);
+                    teamsInRound.push(f.home, f.away);
+                }
+            }
+
+            // Check 2: No duplicate matchups in the same half
+            const firstHalfMatches = new Set();
+            for (let round = 1; round <= halfRounds; round++) {
+                const roundFixtures = fixtures.filter(f => f.round === round);
+                for (const f of roundFixtures) {
+                    const matchup = `${f.home} vs ${f.away}`;
+                    if (firstHalfMatches.has(matchup)) issues.push(`Duplicate matchup in first half: ${matchup}`);
+                    firstHalfMatches.add(matchup);
+                }
+            }
+
+            // Check 3: Second half mirrors first half
+            for (let round = 1; round <= halfRounds; round++) {
+                const secondHalfRound = round + halfRounds;
+                const firstHalfFixtures = fixtures.filter(f => f.round === round);
+                const secondHalfFixtures = fixtures.filter(f => f.round === secondHalfRound);
+
+                for (let i = 0; i < firstHalfFixtures.length; i++) {
+                    const first = firstHalfFixtures[i];
+                    const second = secondHalfFixtures[i];
+                    if (second && (second.home !== first.away || second.away !== first.home)) {
+                        issues.push(`Round ${secondHalfRound} does not mirror Round ${round}`);
+                    }
+                }
+            }
+
+            // Check 4: No team plays against itself
+            for (const f of fixtures) {
+                if (f.home === f.away && f.home !== "BYE") {
+                    issues.push(`Invalid fixture: ${f.home} vs ${f.away} (team cannot play itself)`);
+                }
+            }
+
+            // Check 5: Each team has equal number of home and away games in first half
+            const homeCount = {};
+            const awayCount = {};
+            for (let round = 1; round <= halfRounds; round++) {
+                const roundFixtures = fixtures.filter(f => f.round === round);
+                for (const f of roundFixtures) {
+                    if (f.home !== "BYE") homeCount[f.home] = (homeCount[f.home] || 0) + 1;
+                    if (f.away !== "BYE") awayCount[f.away] = (awayCount[f.away] || 0) + 1;
+                }
+            }
+            for (const team in homeCount) {
+                if (homeCount[team] !== awayCount[team]) {
+                    issues.push(`${team} has ${homeCount[team]} home games and ${awayCount[team]} away games in first half`);
+                }
+            }
+
+            if (issues.length > 0) {
+                console.warn("⚠️ Integrity issues found:", issues);
+                if (!silent) showToast(`⚠️ Found ${issues.length} integrity issues! Check console.`);
+            } else {
+                console.log("✅ All fixtures are valid!");
+                if (!silent) showToast("✅ Fixture integrity check passed!");
+            }
+
+            return issues;
+        }
+
+function loadLeague() {
             currentLeague = document.getElementById('leagueSelect').value;
             loadTeams();
         }
@@ -446,7 +873,6 @@
             log(`Added "${name}" to ${currentLeague}`, 'success');
             input.value = '';
             loadTeams();
-            checkFixtureIntegrity();
         }
 
         async function removeTeam(id) {
@@ -454,57 +880,11 @@
             await db.ref(`leagues/${currentLeague}/teams/${id}`).remove();
             log(`Team removed from ${currentLeague}`, 'success');
             loadTeams();
-            checkFixtureIntegrity();
         }
 
         // ================================================================
-        //  FIXTURE GENERATION
+        //  FIXTURE GENERATION (Admin)
         // ================================================================
-        function generateRoundRobin(teams) {
-            const n = teams.length;
-            if (n < 3) return null;
-
-            let pool = [...teams];
-            if (n % 2 !== 0) pool.push('BYE');
-
-            const totalRounds = pool.length - 1;
-            const half = pool.length / 2;
-            const firstHalfRounds = Math.floor(totalRounds / 2);
-            const secondHalfRounds = totalRounds - firstHalfRounds;
-
-            const firstHalf = {};
-            const secondHalf = {};
-
-            for (let round = 0; round < totalRounds; round++) {
-                const roundMatches = [];
-                for (let i = 0; i < half; i++) {
-                    const home = pool[i];
-                    const away = pool[pool.length - 1 - i];
-                    if (home !== 'BYE' && away !== 'BYE') {
-                        roundMatches.push({ home, away, homeScore: null, awayScore: null, played: false });
-                    }
-                }
-                const roundNum = round + 1;
-                if (round < firstHalfRounds) {
-                    firstHalf[roundNum] = { matches: roundMatches };
-                } else {
-                    secondHalf[roundNum] = { matches: roundMatches };
-                }
-                pool.splice(1, 0, pool.pop());
-            }
-
-            for (const wk in secondHalf) {
-                const matches = secondHalf[wk].matches;
-                for (let i = 0; i < matches.length; i++) {
-                    const temp = matches[i].home;
-                    matches[i].home = matches[i].away;
-                    matches[i].away = temp;
-                }
-            }
-
-            return { firstHalf, secondHalf };
-        }
-
         async function generateFixtures() {
             const teamsSnap = await db.ref(`leagues/${currentLeague}/teams`).once('value');
             const teams = Object.values(teamsSnap.val() || {});
@@ -514,90 +894,67 @@
                 return;
             }
 
-            const result = generateRoundRobin(teams);
-            if (!result) {
-                log('Failed to generate fixtures', 'error');
-                return;
+            const rounds = generateStrictRoundRobin(teams);
+
+            const matchweeks = {};
+            let fixtureId = 0;
+
+            rounds.forEach((roundFixtures, roundIndex) => {
+                const roundNum = roundIndex + 1;
+                matchweeks[roundNum] = { matches: [] };
+                roundFixtures.forEach(({ home, away }) => {
+                    matchweeks[roundNum].matches.push({
+                        id: fixtureId++,
+                        home: home,
+                        away: away,
+                        homeScore: null,
+                        awayScore: null,
+                        played: false,
+                        cancelled: false
+                    });
+                });
+            });
+
+            const allFixtures = [];
+            for (const round in matchweeks) {
+                const matches = matchweeks[round].matches || [];
+                matches.forEach(m => {
+                    allFixtures.push({
+                        round: parseInt(round),
+                        home: m.home,
+                        away: m.away,
+                        played: m.played || false,
+                        cancelled: m.cancelled || false
+                    });
+                });
             }
 
-            const { firstHalf, secondHalf } = result;
-            const allMatchweeks = { ...firstHalf, ...secondHalf };
-
-            const validation = validateFixtures(allMatchweeks, teams);
-            if (!validation.valid) {
-                log(`❌ Validation failed: ${validation.errors.join(', ')}`, 'error');
+            const issues = validateFixtureIntegrity(allFixtures, true);
+            if (issues.length > 0) {
+                log(`❌ Validation failed: ${issues.join(', ')}`, 'error');
                 document.getElementById('fixtureStatus').innerHTML =
-                    `<span class="red">❌ Validation failed: ${validation.errors.join(', ')}</span>`;
+                    `<span class="red">❌ Validation failed: ${issues.join(', ')}</span>`;
                 return;
             }
 
-            await db.ref(`leagues/${currentLeague}/matchweeks`).set(allMatchweeks);
-            const totalWeeks = Object.keys(allMatchweeks).length;
-            const firstHalfWeeks = Object.keys(firstHalf).length;
-            const secondHalfWeeks = Object.keys(secondHalf).length;
+            await db.ref(`leagues/${currentLeague}/matchweeks`).set(matchweeks);
+            const totalWeeks = Object.keys(matchweeks).length;
+            const halfRounds = totalWeeks / 2;
 
-            log(`✅ Generated ${totalWeeks} matchweeks (${firstHalfWeeks} first half, ${secondHalfWeeks} second half) for ${currentLeague}`,
+            log(`✅ Generated ${totalWeeks} matchweeks (${halfRounds} first half, ${halfRounds} second half - ULTIMATE RANDOM) for ${currentLeague}`,
                 'success');
 
             document.getElementById('fixtureStatus').innerHTML = `
                 <span class="green">✅ ${totalWeeks} matchweeks generated</span>
                 <span style="display:block;font-size:0.8rem;margin-top:0.3rem;">
-                    First half: ${firstHalfWeeks} weeks | Second half: ${secondHalfWeeks} weeks
+                    First half: ${halfRounds} weeks | Second half: ${halfRounds} weeks (Ultimate Random)
                 </span>
             `;
-            checkFixtureIntegrity();
         }
 
         // ================================================================
-        //  FIXTURE INTEGRITY
+        //  FIXTURE INTEGRITY CHECK (Admin)
         // ================================================================
-        function validateFixtures(matchweeks, teamList) {
-            const errors = [];
-            const teamSet = new Set(teamList);
-            const halves = getHalves(matchweeks);
-
-            for (const half of ['first', 'second']) {
-                const weeks = halves[half];
-                const pairs = new Set();
-                for (const wk in weeks) {
-                    const matches = weeks[wk].matches || [];
-                    for (const m of matches) {
-                        if (m.home === m.away) errors.push(`Team "${m.home}" plays itself in week ${wk}`);
-                        if (!teamSet.has(m.home)) errors.push(`Unknown team "${m.home}" in week ${wk}`);
-                        if (!teamSet.has(m.away)) errors.push(`Unknown team "${m.away}" in week ${wk}`);
-                        const key = [m.home, m.away].sort().join('|');
-                        if (pairs.has(key)) errors.push(`Duplicate fixture: ${m.home} vs ${m.away} in ${half} half`);
-                        pairs.add(key);
-                    }
-                }
-                const teamPairs = new Set();
-                for (let i = 0; i < teamList.length; i++) {
-                    for (let j = i + 1; j < teamList.length; j++) {
-                        teamPairs.add([teamList[i], teamList[j]].sort().join('|'));
-                    }
-                }
-                for (const pair of teamPairs) {
-                    if (!pairs.has(pair)) {
-                        errors.push(`Missing fixture: ${pair.replace('|', ' vs ')} in ${half} half`);
-                    }
-                }
-            }
-            return { valid: errors.length === 0, errors };
-        }
-
-        function getHalves(matchweeks) {
-            const sorted = Object.keys(matchweeks).sort((a, b) => Number(a) - Number(b));
-            const total = sorted.length;
-            const mid = Math.floor(total / 2);
-            const first = {};
-            const second = {};
-            sorted.forEach((wk, i) => {
-                if (i < mid) first[wk] = matchweeks[wk];
-                else second[wk] = matchweeks[wk];
-            });
-            return { first, second };
-        }
-
         async function checkFixtureIntegrity() {
             const snap = await db.ref(`leagues/${currentLeague}/matchweeks`).once('value');
             const matchweeks = snap.val() || {};
@@ -609,32 +966,44 @@
                 return;
             }
 
-            const validation = validateFixtures(matchweeks, teams);
+            const fixtures = [];
+            for (const round in matchweeks) {
+                const matches = matchweeks[round].matches || [];
+                matches.forEach(m => {
+                    fixtures.push({
+                        round: parseInt(round),
+                        home: m.home,
+                        away: m.away,
+                        played: m.played || false,
+                        cancelled: m.cancelled || false
+                    });
+                });
+            }
+
+            const issues = validateFixtureIntegrity(fixtures, false);
             const statusEl = document.getElementById('fixtureStatus');
 
-            if (validation.valid) {
+            if (issues.length === 0) {
                 const total = Object.keys(matchweeks).length;
-                const halves = getHalves(matchweeks);
-                const firstCount = Object.keys(halves.first).length;
-                const secondCount = Object.keys(halves.second).length;
+                const halfRounds = total / 2;
                 statusEl.innerHTML = `
                     <span class="green">✅ All fixtures are valid!</span>
                     <span style="display:block;font-size:0.8rem;margin-top:0.3rem;">
-                        ${total} matchweeks total (${firstCount} first half, ${secondCount} second half)
+                        ${total} matchweeks total (${halfRounds} first half, ${halfRounds} second half)
                     </span>
                 `;
                 log('✅ Fixture integrity check passed', 'success');
             } else {
                 statusEl.innerHTML = `
-                    <span class="red">❌ ${validation.errors.length} issue(s) found:</span>
+                    <span class="red">❌ ${issues.length} issue(s) found:</span>
                     <ul style="margin-top:0.3rem;font-size:0.8rem;list-style:none;padding-left:0;">
-                        ${validation.errors.map(e => `<li>• ${e}</li>`).join('')}
+                        ${issues.map(e => `<li>• ${e}</li>`).join('')}
                     </ul>
                     <button onclick="fixFixtureIntegrity()" class="warning" style="margin-top:0.5rem;padding:0.3rem 1rem;font-size:0.8rem;">
                         🔧 Attempt Auto-Fix
                     </button>
                 `;
-                log(`⚠️ Integrity check: ${validation.errors.length} issues found`, 'warning');
+                log(`⚠️ Integrity check: ${issues.length} issues found`, 'warning');
             }
         }
 
@@ -846,124 +1215,126 @@
             }
         }
 
-// ================================================================
-//  CHAMPIONS LEAGUE MANAGEMENT
-// ================================================================
-async function generateChampionsLeague() {
-    if (!confirm('Generate Champions League from top 6 teams from Premier League and La Liga?')) return;
+        // ================================================================
+        //  CHAMPIONS LEAGUE MANAGEMENT
+        // ================================================================
+        async function generateChampionsLeague() {
+            if (!confirm('Generate Champions League from top 6 teams from Premier League and La Liga?')) return;
 
-    try {
-        // Get top 6 from Premier League
-        const plSnap = await db.ref('leagues/premier/matchweeks').once('value');
-        const plMatchweeks = plSnap.val() || {};
-        const plTeamsSnap = await db.ref('leagues/premier/teams').once('value');
-        const plTeams = Object.values(plTeamsSnap.val() || {});
-        const plStandings = computeStandingsLocal(plMatchweeks, plTeams);
-        const plTop6 = plStandings.slice(0, 6).map(s => s.name);
+            try {
+                const plSnap = await db.ref('leagues/premier/matchweeks').once('value');
+                const plMatchweeks = plSnap.val() || {};
+                const plTeamsSnap = await db.ref('leagues/premier/teams').once('value');
+                const plTeams = Object.values(plTeamsSnap.val() || {});
+                const plStandings = computeStandingsLocal(plMatchweeks, plTeams);
+                const plTop6 = plStandings.slice(0, 6).map(s => s.name);
 
-        // Get top 6 from La Liga
-        const llSnap = await db.ref('leagues/laliga/matchweeks').once('value');
-        const llMatchweeks = llSnap.val() || {};
-        const llTeamsSnap = await db.ref('leagues/laliga/teams').once('value');
-        const llTeams = Object.values(llTeamsSnap.val() || {});
-        const llStandings = computeStandingsLocal(llMatchweeks, llTeams);
-        const llTop6 = llStandings.slice(0, 6).map(s => s.name);
+                const llSnap = await db.ref('leagues/laliga/matchweeks').once('value');
+                const llMatchweeks = llSnap.val() || {};
+                const llTeamsSnap = await db.ref('leagues/laliga/teams').once('value');
+                const llTeams = Object.values(llTeamsSnap.val() || {});
+                const llStandings = computeStandingsLocal(llMatchweeks, llTeams);
+                const llTop6 = llStandings.slice(0, 6).map(s => s.name);
 
-        // Combine and create groups
-        const allTeams = [...plTop6, ...llTop6];
-        
-        const groupA = [];
-        const groupB = [];
-        
-        allTeams.forEach((team, i) => {
-            if (i % 2 === 0) {
-                groupA.push({ 
-                    name: team, 
-                    pot: Math.floor(i / 2) + 1,
-                    mp: 0, w: 0, d: 0, l: 0, gf_cl: 0, ga_cl: 0, gd_cl: 0, pts_cl: 0
+                const allTeams = [...plTop6, ...llTop6];
+                const groupA = [];
+                const groupB = [];
+
+                allTeams.forEach((team, i) => {
+                    if (i % 2 === 0) {
+                        groupA.push({
+                            name: team,
+                            pot: Math.floor(i / 2) + 1,
+                            mp: 0,
+                            w: 0,
+                            d: 0,
+                            l: 0,
+                            gf_cl: 0,
+                            ga_cl: 0,
+                            gd_cl: 0,
+                            pts_cl: 0
+                        });
+                    } else {
+                        groupB.push({
+                            name: team,
+                            pot: Math.floor(i / 2) + 1,
+                            mp: 0,
+                            w: 0,
+                            d: 0,
+                            l: 0,
+                            gf_cl: 0,
+                            ga_cl: 0,
+                            gd_cl: 0,
+                            pts_cl: 0
+                        });
+                    }
                 });
-            } else {
-                groupB.push({ 
-                    name: team, 
-                    pot: Math.floor(i / 2) + 1,
-                    mp: 0, w: 0, d: 0, l: 0, gf_cl: 0, ga_cl: 0, gd_cl: 0, pts_cl: 0
+
+                const fixtures = {};
+                ['A', 'B'].forEach(letter => {
+                    const groupTeams = letter === 'A' ? groupA.map(t => t.name) : groupB.map(t => t.name);
+                    fixtures[letter] = generateGroupFixtures(groupTeams);
                 });
-            }
-        });
 
-        // Generate group fixtures
-        const fixtures = {};
-        ['A', 'B'].forEach(letter => {
-            const groupTeams = letter === 'A' ? groupA.map(t => t.name) : groupB.map(t => t.name);
-            fixtures[letter] = generateGroupFixtures(groupTeams);
-        });
-
-        await db.ref('champions_league').set({
-            groups: { A: groupA, B: groupB },
-            fixtures: fixtures,
-            knockout: {
-                semiFixtures: [],
-                finalFixture: null,
-                champion: null
-            }
-        });
-
-        log('✅ Champions League generated successfully!', 'success');
-        document.getElementById('uclStatus').innerHTML = `
-            <span class="green">✅ Champions League created!</span>
-            <span style="display:block;font-size:0.8rem;margin-top:0.3rem;">
-                ${groupA.length} teams in Group A, ${groupB.length} teams in Group B
-            </span>
-        `;
-
-    } catch (error) {
-        log('❌ Error generating Champions League: ' + error.message, 'error');
-        document.getElementById('uclStatus').innerHTML = `<span class="red">❌ Error: ${error.message}</span>`;
-    }
-}
-
-function generateGroupFixtures(teams) {
-    const fixtures = [];
-    const n = teams.length;
-    if (n < 2) return fixtures;
-
-    const totalRounds = n % 2 === 0 ? n - 1 : n;
-    const half = Math.floor(n / 2);
-    
-    let pool = [...teams];
-    if (n % 2 !== 0) pool.push('BYE');
-
-    for (let r = 0; r < totalRounds; r++) {
-        for (let i = 0; i < half; i++) {
-            const home = pool[i];
-            const away = pool[pool.length - 1 - i];
-            if (home !== 'BYE' && away !== 'BYE') {
-                fixtures.push({
-                    round: r + 1,
-                    home: home,
-                    away: away,
-                    played: false,
-                    homeScore: null,
-                    awayScore: null
+                await db.ref('champions_league').set({
+                    groups: { A: groupA, B: groupB },
+                    fixtures: fixtures,
+                    knockout: {
+                        semiFixtures: [],
+                        finalFixture: null,
+                        champion: null
+                    }
                 });
+
+                log('✅ Champions League generated successfully!', 'success');
+                document.getElementById('uclStatus').innerHTML = `
+                    <span class="green">✅ Champions League created!</span>
+                    <span style="display:block;font-size:0.8rem;margin-top:0.3rem;">
+                        ${groupA.length} teams in Group A, ${groupB.length} teams in Group B
+                    </span>
+                `;
+
+            } catch (error) {
+                log('❌ Error generating Champions League: ' + error.message, 'error');
+                document.getElementById('uclStatus').innerHTML = `<span class="red">❌ Error: ${error.message}</span>`;
             }
         }
-        pool.splice(1, 0, pool.pop());
-    }
 
-    return fixtures;
-}
+        function generateGroupFixtures(teams) {
+            const fixtures = [];
+            const n = teams.length;
+            if (n < 2) return fixtures;
 
-async function clearChampionsLeague() {
-    if (!confirm('⚠️ Clear all Champions League data? This cannot be undone!')) return;
-    await db.ref('champions_league').remove();
-    log('🗑️ Champions League cleared', 'warning');
-    document.getElementById('uclStatus').innerHTML = `<span class="yellow">⚠️ Champions League cleared</span>`;
-}
+            const totalRounds = n % 2 === 0 ? n - 1 : n;
+            const half = Math.floor(n / 2);
 
-async function generateKnockout() {
+            let pool = [...teams];
+            if (n % 2 !== 0) pool.push('BYE');
+
+            for (let r = 0; r < totalRounds; r++) {
+                for (let i = 0; i < half; i++) {
+                    const home = pool[i];
+                    const away = pool[pool.length - 1 - i];
+                    if (home !== 'BYE' && away !== 'BYE') {
+                        fixtures.push({
+                            round: r + 1,
+                            home: home,
+                            away: away,
+                            played: false,
+                            homeScore: null,
+                            awayScore: null
+                        });
+                    }
+                }
+                pool.splice(1, 0, pool.pop());
+            }
+
+            return fixtures;
+        }
+
+        async function generateKnockout() {
     if (!confirm('Generate knockout stage from group standings?')) return;
-    
+
     try {
         const snap = await db.ref('champions_league').once('value');
         const data = snap.val();
@@ -974,46 +1345,126 @@ async function generateKnockout() {
 
         const groupA = data.groups.A || [];
         const groupB = data.groups.B || [];
-        
-        const sortedA = [...groupA].sort((a, b) => b.pts_cl - a.pts_cl || b.gd_cl - a.gd_cl);
-        const sortedB = [...groupB].sort((a, b) => b.pts_cl - a.pts_cl || b.gd_cl - a.gd_cl);
 
-        const semiFixtures = [
-            {
-                round: 'Semi-final 1',
-                home: sortedA[0]?.name || 'TBD',
-                away: sortedB[1]?.name || 'TBD',
-                played: false,
-                homeScore: null,
-                awayScore: null
-            },
-            {
-                round: 'Semi-final 2',
-                home: sortedB[0]?.name || 'TBD',
-                away: sortedA[1]?.name || 'TBD',
-                played: false,
-                homeScore: null,
-                awayScore: null
-            }
-        ];
-
-        await db.ref('champions_league/knockout').set({
-            semiFixtures: semiFixtures,
-            finalFixture: {
-                home: null,
-                away: null,
-                played: false,
-                homeScore: null,
-                awayScore: null
-            },
-            champion: null
+        // Sort groups by points, then GD, then GF
+        const sortedA = [...groupA].sort((a, b) => {
+            if (b.pts_cl !== a.pts_cl) return b.pts_cl - a.pts_cl;
+            if (b.gd_cl !== a.gd_cl) return b.gd_cl - a.gd_cl;
+            return b.gf_cl - a.gf_cl;
+        });
+        const sortedB = [...groupB].sort((a, b) => {
+            if (b.pts_cl !== a.pts_cl) return b.pts_cl - a.pts_cl;
+            if (b.gd_cl !== a.gd_cl) return b.gd_cl - a.gd_cl;
+            return b.gf_cl - a.gf_cl;
         });
 
-        log('✅ Knockout stage generated!', 'success');
+        // ============================================================
+        // 🏆 QUARTER-FINALS (Single leg - or two legs if you prefer)
+        // ============================================================
+        // For simplicity, we'll use single leg quarter-finals
+        const qfMatchups = [
+            { home: sortedA[0]?.name || 'TBD', away: sortedB[3]?.name || 'TBD' }, // A1 vs B4
+            { home: sortedA[1]?.name || 'TBD', away: sortedB[2]?.name || 'TBD' }, // A2 vs B3
+            { home: sortedA[2]?.name || 'TBD', away: sortedB[1]?.name || 'TBD' }, // A3 vs B2
+            { home: sortedA[3]?.name || 'TBD', away: sortedB[0]?.name || 'TBD' }  // A4 vs B1
+        ];
+
+        const quarterFinals = qfMatchups.map((m, i) => ({
+            id: Date.now() + i,
+            round: 'quarter-final',
+            home: m.home,
+            away: m.away,
+            homeScore: null,
+            awayScore: null,
+            played: false,
+            cancelled: false,
+            leg: 1,
+            tieId: i + 1
+        }));
+
+        // ============================================================
+        // 🏆 SEMI-FINALS (TWO LEGS)
+        // ============================================================
+        // Winners of QF1 vs QF4, QF2 vs QF3
+        // Each tie has 2 legs
+        const semiTies = [
+            { home: 'QF1 Winner', away: 'QF4 Winner', tieId: 1 },
+            { home: 'QF2 Winner', away: 'QF3 Winner', tieId: 2 }
+        ];
+
+        const semiFixtures = [];
+        const now = Date.now();
+
+        semiTies.forEach((tie, idx) => {
+            // Leg 1 - Home team hosts first
+            semiFixtures.push({
+                id: now + 100 + (idx * 10),
+                round: 'semi-final',
+                home: tie.home,
+                away: tie.away,
+                homeScore: null,
+                awayScore: null,
+                played: false,
+                cancelled: false,
+                leg: 1,
+                tieId: tie.tieId,
+                deadline: now + 2 * 24 * 60 * 60 * 1000 // 2 days
+            });
+            // Leg 2 - Away team hosts second (home/away swapped)
+            semiFixtures.push({
+                id: now + 101 + (idx * 10),
+                round: 'semi-final',
+                home: tie.away,
+                away: tie.home,
+                homeScore: null,
+                awayScore: null,
+                played: false,
+                cancelled: false,
+                leg: 2,
+                tieId: tie.tieId,
+                deadline: now + 4 * 24 * 60 * 60 * 1000 // 4 days
+            });
+        });
+
+        // ============================================================
+        // 🏆 FINAL (SINGLE LEG - Neutral venue)
+        // ============================================================
+        const finalFixture = {
+            id: now + 200,
+            round: 'final',
+            home: 'SF1 Winner',
+            away: 'SF2 Winner',
+            homeScore: null,
+            awayScore: null,
+            played: false,
+            cancelled: false,
+            leg: 1,
+            tieId: 3,
+            deadline: now + 6 * 24 * 60 * 60 * 1000 // 6 days
+        };
+
+        // ============================================================
+        // 💾 SAVE TO FIREBASE
+        // ============================================================
+        await db.ref('champions_league/knockout').set({
+            quarterFinals: quarterFinals,
+            semiFixtures: semiFixtures,
+            finalFixture: finalFixture,
+            champion: null,
+            currentRound: 'quarter-finals' // quarter-finals, semi-finals, final, completed
+        });
+
+        log('✅ Knockout stage generated! Quarter-finals + Two-leg semi-finals + Final', 'success');
         document.getElementById('uclStatus').innerHTML = `
             <span class="green">✅ Knockout stage created!</span>
             <span style="display:block;font-size:0.8rem;margin-top:0.3rem;">
-                ${semiFixtures.length} semi-finals generated
+                🏆 Quarter-finals: ${quarterFinals.length} matches (single leg)
+            </span>
+            <span style="display:block;font-size:0.8rem;">
+                🏆 Semi-finals: ${semiFixtures.length} matches (two legs)
+            </span>
+            <span style="display:block;font-size:0.8rem;">
+                🏆 Final: 1 match (neutral)
             </span>
         `;
 
@@ -1022,7 +1473,17 @@ async function generateKnockout() {
     }
 }
 
-async function triggerEndSeason() {
+        async function clearChampionsLeague() {
+            if (!confirm('⚠️ Clear all Champions League data? This cannot be undone!')) return;
+            await db.ref('champions_league').remove();
+            log('🗑️ Champions League cleared', 'warning');
+            document.getElementById('uclStatus').innerHTML = `<span class="yellow">⚠️ Champions League cleared</span>`;
+        }
+
+        // ================================================================
+        //  SEASON MANAGEMENT
+        // ================================================================
+        async function triggerEndSeason() {
             if (!confirm('⚠️ Relegate bottom 3 teams from both leagues? This will remove them and reset fixtures.')) return;
 
             const leagues = ['premier', 'laliga'];
@@ -1137,7 +1598,7 @@ async function triggerEndSeason() {
         // ================================================================
         //  INIT
         // ================================================================
-        loadLeague();
+        // The auth overlay handles the initial load
     </script>
 </body>
 </html>
