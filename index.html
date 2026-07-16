@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>League Hub</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+        .container {
+            max-width: 900px;
+            width: 100%;
+        }
+        h1 {
+            text-align: center;
+            font-size: 3rem;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 0.5rem;
+        }
+        .subtitle {
+            text-align: center;
+            color: rgba(255,255,255,0.6);
+            font-size: 1.1rem;
+            margin-bottom: 3rem;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+        }
+        .card {
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 2rem 1.5rem;
+            text-align: center;
+            text-decoration: none;
+            color: #fff;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        .card:hover {
+            transform: translateY(-6px);
+            background: rgba(255,255,255,0.1);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+        }
+        .card .icon { font-size: 3rem; margin-bottom: 0.8rem; }
+        .card .name { font-size: 1.2rem; font-weight: 700; }
+        .card .desc { font-size: 0.85rem; opacity: 0.6; margin-top: 0.3rem; }
+        .card.premier .icon { color: #4cc9f0; }
+        .card.laliga .icon { color: #c8102e; }
+        .card.ucl .icon { color: #ffd700; }
+        .card.admin .icon { color: #2ea043; }
+        .card.premier { border-left: 4px solid #4cc9f0; }
+        .card.laliga { border-left: 4px solid #c8102e; }
+        .card.ucl { border-left: 4px solid #ffd700; }
+        .card.admin { border-left: 4px solid #2ea043; }
+        @media (max-width: 500px) {
+            h1 { font-size: 2rem; }
+            .grid { grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+            .card { padding: 1.2rem 0.8rem; }
+            .card .icon { font-size: 2rem; }
+            .card .name { font-size: 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>League Hub</h1>
+        <p class="subtitle">Dream League Soccer • Season <span id="year"></span></p>
+        <div class="grid">
+            <a href="premier.html" class="card premier">
+                <div class="icon">🦁</div>
+                <div class="name">Premier League</div>
+                <div class="desc">Standings &amp; Fixtures</div>
+            </a>
+            <a href="laliga.html" class="card laliga">
+                <div class="icon">⚽</div>
+                <div class="name">La Liga</div>
+                <div class="desc">Standings &amp; Fixtures</div>
+            </a>
+        </div>
+    </div>
+    <script>
+        document.getElementById('year').textContent = new Date().getFullYear();
+    </script>
+</body>
+</html>
