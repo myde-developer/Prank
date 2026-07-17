@@ -761,21 +761,36 @@ function log(msg, type = 'info') {
 // ================================================================
 //  🔥 ULTIMATE RANDOM FIXTURE GENERATION
 // ================================================================
+
 function generateStrictRoundRobin(teamNames) {
+    // ============================================================
+    // STEP 1: Prepare teams (add BYE if odd)
+    // ============================================================
     let teams = [...teamNames];
     const n = teams.length;
+    if (n < 3) {
+        console.error("❌ Need at least 3 teams");
+        return null;
+    }
+
     const isOdd = n % 2 !== 0;
     if (isOdd) teams.push("BYE");
     const m = teams.length;
     const half = m / 2;
-    const rounds = [];
+
+    // ============================================================
+    // STEP 2: Generate first half (fixed rotation)
+    // ============================================================
+    const firstHalf = [];
+    let workingTeams = [...teams];
 
     for (let round = 0; round < m - 1; round++) {
         const roundFixtures = [];
         for (let i = 0; i < half; i++) {
-            const home = teams[i];
-            const away = teams[m - 1 - i];
+            const home = workingTeams[i];
+            const away = workingTeams[m - 1 - i];
             if (home !== "BYE" && away !== "BYE") {
+                // Alternate home/away for balance
                 if (round % 2 === 0) {
                     roundFixtures.push({ home, away });
                 } else {
@@ -783,215 +798,278 @@ function generateStrictRoundRobin(teamNames) {
                 }
             }
         }
-        rounds.push(roundFixtures);
-        const last = teams.pop();
-        teams.splice(1, 0, last);
+        firstHalf.push(roundFixtures);
+        // Rotate (keep first fixed, shift others)
+        const last = workingTeams.pop();
+        workingTeams.splice(1, 0, last);
     }
 
-    const secondHalf = rounds.map(r => r.map(f => ({ home: f.away, away: f.home })));
+    // ============================================================
+    // STEP 3: Create second half (mirrored with home/away swapped)
+    // ============================================================
+    const secondHalf = firstHalf.map(round =>
+        round.map(f => ({ home: f.away, away: f.home }))
+    );
 
-    function ultimateShuffle(array, passes = 10) {
-        const getRandom = () => {
-            if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-                const arr = new Uint32Array(1);
-                crypto.getRandomValues(arr);
-                return arr[0] / 4294967295;
-            }
-            return Math.random();
-        };
-
-        for (let pass = 0; pass < passes; pass++) {
-            for (let i = array.length - 1; i > 0; i--) {
-                const j = Math.floor(getRandom() * (i + 1));
-                [array[i], array[j]] = [array[j], array[i]];
-            }
-            if (pass % 2 === 0 && array.length > 3) {
-                const start = Math.floor(getRandom() * (array.length - 2));
-                const end = start + Math.floor(getRandom() * (array.length - start - 1)) + 1;
-                const segment = array.slice(start, end);
-                segment.reverse();
-                array.splice(start, segment.length, ...segment);
-            }
-            if (pass % 3 === 0 && array.length > 4) {
-                for (let s = 0; s < Math.floor(array.length / 2); s++) {
-                    const idx1 = Math.floor(getRandom() * array.length);
-                    const idx2 = Math.floor(getRandom() * array.length);
-                    if (idx1 !== idx2) {
-                        [array[idx1], array[idx2]] = [array[idx2], array[idx1]];
-                    }
-                }
-            }
-            if (pass % 5 === 0 && array.length > 5) {
-                const rotateAmount = Math.floor(getRandom() * array.length);
-                const part1 = array.slice(0, rotateAmount);
-                const part2 = array.slice(rotateAmount);
-                array.splice(0, array.length, ...part2, ...part1);
-            }
-        }
-        return array;
+    // ============================================================
+    // STEP 4: Shuffle second half rounds (different matchweeks)
+    // ============================================================
+    for (let i = secondHalf.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [secondHalf[i], secondHalf[j]] = [secondHalf[j], secondHalf[i]];
     }
 
-    ultimateShuffle(rounds, 15);
-    ultimateShuffle(secondHalf, 15);
-
-    for (let round = 0; round < rounds.length; round++) {
-        ultimateShuffle(rounds[round], 20);
-    }
-    for (let round = 0; round < secondHalf.length; round++) {
-        ultimateShuffle(secondHalf[round], 20);
-    }
-
-    for (let round = 0; round < rounds.length; round++) {
-        const fixtures = rounds[round];
-        for (let i = 0; i < fixtures.length; i++) {
-            if (Math.random() < 0.15) {
-                [fixtures[i].home, fixtures[i].away] = [fixtures[i].away, fixtures[i].home];
-            }
+    // ============================================================
+    // STEP 5: Shuffle positions within all rounds
+    // ============================================================
+    const allRounds = [...firstHalf, ...secondHalf];
+    for (let round = 0; round < allRounds.length; round++) {
+        const fixtures = allRounds[round];
+        for (let i = fixtures.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [fixtures[i], fixtures[j]] = [fixtures[j], fixtures[i]];
         }
     }
 
-    const mirroredSecondHalf = rounds.map(r => r.map(f => ({ home: f.away, away: f.home })));
+    // ============================================================
+    // STEP 6: Build the final structure with round numbers
+    // ============================================================
+    const rounds = {};
+    allRounds.forEach((roundFixtures, index) => {
+        rounds[index + 1] = roundFixtures;
+    });
 
-    ultimateShuffle(mirroredSecondHalf, 15);
-    for (let round = 0; round < mirroredSecondHalf.length; round++) {
-        ultimateShuffle(mirroredSecondHalf[round], 20);
+    // ============================================================
+    // STEP 7: Run integrity validation (self-check)
+    // ============================================================
+    const allFixtures = [];
+    for (const round in rounds) {
+        rounds[round].forEach(f => {
+            allFixtures.push({
+                round: parseInt(round),
+                home: f.home,
+                away: f.away
+            });
+        });
     }
 
-    const firstHalfMatchups = new Set();
-    for (let round = 0; round < rounds.length; round++) {
-        const fixtures = rounds[round];
-        for (const f of fixtures) {
-            const key = `${f.home}|${f.away}`;
-            const reverseKey = `${f.away}|${f.home}`;
-            if (firstHalfMatchups.has(key) || firstHalfMatchups.has(reverseKey)) {
-                [f.home, f.away] = [f.away, f.home];
-            }
-            firstHalfMatchups.add(`${f.home}|${f.away}`);
-        }
+    const validationResult = validateFixtureIntegrity(allFixtures, teamNames, true);
+
+    if (!validationResult.valid) {
+        console.error("❌ Generated fixtures failed validation:", validationResult.issues);
+        return null;
     }
 
-    for (let round = 0; round < rounds.length; round++) {
-        const fixtures = rounds[round];
-        const teamsInRound = new Set();
-        for (const f of fixtures) {
-            if (teamsInRound.has(f.home) || teamsInRound.has(f.away)) {
-                [f.home, f.away] = [f.away, f.home];
-            }
-            teamsInRound.add(f.home);
-            teamsInRound.add(f.away);
-        }
+    if (validationResult.warnings.length > 0) {
+        console.warn("⚠️ Generated fixtures have warnings:", validationResult.warnings);
     }
 
-    return [...rounds, ...mirroredSecondHalf];
+    console.log(`✅ Generated ${allRounds.length} rounds for ${teamNames.length} teams`);
+
+    return rounds;
 }
 
 // ================================================================
 //  🔥 FIXTURE VALIDATION
 // ================================================================
-function validateFixtureIntegrity(fixtures, teamList, silent = false) {
-    const totalRounds = Math.max(...fixtures.map(f => f.round));
-    const halfRounds = totalRounds / 2;
+
+function validateFixtureIntegrity(fixtures, teamNames, silent = false) {
+    // ============================================================
+    // INITIALIZATION
+    // ============================================================
     const issues = [];
     const warnings = [];
+    const totalRounds = fixtures.length > 0 ? Math.max(...fixtures.map(f => f.round)) : 0;
+    const halfRounds = Math.floor(totalRounds / 2);
+    const teamSet = new Set(teamNames);
+    const allTeams = new Set(teamNames);
+    const hasBye = teamNames.some(t => t === "BYE");
 
+    if (totalRounds === 0) {
+        return { valid: true, issues: [], warnings: ['No fixtures to validate'] };
+    }
+
+    // ============================================================
+    // CHECK 1: No team plays twice in the same round
+    // ============================================================
     for (let round = 1; round <= totalRounds; round++) {
         const roundFixtures = fixtures.filter(f => f.round === round);
-        const teamsInRound = [];
+        const teamsInRound = new Set();
         for (const f of roundFixtures) {
-            if (teamsInRound.includes(f.home)) {
-                issues.push(`❌ Round ${round}: ${f.home} appears twice!`);
-            }
-            if (teamsInRound.includes(f.away)) {
-                issues.push(`❌ Round ${round}: ${f.away} appears twice!`);
-            }
-            teamsInRound.push(f.home, f.away);
-        }
-    }
-
-    const firstHalfMatches = new Set();
-    for (let round = 1; round <= halfRounds; round++) {
-        const roundFixtures = fixtures.filter(f => f.round === round);
-        for (const f of roundFixtures) {
-            const matchup = `${f.home}|${f.away}`;
-            const reverseMatchup = `${f.away}|${f.home}`;
-            if (firstHalfMatches.has(matchup) || firstHalfMatches.has(reverseMatchup)) {
-                issues.push(`❌ Duplicate matchup in first half: ${f.home} vs ${f.away}`);
-            }
-            firstHalfMatches.add(matchup);
-        }
-    }
-
-    for (let round = 1; round <= halfRounds; round++) {
-        const secondHalfRound = round + halfRounds;
-        const firstHalfFixtures = fixtures.filter(f => f.round === round);
-        const secondHalfFixtures = fixtures.filter(f => f.round === secondHalfRound);
-
-        const sortedFirst = [...firstHalfFixtures].sort((a, b) => a.home.localeCompare(b.home));
-        const sortedSecond = [...secondHalfFixtures].sort((a, b) => a.home.localeCompare(b.home));
-
-        for (let i = 0; i < sortedFirst.length; i++) {
-            const first = sortedFirst[i];
-            const second = sortedSecond[i];
-            if (second) {
-                const match = secondHalfFixtures.find(f =>
-                    f.home === first.away && f.away === first.home
-                );
-                if (!match) {
-                    warnings.push(`⚠️ Round ${secondHalfRound} does not mirror Round ${round}: ${first.home} vs ${first.away}`);
+            if (f.home !== "BYE" && f.away !== "BYE") {
+                if (teamsInRound.has(f.home)) {
+                    issues.push(`❌ Round ${round}: "${f.home}" appears twice!`);
                 }
+                if (teamsInRound.has(f.away)) {
+                    issues.push(`❌ Round ${round}: "${f.away}" appears twice!`);
+                }
+                teamsInRound.add(f.home);
+                teamsInRound.add(f.away);
             }
         }
     }
+
+    // ============================================================
+    // CHECK 2: No duplicate matchups within the same half
+    // ============================================================
+    const firstHalfMatchups = new Set();
+    const secondHalfMatchups = new Set();
 
     for (const f of fixtures) {
-        if (f.home === f.away && f.home !== "BYE") {
-            issues.push(`❌ Invalid fixture: ${f.home} vs ${f.away} (team cannot play itself)`);
+        if (f.home === "BYE" || f.away === "BYE") continue;
+        const matchup = `${f.home}|${f.away}`;
+        const reverseMatchup = `${f.away}|${f.home}`;
+
+        if (f.round <= halfRounds) {
+            // Check first half
+            if (firstHalfMatchups.has(matchup) || firstHalfMatchups.has(reverseMatchup)) {
+                issues.push(`❌ Duplicate matchup in first half: "${f.home}" vs "${f.away}" (Round ${f.round})`);
+            }
+            firstHalfMatchups.add(matchup);
+        } else {
+            // Check second half
+            if (secondHalfMatchups.has(matchup) || secondHalfMatchups.has(reverseMatchup)) {
+                issues.push(`❌ Duplicate matchup in second half: "${f.home}" vs "${f.away}" (Round ${f.round})`);
+            }
+            secondHalfMatchups.add(matchup);
         }
     }
 
+    // ============================================================
+    // CHECK 3: Second half mirrors first half (swapped)
+    // ============================================================
+    // Build a map of first half matchups (normalized)
+    const firstHalfMap = new Map();
+    for (const f of fixtures) {
+        if (f.round <= halfRounds && f.home !== "BYE" && f.away !== "BYE") {
+            const key = [f.home, f.away].sort().join('|');
+            firstHalfMap.set(key, { home: f.home, away: f.away });
+        }
+    }
+
+    // Build a map of second half matchups (normalized)
+    const secondHalfMap = new Map();
+    for (const f of fixtures) {
+        if (f.round > halfRounds && f.home !== "BYE" && f.away !== "BYE") {
+            const key = [f.home, f.away].sort().join('|');
+            secondHalfMap.set(key, { home: f.home, away: f.away });
+        }
+    }
+
+    // Check that every first half matchup appears in second half (swapped)
+    for (const [key, match] of firstHalfMap) {
+        const swapped = { home: match.away, away: match.home };
+        const found = secondHalfMap.get(key);
+        if (!found) {
+            issues.push(`❌ First half matchup "${match.home}" vs "${match.away}" is missing from second half!`);
+        } else if (found.home !== swapped.home || found.away !== swapped.away) {
+            issues.push(`❌ Second half has "${found.home}" vs "${found.away}" but should be "${swapped.home}" vs "${swapped.away}"`);
+        }
+    }
+
+    // Check that every second half matchup appears in first half (swapped)
+    for (const [key, match] of secondHalfMap) {
+        const swapped = { home: match.away, away: match.home };
+        const found = firstHalfMap.get(key);
+        if (!found) {
+            issues.push(`❌ Second half matchup "${match.home}" vs "${match.away}" is missing from first half!`);
+        } else if (found.home !== swapped.home || found.away !== swapped.away) {
+            issues.push(`❌ First half has "${found.home}" vs "${found.away}" but should be "${swapped.home}" vs "${swapped.away}"`);
+        }
+    }
+
+    // ============================================================
+    // CHECK 4: No team plays against itself
+    // ============================================================
+    for (const f of fixtures) {
+        if (f.home === f.away && f.home !== "BYE") {
+            issues.push(`❌ Invalid fixture: "${f.home}" vs "${f.away}" (team cannot play itself)`);
+        }
+    }
+
+    // ============================================================
+    // CHECK 5: Balanced home/away games in first half
+    // ============================================================
     const homeCount = {};
     const awayCount = {};
-    for (let round = 1; round <= halfRounds; round++) {
-        const roundFixtures = fixtures.filter(f => f.round === round);
-        for (const f of roundFixtures) {
-            if (f.home !== "BYE") homeCount[f.home] = (homeCount[f.home] || 0) + 1;
-            if (f.away !== "BYE") awayCount[f.away] = (awayCount[f.away] || 0) + 1;
-        }
-    }
-    for (const team in homeCount) {
-        if (homeCount[team] !== awayCount[team]) {
-            warnings.push(`⚠️ ${team} has ${homeCount[team]} home games and ${awayCount[team]} away games in first half`);
+    for (const f of fixtures) {
+        if (f.round <= halfRounds && f.home !== "BYE" && f.away !== "BYE") {
+            homeCount[f.home] = (homeCount[f.home] || 0) + 1;
+            awayCount[f.away] = (awayCount[f.away] || 0) + 1;
         }
     }
 
-    const matchCounts = {};
-    for (let round = 1; round <= halfRounds; round++) {
-        const roundFixtures = fixtures.filter(f => f.round === round);
-        for (const f of roundFixtures) {
-            if (f.home !== "BYE") matchCounts[f.home] = (matchCounts[f.home] || 0) + 1;
-            if (f.away !== "BYE") matchCounts[f.away] = (matchCounts[f.away] || 0) + 1;
+    const allActiveTeams = teamNames.filter(t => t !== "BYE");
+    for (const team of allActiveTeams) {
+        const h = homeCount[team] || 0;
+        const a = awayCount[team] || 0;
+        if (h !== a) {
+            warnings.push(`⚠️ "${team}" has ${h} home games and ${a} away games in first half (should be equal)`);
         }
     }
+
+    // ============================================================
+    // CHECK 6: All teams have equal number of matches in first half
+    // ============================================================
+    const matchCounts = {};
+    for (const f of fixtures) {
+        if (f.round <= halfRounds && f.home !== "BYE" && f.away !== "BYE") {
+            matchCounts[f.home] = (matchCounts[f.home] || 0) + 1;
+            matchCounts[f.away] = (matchCounts[f.away] || 0) + 1;
+        }
+    }
+
     const counts = Object.values(matchCounts);
     if (counts.length > 0) {
         const expected = counts[0];
-        for (const [team, count] of Object.entries(matchCounts)) {
+        for (const team of allActiveTeams) {
+            const count = matchCounts[team] || 0;
             if (count !== expected) {
-                warnings.push(`⚠️ ${team} has ${count} matches, expected ${expected} in first half`);
+                warnings.push(`⚠️ "${team}" has ${count} matches, expected ${expected} in first half`);
             }
         }
     }
 
-    const allIssues = [...issues, ...warnings];
-    if (allIssues.length > 0) {
-        console.warn("⚠️ Integrity issues found:", allIssues);
-        if (!silent) showToast(`⚠️ Found ${allIssues.length} issues! Check console.`);
-    } else {
-        console.log("✅ All fixtures are valid!");
-        if (!silent) showToast("✅ Fixture integrity check passed!");
+    // ============================================================
+    // CHECK 7: All fixtures are between valid teams
+    // ============================================================
+    for (const f of fixtures) {
+        if (f.home !== "BYE" && !allTeams.has(f.home)) {
+            issues.push(`❌ Unknown team "${f.home}" in fixture (Round ${f.round})`);
+        }
+        if (f.away !== "BYE" && !allTeams.has(f.away)) {
+            issues.push(`❌ Unknown team "${f.away}" in fixture (Round ${f.round})`);
+        }
     }
 
-    return { issues, warnings, valid: issues.length === 0 };
+    // ============================================================
+    // OUTPUT RESULTS
+    // ============================================================
+    const totalIssues = issues.length;
+    const totalWarnings = warnings.length;
+
+    if (!silent) {
+        if (totalIssues === 0 && totalWarnings === 0) {
+            console.log("✅ All fixtures are valid!");
+            showToast("✅ Fixture integrity check passed!");
+        } else if (totalIssues === 0 && totalWarnings > 0) {
+            console.warn(`⚠️ ${totalWarnings} warning(s) found, but no critical issues.`);
+            showToast(`⚠️ ${totalWarnings} warning(s) found (see console)`);
+        } else {
+            console.error(`❌ ${totalIssues} critical issue(s) and ${totalWarnings} warning(s) found.`);
+            showToast(`❌ ${totalIssues} critical issue(s) found!`);
+        }
+    }
+
+    return {
+        valid: totalIssues === 0,
+        issues: issues,
+        warnings: warnings,
+        totalIssues: totalIssues,
+        totalWarnings: totalWarnings,
+        halfRounds: halfRounds,
+        totalRounds: totalRounds
+    };
 }
 
 // ================================================================
@@ -1053,15 +1131,26 @@ async function generateFixtures() {
 
     log(`🔄 Generating fixtures for ${teams.length} teams...`, 'info');
 
+    // ============================================================
+    // GENERATE FIXTURES
+    // ============================================================
     const rounds = generateStrictRoundRobin(teams);
 
+    if (!rounds) {
+        log('❌ Failed to generate fixtures', 'error');
+        document.getElementById('fixtureStatus').innerHTML = `<span class="red">❌ Failed to generate fixtures</span>`;
+        return;
+    }
+
+    // ============================================================
+    // CONVERT TO FIREBASE STRUCTURE
+    // ============================================================
     const matchweeks = {};
     let fixtureId = 0;
 
-    rounds.forEach((roundFixtures, roundIndex) => {
-        const roundNum = roundIndex + 1;
+    for (const roundNum in rounds) {
         matchweeks[roundNum] = { matches: [] };
-        roundFixtures.forEach(({ home, away }) => {
+        rounds[roundNum].forEach(({ home, away }) => {
             matchweeks[roundNum].matches.push({
                 id: fixtureId++,
                 home: home,
@@ -1072,47 +1161,64 @@ async function generateFixtures() {
                 cancelled: false
             });
         });
-    });
+    }
 
+    // ============================================================
+    // VALIDATE BEFORE SAVING (using the same validator)
+    // ============================================================
     const allFixtures = [];
     for (const round in matchweeks) {
-        const matches = matchweeks[round].matches || [];
-        matches.forEach(m => {
+        matchweeks[round].matches.forEach(m => {
             allFixtures.push({
                 round: parseInt(round),
                 home: m.home,
-                away: m.away,
-                played: m.played || false,
-                cancelled: m.cancelled || false
+                away: m.away
             });
         });
     }
 
-    const result = validateFixtureIntegrity(allFixtures, teams, true);
-    if (!result.valid) {
-        log(`❌ Validation failed: ${result.issues.join(', ')}`, 'error');
-        document.getElementById('fixtureStatus').innerHTML =
-            `<span class="red">❌ Validation failed: ${result.issues.join(', ')}</span>`;
+    const validation = validateFixtureIntegrity(allFixtures, teams, true);
+
+    if (!validation.valid) {
+        log(`❌ Validation failed: ${validation.issues.join(', ')}`, 'error');
+        document.getElementById('fixtureStatus').innerHTML = `
+            <span class="red">❌ Validation failed: ${validation.issues.length} issues found</span>
+            <ul style="margin-top:0.3rem;font-size:0.8rem;list-style:none;padding-left:0;">
+                ${validation.issues.map(e => `<li>• ${e}</li>`).join('')}
+            </ul>
+        `;
         return;
     }
 
+    // ============================================================
+    // SAVE TO FIREBASE
+    // ============================================================
     await db.ref(`leagues/${currentLeague}/matchweeks`).set(matchweeks);
+
     const totalWeeks = Object.keys(matchweeks).length;
-    const halfRounds = totalWeeks / 2;
+    const halfRounds = validation.halfRounds || Math.floor(totalWeeks / 2);
 
-    log(`✅ Generated ${totalWeeks} matchweeks (${halfRounds} first half, ${halfRounds} second half) for ${currentLeague}`,
-        'success');
+    log(`✅ Generated ${totalWeeks} matchweeks (${halfRounds} first half, ${halfRounds} second half) for ${currentLeague}`, 'success');
 
-    document.getElementById('fixtureStatus').innerHTML = `
+    let statusHtml = `
         <span class="green">✅ ${totalWeeks} matchweeks generated</span>
         <span style="display:block;font-size:0.8rem;margin-top:0.3rem;">
-            First half: ${halfRounds} weeks | Second half: ${halfRounds} weeks (Ultimate Random)
+            First half: ${halfRounds} weeks | Second half: ${halfRounds} weeks
         </span>
         <span style="display:block;font-size:0.8rem;margin-top:0.2rem;color:#8b949e;">
             ${teams.length} teams • ${allFixtures.length} total matches
         </span>
     `;
 
+    if (validation.warnings.length > 0) {
+        statusHtml += `
+            <span style="display:block;font-size:0.8rem;margin-top:0.3rem;color:#d29922;">
+                ⚠️ ${validation.warnings.length} warning(s): ${validation.warnings.join('; ')}
+            </span>
+        `;
+    }
+
+    document.getElementById('fixtureStatus').innerHTML = statusHtml;
     updateFixtureStats();
 }
 
@@ -1163,10 +1269,12 @@ async function checkFixtureIntegrity() {
         return;
     }
 
+    // ============================================================
+    // CONVERT TO FIXTURE ARRAY
+    // ============================================================
     const fixtures = [];
     for (const round in matchweeks) {
-        const matches = matchweeks[round].matches || [];
-        matches.forEach(m => {
+        matchweeks[round].matches.forEach(m => {
             fixtures.push({
                 round: parseInt(round),
                 home: m.home,
@@ -1177,16 +1285,22 @@ async function checkFixtureIntegrity() {
         });
     }
 
+    // ============================================================
+    // RUN VALIDATION
+    // ============================================================
     const result = validateFixtureIntegrity(fixtures, teams, false);
     const statusEl = document.getElementById('fixtureStatus');
 
+    // ============================================================
+    // DISPLAY RESULTS
+    // ============================================================
+    let html = '';
+
     if (result.valid && result.warnings.length === 0) {
-        const total = Object.keys(matchweeks).length;
-        const halfRounds = total / 2;
-        statusEl.innerHTML = `
+        html = `
             <span class="green">✅ All fixtures are valid!</span>
             <span style="display:block;font-size:0.8rem;margin-top:0.3rem;">
-                ${total} matchweeks total (${halfRounds} first half, ${halfRounds} second half)
+                ${result.totalRounds} matchweeks total (${result.halfRounds} first half, ${result.halfRounds} second half)
             </span>
             <span style="display:block;font-size:0.8rem;color:#8b949e;">
                 No issues found ✅
@@ -1194,27 +1308,34 @@ async function checkFixtureIntegrity() {
         `;
         log('✅ Fixture integrity check passed', 'success');
     } else {
-        let html = '';
         if (result.issues.length > 0) {
             html += `<span class="red">❌ ${result.issues.length} critical issue(s):</span>
                 <ul style="margin-top:0.3rem;font-size:0.8rem;list-style:none;padding-left:0;">
                     ${result.issues.map(e => `<li>• ${e}</li>`).join('')}
-                </ul>`;
+                </ul>
+            `;
         }
+
         if (result.warnings.length > 0) {
             html += `<span class="yellow">⚠️ ${result.warnings.length} warning(s):</span>
                 <ul style="margin-top:0.3rem;font-size:0.8rem;list-style:none;padding-left:0;">
                     ${result.warnings.map(e => `<li>• ${e}</li>`).join('')}
-                </ul>`;
+                </ul>
+            `;
         }
+
         html += `
             <button onclick="fixFixtureIntegrity()" class="warning" style="margin-top:0.5rem;padding:0.3rem 1rem;font-size:0.8rem;">
                 🔧 Attempt Auto-Fix
             </button>
         `;
+
         statusEl.innerHTML = html;
-        log(`⚠️ Integrity check: ${result.issues.length} issues, ${result.warnings.length} warnings found`, 'warning');
+        log(`⚠️ Integrity check: ${result.issues.length} issues, ${result.warnings.length} warnings`, 'warning');
+        return;
     }
+
+    statusEl.innerHTML = html;
 }
 
 async function fixFixtureIntegrity() {
