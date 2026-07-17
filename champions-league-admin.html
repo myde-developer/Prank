@@ -565,6 +565,21 @@
             document.getElementById('uclResultMsg').innerHTML = `<span style="color:#16a34a;">✅ Result saved! Winner: ${winner || '—'}</span>`;
             showToast(`Result saved! Winner: ${winner || '—'}`);
         }
+
+// ============================================================
+//  AUTO‑LOAD ON PAGE LOAD
+// ============================================================
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if UCL data exists, then load first round
+    db.ref('champions_league').once('value').then(snap => {
+        if (snap.exists()) {
+            loadUCLLeagueFixtures();  // This populates the round dropdown and loads the first round
+        }
+    }).catch(err => {
+        console.error('Error loading UCL data:', err);
+    });
+});
+
     </script>
 </body>
 </html>
