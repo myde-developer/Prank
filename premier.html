@@ -171,102 +171,128 @@ body {
 }
 
 /* ============================================================
-   STANDINGS TABLE
+   STANDINGS TABLE - REDESIGNED (No Badges)
    ============================================================ */
-.card {
-    background: #ffffff;
-    border-radius: 16px;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
-    border: 1px solid #e5e7eb;
-    padding: 1.5rem;
-    margin-bottom: 2rem;
-    transition: all 0.3s;
-}
-
-.card:hover {
-    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.08);
-}
-
-.table-wrap {
-    overflow-x: auto;
-}
-
-table {
+.standings-table {
     width: 100%;
-    border-collapse: collapse;
-    font-size: 0.9rem;
+    border-collapse: separate;
+    border-spacing: 0 4px;
+    font-size: 0.85rem;
 }
 
-th {
+.standings-table thead th {
     text-align: left;
     padding: 0.8rem 0.5rem;
     color: #6b7280;
     font-weight: 600;
-    border-bottom: 2px solid #e5e7eb;
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     text-transform: uppercase;
     letter-spacing: 0.8px;
+    border-bottom: 2px solid #e5e7eb;
+    position: sticky;
+    top: 0;
+    background: #ffffff;
+    z-index: 2;
 }
 
-td {
-    padding: 0.8rem 0.5rem;
+.standings-table tbody tr {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: 10px;
+    background: #ffffff;
+}
+
+.standings-table tbody tr:hover {
+    background: #f8f9fa;
+    transform: scale(1.01);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.standings-table tbody td {
+    padding: 0.7rem 0.5rem;
     border-bottom: 1px solid #f0f2f5;
+    vertical-align: middle;
 }
 
-tr:hover {
-    background: #fafafa;
-}
-
-tr:nth-child(even) {
-    background: #fafafa;
-}
-
-tr:nth-child(even):hover {
-    background: #f5f5f5;
-}
-
-.pos {
-    font-weight: 700;
-    width: 30px;
+/* Position column - plain number */
+.col-pos {
+    width: 45px;
     text-align: center;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: #1a1a2e;
 }
 
-/* Top 4 positions */
-.pos-1 {
-    color: #37003c;
+/* Remove old badge styles */
+.pos-badge,
+.pos-badge.gold,
+.pos-badge.silver,
+.pos-badge.bronze {
+    display: none;
 }
-.pos-2 {
-    color: #6a1b6e;
-}
-.pos-3 {
-    color: #00a3e0;
-}
-.pos-4 {
-    color: #6b7280;
+
+/* Team column */
+.col-team {
+    min-width: 140px;
 }
 
 .team-name {
     font-weight: 600;
-    cursor: pointer;
+    font-size: 0.9rem;
+    color: #1a1a2e;
     transition: color 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
 }
 
 .team-name:hover {
     color: #37003c;
 }
 
-.pts {
+/* Stat columns */
+.col-stat {
+    text-align: center;
+    font-weight: 500;
+    color: #1a1a2e;
+}
+
+/* Goal difference */
+.gd-positive {
+    color: #22c55e;
+    font-weight: 600;
+}
+.gd-negative {
+    color: #ef4444;
+    font-weight: 600;
+}
+.gd-zero {
+    color: #6b7280;
+}
+
+/* Points column */
+.col-pts {
+    text-align: center;
     font-weight: 800;
     font-size: 1.1rem;
+}
+
+.pts-value {
+    background: #f0f2f5;
+    padding: 0.2rem 0.6rem;
+    border-radius: 8px;
     color: #37003c;
+    display: inline-block;
+    min-width: 32px;
+}
+
+/* Form column */
+.col-form {
+    text-align: center;
+    min-width: 120px;
 }
 
 .form-dots {
     display: flex;
     gap: 4px;
+    justify-content: center;
 }
 
 .form-dot {
@@ -279,6 +305,11 @@ tr:nth-child(even):hover {
     font-size: 0.6rem;
     font-weight: 700;
     color: #ffffff;
+    transition: transform 0.2s;
+}
+
+.form-dot:hover {
+    transform: scale(1.2);
 }
 
 .dot-w {
@@ -289,6 +320,117 @@ tr:nth-child(even):hover {
 }
 .dot-l {
     background: #ef4444;
+}
+
+/* Row color coding */
+.row-champions {
+    background: #f0f7ff;
+}
+.row-champions .pts-value {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+.row-relegation {
+    background: #fef2f2;
+}
+.row-relegation .pts-value {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .standings-table {
+        font-size: 0.75rem;
+    }
+
+    .standings-table thead th,
+    .standings-table tbody td {
+        padding: 0.4rem 0.25rem;
+    }
+
+    .col-pos {
+        width: 30px;
+        font-size: 0.8rem;
+    }
+
+    .col-team {
+        min-width: 80px;
+    }
+
+    .team-name {
+        font-size: 0.8rem;
+    }
+
+    .col-pts {
+        font-size: 0.9rem;
+    }
+
+    .pts-value {
+        padding: 0.1rem 0.4rem;
+        min-width: 24px;
+    }
+
+    .col-form {
+        min-width: 80px;
+    }
+
+    .form-dot {
+        width: 20px;
+        height: 20px;
+        font-size: 0.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .standings-table {
+        font-size: 0.65rem;
+    }
+
+    .standings-table thead th,
+    .standings-table tbody td {
+        padding: 0.3rem 0.15rem;
+    }
+
+    .col-pos {
+        width: 24px;
+        font-size: 0.7rem;
+    }
+
+    .col-team {
+        min-width: 60px;
+    }
+
+    .team-name {
+        font-size: 0.7rem;
+    }
+
+    .col-pts {
+        font-size: 0.8rem;
+    }
+
+    .pts-value {
+        padding: 0.05rem 0.3rem;
+        min-width: 20px;
+    }
+
+    .col-form {
+        min-width: 60px;
+    }
+
+    .form-dot {
+        width: 16px;
+        height: 16px;
+        font-size: 0.4rem;
+    }
+
+    /* Hide less important columns on very small screens */
+    .col-stat:nth-child(5), /* D */
+    .col-stat:nth-child(6), /* L */
+    .col-stat:nth-child(7), /* GF */
+    .col-stat:nth-child(8) { /* GA */
+        display: none;
+    }
 }
 
 /* ============================================================
@@ -1237,29 +1379,73 @@ function getFormDots(form) {
 }
 
 // ============================================================
-//  RENDER STANDINGS
+//  RENDER STANDINGS (No badges, plain numbers)
 // ============================================================
 function renderStandings(standings) {
     allStandings = standings;
     if (!standings || standings.length === 0) return '<div class="loading">No matches played yet.</div>';
-    let html = `<div class="table-wrap"><table>
-        <thead><tr>
-            <th>#</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th>
-            <th>GF</th><th>GA</th><th>GD</th><th>PTS</th><th>Form</th>
-        </tr></thead><tbody>`;
+
+    const totalTeams = standings.length;
+    const relegationZoneStart = totalTeams - 3; // Bottom 3
+
+    let html = `<div class="table-wrap">
+        <table class="standings-table">
+            <thead>
+                <tr>
+                    <th class="col-pos">#</th>
+                    <th class="col-team">Team</th>
+                    <th class="col-stat">P</th>
+                    <th class="col-stat">W</th>
+                    <th class="col-stat">D</th>
+                    <th class="col-stat">L</th>
+                    <th class="col-stat">GF</th>
+                    <th class="col-stat">GA</th>
+                    <th class="col-stat">GD</th>
+                    <th class="col-pts">PTS</th>
+                    <th class="col-form">Form</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
     standings.forEach((s, i) => {
+        const pos = i + 1;
+        const isChampionsLeague = pos <= 4;
+        const isRelegation = pos > relegationZoneStart;
         const gdStr = s.gd > 0 ? `+${s.gd}` : `${s.gd}`;
-        const posClass = i < 4 ? `pos-${i+1}` : '';
-        html += `<tr>
-            <td class="pos ${posClass}">${i+1}</td>
-            <td class="team-name" onclick="openTeamModal('${s.name}')">${s.name}</td>
-            <td>${s.played}</td><td>${s.won}</td><td>${s.drawn}</td><td>${s.lost}</td>
-            <td>${s.gf}</td><td>${s.ga}</td><td>${gdStr}</td>
-            <td class="pts">${s.pts}</td>
-            <td>${getFormDots(s.form)}</td>
-        </tr>`;
+        const gdClass = s.gd > 0 ? 'gd-positive' : (s.gd < 0 ? 'gd-negative' : 'gd-zero');
+
+        // Row class
+        let rowClass = '';
+        if (isChampionsLeague && pos <= 4) rowClass = 'row-champions';
+        if (isRelegation) rowClass = 'row-relegation';
+
+        html += `
+            <tr class="${rowClass}" onclick="openTeamModal('${s.name}')">
+                <td class="col-pos">
+                    <span class="pos-number">${pos}</span>
+                </td>
+                <td class="col-team">
+                    <span class="team-name">${s.name}</span>
+                </td>
+                <td class="col-stat">${s.played}</td>
+                <td class="col-stat">${s.won}</td>
+                <td class="col-stat">${s.drawn}</td>
+                <td class="col-stat">${s.lost}</td>
+                <td class="col-stat">${s.gf}</td>
+                <td class="col-stat">${s.ga}</td>
+                <td class="col-stat ${gdClass}">${gdStr}</td>
+                <td class="col-pts"><span class="pts-value">${s.pts}</span></td>
+                <td class="col-form">${getFormDots(s.form)}</td>
+            </tr>
+        `;
     });
-    html += '</tbody></table></div>';
+
+    html += `
+            </tbody>
+        </table>
+    </div>`;
+
     return html;
 }
 
@@ -1276,9 +1462,7 @@ function renderFixtures() {
 
     const sortedWeeks = Object.keys(allMatchweeks).sort((a, b) => Number(a) - Number(b));
 
-    // ============================================================
-    // BUILD WEEK TABS (Horizontal scrollable - NO ICONS)
-    // ============================================================
+    // Build tabs
     let tabsHtml = `
         <div class="fixture-tabs-wrapper">
             <div class="fixture-tabs">
@@ -1300,9 +1484,7 @@ function renderFixtures() {
         </div>
     `;
 
-    // ============================================================
-    // BUILD FIXTURES CONTENT (Shows all by default)
-    // ============================================================
+    // Build content (show all by default)
     let contentHtml = `
         <div id="fixture-content" class="fixture-content">
             ${buildWeekFixtures('all', sortedWeeks)}
@@ -1313,105 +1495,109 @@ function renderFixtures() {
 }
 
 // ============================================================
-//  MATCH REPORT FUNCTIONS (NO "View All Fixtures" button)
+//  BUILD FIXTURES FOR A SPECIFIC WEEK
 // ============================================================
-function openMatchReport(week, matchIndex) {
-    const matches = allMatchweeks[week]?.matches || [];
-    const match = matches[matchIndex];
-    if (!match || !match.played) {
-        showToast('This match has not been played yet');
-        return;
-    }
-
-    const modal = document.getElementById('teamModal');
-    const content = document.getElementById('modalContent');
-    modal.classList.add('active');
-    document.body.style.overflow = 'hidden';
-
-    const report = match.report || {};
-
-    // Get full comment
-    let fullComment = report.fullComment || report.comment || report.summary || 'No match report available.';
-
-    // ============================================================
-    // BUILD GOALS HTML - Show actual team names (NO icons)
-    // ============================================================
-    let goalsHtml = '';
-    if (report.goals && report.goals.length > 0) {
-        goalsHtml = report.goals.map(g => {
-            // Get the actual team name
-            const teamName = g.team === 'home' ? match.home : match.away;
-            return `
-                <div class="report-goal">
-                    <span class="minute">${g.minute}'</span>
-                    <span class="scorer">${g.scorer}</span>
-                    ${g.assist ? `<span class="assist">(assist: ${g.assist})</span>` : ''}
-                    <span style="font-weight:600; color:#37003c;">${teamName}</span>
-                </div>
-            `;
-        }).join('');
+function buildWeekFixtures(week, sortedWeeks) {
+    if (week === 'all') {
+        // Show all weeks
+        let html = '';
+        for (const wk of sortedWeeks) {
+            html += buildSingleWeekFixtures(wk);
+        }
+        return html || '<div class="loading">No fixtures found.</div>';
     } else {
-        goalsHtml = '<div class="no-data">No goals recorded</div>';
+        // Show single week
+        return buildSingleWeekFixtures(week);
+    }
+}
+
+// ============================================================
+//  BUILD FIXTURES FOR A SINGLE WEEK
+// ============================================================
+function buildSingleWeekFixtures(week) {
+    const data = allMatchweeks[week];
+    if (!data) return '';
+
+    const matches = data.matches || [];
+    if (matches.length === 0) return '';
+
+    // Determine week status - NO ICONS, just text
+    const allPlayed = matches.every(m => m.played);
+    const somePlayed = matches.some(m => m.played);
+    let statusText = '';
+    let statusClass = '';
+    if (allPlayed) {
+        statusText = 'Completed';
+        statusClass = 'completed';
+    } else if (somePlayed) {
+        statusText = 'Ongoing';
+        statusClass = 'live';
+    } else {
+        statusText = 'Upcoming';
+        statusClass = 'upcoming';
     }
 
-    // ============================================================
-    // BUILD CARDS HTML - Show actual team names
-    // ============================================================
-    let cardsHtml = '';
-    if (report.cards && report.cards.length > 0) {
-        cardsHtml = report.cards.map(c => {
-            // Get the actual team name
-            const teamName = c.team === 'home' ? match.home : match.away;
-            return `
-                <span class="report-card ${c.type}">${c.type === 'yellow' ? '🟨' : '🟥'} ${c.type.toUpperCase()}</span>
-                <span class="report-card-text">${c.player} (${teamName})</span>
-                <br>
-            `;
-        }).join('');
-    }
-
-    const isHomeWin = match.homeScore > match.awayScore;
-    const isAwayWin = match.awayScore > match.homeScore;
-    const resultText = isHomeWin ? `${match.home} won` : isAwayWin ? `${match.away} won` : 'Draw';
-
-    content.innerHTML = `
-        <div class="report-header">
-            <div>
-                <div class="report-teams">
-                    <span class="home">${match.home}</span>
-                    <span class="vs">vs</span>
-                    <span class="away">${match.away}</span>
+    let html = `
+        <div class="fixture-week-group">
+            <div class="fixture-week-header-compact">
+                <div class="fixture-week-title">
+                    <span class="week-badge">Matchweek ${week}</span>
+                    <span class="week-status-badge ${statusClass}">${statusText}</span>
                 </div>
-                <div class="report-meta">Matchweek ${week} • ${resultText}</div>
             </div>
-            <div class="report-score">${match.homeScore} – ${match.awayScore}</div>
-        </div>
+            <div class="fixture-list">
+    `;
 
-        <div style="margin-bottom:0.5rem;">
-            <div style="font-weight:600; color:#6b7280; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:0.5rem;">📝 Match Report</div>
-            <div class="report-comment">${fullComment.replace(/\n/g, '<br>')}</div>
-        </div>
+    for (let i = 0; i < matches.length; i++) {
+        const m = matches[i];
+        const hasReport = m.played && m.report;
 
-        <div style="margin-top:1rem;">
-            <div style="font-weight:600; color:#6b7280; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:0.5rem;">⚽ Goals</div>
-            <div style="background:#f8f9fa; padding:0.8rem 1rem; border-radius:12px; max-height:150px; overflow-y:auto;">
-                ${goalsHtml}
+        html += `
+            <div class="fixture-card-compact">
+                <div class="fixture-teams-compact">
+                    <span class="team-name-compact">${m.home}</span>
+                    <span class="vs-compact">vs</span>
+                    <span class="team-name-compact">${m.away}</span>
+                </div>
+                <div class="fixture-result-compact">
+                    <span class="fixture-score-compact ${m.played ? '' : 'unplayed'}">
+                        ${m.played ? `${m.homeScore} – ${m.awayScore}` : '– : –'}
+                    </span>
+                    ${m.played ? `<button class="report-btn ${hasReport ? 'has-report' : ''}" onclick="openMatchReport('${week}', ${i})">${hasReport ? '📋 Report' : '📝 Add Report'}</button>` : ''}
+                </div>
             </div>
-        </div>
+        `;
+    }
 
-        ${report.cards && report.cards.length > 0 ? `
-        <div style="margin-top:1rem;">
-            <div style="font-weight:600; color:#6b7280; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:0.5rem;">🟨 Cards</div>
-            <div style="background:#f8f9fa; padding:0.8rem 1rem; border-radius:12px;">
-                ${cardsHtml}
+    html += `
             </div>
-        </div>
-        ` : ''}
-
-        <div class="report-actions">
-            <button class="modal-btn" onclick="closeModal()">Close</button>
         </div>
     `;
+
+    return html;
+}
+
+// ============================================================
+//  SWITCH FIXTURE WEEK (Tab click handler)
+// ============================================================
+function switchFixtureWeek(week) {
+    // Update tabs
+    document.querySelectorAll('.fixture-tab').forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.dataset.week === week) {
+            tab.classList.add('active');
+        }
+    });
+
+    // Update content
+    const contentContainer = document.getElementById('fixture-content');
+    if (contentContainer) {
+        const sortedWeeks = Object.keys(allMatchweeks).sort((a, b) => Number(a) - Number(b));
+        contentContainer.innerHTML = buildWeekFixtures(week, sortedWeeks);
+
+        // Scroll to content
+        contentContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 }
 
 // ============================================================
@@ -1536,139 +1722,204 @@ function closeModal() {
 // ============================================================
 function switchToFixtures(teamName) {
     closeModal();
-    
+
     // Switch to fixtures tab
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelector('[data-tab="fixtures"]').classList.add('active');
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     document.getElementById('tab-fixtures').classList.add('active');
 
-    setTimeout(() => {
-        // Get all matchweeks
-        const sortedWeeks = Object.keys(allMatchweeks).sort((a, b) => Number(a) - Number(b));
-        const container = document.getElementById('fixturesContainer');
+    // Store the team name in a global variable for filtering
+    window._filterTeam = teamName;
 
-        if (!allMatchweeks || Object.keys(allMatchweeks).length === 0) {
-            container.innerHTML = '<div class="loading">No fixtures generated yet.</div>';
-            return;
-        }
+    // Render fixtures with filter
+    renderFilteredFixtures(teamName);
+}
 
-        let html = `
-            <div class="fixtures-scroll-wrapper">
-                <div class="fixtures-columns">
-        `;
+// ============================================================
+//  RENDER FILTERED FIXTURES (Only show team's matches)
+// ============================================================
+function renderFilteredFixtures(teamName) {
+    const container = document.getElementById('fixturesContainer');
 
-        // Filter: Only show weeks that have this team's fixtures
-        for (const wk of sortedWeeks) {
-            const data = allMatchweeks[wk];
-            if (!data) continue;
-            
-            // Filter matches for this specific team
-            const teamMatches = data.matches.filter(m => 
-                m.home === teamName || m.away === teamName
-            );
-            
-            if (teamMatches.length === 0) continue;
+    if (!allMatchweeks || Object.keys(allMatchweeks).length === 0) {
+        container.innerHTML = '<div class="loading">No fixtures generated yet.</div>';
+        return;
+    }
 
-            // Determine week status based on filtered matches
-            const allPlayed = teamMatches.every(m => m.played);
-            const somePlayed = teamMatches.some(m => m.played);
-            let statusClass = 'upcoming';
-            let statusText = 'Upcoming';
-            if (allPlayed) {
-                statusClass = 'completed';
-                statusText = '✅ Completed';
-            } else if (somePlayed) {
-                statusClass = 'live';
-                statusText = '🔄 Live';
-            }
+    const sortedWeeks = Object.keys(allMatchweeks).sort((a, b) => Number(a) - Number(b));
 
-            html += `
-                <div class="fixture-week-column" style="border: 2px solid #ffd700; box-shadow: 0 4px 20px rgba(255, 215, 0, 0.15);">
-                    <div class="fixture-week-header">
-                        <div class="week-label">
-                            Matchweek <span class="week-number" style="background: #ffd700; color: #1a1a2e;">${wk}</span>
-                        </div>
-                        <span class="week-status ${statusClass}">${statusText}</span>
-                    </div>
-            `;
+    // Build tabs (only weeks that have this team's fixtures)
+    let tabsHtml = `
+        <div class="fixture-tabs-wrapper">
+            <div class="fixture-tabs">
+                <button class="fixture-tab active" data-week="all" onclick="switchFilteredWeek('all', '${teamName}')">
+                    All (${teamName})
+                </button>
+    `;
 
-            for (let i = 0; i < data.matches.length; i++) {
-                const m = data.matches[i];
-                const isTeamMatch = (m.home === teamName || m.away === teamName);
-                const hasReport = m.played && m.report;
+    for (const wk of sortedWeeks) {
+        const data = allMatchweeks[wk];
+        const hasTeamMatch = data.matches.some(m => m.home === teamName || m.away === teamName);
+        if (!hasTeamMatch) continue;
 
-                // Highlight team's matches
-                const highlightStyle = isTeamMatch ? 
-                    'border-left: 4px solid #ffd700; background: #fef9e7;' : 
-                    'border-left: 4px solid #d1d5db; opacity: 0.5;';
-
-                html += `
-                    <div class="fixture-card" style="${highlightStyle}">
-                        <div class="fixture-teams">
-                            <span class="team" style="${m.home === teamName ? 'font-weight:700; color:#37003c;' : ''}">${m.home}</span>
-                            <span class="vs">vs</span>
-                            <span class="team" style="${m.away === teamName ? 'font-weight:700; color:#37003c;' : ''}">${m.away}</span>
-                        </div>
-                        <div class="fixture-result">
-                            <span class="fixture-score ${m.played ? '' : 'unplayed'}">
-                                ${m.played ? `${m.homeScore} – ${m.awayScore}` : '– : –'}
-                            </span>
-                            <div class="fixture-actions">
-                                ${m.played ? `<button class="report-btn ${hasReport ? 'has-report' : ''}" onclick="openMatchReport('${wk}', ${data.matches.indexOf(m)})">${hasReport ? '📋 Report' : '📝 Add Report'}</button>` : ''}
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-
-            html += `</div>`;
-        }
-
-        // If no fixtures found for this team
-        if (!html.includes('fixture-week-column')) {
-            html = `
-                <div class="loading" style="padding: 3rem;">
-                    <span style="font-size: 3rem; display: block; margin-bottom: 1rem;">📅</span>
-                    No fixtures found for ${teamName}
-                </div>
-            `;
-        } else {
-            html += `
-                    </div>
-                </div>
-            `;
-        }
-
-        container.innerHTML = html;
-
-        // Add a back button to show all fixtures
-        const backButton = document.createElement('div');
-        backButton.style.cssText = 'text-align: center; margin-top: 1rem;';
-        backButton.innerHTML = `
-            <button onclick="showAllFixtures()" style="
-                background: #e5e7eb;
-                border: none;
-                border-radius: 30px;
-                padding: 0.5rem 1.5rem;
-                font-weight: 600;
-                color: #1a1a2e;
-                cursor: pointer;
-                transition: 0.2s;
-                font-size: 0.85rem;
-            " onmouseover="this.style.background='#d1d5db'" onmouseout="this.style.background='#e5e7eb'">
-                ⬅️ Show All Fixtures
+        tabsHtml += `
+            <button class="fixture-tab" data-week="${wk}" onclick="switchFilteredWeek('${wk}', '${teamName}')">
+                Week ${wk}
             </button>
         `;
-        container.appendChild(backButton);
-        
-    }, 100);
+    }
+
+    tabsHtml += `
+            </div>
+        </div>
+    `;
+
+    // Build content (show all filtered weeks by default)
+    let contentHtml = `
+        <div id="fixture-content" class="fixture-content">
+            ${buildFilteredWeekFixtures('all', sortedWeeks, teamName)}
+        </div>
+    `;
+
+    container.innerHTML = tabsHtml + contentHtml;
+
+    // Add a "Show All Fixtures" button
+    const backButton = document.createElement('div');
+    backButton.style.cssText = 'text-align: center; margin-top: 1rem;';
+    backButton.innerHTML = `
+        <button onclick="showAllFixtures()" style="
+            background: #e5e7eb;
+            border: none;
+            border-radius: 30px;
+            padding: 0.5rem 1.5rem;
+            font-weight: 600;
+            color: #1a1a2e;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 0.85rem;
+        " onmouseover="this.style.background='#d1d5db'" onmouseout="this.style.background='#e5e7eb'">
+            ⬅️ Show All Fixtures
+        </button>
+    `;
+    container.appendChild(backButton);
+}
+
+// ============================================================
+//  BUILD FILTERED WEEK FIXTURES (Only team's matches)
+// ============================================================
+function buildFilteredWeekFixtures(week, sortedWeeks, teamName) {
+    if (week === 'all') {
+        let html = '';
+        for (const wk of sortedWeeks) {
+            html += buildSingleFilteredWeekFixtures(wk, teamName);
+        }
+        return html || '<div class="loading">No fixtures found for this team.</div>';
+    } else {
+        return buildSingleFilteredWeekFixtures(week, teamName);
+    }
+}
+
+// ============================================================
+//  BUILD SINGLE FILTERED WEEK FIXTURES
+// ============================================================
+function buildSingleFilteredWeekFixtures(week, teamName) {
+    const data = allMatchweeks[week];
+    if (!data) return '';
+
+    // Filter matches for this specific team
+    const teamMatches = data.matches.filter(m => m.home === teamName || m.away === teamName);
+    if (teamMatches.length === 0) return '';
+
+    // Determine week status based on filtered matches
+    const allPlayed = teamMatches.every(m => m.played);
+    const somePlayed = teamMatches.some(m => m.played);
+    let statusText = '';
+    let statusClass = '';
+    if (allPlayed) {
+        statusText = 'Completed';
+        statusClass = 'completed';
+    } else if (somePlayed) {
+        statusText = 'Ongoing';
+        statusClass = 'live';
+    } else {
+        statusText = 'Upcoming';
+        statusClass = 'upcoming';
+    }
+
+    let html = `
+        <div class="fixture-week-group" style="border: 2px solid #ffd700; box-shadow: 0 4px 20px rgba(255, 215, 0, 0.15);">
+            <div class="fixture-week-header-compact" style="background: #fef9e7;">
+                <div class="fixture-week-title">
+                    <span class="week-badge">Matchweek ${week}</span>
+                    <span class="week-status-badge ${statusClass}">${statusText}</span>
+                </div>
+            </div>
+            <div class="fixture-list">
+    `;
+
+    for (let i = 0; i < data.matches.length; i++) {
+        const m = data.matches[i];
+        const isTeamMatch = (m.home === teamName || m.away === teamName);
+        const hasReport = m.played && m.report;
+
+        const highlightStyle = isTeamMatch ?
+            'border-left: 4px solid #ffd700; background: #fef9e7;' :
+            'border-left: 4px solid #d1d5db; opacity: 0.5;';
+
+        html += `
+            <div class="fixture-card-compact" style="${highlightStyle}">
+                <div class="fixture-teams-compact">
+                    <span class="team-name-compact" style="${m.home === teamName ? 'font-weight:700; color:#37003c;' : ''}">${m.home}</span>
+                    <span class="vs-compact">vs</span>
+                    <span class="team-name-compact" style="${m.away === teamName ? 'font-weight:700; color:#37003c;' : ''}">${m.away}</span>
+                </div>
+                <div class="fixture-result-compact">
+                    <span class="fixture-score-compact ${m.played ? '' : 'unplayed'}">
+                        ${m.played ? `${m.homeScore} – ${m.awayScore}` : '– : –'}
+                    </span>
+                    ${m.played ? `<button class="report-btn ${hasReport ? 'has-report' : ''}" onclick="openMatchReport('${week}', ${data.matches.indexOf(m)})">${hasReport ? '📋 Report' : '📝 Add Report'}</button>` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    html += `
+            </div>
+        </div>
+    `;
+
+    return html;
+}
+
+// ============================================================
+//  SWITCH FILTERED WEEK (Tab click handler)
+// ============================================================
+function switchFilteredWeek(week, teamName) {
+    // Update tabs
+    document.querySelectorAll('.fixture-tab').forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.dataset.week === week) {
+            tab.classList.add('active');
+        }
+    });
+
+    // Update content
+    const contentContainer = document.getElementById('fixture-content');
+    if (contentContainer) {
+        const sortedWeeks = Object.keys(allMatchweeks).sort((a, b) => Number(a) - Number(b));
+        contentContainer.innerHTML = buildFilteredWeekFixtures(week, sortedWeeks, teamName);
+
+        // Scroll to content
+        contentContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 }
 
 // ============================================================
 //  SHOW ALL FIXTURES (Back to normal view)
 // ============================================================
 function showAllFixtures() {
+    window._filterTeam = null;
     renderFixtures();
 }
 
