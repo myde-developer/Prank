@@ -19,8 +19,8 @@
 
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #f0f2f5;
-    color: #1a1a2e;
+    background: var(--bg, #f0f2f5);
+    color: var(--text, #1a1a2e);
     min-height: 100vh;
 }
 
@@ -34,8 +34,8 @@ body {
    HEADER
    ============================================================ */
 .league-header {
-    background: linear-gradient(135deg, #37003c, #6a1b6e, #00a3e0);
-    border-radius: 20px;
+    background: linear-gradient(135deg, var(--primary, #37003c), var(--primary-light, #6a1b6e), var(--accent, #00a3e0));
+    border-radius: var(--radius, 20px);
     padding: 2rem 2.5rem;
     margin-bottom: 2rem;
     display: flex;
@@ -84,9 +84,10 @@ body {
     z-index: 1;
 }
 
-.pl-badge {
+.pl-badge,
+.ll-badge {
     background: #ffd700;
-    color: #37003c;
+    color: var(--primary, #37003c);
     padding: 0.3rem 1.2rem;
     border-radius: 30px;
     font-weight: 800;
@@ -105,7 +106,7 @@ body {
     display: flex;
     gap: 0.5rem;
     margin-bottom: 2rem;
-    border-bottom: 2px solid #e5e7eb;
+    border-bottom: 2px solid var(--border, #e5e7eb);
     padding-bottom: 0.5rem;
 }
 
@@ -114,11 +115,11 @@ body {
     border: none;
     border-radius: 12px 12px 0 0;
     background: transparent;
-    color: #6b7280;
+    color: var(--text-secondary, #6b7280);
     font-weight: 600;
     font-size: 0.9rem;
     cursor: pointer;
-    transition: 0.3s;
+    transition: var(--transition, 0.3s);
     position: relative;
 }
 
@@ -130,18 +131,18 @@ body {
     transform: translateX(-50%);
     width: 0;
     height: 3px;
-    background: #37003c;
+    background: var(--primary, #37003c);
     border-radius: 3px;
-    transition: 0.3s;
+    transition: var(--transition, 0.3s);
 }
 
 .tab-btn:hover {
-    color: #1a1a2e;
+    color: var(--text, #1a1a2e);
     background: #f8f9fa;
 }
 
 .tab-btn.active {
-    color: #37003c;
+    color: var(--primary, #37003c);
     background: #ffffff;
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
 }
@@ -171,8 +172,29 @@ body {
 }
 
 /* ============================================================
-   STANDINGS TABLE - REDESIGNED (No Badges)
+   CARD
    ============================================================ */
+.card {
+    background: var(--card-bg, #ffffff);
+    border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+    border: 1px solid var(--border, #e5e7eb);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    transition: var(--transition, 0.3s);
+}
+
+.card:hover {
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.08);
+}
+
+/* ============================================================
+   STANDINGS TABLE
+   ============================================================ */
+.table-wrap {
+    overflow-x: auto;
+}
+
 .standings-table {
     width: 100%;
     border-collapse: separate;
@@ -183,23 +205,23 @@ body {
 .standings-table thead th {
     text-align: left;
     padding: 0.8rem 0.5rem;
-    color: #6b7280;
+    color: var(--text-secondary, #6b7280);
     font-weight: 600;
     font-size: 0.65rem;
     text-transform: uppercase;
     letter-spacing: 0.8px;
-    border-bottom: 2px solid #e5e7eb;
+    border-bottom: 2px solid var(--border, #e5e7eb);
     position: sticky;
     top: 0;
-    background: #ffffff;
+    background: var(--card-bg, #ffffff);
     z-index: 2;
 }
 
 .standings-table tbody tr {
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: var(--transition, 0.3s);
     border-radius: 10px;
-    background: #ffffff;
+    background: var(--card-bg, #ffffff);
 }
 
 .standings-table tbody tr:hover {
@@ -214,24 +236,14 @@ body {
     vertical-align: middle;
 }
 
-/* Position column - plain number */
 .col-pos {
     width: 45px;
     text-align: center;
     font-weight: 700;
     font-size: 0.9rem;
-    color: #1a1a2e;
+    color: var(--text, #1a1a2e);
 }
 
-/* Remove old badge styles */
-.pos-badge,
-.pos-badge.gold,
-.pos-badge.silver,
-.pos-badge.bronze {
-    display: none;
-}
-
-/* Team column */
 .col-team {
     min-width: 140px;
 }
@@ -239,22 +251,20 @@ body {
 .team-name {
     font-weight: 600;
     font-size: 0.9rem;
-    color: #1a1a2e;
+    color: var(--text, #1a1a2e);
     transition: color 0.2s;
 }
 
 .team-name:hover {
-    color: #37003c;
+    color: var(--primary, #37003c);
 }
 
-/* Stat columns */
 .col-stat {
     text-align: center;
     font-weight: 500;
-    color: #1a1a2e;
+    color: var(--text, #1a1a2e);
 }
 
-/* Goal difference */
 .gd-positive {
     color: #22c55e;
     font-weight: 600;
@@ -264,10 +274,9 @@ body {
     font-weight: 600;
 }
 .gd-zero {
-    color: #6b7280;
+    color: var(--text-secondary, #6b7280);
 }
 
-/* Points column */
 .col-pts {
     text-align: center;
     font-weight: 800;
@@ -278,12 +287,11 @@ body {
     background: #f0f2f5;
     padding: 0.2rem 0.6rem;
     border-radius: 8px;
-    color: #37003c;
+    color: var(--primary, #37003c);
     display: inline-block;
     min-width: 32px;
 }
 
-/* Form column */
 .col-form {
     text-align: center;
     min-width: 120px;
@@ -322,7 +330,6 @@ body {
     background: #ef4444;
 }
 
-/* Row color coding */
 .row-champions {
     background: #f0f7ff;
 }
@@ -338,121 +345,8 @@ body {
     color: #dc2626;
 }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    .standings-table {
-        font-size: 0.75rem;
-    }
-
-    .standings-table thead th,
-    .standings-table tbody td {
-        padding: 0.4rem 0.25rem;
-    }
-
-    .col-pos {
-        width: 30px;
-        font-size: 0.8rem;
-    }
-
-    .col-team {
-        min-width: 80px;
-    }
-
-    .team-name {
-        font-size: 0.8rem;
-    }
-
-    .col-pts {
-        font-size: 0.9rem;
-    }
-
-    .pts-value {
-        padding: 0.1rem 0.4rem;
-        min-width: 24px;
-    }
-
-    .col-form {
-        min-width: 80px;
-    }
-
-    .form-dot {
-        width: 20px;
-        height: 20px;
-        font-size: 0.5rem;
-    }
-}
-
-/* ============================================================
-   STANDINGS TABLE - FULL MOBILE VIEW
-   ============================================================ */
-@media (max-width: 480px) {
-    .standings-table {
-        font-size: 0.6rem;
-        min-width: 100%;
-    }
-
-    .standings-table thead th,
-    .standings-table tbody td {
-        padding: 0.25rem 0.1rem;
-        white-space: nowrap;
-    }
-
-    .col-pos {
-        width: 20px;
-        font-size: 0.6rem;
-        min-width: 20px;
-    }
-
-    .col-team {
-        min-width: 50px;
-        max-width: 80px;
-    }
-
-    .team-name {
-        font-size: 0.6rem;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        display: inline-block;
-        max-width: 60px;
-    }
-
-    .col-stat {
-        font-size: 0.6rem;
-        min-width: 18px;
-    }
-
-    .col-pts {
-        font-size: 0.7rem;
-    }
-
-    .pts-value {
-        padding: 0.05rem 0.3rem;
-        min-width: 18px;
-        font-size: 0.7rem;
-    }
-
-    .col-form {
-        min-width: 50px;
-    }
-
-    .form-dot {
-        width: 14px;
-        height: 14px;
-        font-size: 0.35rem;
-    }
-
-    .col-form .form-dots {
-        gap: 2px;
-    }
-}
-
 /* ============================================================
    FIXTURES - PREMIUM REDESIGN
-   ============================================================ */
-
-/* ============================================================
-   FIXTURE TABS (Premium Sports Style)
    ============================================================ */
 .fixture-tabs-wrapper {
     overflow-x: auto;
@@ -479,11 +373,11 @@ body {
     border: none;
     border-radius: 50px;
     background: transparent;
-    color: #6b7280;
+    color: var(--text-secondary, #6b7280);
     font-weight: 600;
     font-size: 0.85rem;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: var(--transition, 0.3s);
     white-space: nowrap;
     font-family: inherit;
     position: relative;
@@ -497,18 +391,18 @@ body {
     transform: translateX(-50%) scaleX(0);
     width: 60%;
     height: 3px;
-    background: #37003c;
+    background: var(--primary, #37003c);
     border-radius: 4px;
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .fixture-tab:hover {
-    color: #1a1a2e;
+    color: var(--text, #1a1a2e);
     background: rgba(55, 0, 60, 0.05);
 }
 
 .fixture-tab.active {
-    color: #37003c;
+    color: var(--primary, #37003c);
     background: rgba(55, 0, 60, 0.08);
 }
 
@@ -516,16 +410,13 @@ body {
     transform: translateX(-50%) scaleX(1);
 }
 
-/* ============================================================
-   FIXTURE WEEK GROUP (Premium Card)
-   ============================================================ */
 .fixture-week-group {
     margin-bottom: 1.2rem;
-    background: #ffffff;
-    border-radius: 20px;
+    background: var(--card-bg, #ffffff);
+    border-radius: var(--radius, 20px);
     overflow: hidden;
-    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.04);
-    transition: all 0.3s ease;
+    box-shadow: var(--shadow, 0 2px 16px rgba(0, 0, 0, 0.04));
+    transition: var(--transition, 0.3s);
 }
 
 .fixture-week-group:hover {
@@ -536,9 +427,6 @@ body {
     margin-bottom: 0;
 }
 
-/* ============================================================
-   WEEK HEADER - Clean & Minimal
-   ============================================================ */
 .fixture-week-header-compact {
     padding: 1rem 1.5rem;
     background: #fafafa;
@@ -560,12 +448,12 @@ body {
 .week-badge {
     font-weight: 700;
     font-size: 1.05rem;
-    color: #1a1a2e;
+    color: var(--text, #1a1a2e);
     letter-spacing: -0.3px;
 }
 
 .week-badge .week-number {
-    background: #37003c;
+    background: var(--primary, #37003c);
     color: #fff;
     padding: 0.1rem 0.7rem;
     border-radius: 30px;
@@ -596,15 +484,12 @@ body {
     color: #6b7280;
 }
 
-/* ============================================================
-   FIXTURE LIST - Premium Match Cards
-   ============================================================ */
 .fixture-list {
     padding: 0.7rem 1.5rem 1.2rem 1.5rem;
 }
 
 /* ============================================================
-   FIXTURE CARD - Premium Design
+   FIXTURE CARD - NO LEFT BORDER
    ============================================================ */
 .fixture-card-compact {
     display: flex;
@@ -614,23 +499,9 @@ body {
     margin-bottom: 0.5rem;
     border-radius: 14px;
     background: #fafafa;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: var(--transition, 0.25s);
     gap: 0.5rem;
     border: none;
-    position: relative;
-}
-
-.fixture-card-compact::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 20%;
-    width: 4px;
-    height: 60%;
-    border-radius: 0 4px 4px 0;
-    background: #37003c;
-    opacity: 0.6;
-    transition: all 0.3s ease;
 }
 
 .fixture-card-compact:hover {
@@ -638,33 +509,18 @@ body {
     transform: translateX(4px);
 }
 
-.fixture-card-compact:hover::before {
-    opacity: 1;
-    height: 80%;
-    top: 10%;
-}
-
 .fixture-card-compact:last-child {
     margin-bottom: 0;
 }
 
-/* Played match - subtle highlight */
 .fixture-card-compact.played {
     background: #f8faff;
-}
-
-.fixture-card-compact.played::before {
-    background: #22c55e;
-    opacity: 0.8;
 }
 
 .fixture-card-compact.played:hover {
     background: #f0f6ff;
 }
 
-/* ============================================================
-   FIXTURE TEAMS
-   ============================================================ */
 .fixture-teams-compact {
     display: flex;
     align-items: center;
@@ -677,17 +533,14 @@ body {
 
 .team-name-compact {
     font-weight: 500;
-    color: #1a1a2e;
+    color: var(--text, #1a1a2e);
     transition: color 0.2s;
 }
 
 .team-name-compact:hover {
-    color: #37003c;
+    color: var(--primary, #37003c);
 }
 
-/* ============================================================
-   VS / SCORE DISPLAY
-   ============================================================ */
 .vs-compact {
     color: #94a3b8;
     font-size: 0.65rem;
@@ -702,7 +555,7 @@ body {
 .vs-score {
     font-weight: 700;
     font-size: 1rem;
-    color: #1a1a2e;
+    color: var(--text, #1a1a2e);
     background: #ffffff;
     padding: 0.1rem 0.9rem;
     border-radius: 8px;
@@ -712,20 +565,6 @@ body {
     letter-spacing: 0.3px;
 }
 
-/* Winner highlight (optional) */
-.fixture-card-compact .vs-score.winner-home {
-    color: #22c55e;
-    font-weight: 800;
-}
-
-.fixture-card-compact .vs-score.winner-away {
-    color: #22c55e;
-    font-weight: 800;
-}
-
-/* ============================================================
-   FIXTURE BUTTON WRAP
-   ============================================================ */
 .fixture-button-wrap {
     display: flex;
     align-items: center;
@@ -734,7 +573,7 @@ body {
 }
 
 /* ============================================================
-   REPORT BUTTON - Premium
+   REPORT BUTTON
    ============================================================ */
 .report-btn {
     background: transparent;
@@ -744,190 +583,59 @@ body {
     color: #94a3b8;
     cursor: pointer;
     font-size: 0.6rem;
-    transition: all 0.25s ease;
+    transition: var(--transition, 0.25s);
     font-weight: 600;
     white-space: nowrap;
     font-family: inherit;
 }
 
 .report-btn:hover {
-    background: #37003c;
+    background: var(--primary, #37003c);
     color: #ffffff;
-    border-color: #37003c;
+    border-color: var(--primary, #37003c);
     transform: scale(1.02);
 }
 
 .report-btn.has-report {
-    background: #37003c;
+    background: var(--primary, #37003c);
     color: #ffffff;
-    border-color: #37003c;
+    border-color: var(--primary, #37003c);
     box-shadow: 0 2px 12px rgba(55, 0, 60, 0.2);
 }
 
 .report-btn.has-report:hover {
-    background: #6a1b6e;
-    border-color: #6a1b6e;
+    background: var(--primary-light, #6a1b6e);
+    border-color: var(--primary-light, #6a1b6e);
     box-shadow: 0 4px 20px rgba(55, 0, 60, 0.3);
 }
 
 /* ============================================================
-   EMPTY STATE
+   TEAM MODAL
    ============================================================ */
-.fixtures-empty {
-    text-align: center;
-    padding: 3rem 1.5rem;
-    background: #ffffff;
-    border-radius: 20px;
-    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.04);
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+    padding: 1.5rem;
+    animation: fadeIn 0.3s ease;
 }
 
-.fixtures-empty .empty-icon {
-    font-size: 3rem;
-    display: block;
-    margin-bottom: 0.8rem;
+.modal-overlay.active {
+    display: flex;
 }
-
-.fixtures-empty .empty-title {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #1a1a2e;
-}
-
-.fixtures-empty .empty-sub {
-    font-size: 0.85rem;
-    color: #94a3b8;
-    margin-top: 0.3rem;
-}
-
-/* ============================================================
-   RESPONSIVE - Fixtures
-   ============================================================ */
-@media (max-width: 768px) {
-    .fixture-tab {
-        padding: 0.5rem 1.2rem;
-        font-size: 0.75rem;
-    }
-
-    .fixture-week-header-compact {
-        padding: 0.7rem 1rem;
-    }
-
-    .fixture-list {
-        padding: 0.5rem 1rem 1rem 1rem;
-    }
-
-    .fixture-card-compact {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 0.4rem;
-        padding: 0.6rem 0.8rem;
-    }
-
-    .fixture-card-compact::before {
-        top: 10%;
-        height: 80%;
-    }
-
-    .fixture-teams-compact {
-        font-size: 0.8rem;
-        min-width: auto;
-        justify-content: center;
-        gap: 0.5rem;
-    }
-
-    .vs-compact {
-        font-size: 0.55rem;
-        padding: 0.05rem 0.4rem;
-    }
-
-    .vs-score {
-        font-size: 0.85rem;
-        padding: 0.05rem 0.6rem;
-        min-width: 40px;
-    }
-
-    .fixture-button-wrap {
-        justify-content: center;
-        margin-left: 0;
-    }
-
-    .report-btn {
-        font-size: 0.55rem;
-        padding: 0.15rem 0.6rem;
-    }
-
-    .week-badge {
-        font-size: 0.9rem;
-    }
-}
-
-@media (max-width: 480px) {
-    .fixture-tab {
-        padding: 0.35rem 0.8rem;
-        font-size: 0.65rem;
-    }
-
-    .fixture-week-header-compact {
-        padding: 0.5rem 0.8rem;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.3rem;
-    }
-
-    .fixture-card-compact {
-        padding: 0.5rem 0.6rem;
-        border-radius: 10px;
-    }
-
-    .fixture-teams-compact {
-        font-size: 0.7rem;
-        gap: 0.3rem;
-    }
-
-    .vs-score {
-        font-size: 0.75rem;
-        min-width: 32px;
-        padding: 0.05rem 0.4rem;
-    }
-
-    .vs-compact {
-        font-size: 0.5rem;
-        padding: 0.02rem 0.3rem;
-    }
-
-    .fixture-button-wrap .report-btn {
-        font-size: 0.45rem;
-        padding: 0.1rem 0.4rem;
-    }
-
-    .week-badge {
-        font-size: 0.8rem;
-    }
-
-    .fixture-card-compact::before {
-        width: 3px;
-    }
-}
-
-/* ============================================================
-   LOADING
-   ============================================================ */
-.loading {
-    text-align: center;
-    padding: 2rem;
-    opacity: 0.6;
-    font-style: italic;
-    color: #6b7280;
-}
-
-/* ============================================================
-   TEAM MODAL - REDESIGNED STYLES
-   ============================================================ */
 
 .modal {
-    background: #ffffff;           
+    background: var(--card-bg, #ffffff);
     border-radius: 24px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--border, #e5e7eb);
     max-width: 700px;
     width: 100%;
     max-height: 90vh;
@@ -938,7 +646,53 @@ body {
     animation: modalIn 0.3s ease;
 }
 
-/* Team Header */
+.modal::-webkit-scrollbar {
+    width: 6px;
+}
+.modal::-webkit-scrollbar-track {
+    background: #f0f2f5;
+    border-radius: 10px;
+}
+.modal::-webkit-scrollbar-thumb {
+    background: var(--primary, #37003c);
+    border-radius: 10px;
+}
+
+@keyframes modalIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.modal-close {
+    position: absolute;
+    top: 1.2rem;
+    right: 1.5rem;
+    background: #f0f2f5;
+    border: none;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    color: var(--text-secondary, #6b7280);
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.modal-close:hover {
+    background: #e5e7eb;
+    color: var(--text, #1a1a2e);
+}
+
 .modal-team-header {
     display: flex;
     align-items: center;
@@ -952,7 +706,7 @@ body {
     width: 60px;
     height: 60px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #37003c, #6a1b6e);
+    background: linear-gradient(135deg, var(--primary, #37003c), var(--primary-light, #6a1b6e));
     color: #ffffff;
     display: flex;
     align-items: center;
@@ -969,15 +723,14 @@ body {
 .modal-team-name {
     font-size: 1.6rem;
     font-weight: 800;
-    color: #1a1a2e;
+    color: var(--text, #1a1a2e);
 }
 
 .modal-team-sub {
-    color: #6b7280;
+    color: var(--text-secondary, #6b7280);
     font-size: 0.85rem;
 }
 
-/* Stats Grid */
 .modal-stats-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -995,18 +748,17 @@ body {
 .modal-stat-value {
     font-size: 1.4rem;
     font-weight: 800;
-    color: #37003c;
+    color: var(--primary, #37003c);
 }
 
 .modal-stat-label {
     font-size: 0.55rem;
     text-transform: uppercase;
-    color: #6b7280;
+    color: var(--text-secondary, #6b7280);
     letter-spacing: 0.5px;
     margin-top: 0.1rem;
 }
 
-/* Record Breakdown */
 .modal-record-breakdown {
     display: grid;
     grid-template-columns: repeat(6, 1fr);
@@ -1037,7 +789,7 @@ body {
 .modal-record-label {
     font-size: 0.5rem;
     text-transform: uppercase;
-    color: #6b7280;
+    color: var(--text-secondary, #6b7280);
     letter-spacing: 0.3px;
 }
 
@@ -1048,21 +800,19 @@ body {
 .modal-record-item.goals-against .modal-record-number { color: #f59e0b; }
 .modal-record-item.goal-diff .modal-record-number { color: #8b5cf6; }
 
-/* Modal Sections */
 .modal-section {
     margin-bottom: 1.2rem;
 }
 
 .modal-section-header {
     font-weight: 600;
-    color: #6b7280;
+    color: var(--text-secondary, #6b7280);
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.8px;
     margin-bottom: 0.6rem;
 }
 
-/* Fixture List in Modal */
 .modal-fixture-list {
     background: #f8f9fa;
     border-radius: 12px;
@@ -1111,11 +861,11 @@ body {
 
 .modal-fixture-score {
     font-weight: 600;
-    color: #37003c;
+    color: var(--primary, #37003c);
 }
 
 .modal-fixture-report {
-    color: #37003c;
+    color: var(--primary, #37003c);
     cursor: pointer;
     font-size: 0.8rem;
     transition: transform 0.2s;
@@ -1126,18 +876,17 @@ body {
 }
 
 .modal-fixture-unplayed {
-    color: #6b7280;
+    color: var(--text-secondary, #6b7280);
     font-size: 0.8rem;
 }
 
 .modal-fixture-more {
     text-align: center;
-    color: #6b7280;
+    color: var(--text-secondary, #6b7280);
     font-size: 0.75rem;
     padding: 0.3rem 0;
 }
 
-/* Form Dots in Modal */
 .modal-form-dots {
     display: flex;
     gap: 6px;
@@ -1160,7 +909,6 @@ body {
 .modal-form-dot.dot-d { background: #94a3b8; }
 .modal-form-dot.dot-l { background: #ef4444; }
 
-/* Modal Actions */
 .modal-actions {
     display: flex;
     gap: 0.8rem;
@@ -1171,32 +919,32 @@ body {
 }
 
 .modal-btn-primary {
-    background: #37003c;
+    background: var(--primary, #37003c);
     color: #ffffff;
     padding: 0.6rem 2rem;
     border-radius: 40px;
     font-weight: 700;
     border: none;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: var(--transition, 0.2s);
     font-size: 0.85rem;
     font-family: inherit;
 }
 
 .modal-btn-primary:hover {
-    background: #6a1b6e;
+    background: var(--primary-light, #6a1b6e);
     transform: scale(1.02);
 }
 
 .modal-btn-secondary {
     background: #e5e7eb;
-    color: #1a1a2e;
+    color: var(--text, #1a1a2e);
     padding: 0.6rem 2rem;
     border-radius: 40px;
     font-weight: 700;
     border: none;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: var(--transition, 0.2s);
     font-size: 0.85rem;
     font-family: inherit;
 }
@@ -1206,58 +954,8 @@ body {
     transform: scale(1.02);
 }
 
-.modal-overlay {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(8px);
-    z-index: 1000;
-    justify-content: center;
-    align-items: center;
-    padding: 1.5rem;
-    animation: fadeIn 0.3s ease;
-}
-
-.modal-overlay.active {
-    display: flex;
-}
-
-/* Responsive Modal */
-@media (max-width: 600px) {
-    .modal-stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
-    .modal-record-breakdown {
-        grid-template-columns: repeat(3, 1fr);
-    }
-
-    .modal-team-avatar {
-        width: 48px;
-        height: 48px;
-        font-size: 1.4rem;
-    }
-
-    .modal-team-name {
-        font-size: 1.2rem;
-    }
-
-    .modal-actions {
-        flex-direction: column;
-    }
-
-    .modal-actions button {
-        width: 100%;
-        text-align: center;
-    }
-}
-
 /* ============================================================
-   MATCH REPORT MODAL (Redesigned)
+   MATCH REPORT MODAL
    ============================================================ */
 .report-header {
     display: flex;
@@ -1276,13 +974,11 @@ body {
 }
 
 .report-header .report-teams .home {
-    color: #1a1a2e;
+    color: var(--text, #1a1a2e);
 }
-
 .report-header .report-teams .away {
-    color: #6b7280;
+    color: var(--text-secondary, #6b7280);
 }
-
 .report-header .report-teams .vs {
     color: #d1d5db;
     margin: 0 0.5rem;
@@ -1290,7 +986,7 @@ body {
 }
 
 .report-header .report-meta {
-    color: #6b7280;
+    color: var(--text-secondary, #6b7280);
     font-size: 0.85rem;
     margin-top: 0.2rem;
 }
@@ -1298,7 +994,7 @@ body {
 .report-header .report-score {
     font-size: 2.8rem;
     font-weight: 800;
-    color: #37003c;
+    color: var(--primary, #37003c);
     background: #f8f9fa;
     padding: 0.2rem 1.5rem;
     border-radius: 16px;
@@ -1307,7 +1003,6 @@ body {
     text-align: center;
 }
 
-/* Full Comment with Horizontal Scroll */
 .report-comment {
     background: #f8f9fa;
     padding: 1.2rem;
@@ -1315,37 +1010,33 @@ body {
     line-height: 1.9;
     white-space: pre-wrap;
     font-size: 0.95rem;
-    border-left: 4px solid #37003c;
     max-height: 350px;
     overflow: auto;
-    color: #1a1a2e;
+    color: var(--text, #1a1a2e);
     margin-bottom: 1rem;
     word-wrap: break-word;
     overflow-wrap: break-word;
+    border: none;
 }
 
 .report-comment::-webkit-scrollbar {
     width: 6px;
     height: 6px;
 }
-
 .report-comment::-webkit-scrollbar-track {
     background: #f0f2f5;
     border-radius: 10px;
 }
-
 .report-comment::-webkit-scrollbar-thumb {
-    background: #37003c;
+    background: var(--primary, #37003c);
     border-radius: 10px;
 }
-
 .report-comment::-webkit-scrollbar-thumb:hover {
-    background: #6a1b6e;
+    background: var(--primary-light, #6a1b6e);
 }
-
 .report-comment {
     scrollbar-width: thin;
-    scrollbar-color: #37003c #f0f2f5;
+    scrollbar-color: var(--primary, #37003c) #f0f2f5;
 }
 
 .report-goal {
@@ -1362,17 +1053,15 @@ body {
 }
 
 .report-goal .minute {
-    color: #37003c;
+    color: var(--primary, #37003c);
     font-weight: 700;
     min-width: 40px;
 }
-
 .report-goal .scorer {
     font-weight: 600;
 }
-
 .report-goal .assist {
-    color: #6b7280;
+    color: var(--text-secondary, #6b7280);
     font-size: 0.8rem;
 }
 
@@ -1389,14 +1078,13 @@ body {
     background: #fef3c7;
     color: #92400e;
 }
-
 .report-card.red {
     background: #fee2e2;
     color: #991b1b;
 }
 
 .report-card-text {
-    color: #6b7280;
+    color: var(--text-secondary, #6b7280);
     font-size: 0.85rem;
 }
 
@@ -1411,76 +1099,11 @@ body {
 
 .report-actions .modal-btn-secondary {
     background: #e5e7eb;
-    color: #1a1a2e;
+    color: var(--text, #1a1a2e);
 }
 
 .report-actions .modal-btn-secondary:hover {
     background: #d1d5db;
-}
-
-/* ============================================================
-   FIXTURE CARD – VS / SCORE & BUTTON
-   ============================================================ */
-.vs-compact {
-    color: #94a3b8;
-    font-size: 0.7rem;
-    font-weight: 400;
-}
-
-.vs-score {
-    font-weight: 700;
-    font-size: 0.9rem;
-    color: #37003c;
-    background: #ffffff;
-    padding: 0.05rem 0.6rem;
-    border-radius: 6px;
-    border: 1px solid #e5e7eb;
-    min-width: 40px;
-    text-align: center;
-}
-
-.fixture-button-wrap {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-left: 0.5rem;
-}
-
-.fixture-card-compact {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.7rem 1rem;
-    margin-bottom: 0.4rem;
-    border-radius: 10px;
-    background: #fafafa;
-    border-left: 4px solid #37003c;
-    transition: all 0.2s;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
-.fixture-card-compact:hover {
-    background: #f5f5f5;
-    transform: translateX(4px);
-}
-
-.fixture-card-compact:last-child {
-    margin-bottom: 0;
-}
-
-.fixture-teams-compact {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-weight: 500;
-    font-size: 0.9rem;
-    flex: 1;
-    min-width: 150px;
-}
-
-.team-name-compact {
-    font-weight: 500;
 }
 
 /* ============================================================
@@ -1533,7 +1156,6 @@ body {
     .league-header {
         padding: 1.5rem;
     }
-
     .league-header h1 {
         font-size: 1.6rem;
     }
@@ -1543,79 +1165,127 @@ body {
         font-size: 0.8rem;
     }
 
-    .fixture-tab {
-        padding: 0.4rem 0.8rem;
-        font-size: 0.7rem;
-    }
-
-    .fixture-card-compact {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 0.3rem;
-        padding: 0.6rem 0.8rem;
-    }
-
-    .fixture-teams-compact {
-        font-size: 0.8rem;
-        min-width: auto;
-        justify-content: center;
-    }
-
-    .fixture-result-compact {
-        justify-content: center;
-        gap: 0.5rem;
-    }
-
-    .fixture-score-compact {
-        font-size: 0.9rem;
-        min-width: 40px;
-    }
-
-    .fixture-week-title {
-        flex-wrap: wrap;
-        gap: 0.5rem;
-    }
-
-    .modal {
-        padding: 1.5rem;
-        margin: 1rem;
-    }
-
-    .modal-stats {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
-    .report-header {
-        flex-direction: column;
-        text-align: center;
-    }
-
-    .report-header .report-score {
-        font-size: 2rem;
-        padding: 0.2rem 1rem;
-        min-width: auto;
-    }
-
-    .report-teams {
-        font-size: 1rem !important;
-    }
-
-    th,
-    td {
-        padding: 0.4rem 0.25rem;
+    .standings-table {
         font-size: 0.75rem;
     }
-
+    .standings-table thead th,
+    .standings-table tbody td {
+        padding: 0.4rem 0.25rem;
+    }
+    .col-pos {
+        width: 30px;
+        font-size: 0.8rem;
+    }
+    .col-team {
+        min-width: 80px;
+    }
+    .team-name {
+        font-size: 0.8rem;
+    }
+    .col-pts {
+        font-size: 0.9rem;
+    }
+    .pts-value {
+        padding: 0.1rem 0.4rem;
+        min-width: 24px;
+    }
+    .col-form {
+        min-width: 80px;
+    }
     .form-dot {
         width: 20px;
         height: 20px;
         font-size: 0.5rem;
     }
 
-    .modal-stat .value {
-        font-size: 1.2rem;
+    .fixture-tab {
+        padding: 0.5rem 1.2rem;
+        font-size: 0.75rem;
     }
 
+    .fixture-week-header-compact {
+        padding: 0.7rem 1rem;
+    }
+    .fixture-list {
+        padding: 0.5rem 1rem 1rem 1rem;
+    }
+
+    .fixture-card-compact {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.4rem;
+        padding: 0.6rem 0.8rem;
+    }
+    .fixture-teams-compact {
+        font-size: 0.8rem;
+        min-width: auto;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+    .vs-compact {
+        font-size: 0.55rem;
+        padding: 0.05rem 0.4rem;
+    }
+    .vs-score {
+        font-size: 0.85rem;
+        padding: 0.05rem 0.6rem;
+        min-width: 40px;
+    }
+    .fixture-button-wrap {
+        justify-content: center;
+        margin-left: 0;
+    }
+    .report-btn {
+        font-size: 0.55rem;
+        padding: 0.15rem 0.6rem;
+    }
+    .week-badge {
+        font-size: 0.9rem;
+    }
+
+    .modal {
+        padding: 1.5rem;
+        margin: 1rem;
+    }
+    .modal-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .modal-record-breakdown {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    .modal-team-avatar {
+        width: 48px;
+        height: 48px;
+        font-size: 1.4rem;
+    }
+    .modal-team-name {
+        font-size: 1.2rem;
+    }
+    .modal-actions {
+        flex-direction: column;
+    }
+    .modal-actions button {
+        width: 100%;
+        text-align: center;
+    }
+
+    .report-header {
+        flex-direction: column;
+        text-align: center;
+    }
+    .report-header .report-score {
+        font-size: 2rem;
+        padding: 0.2rem 1rem;
+        min-width: auto;
+    }
+    .report-teams {
+        font-size: 1rem !important;
+    }
+    .form-dot {
+        width: 20px;
+        height: 20px;
+        font-size: 0.5rem;
+    }
     .report-btn {
         font-size: 0.5rem;
         padding: 0.15rem 0.5rem;
@@ -1628,27 +1298,90 @@ body {
     }
 
     .fixture-tab {
-        padding: 0.3rem 0.6rem;
+        padding: 0.35rem 0.8rem;
         font-size: 0.65rem;
+    }
+
+    .fixture-week-header-compact {
+        padding: 0.5rem 0.8rem;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.3rem;
     }
 
     .fixture-card-compact {
         padding: 0.5rem 0.6rem;
+        border-radius: 10px;
     }
-
     .fixture-teams-compact {
+        font-size: 0.7rem;
+        gap: 0.3rem;
+    }
+    .vs-score {
         font-size: 0.75rem;
+        min-width: 32px;
+        padding: 0.05rem 0.4rem;
     }
-
-    .fixture-score-compact {
-        font-size: 0.8rem;
-        min-width: 35px;
-        padding: 0.05rem 0.5rem;
-    }
-
-    .fixture-result-compact .report-btn {
+    .vs-compact {
         font-size: 0.5rem;
+        padding: 0.02rem 0.3rem;
+    }
+    .fixture-button-wrap .report-btn {
+        font-size: 0.45rem;
         padding: 0.1rem 0.4rem;
+    }
+    .week-badge {
+        font-size: 0.8rem;
+    }
+
+    .standings-table {
+        font-size: 0.6rem;
+        min-width: 100%;
+    }
+    .standings-table thead th,
+    .standings-table tbody td {
+        padding: 0.25rem 0.1rem;
+        white-space: nowrap;
+    }
+    .col-pos {
+        width: 20px;
+        font-size: 0.6rem;
+        min-width: 20px;
+    }
+    .col-team {
+        min-width: 50px;
+        max-width: 80px;
+    }
+    .team-name {
+        font-size: 0.6rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: inline-block;
+        max-width: 60px;
+    }
+    .col-stat {
+        font-size: 0.6rem;
+        min-width: 18px;
+    }
+    .col-pts {
+        font-size: 0.7rem;
+    }
+    .pts-value {
+        padding: 0.05rem 0.3rem;
+        min-width: 18px;
+        font-size: 0.7rem;
+    }
+    .col-form {
+        min-width: 50px;
+    }
+    .form-dot {
+        width: 14px;
+        height: 14px;
+        font-size: 0.35rem;
+    }
+    .col-form .form-dots {
+        gap: 2px;
     }
 }
     </style>
