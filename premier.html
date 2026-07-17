@@ -1747,11 +1747,15 @@ function buildSingleWeekFixtures(week) {
             middleDisplay = `<span class="vs-compact">vs</span>`;
         }
 
-        // Button for played matches
-        let buttonHtml = '';
-        if (m.played) {
-            buttonHtml = `<button class="report-btn ${hasReport ? 'has-report' : ''}" onclick="openMatchReport('${week}', ${i})">${hasReport ? '📋 Report' : '📝 Add Report'}</button>`;
-        }
+// In buildSingleWeekFixtures() – remove the "Add Report" option for viewers
+let buttonHtml = '';
+if (m.played && m.report) {
+    // Only show report button if a report exists (view-only)
+    buttonHtml = `<button class="report-btn has-report" onclick="openMatchReport('${week}', ${i})">📋 Report</button>`;
+} else if (m.played && !m.report) {
+    // No report exists – show nothing for viewers
+    buttonHtml = '';
+}
 
         html += `
             <div class="fixture-card-compact ${cardClass}">
