@@ -901,6 +901,40 @@ function computeStandingsLocal(matchweeks, teamNames) {
     }
     return Object.entries(stats).map(([name, s]) => ({ name, ...s, gd: s.gf - s.ga })).sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
 }
+// ============================================================
+//  SINGLE ROUND‑ROBIN (FOR LEAGUE PHASE)
+// ============================================================
+function generateSingleRoundRobin(teamNames) {
+    let teams = [...teamNames];
+    const n = teams.length;
+    if (n % 2 !== 0) teams.push("BYE");
+    const m = teams.length;
+    const half = m / 2;
+    const rounds = [];
+
+    for (let round = 0; round < m - 1; round++) {
+        const roundFixtures = [];
+        for (let i = 0; i < half; i++) {
+            const home = teams[i];
+            const away = teams[m - 1 - i];
+            if (home !== "BYE" && away !== "BYE") {
+                if (round % 2 === 0) {
+                    roundFixtures.push({ home, away });
+                } else {
+                    roundFixtures.push({ home: away, away: home });
+                }
+            }
+        }
+        rounds.push(roundFixtures);
+        const last = teams.pop();
+        teams.splice(1, 0, last);
+    }
+    return rounds;
+}
+
+// ============================================================
+//  GENERATE CHAMPIONS LEAGUE (UPDATED)
+// ============================================================
 async function generateChampionsLeague() {
     if (!confirm('Generate Champions League from top 10 teams from Premier League and La Liga?')) return;
     try {
@@ -910,21 +944,50 @@ async function generateChampionsLeague() {
         const plTeams = Object.values(plTeamsSnap.val() || {});
         const plStandings = computeStandingsLocal(plMW, plTeams);
         const plTop10 = plStandings.slice(0,10).map(s => s.name);
+
         const llSnap = await db.ref('leagues/laliga/matchweeks').once('value');
         const llMW = llSnap.val() || {};
         const llTeamsSnap = await db.ref('leagues/laliga/teams').once('value');
         const llTeams = Object.values(llTeamsSnap.val() || {});
         const llStandings = computeStandingsLocal(llMW, llTeams);
         const llTop10 = llStandings.slice(0,10).map(s => s.name);
+
         const allTeams = [...plTop10, ...llTop10];
         if (allTeams.length < 20) { log('Need at least 20 teams (10 from each)', 'error'); return; }
+
         const leagueTable = allTeams.map(name => ({ name, played:0, won:0, drawn:0, lost:0, gf:0, ga:0, gd:0, pts:0 }));
-        const rounds = generateStrictRoundRobin(allTeams);
+
+        // 🔥 SINGLE round‑robin – 19 rounds
+        const singleRounds = generateSingleRoundRobin(allTeams);
         const leagueFixtures = [];
-        rounds.forEach((round, idx) => { round.forEach(match => { leagueFixtures.push({ round: idx+1, home: match.home, away: match.away, homeScore: null, awayScore: null, played: false }); }); });
-        await db.ref('champions_league').set({ phase: 'league', leagueTable, leagueFixtures, knockout: { roundOf16: [], quarterFinals: [], semiFinals: [], final: null, champion: null } });
-        log('✅ Champions League generated!', 'success');
-        document.getElementById('uclStatus').innerHTML = `<span class="green">✅ Champions League created!</span><span style="display:block;font-size:0.8rem;margin-top:0.3rem;">${allTeams.length} teams • ${leagueFixtures.length} league matches</span>`;
+        singleRounds.forEach((roundFixtures, idx) => {
+            const roundNum = idx + 1;
+            roundFixtures.forEach(match => {
+                leagueFixtures.push({
+                    round: roundNum,
+                    home: match.home,
+                    away: match.away,
+                    homeScore: null,
+                    awayScore: null,
+                    played: false
+                });
+            });
+        });
+
+        await db.ref('champions_league').set({
+            phase: 'league',
+            leagueTable,
+            leagueFixtures,
+            knockout: { roundOf16: [], quarterFinals: [], semiFinals: [], final: null, champion: null }
+        });
+
+        log('✅ Champions League generated (single round‑robin, 19 matchdays)!', 'success');
+        document.getElementById('uclStatus').innerHTML = `
+            <span class="green">✅ Champions League created!</span>
+            <span style="display:block;font-size:0.8rem;margin-top:0.3rem;">
+                ${allTeams.length} teams • ${leagueFixtures.length} matches (19 rounds)
+            </span>
+        `;
     } catch (err) { log('❌ Error: ' + err.message, 'error'); }
 }
 async function generateKnockout() {
