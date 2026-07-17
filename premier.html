@@ -382,54 +382,68 @@ body {
     }
 }
 
+/* ============================================================
+   STANDINGS TABLE - FULL MOBILE VIEW
+   ============================================================ */
 @media (max-width: 480px) {
     .standings-table {
-        font-size: 0.65rem;
+        font-size: 0.6rem;
+        min-width: 100%;
     }
 
     .standings-table thead th,
     .standings-table tbody td {
-        padding: 0.3rem 0.15rem;
+        padding: 0.25rem 0.1rem;
+        white-space: nowrap;
     }
 
     .col-pos {
-        width: 24px;
-        font-size: 0.7rem;
+        width: 20px;
+        font-size: 0.6rem;
+        min-width: 20px;
     }
 
     .col-team {
-        min-width: 60px;
+        min-width: 50px;
+        max-width: 80px;
     }
 
     .team-name {
-        font-size: 0.7rem;
+        font-size: 0.6rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: inline-block;
+        max-width: 60px;
+    }
+
+    .col-stat {
+        font-size: 0.6rem;
+        min-width: 18px;
     }
 
     .col-pts {
-        font-size: 0.8rem;
+        font-size: 0.7rem;
     }
 
     .pts-value {
         padding: 0.05rem 0.3rem;
-        min-width: 20px;
+        min-width: 18px;
+        font-size: 0.7rem;
     }
 
     .col-form {
-        min-width: 60px;
+        min-width: 50px;
     }
 
     .form-dot {
-        width: 16px;
-        height: 16px;
-        font-size: 0.4rem;
+        width: 14px;
+        height: 14px;
+        font-size: 0.35rem;
     }
 
-    /* Hide less important columns on very small screens */
-    .col-stat:nth-child(5), /* D */
-    .col-stat:nth-child(6), /* L */
-    .col-stat:nth-child(7), /* GF */
-    .col-stat:nth-child(8) { /* GA */
-        display: none;
+    .col-form .form-dots {
+        gap: 2px;
     }
 }
 
@@ -671,140 +685,209 @@ body {
 }
 
 /* ============================================================
-   TEAM MODAL
+   TEAM MODAL - REDESIGNED STYLES
    ============================================================ */
-.modal-overlay {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(8px);
-    z-index: 1000;
-    justify-content: center;
-    align-items: center;
-    padding: 1.5rem;
-    animation: fadeIn 0.3s ease;
-}
 
-.modal-overlay.active {
+/* Team Header */
+.modal-team-header {
     display: flex;
+    align-items: center;
+    gap: 1.2rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.2rem;
+    border-bottom: 2px solid #f0f2f5;
 }
 
-.modal {
-    background: #ffffff;
-    border-radius: 24px;
-    border: 1px solid #e5e7eb;
-    max-width: 700px;
-    width: 100%;
-    max-height: 90vh;
-    overflow-y: auto;
-    padding: 2.5rem;
-    position: relative;
-    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.2);
-    animation: modalIn 0.3s ease;
-}
-
-@keyframes modalIn {
-    from {
-        opacity: 0;
-        transform: scale(0.95) translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: scale(1) translateY(0);
-    }
-}
-
-.modal::-webkit-scrollbar {
-    width: 6px;
-}
-
-.modal::-webkit-scrollbar-track {
-    background: #f0f2f5;
-    border-radius: 10px;
-}
-
-.modal::-webkit-scrollbar-thumb {
-    background: #37003c;
-    border-radius: 10px;
-}
-
-.modal-close {
-    position: absolute;
-    top: 1.2rem;
-    right: 1.5rem;
-    background: #f0f2f5;
-    border: none;
+.modal-team-avatar {
+    width: 60px;
+    height: 60px;
     border-radius: 50%;
-    width: 36px;
-    height: 36px;
-    color: #6b7280;
-    font-size: 1.2rem;
-    cursor: pointer;
-    transition: 0.2s;
+    background: linear-gradient(135deg, #37003c, #6a1b6e);
+    color: #ffffff;
     display: flex;
     align-items: center;
     justify-content: center;
-    line-height: 1;
+    font-size: 1.8rem;
+    font-weight: 800;
+    flex-shrink: 0;
 }
 
-.modal-close:hover {
-    background: #e5e7eb;
-    color: #1a1a2e;
+.modal-team-info {
+    flex: 1;
 }
 
 .modal-team-name {
-    font-size: 2rem;
+    font-size: 1.6rem;
     font-weight: 800;
-    margin-bottom: 0.25rem;
     color: #1a1a2e;
 }
 
 .modal-team-sub {
     color: #6b7280;
-    font-size: 0.9rem;
-    margin-bottom: 1.5rem;
+    font-size: 0.85rem;
 }
 
-.modal-stats {
+/* Stats Grid */
+.modal-stats-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 0.8rem;
-    margin-bottom: 1.5rem;
-    background: #f8f9fa;
-    border-radius: 16px;
-    padding: 1.2rem;
+    margin-bottom: 1.2rem;
 }
 
-.modal-stat {
+.modal-stat-card {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 0.8rem 0.5rem;
     text-align: center;
 }
 
-.modal-stat .value {
-    font-size: 1.5rem;
-    font-weight: 700;
+.modal-stat-value {
+    font-size: 1.4rem;
+    font-weight: 800;
     color: #37003c;
 }
 
-.modal-stat .label {
-    font-size: 0.6rem;
+.modal-stat-label {
+    font-size: 0.55rem;
     text-transform: uppercase;
     color: #6b7280;
     letter-spacing: 0.5px;
+    margin-top: 0.1rem;
 }
 
-.modal-section-title {
+/* Record Breakdown */
+.modal-record-breakdown {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 1.2rem;
+}
+
+.modal-record-item {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 0.5rem 0.3rem;
+    text-align: center;
+}
+
+.modal-record-number {
+    font-size: 1.1rem;
+    font-weight: 700;
+    display: block;
+}
+
+.modal-record-number.positive {
+    color: #22c55e;
+}
+.modal-record-number.negative {
+    color: #ef4444;
+}
+
+.modal-record-label {
+    font-size: 0.5rem;
+    text-transform: uppercase;
+    color: #6b7280;
+    letter-spacing: 0.3px;
+}
+
+.modal-record-item.wins .modal-record-number { color: #22c55e; }
+.modal-record-item.draws .modal-record-number { color: #94a3b8; }
+.modal-record-item.losses .modal-record-number { color: #ef4444; }
+.modal-record-item.goals-for .modal-record-number { color: #3b82f6; }
+.modal-record-item.goals-against .modal-record-number { color: #f59e0b; }
+.modal-record-item.goal-diff .modal-record-number { color: #8b5cf6; }
+
+/* Modal Sections */
+.modal-section {
+    margin-bottom: 1.2rem;
+}
+
+.modal-section-header {
     font-weight: 600;
     color: #6b7280;
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.8px;
-    margin: 1.2rem 0 0.6rem 0;
+    margin-bottom: 0.6rem;
 }
 
+/* Fixture List in Modal */
+.modal-fixture-list {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 0.5rem 0.8rem;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.modal-fixture-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 0.85rem;
+}
+
+.modal-fixture-item:last-child {
+    border-bottom: none;
+}
+
+.modal-fixture-left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.modal-fixture-location {
+    font-size: 0.8rem;
+}
+
+.modal-fixture-opponent {
+    font-weight: 500;
+}
+
+.modal-fixture-right {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.modal-fixture-result {
+    font-weight: 700;
+    font-size: 0.8rem;
+}
+
+.modal-fixture-score {
+    font-weight: 600;
+    color: #37003c;
+}
+
+.modal-fixture-report {
+    color: #37003c;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: transform 0.2s;
+}
+
+.modal-fixture-report:hover {
+    transform: scale(1.2);
+}
+
+.modal-fixture-unplayed {
+    color: #6b7280;
+    font-size: 0.8rem;
+}
+
+.modal-fixture-more {
+    text-align: center;
+    color: #6b7280;
+    font-size: 0.75rem;
+    padding: 0.3rem 0;
+}
+
+/* Form Dots in Modal */
 .modal-form-dots {
     display: flex;
     gap: 6px;
@@ -823,30 +906,21 @@ body {
     color: #ffffff;
 }
 
-.modal-fixture-item {
+.modal-form-dot.dot-w { background: #22c55e; }
+.modal-form-dot.dot-d { background: #94a3b8; }
+.modal-form-dot.dot-l { background: #ef4444; }
+
+/* Modal Actions */
+.modal-actions {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.5rem 0;
-    border-bottom: 1px solid #f0f2f5;
-    font-size: 0.9rem;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+    margin-top: 1.2rem;
+    padding-top: 1.2rem;
+    border-top: 2px solid #f0f2f5;
 }
 
-.modal-fixture-item:last-child {
-    border-bottom: none;
-}
-
-.modal-fixture-score {
-    font-weight: 600;
-    color: #37003c;
-}
-
-.modal-fixture-unplayed {
-    opacity: 0.4;
-}
-
-.modal-btn {
-    display: inline-block;
+.modal-btn-primary {
     background: #37003c;
     color: #ffffff;
     padding: 0.6rem 2rem;
@@ -855,21 +929,61 @@ body {
     border: none;
     cursor: pointer;
     transition: all 0.2s;
-    font-size: 0.9rem;
-    margin-top: 0.5rem;
+    font-size: 0.85rem;
     font-family: inherit;
 }
 
-.modal-btn:hover {
-    transform: scale(1.02);
+.modal-btn-primary:hover {
     background: #6a1b6e;
-    box-shadow: 0 4px 20px rgba(55, 0, 60, 0.3);
+    transform: scale(1.02);
 }
 
-.modal .no-data {
-    color: #6b7280;
-    font-style: italic;
-    font-size: 0.9rem;
+.modal-btn-secondary {
+    background: #e5e7eb;
+    color: #1a1a2e;
+    padding: 0.6rem 2rem;
+    border-radius: 40px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.85rem;
+    font-family: inherit;
+}
+
+.modal-btn-secondary:hover {
+    background: #d1d5db;
+    transform: scale(1.02);
+}
+
+/* Responsive Modal */
+@media (max-width: 600px) {
+    .modal-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .modal-record-breakdown {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .modal-team-avatar {
+        width: 48px;
+        height: 48px;
+        font-size: 1.4rem;
+    }
+
+    .modal-team-name {
+        font-size: 1.2rem;
+    }
+
+    .modal-actions {
+        flex-direction: column;
+    }
+
+    .modal-actions button {
+        width: 100%;
+        text-align: center;
+    }
 }
 
 /* ============================================================
@@ -1461,19 +1575,20 @@ function renderFixtures() {
     }
 
     const sortedWeeks = Object.keys(allMatchweeks).sort((a, b) => Number(a) - Number(b));
+    
+    // Get the first week to show by default
+    const defaultWeek = sortedWeeks.length > 0 ? sortedWeeks[0] : null;
 
-    // Build tabs
+    // Build tabs - NO "All" button
     let tabsHtml = `
         <div class="fixture-tabs-wrapper">
             <div class="fixture-tabs">
-                <button class="fixture-tab active" data-week="all" onclick="switchFixtureWeek('all')">
-                    All
-                </button>
     `;
 
     for (const wk of sortedWeeks) {
+        const isActive = wk === defaultWeek ? 'active' : '';
         tabsHtml += `
-            <button class="fixture-tab" data-week="${wk}" onclick="switchFixtureWeek('${wk}')">
+            <button class="fixture-tab ${isActive}" data-week="${wk}" onclick="switchFixtureWeek('${wk}')">
                 Week ${wk}
             </button>
         `;
@@ -1484,10 +1599,10 @@ function renderFixtures() {
         </div>
     `;
 
-    // Build content (show all by default)
+    // Build content - show default week
     let contentHtml = `
         <div id="fixture-content" class="fixture-content">
-            ${buildWeekFixtures('all', sortedWeeks)}
+            ${defaultWeek ? buildSingleWeekFixtures(defaultWeek) : '<div class="loading">No fixtures found.</div>'}
         </div>
     `;
 
@@ -1601,7 +1716,7 @@ function switchFixtureWeek(week) {
 }
 
 // ============================================================
-//  TEAM MODAL
+//  TEAM MODAL - REDESIGNED
 // ============================================================
 function openTeamModal(teamName) {
     const modal = document.getElementById('teamModal');
@@ -1633,6 +1748,7 @@ function openTeamModal(teamName) {
         stats.form.map(r => `<span class="modal-form-dot dot-${r.toLowerCase()}">${r}</span>`).join('') :
         '<span class="no-data">No matches yet</span>';
 
+    // Build recent matches HTML
     let recentHtml = '';
     if (recentMatches.length === 0) {
         recentHtml = '<span class="no-data">No recent matches</span>';
@@ -1648,17 +1764,28 @@ function openTeamModal(teamName) {
             const matches = allMatchweeks[m.week]?.matches || [];
             const matchIdx = matches.findIndex(mm => mm.home === m.home && mm.away === m.away);
             const hasReport = m.played && m.report;
-            return `<div class="modal-fixture-item">
-                <span>${isHome ? '🏠' : '✈️'} ${opponent}</span>
-                <span>
-                    <span style="color:${resultColor};font-weight:700;">${result}</span>
-                    <span class="modal-fixture-score"> ${score}</span>
-                    ${hasReport ? `<span style="font-size:0.7rem;color:#37003c;margin-left:0.5rem;cursor:pointer;" onclick="event.stopPropagation();openMatchReport('${m.week}', ${matchIdx})">📋</span>` : ''}
-                </span>
-            </div>`;
+
+            const resultEmoji = result === 'W' ? '✅' : result === 'L' ? '❌' : '➖';
+
+            return `
+                <div class="modal-fixture-item">
+                    <div class="modal-fixture-left">
+                        <span class="modal-fixture-location">${isHome ? '🏠' : '✈️'}</span>
+                        <span class="modal-fixture-opponent">${opponent}</span>
+                    </div>
+                    <div class="modal-fixture-right">
+                        <span class="modal-fixture-result" style="color:${resultColor};">
+                            ${resultEmoji} ${result}
+                        </span>
+                        <span class="modal-fixture-score">${score}</span>
+                        ${hasReport ? `<span class="modal-fixture-report" onclick="event.stopPropagation();openMatchReport('${m.week}', ${matchIdx})">📋</span>` : ''}
+                    </div>
+                </div>
+            `;
         }).join('');
     }
 
+    // Build upcoming matches HTML
     let upcomingHtml = '';
     if (upcomingMatches.length === 0) {
         upcomingHtml = '<span class="no-data">No upcoming fixtures</span>';
@@ -1666,49 +1793,114 @@ function openTeamModal(teamName) {
         upcomingHtml = upcomingMatches.slice(0, 5).map(m => {
             const isHome = m.home === teamName;
             const opponent = isHome ? m.away : m.home;
-            return `<div class="modal-fixture-item">
-                <span>${isHome ? '🏠' : '✈️'} ${opponent}</span>
-                <span class="modal-fixture-unplayed">Week ${m.week}</span>
-            </div>`;
+            return `
+                <div class="modal-fixture-item">
+                    <div class="modal-fixture-left">
+                        <span class="modal-fixture-location">${isHome ? '🏠' : '✈️'}</span>
+                        <span class="modal-fixture-opponent">${opponent}</span>
+                    </div>
+                    <div class="modal-fixture-right">
+                        <span class="modal-fixture-unplayed">Week ${m.week}</span>
+                    </div>
+                </div>
+            `;
         }).join('');
         if (upcomingMatches.length > 5) {
-            upcomingHtml += `<div style="color:#6b7280;font-size:0.8rem;margin-top:0.3rem;">+ ${upcomingMatches.length - 5} more</div>`;
+            upcomingHtml += `<div class="modal-fixture-more">+ ${upcomingMatches.length - 5} more</div>`;
         }
     }
 
-    content.innerHTML = `
-        <div class="modal-team-name">${teamName}</div>
-        <div class="modal-team-sub">Premier League • Season ${new Date().getFullYear()}</div>
+    // Calculate additional stats
+    const formPercentage = stats.played > 0 ? Math.round((stats.won / stats.played) * 100) : 0;
+    const goalsPerGame = stats.played > 0 ? (stats.gf / stats.played).toFixed(1) : '0.0';
 
-        <div class="modal-stats">
-            <div class="modal-stat">
-                <div class="value">${stats.played}</div>
-                <div class="label">Played</div>
-            </div>
-            <div class="modal-stat">
-                <div class="value">${stats.won} / ${stats.drawn} / ${stats.lost}</div>
-                <div class="label">W / D / L</div>
-            </div>
-            <div class="modal-stat">
-                <div class="value">${stats.gf} / ${stats.ga}</div>
-                <div class="label">GF / GA</div>
-            </div>
-            <div class="modal-stat">
-                <div class="value" style="color:#ffd700;">${stats.pts}</div>
-                <div class="label">Points</div>
+    content.innerHTML = `
+        <!-- Team Header -->
+        <div class="modal-team-header">
+            <div class="modal-team-avatar">${teamName.charAt(0)}</div>
+            <div class="modal-team-info">
+                <div class="modal-team-name">${teamName}</div>
+                <div class="modal-team-sub">Premier League • Season ${new Date().getFullYear()}</div>
             </div>
         </div>
 
-        <div class="modal-section-title">📊 Recent Form</div>
-        <div class="modal-form-dots" style="margin-bottom:1rem;">${formDots}</div>
+        <!-- Stats Grid -->
+        <div class="modal-stats-grid">
+            <div class="modal-stat-card">
+                <div class="modal-stat-value">${stats.pts}</div>
+                <div class="modal-stat-label">Points</div>
+            </div>
+            <div class="modal-stat-card">
+                <div class="modal-stat-value">${stats.played}</div>
+                <div class="modal-stat-label">Played</div>
+            </div>
+            <div class="modal-stat-card">
+                <div class="modal-stat-value">${formPercentage}%</div>
+                <div class="modal-stat-label">Win Rate</div>
+            </div>
+            <div class="modal-stat-card">
+                <div class="modal-stat-value">${goalsPerGame}</div>
+                <div class="modal-stat-label">Goals/Game</div>
+            </div>
+        </div>
 
-        <div class="modal-section-title">📋 Recent Matches</div>
-        <div style="margin-bottom:1rem;">${recentHtml}</div>
+        <!-- Record Breakdown -->
+        <div class="modal-record-breakdown">
+            <div class="modal-record-item wins">
+                <span class="modal-record-number">${stats.won}</span>
+                <span class="modal-record-label">Wins</span>
+            </div>
+            <div class="modal-record-item draws">
+                <span class="modal-record-number">${stats.drawn}</span>
+                <span class="modal-record-label">Draws</span>
+            </div>
+            <div class="modal-record-item losses">
+                <span class="modal-record-number">${stats.lost}</span>
+                <span class="modal-record-label">Losses</span>
+            </div>
+            <div class="modal-record-item goals-for">
+                <span class="modal-record-number">${stats.gf}</span>
+                <span class="modal-record-label">Goals For</span>
+            </div>
+            <div class="modal-record-item goals-against">
+                <span class="modal-record-number">${stats.ga}</span>
+                <span class="modal-record-label">Goals Against</span>
+            </div>
+            <div class="modal-record-item goal-diff">
+                <span class="modal-record-number ${stats.gd >= 0 ? 'positive' : 'negative'}">${stats.gd > 0 ? '+' : ''}${stats.gd}</span>
+                <span class="modal-record-label">Goal Diff</span>
+            </div>
+        </div>
 
-        <div class="modal-section-title">📅 Upcoming Fixtures</div>
-        <div style="margin-bottom:1.5rem;">${upcomingHtml}</div>
+        <!-- Recent Form -->
+        <div class="modal-section">
+            <div class="modal-section-header">
+                <span>Recent Form</span>
+            </div>
+            <div class="modal-form-dots">${formDots}</div>
+        </div>
 
-        <button class="modal-btn" onclick="switchToFixtures('${teamName}')">📅 View All Fixtures</button>
+        <!-- Recent Matches -->
+        <div class="modal-section">
+            <div class="modal-section-header">
+                <span> Recent Matches</span>
+            </div>
+            <div class="modal-fixture-list">${recentHtml}</div>
+        </div>
+
+        <!-- Upcoming Fixtures -->
+        <div class="modal-section">
+            <div class="modal-section-header">
+                <span>Upcoming Fixtures</span>
+            </div>
+            <div class="modal-fixture-list">${upcomingHtml}</div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="modal-actions">
+            <button class="modal-btn modal-btn-primary" onclick="closeModal()">Close</button>
+            <button class="modal-btn modal-btn-secondary" onclick="switchToFixtures('${teamName}')">📅 View All Fixtures</button>
+        </div>
     `;
 }
 

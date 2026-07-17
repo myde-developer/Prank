@@ -987,26 +987,48 @@ function validateFixtureIntegrity(fixtures, teamNames, silent = false) {
         }
     }
 
-    // ============================================================
-    // CHECK 5: Balanced home/away games in first half
-    // ============================================================
-    const homeCount = {};
-    const awayCount = {};
-    for (const f of fixtures) {
-        if (f.round <= halfRounds && f.home !== "BYE" && f.away !== "BYE") {
-            homeCount[f.home] = (homeCount[f.home] || 0) + 1;
-            awayCount[f.away] = (awayCount[f.away] || 0) + 1;
-        }
-    }
+// ============================================================
+// CHECK 5: Balanced home/away games in first half (FIXED)
+// ============================================================
+const homeCount = {};
+const awayCount = {};
+const firstHalfRounds = [];
 
-    const allActiveTeams = teamNames.filter(t => t !== "BYE");
-    for (const team of allActiveTeams) {
-        const h = homeCount[team] || 0;
-        const a = awayCount[team] || 0;
-        if (h !== a) {
-            warnings.push(`⚠️ "${team}" has ${h} home games and ${a} away games in first half (should be equal)`);
-        }
+for (const f of fixtures) {
+    if (f.round <= halfRounds && f.home !== "BYE" && f.away !== "BYE") {
+        homeCount[f.home] = (homeCount[f.home] || 0) + 1;
+        awayCount[f.away] = (awayCount[f.away] || 0) + 1;
+        if (!firstHalfRounds.includes(f.round)) firstHalfRounds.push(f.round);
     }
+}
+
+const allActiveTeams = teamNames.filter(t => t !== "BYE");
+const expectedGames = Math.floor((allActiveTeams.length - 1) / 2);
+
+for (const team of allActiveTeams) {
+    const h = homeCount[team] || 0;
+    const a = awayCount[team] || 0;
+    const total = h + a;
+    
+    // Check if total games is correct
+    if (total !== expectedGames) {
+        issues.push(`❌ "${team}" has ${total} matches in first half, expected ${expectedGames}`);
+    }
+    
+    // Check home/away balance
+    if (h !== a) {
+        // Find which round is causing the imbalance
+        const teamFixtures = fixtures.filter(f => 
+            (f.home === team || f.away === team) && 
+            f.round <= halfRounds
+        );
+        
+        let homeRounds = teamFixtures.filter(f => f.home === team).map(f => f.round).join(', ');
+        let awayRounds = teamFixtures.filter(f => f.away === team).map(f => f.round).join(', ');
+        
+        issues.push(`❌ "${team}" has ${h} home games (rounds ${homeRounds || 'none'}) and ${a} away games (rounds ${awayRounds || 'none'}) in first half (should be equal)`);
+    }
+}
 
     // ============================================================
     // CHECK 6: All teams have equal number of matches in first half
