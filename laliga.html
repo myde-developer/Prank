@@ -448,105 +448,137 @@ body {
 }
 
 /* ============================================================
-   FIXTURE TABS (Horizontal scrollable)
+   FIXTURES - PREMIUM REDESIGN
+   ============================================================ */
+
+/* ============================================================
+   FIXTURE TABS (Premium Sports Style)
    ============================================================ */
 .fixture-tabs-wrapper {
     overflow-x: auto;
-    padding-bottom: 0.5rem;
-    margin-bottom: 1.5rem;
+    padding: 0.5rem 0 1.5rem 0;
+    margin-bottom: 0.5rem;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
 }
 
 .fixture-tabs-wrapper::-webkit-scrollbar {
-    height: 4px;
-}
-
-.fixture-tabs-wrapper::-webkit-scrollbar-track {
-    background: #f0f2f5;
-    border-radius: 10px;
-}
-
-.fixture-tabs-wrapper::-webkit-scrollbar-thumb {
-    background: #37003c;
-    border-radius: 10px;
+    height: 0;
+    display: none;
 }
 
 .fixture-tabs {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.6rem;
     min-width: max-content;
-    padding: 0.2rem 0;
+    padding: 0.2rem 0.2rem 0.5rem 0.2rem;
 }
 
 .fixture-tab {
-    padding: 0.6rem 1.2rem;
+    padding: 0.7rem 1.8rem;
     border: none;
-    border-radius: 30px;
-    background: #f0f2f5;
+    border-radius: 50px;
+    background: transparent;
     color: #6b7280;
     font-weight: 600;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     cursor: pointer;
-    transition: 0.3s;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     white-space: nowrap;
     font-family: inherit;
+    position: relative;
+}
+
+.fixture-tab::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%) scaleX(0);
+    width: 60%;
+    height: 3px;
+    background: #37003c;
+    border-radius: 4px;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .fixture-tab:hover {
-    background: #e5e7eb;
     color: #1a1a2e;
+    background: rgba(55, 0, 60, 0.05);
 }
 
 .fixture-tab.active {
-    background: #37003c;
-    color: #ffffff;
-    box-shadow: 0 4px 15px rgba(55, 0, 60, 0.25);
+    color: #37003c;
+    background: rgba(55, 0, 60, 0.08);
+}
+
+.fixture-tab.active::after {
+    transform: translateX(-50%) scaleX(1);
 }
 
 /* ============================================================
-   FIXTURE CONTENT
+   FIXTURE WEEK GROUP (Premium Card)
    ============================================================ */
-.fixture-content {
-    animation: fadeIn 0.3s ease;
+.fixture-week-group {
+    margin-bottom: 1.2rem;
+    background: #ffffff;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.04);
+    transition: all 0.3s ease;
 }
 
-.fixture-week-group {
-    margin-bottom: 1.5rem;
-    background: #ffffff;
-    border-radius: 16px;
-    border: 1px solid #e5e7eb;
-    overflow: hidden;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+.fixture-week-group:hover {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
 }
 
 .fixture-week-group:last-child {
     margin-bottom: 0;
 }
 
+/* ============================================================
+   WEEK HEADER - Clean & Minimal
+   ============================================================ */
 .fixture-week-header-compact {
-    padding: 1rem 1.2rem;
-    background: #f8f9fa;
-    border-bottom: 1px solid #e5e7eb;
+    padding: 1rem 1.5rem;
+    background: #fafafa;
+    border-bottom: 1px solid #f0f2f5;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
 }
 
 .fixture-week-title {
     display: flex;
     align-items: center;
-    gap: 0.8rem;
+    gap: 1rem;
     flex-wrap: wrap;
 }
 
 .week-badge {
     font-weight: 700;
-    font-size: 1rem;
+    font-size: 1.05rem;
     color: #1a1a2e;
+    letter-spacing: -0.3px;
+}
+
+.week-badge .week-number {
+    background: #37003c;
+    color: #fff;
+    padding: 0.1rem 0.7rem;
+    border-radius: 30px;
+    font-size: 0.7rem;
+    margin-left: 0.3rem;
 }
 
 .week-status-badge {
-    font-size: 0.65rem;
+    font-size: 0.6rem;
     font-weight: 600;
-    padding: 0.15rem 0.8rem;
-    border-radius: 20px;
+    padding: 0.2rem 0.9rem;
+    border-radius: 50px;
+    letter-spacing: 0.3px;
 }
 
 .week-status-badge.completed {
@@ -560,26 +592,45 @@ body {
 }
 
 .week-status-badge.upcoming {
-    background: #e5e7eb;
+    background: #f1f3f5;
     color: #6b7280;
 }
 
+/* ============================================================
+   FIXTURE LIST - Premium Match Cards
+   ============================================================ */
 .fixture-list {
-    padding: 0.5rem 1.2rem 1.2rem 1.2rem;
+    padding: 0.7rem 1.5rem 1.2rem 1.5rem;
 }
 
+/* ============================================================
+   FIXTURE CARD - Premium Design
+   ============================================================ */
 .fixture-card-compact {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 0.7rem 1rem;
-    margin-bottom: 0.4rem;
-    border-radius: 10px;
+    margin-bottom: 0.5rem;
+    border-radius: 14px;
     background: #fafafa;
-    border-left: 4px solid #37003c;
-    transition: all 0.2s;
-    flex-wrap: wrap;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     gap: 0.5rem;
+    border: none;
+    position: relative;
+}
+
+.fixture-card-compact::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 20%;
+    width: 4px;
+    height: 60%;
+    border-radius: 0 4px 4px 0;
+    background: #37003c;
+    opacity: 0.6;
+    transition: all 0.3s ease;
 }
 
 .fixture-card-compact:hover {
@@ -587,14 +638,37 @@ body {
     transform: translateX(4px);
 }
 
+.fixture-card-compact:hover::before {
+    opacity: 1;
+    height: 80%;
+    top: 10%;
+}
+
 .fixture-card-compact:last-child {
     margin-bottom: 0;
 }
 
+/* Played match - subtle highlight */
+.fixture-card-compact.played {
+    background: #f8faff;
+}
+
+.fixture-card-compact.played::before {
+    background: #22c55e;
+    opacity: 0.8;
+}
+
+.fixture-card-compact.played:hover {
+    background: #f0f6ff;
+}
+
+/* ============================================================
+   FIXTURE TEAMS
+   ============================================================ */
 .fixture-teams-compact {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.7rem;
     font-weight: 500;
     font-size: 0.9rem;
     flex: 1;
@@ -603,56 +677,74 @@ body {
 
 .team-name-compact {
     font-weight: 500;
+    color: #1a1a2e;
+    transition: color 0.2s;
 }
 
+.team-name-compact:hover {
+    color: #37003c;
+}
+
+/* ============================================================
+   VS / SCORE DISPLAY
+   ============================================================ */
 .vs-compact {
     color: #94a3b8;
-    font-size: 0.7rem;
-    font-weight: 400;
+    font-size: 0.65rem;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    background: #e5e7eb;
+    padding: 0.05rem 0.5rem;
+    border-radius: 20px;
 }
 
-.fixture-result-compact {
-    display: flex;
-    align-items: center;
-    gap: 0.8rem;
-}
-
-.fixture-score-compact {
+.vs-score {
     font-weight: 700;
     font-size: 1rem;
     color: #1a1a2e;
     background: #ffffff;
-    padding: 0.05rem 0.8rem;
-    border-radius: 6px;
-    border: 1px solid #e5e7eb;
+    padding: 0.1rem 0.9rem;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
     min-width: 50px;
     text-align: center;
+    letter-spacing: 0.3px;
 }
 
-.fixture-score-compact.unplayed {
-    color: #94a3b8;
-    font-weight: 400;
-    background: transparent;
-    border: 1px dashed #d1d5db;
+/* Winner highlight (optional) */
+.fixture-card-compact .vs-score.winner-home {
+    color: #22c55e;
+    font-weight: 800;
 }
 
-.fixture-result-compact .report-btn {
-    font-size: 0.6rem;
-    padding: 0.15rem 0.6rem;
+.fixture-card-compact .vs-score.winner-away {
+    color: #22c55e;
+    font-weight: 800;
 }
 
 /* ============================================================
-   REPORT BUTTON
+   FIXTURE BUTTON WRAP
+   ============================================================ */
+.fixture-button-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-left: 0.3rem;
+}
+
+/* ============================================================
+   REPORT BUTTON - Premium
    ============================================================ */
 .report-btn {
-    background: #e5e7eb;
-    border: none;
-    border-radius: 6px;
-    padding: 0.15rem 0.6rem;
-    color: #6b7280;
+    background: transparent;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 30px;
+    padding: 0.2rem 0.8rem;
+    color: #94a3b8;
     cursor: pointer;
     font-size: 0.6rem;
-    transition: all 0.2s;
+    transition: all 0.25s ease;
     font-weight: 600;
     white-space: nowrap;
     font-family: inherit;
@@ -661,16 +753,160 @@ body {
 .report-btn:hover {
     background: #37003c;
     color: #ffffff;
-    transform: scale(1.05);
+    border-color: #37003c;
+    transform: scale(1.02);
 }
 
 .report-btn.has-report {
     background: #37003c;
     color: #ffffff;
+    border-color: #37003c;
+    box-shadow: 0 2px 12px rgba(55, 0, 60, 0.2);
 }
 
 .report-btn.has-report:hover {
     background: #6a1b6e;
+    border-color: #6a1b6e;
+    box-shadow: 0 4px 20px rgba(55, 0, 60, 0.3);
+}
+
+/* ============================================================
+   EMPTY STATE
+   ============================================================ */
+.fixtures-empty {
+    text-align: center;
+    padding: 3rem 1.5rem;
+    background: #ffffff;
+    border-radius: 20px;
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.04);
+}
+
+.fixtures-empty .empty-icon {
+    font-size: 3rem;
+    display: block;
+    margin-bottom: 0.8rem;
+}
+
+.fixtures-empty .empty-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1a1a2e;
+}
+
+.fixtures-empty .empty-sub {
+    font-size: 0.85rem;
+    color: #94a3b8;
+    margin-top: 0.3rem;
+}
+
+/* ============================================================
+   RESPONSIVE - Fixtures
+   ============================================================ */
+@media (max-width: 768px) {
+    .fixture-tab {
+        padding: 0.5rem 1.2rem;
+        font-size: 0.75rem;
+    }
+
+    .fixture-week-header-compact {
+        padding: 0.7rem 1rem;
+    }
+
+    .fixture-list {
+        padding: 0.5rem 1rem 1rem 1rem;
+    }
+
+    .fixture-card-compact {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.4rem;
+        padding: 0.6rem 0.8rem;
+    }
+
+    .fixture-card-compact::before {
+        top: 10%;
+        height: 80%;
+    }
+
+    .fixture-teams-compact {
+        font-size: 0.8rem;
+        min-width: auto;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .vs-compact {
+        font-size: 0.55rem;
+        padding: 0.05rem 0.4rem;
+    }
+
+    .vs-score {
+        font-size: 0.85rem;
+        padding: 0.05rem 0.6rem;
+        min-width: 40px;
+    }
+
+    .fixture-button-wrap {
+        justify-content: center;
+        margin-left: 0;
+    }
+
+    .report-btn {
+        font-size: 0.55rem;
+        padding: 0.15rem 0.6rem;
+    }
+
+    .week-badge {
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .fixture-tab {
+        padding: 0.35rem 0.8rem;
+        font-size: 0.65rem;
+    }
+
+    .fixture-week-header-compact {
+        padding: 0.5rem 0.8rem;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.3rem;
+    }
+
+    .fixture-card-compact {
+        padding: 0.5rem 0.6rem;
+        border-radius: 10px;
+    }
+
+    .fixture-teams-compact {
+        font-size: 0.7rem;
+        gap: 0.3rem;
+    }
+
+    .vs-score {
+        font-size: 0.75rem;
+        min-width: 32px;
+        padding: 0.05rem 0.4rem;
+    }
+
+    .vs-compact {
+        font-size: 0.5rem;
+        padding: 0.02rem 0.3rem;
+    }
+
+    .fixture-button-wrap .report-btn {
+        font-size: 0.45rem;
+        padding: 0.1rem 0.4rem;
+    }
+
+    .week-badge {
+        font-size: 0.8rem;
+    }
+
+    .fixture-card-compact::before {
+        width: 3px;
+    }
 }
 
 /* ============================================================
@@ -1757,7 +1993,9 @@ function buildSingleWeekFixtures(week) {
         <div class="fixture-week-group">
             <div class="fixture-week-header-compact">
                 <div class="fixture-week-title">
-                    <span class="week-badge">Matchweek ${week}</span>
+                    <span class="week-badge">
+                        Matchweek <span class="week-number">${week}</span>
+                    </span>
                     <span class="week-status-badge ${statusClass}">${statusText}</span>
                 </div>
             </div>
@@ -1770,8 +2008,10 @@ function buildSingleWeekFixtures(week) {
 
         // Build the middle part: "vs" or score
         let middleDisplay = '';
+        let cardClass = '';
         if (m.played) {
             middleDisplay = `<span class="vs-score">${m.homeScore} – ${m.awayScore}</span>`;
+            cardClass = 'played';  // ← ADDED: adds .played class for styling
         } else {
             middleDisplay = `<span class="vs-compact">vs</span>`;
         }
@@ -1783,7 +2023,7 @@ function buildSingleWeekFixtures(week) {
         }
 
         html += `
-            <div class="fixture-card-compact">
+            <div class="fixture-card-compact ${cardClass}">
                 <div class="fixture-teams-compact">
                     <span class="team-name-compact">${m.home}</span>
                     ${middleDisplay}
@@ -1941,7 +2181,7 @@ function openTeamModal(teamName) {
             <div class="modal-team-avatar">${teamName.charAt(0)}</div>
             <div class="modal-team-info">
                 <div class="modal-team-name">${teamName}</div>
-                <div class="modal-team-sub">Premier League • Season ${new Date().getFullYear()}</div>
+                <div class="modal-team-sub">Laliga • Season ${new Date().getFullYear()}</div>
             </div>
         </div>
 
@@ -2168,7 +2408,9 @@ function buildSingleFilteredWeekFixtures(week, teamName) {
         <div class="fixture-week-group" style="border: 2px solid #ffd700; box-shadow: 0 4px 20px rgba(255, 215, 0, 0.15);">
             <div class="fixture-week-header-compact" style="background: #fef9e7;">
                 <div class="fixture-week-title">
-                    <span class="week-badge">Matchweek ${week}</span>
+                    <span class="week-badge">
+                        Matchweek <span class="week-number">${week}</span>
+                    </span>
                     <span class="week-status-badge ${statusClass}">${statusText}</span>
                 </div>
             </div>
@@ -2186,8 +2428,10 @@ function buildSingleFilteredWeekFixtures(week, teamName) {
 
         // Build the middle part: "vs" or score
         let middleDisplay = '';
+        let cardClass = '';
         if (m.played) {
             middleDisplay = `<span class="vs-score">${m.homeScore} – ${m.awayScore}</span>`;
+            cardClass = 'played';
         } else {
             middleDisplay = `<span class="vs-compact">vs</span>`;
         }
@@ -2199,7 +2443,7 @@ function buildSingleFilteredWeekFixtures(week, teamName) {
         }
 
         html += `
-            <div class="fixture-card-compact" style="${highlightStyle}">
+            <div class="fixture-card-compact ${cardClass}" style="${highlightStyle}">
                 <div class="fixture-teams-compact">
                     <span class="team-name-compact" style="${m.home === teamName ? 'font-weight:700; color:#37003c;' : ''}">${m.home}</span>
                     ${middleDisplay}
