@@ -103,15 +103,17 @@ body {
     opacity: 0.6;
 }
 
-/* ── Match Card ── */
+/* ============================================================
+   BRACKET MATCH CARD – CLEARER TEAM NAMES
+   ============================================================ */
 .bracket-match {
     background: #ffffff;
     border-radius: 10px;
     border: 1px solid #e5e9f0;
-    padding: 0.3rem 0.5rem;
-    margin: 0.15rem 0.3rem;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.03);
-    font-size: 0.7rem;
+    padding: 0.5rem 0.7rem;                /* increased padding */
+    margin: 0.2rem 0.4rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    font-size: 0.8rem;                     /* increased base font size */
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -119,12 +121,12 @@ body {
     position: relative;
     z-index: 2;
     cursor: pointer;
-    min-height: 36px;
+    min-height: 48px;                      /* taller for visibility */
     overflow: hidden;
 }
 .bracket-match:hover {
-    transform: scale(1.02);
-    box-shadow: 0 4px 16px rgba(29,78,216,0.12);
+    transform: scale(1.03);
+    box-shadow: 0 4px 20px rgba(29,78,216,0.15);
     border-color: #1d4ed8;
     z-index: 5;
 }
@@ -132,26 +134,27 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.2rem;
+    gap: 0.3rem;
 }
 .bracket-match .teams .team {
     display: flex;
     align-items: center;
-    gap: 0.2rem;
-    font-weight: 500;
-    font-size: 0.7rem;
+    gap: 0.3rem;
+    font-weight: 600;                    /* bolder */
+    font-size: 0.85rem;                  /* larger */
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 55px;
+    max-width: 65px;                     /* increased width */
+    color: #0b1e3a;                      /* darker */
 }
 .bracket-match .teams .team .logo {
-    font-size: 1rem;
+    font-size: 1.1rem;
     flex-shrink: 0;
 }
 .bracket-match .teams .vs {
     color: #94a3b8;
-    font-size: 0.5rem;
+    font-size: 0.6rem;
     font-weight: 400;
     flex-shrink: 0;
 }
@@ -159,23 +162,24 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-top: 0.05rem;
-    font-size: 0.65rem;
+    margin-top: 0.1rem;
+    font-size: 0.7rem;
 }
 .bracket-match .score-row .score {
     font-weight: 700;
     color: #1d4ed8;
+    font-size: 0.85rem;                  /* larger score */
 }
 .bracket-match .score-row .agg {
     font-weight: 400;
     color: #6b7a8f;
-    font-size: 0.55rem;
+    font-size: 0.6rem;
 }
 .bracket-match .score-row .status {
-    font-size: 0.5rem;
+    font-size: 0.55rem;
     font-weight: 600;
-    padding: 0.02rem 0.3rem;
-    border-radius: 10px;
+    padding: 0.05rem 0.4rem;
+    border-radius: 12px;
     background: #eef1f5;
     color: #4a5a72;
 }
@@ -183,67 +187,40 @@ body {
 .bracket-match .score-row .status.aet { background: #fef3c7; color: #d97706; }
 .bracket-match .score-row .status.pen { background: #fee2e2; color: #dc2626; }
 
-/* Placeholder */
-.bracket-match.placeholder {
-    background: #f8f9fc;
-    border-style: dashed;
-    border-color: #d1d8e0;
-    color: #6b7a8f;
-    font-style: italic;
-    font-size: 0.6rem;
-    text-align: center;
-    justify-content: center;
-    cursor: default;
-}
-.bracket-match.placeholder:hover {
-    transform: none;
-    box-shadow: none;
-    border-color: #d1d8e0;
-}
-.bracket-match .winner-tag {
-    font-size: 0.45rem;
-    font-weight: 600;
-    color: #16a34a;
-    background: #dcfce7;
-    padding: 0.02rem 0.3rem;
-    border-radius: 10px;
-    display: inline-block;
-    margin-left: 0.2rem;
-}
-
-/* ── Final Match ── */
+/* ── Final Match – even larger ── */
 .bracket-match.final-match {
     grid-row: 5 / 13;
     grid-column: 4;
     border: 2px solid #fbbf24;
     background: #fffbeb;
     border-radius: 16px;
-    padding: 0.8rem 1rem;
-    min-height: 70px;
+    padding: 1rem 1.2rem;
+    min-height: 80px;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
 }
-.bracket-match.final-match .teams .team { font-size: 0.85rem; max-width: 80px; }
-.bracket-match.final-match .score-row .score { font-size: 1rem; color: #f59e0b; }
+.bracket-match.final-match .teams .team {
+    font-size: 1rem;
+    max-width: 90px;
+}
+.bracket-match.final-match .score-row .score {
+    font-size: 1.2rem;
+    color: #f59e0b;
+}
 .bracket-match.final-match .final-badge {
-    font-size: 0.6rem;
+    font-size: 0.7rem;
     font-weight: 700;
     color: #f59e0b;
     text-transform: uppercase;
     letter-spacing: 1px;
 }
-.bracket-match.final-match .champion-display {
-    text-align: center;
-    margin-top: 0.3rem;
-}
 .bracket-match.final-match .champion-display .trophy {
-    font-size: 2rem;
-    display: block;
+    font-size: 2.2rem;
 }
 .bracket-match.final-match .champion-display .name {
-    font-size: 1rem;
+    font-size: 1.2rem;
     font-weight: 800;
     color: #f59e0b;
 }
@@ -424,7 +401,7 @@ body {
         <nav class="ucl-tabs" id="uclTabs">
             <button class="ucl-tab" data-tab="table">📊 League Table</button>
             <button class="ucl-tab" data-tab="fixtures">📅 Fixtures</button>
-            <button class="ucl-tab active" data-tab="bracket">🏆 Bracket</button>
+<button class="ucl-tab" data-tab="bracket" id="bracketTab">🏆 Bracket</button>
         </nav>
 
         <!-- ===== BRACKET TAB ===== -->
@@ -533,6 +510,7 @@ async function loadChampionsLeague() {
         }
         renderLeagueTable();
         renderFixtures();
+        updateBracketVisibility();
         renderBracket();
         checkPhaseCompletion();
         // Auto-update every 15 seconds
@@ -872,6 +850,31 @@ function buildSVGLines(r16Data, qfData, sfData, finalData) {
     `;
 }
 
+function updateBracketVisibility() {
+    const bracketTab = document.getElementById('bracketTab');
+    const bracketContent = document.getElementById('tab-bracket');
+    if (!uclData) return;
+
+    // Check if all league fixtures are played
+    const allPlayed = uclData.leagueFixtures?.every(f => f.played) || false;
+    const phase = uclData.phase;
+
+    // Show if phase is knockout/completed OR all fixtures played
+    const showBracket = (phase === 'knockout' || phase === 'completed' || allPlayed);
+
+    if (showBracket) {
+        bracketTab.style.display = '';
+        bracketContent.style.display = '';
+    } else {
+        bracketTab.style.display = 'none';
+        bracketContent.style.display = 'none';
+        // If currently on bracket tab, switch to league table
+        if (currentTab === 'bracket') {
+            document.querySelector('[data-tab="table"]').click();
+        }
+    }
+}
+
 // ============================================================
 //  OPEN MATCH DETAIL MODAL
 // ============================================================
@@ -1144,18 +1147,25 @@ function renderUCLFixtureWeek(round) {
     fixtures.forEach((m, idx) => {
         const hasReport = m.played && m.report;
         html += `
-            <div class="fixture-item">
-                <div class="teams"><span>${m.home}</span><span class="vs">vs</span><span>${m.away}</span></div>
-                <div class="right">
-                    ${m.played ? `
-                        <span class="score">${m.homeScore} – ${m.awayScore}</span>
-                        <button class="report-btn ${hasReport ? 'has-report' : ''}" onclick="openMatchReport('league', ${idx}, ${round})">
-                            ${hasReport ? '📋 Report' : '📝 Add'}
-                        </button>
-                    ` : `<span class="score unplayed">– : –</span>`}
-                </div>
-            </div>
-        `;
+    <div class="fixture-item">
+        <div class="teams">
+            <span>${m.home}</span>
+            ${m.played ? `
+                <span class="score">${m.homeScore} – ${m.awayScore}</span>
+            ` : `
+                <span class="vs">vs</span>
+            `}
+            <span>${m.away}</span>
+        </div>
+        <div class="right">
+            ${m.played ? `
+                <button class="report-btn ${hasReport ? 'has-report' : ''}" onclick="openMatchReport('league', ${idx}, ${round})">
+                    ${hasReport ? '📋 Report' : '📝 Add'}
+                </button>
+            ` : ''}
+        </div>
+    </div>
+`;
     });
     container.innerHTML = html;
 }
