@@ -8,818 +8,615 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
-        /* ===== CUSTOM STYLES ===== */
-        body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-            min-height: 100vh;
-        }
+/* ============================================================
+   CHAMPIONS LEAGUE – LIGHT PROFESSIONAL THEME
+   ============================================================ */
 
-        /* Glassmorphism cards */
-        .glass-card {
-            background: rgba(255, 255, 255, 0.07);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-            transition: all 0.3s ease;
-        }
-        .glass-card:hover {
-            background: rgba(255, 255, 255, 0.12);
-            border-color: rgba(255, 255, 255, 0.2);
-            transform: translateY(-2px);
-        }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #f5f7fa;
+    color: #1a2a44;
+    padding: 1.5rem;
+}
+.ucl-container { max-width: 1280px; margin: 0 auto; }
+.ucl-header {
+    background: #fff; border-radius: 24px; padding: 1.2rem 2rem; margin-bottom: 1.5rem;
+    display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 16px rgba(0,0,0,0.04);
+}
+.ucl-header-left { display: flex; align-items: center; gap: 1rem; }
+.ucl-trophy { font-size: 2.8rem; }
+.ucl-header h1 { font-size: 1.8rem; font-weight: 800; color: #0b1e3a; }
+.ucl-subtitle { font-size: 0.85rem; color: #4a5a72; }
+.ucl-header-right { display: flex; gap: 0.6rem; }
+.btn-back { background: #eef1f5; border: none; padding: 0.5rem 1.2rem; border-radius: 30px; font-weight: 600; color: #1a2a44; cursor: pointer; }
+.btn-back:hover { background: #dde1e8; }
+.btn-admin { background: #0b1e3a; border: none; padding: 0.5rem 1.2rem; border-radius: 30px; font-weight: 600; color: #fff; cursor: pointer; }
+.btn-admin:hover { background: #1d3557; }
+.hidden { display: none !important; }
 
-        /* Tabs */
-        .tab-btn {
-            padding: 0.6rem 1.8rem;
-            border: none;
-            border-radius: 50px;
-            font-weight: 600;
-            font-size: 0.9rem;
-            background: transparent;
-            color: rgba(255,255,255,0.5);
-            cursor: pointer;
-            transition: all 0.3s ease;
-            position: relative;
-        }
-        .tab-btn::after {
-            content: '';
-            position: absolute;
-            bottom: -2px;
-            left: 50%;
-            transform: translateX(-50%) scaleX(0);
-            width: 60%;
-            height: 3px;
-            background: #667eea;
-            border-radius: 4px;
-            transition: transform 0.3s ease;
-        }
-        .tab-btn:hover {
-            color: rgba(255,255,255,0.8);
-        }
-        .tab-btn.active {
-            color: #fff;
-            background: rgba(102, 126, 234, 0.15);
-        }
-        .tab-btn.active::after {
-            transform: translateX(-50%) scaleX(1);
-        }
+.completion-banner {
+    background: #e8f0fe; border-left: 5px solid #1d4ed8; padding: 0.8rem 1.5rem;
+    border-radius: 12px; margin-bottom: 1.5rem; font-weight: 600; color: #0b1e3a;
+}
+.completion-banner.hidden { display: none; }
 
-        .tab-content {
-            display: none;
-            animation: fadeUp 0.4s ease;
-        }
-        .tab-content.active {
-            display: block;
-        }
+.ucl-tabs {
+    display: flex; gap: 0.3rem; margin-bottom: 1.5rem; border-bottom: 2px solid #e5e9f0; padding-bottom: 0.3rem;
+}
+.ucl-tab {
+    padding: 0.6rem 1.8rem; border: none; border-radius: 40px; background: transparent;
+    font-weight: 600; font-size: 0.9rem; color: #6b7a8f; cursor: pointer; transition: 0.3s;
+}
+.ucl-tab:hover { color: #1a2a44; background: #f0f3f8; }
+.ucl-tab.active { color: #1d4ed8; background: #e8edf9; }
+.ucl-tab-content { display: none; animation: fadeUp 0.35s; }
+.ucl-tab-content.active { display: block; }
+@keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
 
-        @keyframes fadeUp {
-            from {
-                opacity: 0;
-                transform: translateY(15px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
+.table-card, .fixtures-card, .bracket-wrap {
+    background: #fff; border-radius: 24px; padding: 1.5rem;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.04); border: 1px solid #e5e9f0;
+}
+.league-table-wrap { overflow-x: auto; }
+.league-table {
+    width: 100%; border-collapse: collapse; font-size: 0.9rem;
+}
+.league-table th {
+    text-align: left; padding: 0.7rem 0.4rem; color: #4a5a72; font-weight: 600;
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e5e9f0;
+}
+.league-table td {
+    padding: 0.6rem 0.4rem; border-bottom: 1px solid #f0f2f6; color: #1a2a44;
+}
+.league-table tr:hover td { background: #f8f9fc; }
+.league-table .pos { font-weight: 700; min-width: 32px; text-align: center; }
+.league-table .club { font-weight: 600; display: flex; align-items: center; gap: 0.5rem; }
+.league-table .club .emblem { font-size: 1.2rem; }
+.league-table .stat { text-align: center; }
+.league-table .gd-pos { color: #16a34a; font-weight: 600; }
+.league-table .gd-neg { color: #dc2626; font-weight: 600; }
+.league-table .gd-zero { color: #94a3b8; }
+.league-table .pts { font-weight: 800; color: #1d4ed8; text-align: center; }
+.badge-q { background: #dcfce7; color: #16a34a; padding: 0.05rem 0.6rem; border-radius: 20px; font-size: 0.65rem; font-weight: 700; }
+.badge-e { background: #fee2e2; color: #dc2626; padding: 0.05rem 0.6rem; border-radius: 20px; font-size: 0.65rem; font-weight: 700; }
 
-        /* Group tables */
-        .group-table th {
-            color: rgba(255,255,255,0.5);
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            padding: 0.5rem 0.3rem;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
-        }
-        .group-table td {
-            padding: 0.5rem 0.3rem;
-            border-bottom: 1px solid rgba(255,255,255,0.04);
-            color: rgba(255,255,255,0.9);
-        }
-        .group-table tr:hover td {
-            background: rgba(255,255,255,0.03);
-        }
-        .group-header {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            border-radius: 16px;
-            padding: 0.8rem 1.2rem;
-        }
+.archive-section { margin-top: 2rem; border-top: 2px dashed #e5e9f0; padding-top: 1.5rem; }
+.archive-toggle { background: none; border: none; font-weight: 600; color: #1d4ed8; cursor: pointer; font-size: 0.9rem; }
+.archive-toggle:hover { text-decoration: underline; }
+.archive-content { margin-top: 1rem; background: #f8f9fc; border-radius: 16px; padding: 1.2rem; border: 1px solid #e5e9f0; }
+.archive-content.hidden { display: none; }
+.archive-note { color: #6b7a8f; font-size: 0.85rem; margin-bottom: 0.8rem; }
 
-        /* Fixture cards */
-        .fixture-card {
-            background: rgba(255,255,255,0.05);
-            border-radius: 12px;
-            padding: 0.8rem 1rem;
-            margin-bottom: 0.5rem;
-            border-left: 3px solid rgba(102, 126, 234, 0.4);
-            transition: all 0.2s;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-        }
-        .fixture-card:hover {
-            background: rgba(255,255,255,0.08);
-            border-left-color: #667eea;
-        }
-        .fixture-card .teams {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-weight: 500;
-        }
-        .fixture-card .score {
-            font-weight: 700;
-            font-size: 1rem;
-            color: #a5b4fc;
-        }
-        .fixture-card .score.unplayed {
-            color: rgba(255,255,255,0.3);
-        }
+.fixtures-controls {
+    display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1.2rem; flex-wrap: wrap;
+}
+.fixtures-controls label { font-weight: 600; color: #4a5a72; font-size: 0.85rem; }
+.fixtures-controls select {
+    padding: 0.4rem 1rem; border-radius: 30px; border: 1px solid #d1d8e0; background: #fff; font-weight: 500; outline: none;
+}
+.fixture-item {
+    display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 1rem;
+    background: #f8f9fc; border-radius: 14px; margin-bottom: 0.5rem; transition: 0.2s; gap: 0.5rem; flex-wrap: wrap;
+}
+.fixture-item:hover { background: #f0f3f8; }
+.fixture-item .teams {
+    display: flex; align-items: center; gap: 0.5rem; font-weight: 500; font-size: 0.9rem;
+}
+.fixture-item .teams .vs { color: #94a3b8; font-size: 0.7rem; }
+.fixture-item .right { display: flex; align-items: center; gap: 0.6rem; }
+.fixture-item .score { font-weight: 700; font-size: 0.95rem; color: #1a2a44; min-width: 44px; text-align: center; }
+.fixture-item .score.unplayed { color: #94a3b8; font-weight: 400; }
+.report-btn {
+    background: transparent; border: 1.5px solid #d1d8e0; border-radius: 30px; padding: 0.1rem 0.7rem;
+    color: #6b7a8f; cursor: pointer; font-size: 0.6rem; font-weight: 600; transition: 0.25s;
+}
+.report-btn:hover { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
+.report-btn.has-report { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
+.report-btn.has-report:hover { background: #1a3db8; }
 
-        /* Knockout bracket (creative) */
-        .bracket {
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-        }
-        .bracket-round {
-            display: flex;
-            flex-direction: column;
-            gap: 0.8rem;
-        }
-        .bracket-round-title {
-            font-weight: 600;
-            color: rgba(255,255,255,0.4);
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
-            padding-bottom: 0.3rem;
-        }
-        .bracket-match {
-            background: rgba(255,255,255,0.05);
-            border-radius: 10px;
-            padding: 0.6rem 1rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-left: 3px solid #667eea;
-            transition: 0.2s;
-        }
-        .bracket-match:hover {
-            background: rgba(255,255,255,0.08);
-        }
-        .bracket-match .teams {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-weight: 500;
-        }
-        .bracket-match .score {
-            font-weight: 700;
-            color: #a5b4fc;
-        }
-        .bracket-match .vs {
-            color: rgba(255,255,255,0.2);
-            font-size: 0.8rem;
-        }
-        .bracket-match .winner {
-            color: #4ade80;
-            font-size: 0.7rem;
-            font-weight: 600;
-        }
-        .bracket-connector {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: rgba(255,255,255,0.1);
-            font-size: 0.8rem;
-            padding: 0.2rem 0;
-        }
+.bracket { display: flex; flex-direction: column; gap: 2rem; }
+.bracket-round { background: #fafbfc; border-radius: 16px; padding: 1.2rem 1.5rem; border: 1px solid #e5e9f0; }
+.bracket-round-title { font-weight: 700; font-size: 0.9rem; color: #0b1e3a; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.6rem; }
+.bracket-round-title .badge { font-size: 0.65rem; background: #e8edf9; color: #1d4ed8; padding: 0.1rem 0.7rem; border-radius: 20px; }
+.bracket-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+.bracket-match {
+    display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.8rem;
+    background: #fff; border-radius: 12px; border-left: 4px solid #d1d8e0; transition: 0.2s; gap: 0.4rem; flex-wrap: wrap;
+}
+.bracket-match:hover { background: #f8f9fc; }
+.bracket-match .teams { display: flex; align-items: center; gap: 0.3rem; font-weight: 500; font-size: 0.85rem; }
+.bracket-match .teams .vs { color: #94a3b8; font-size: 0.6rem; }
+.bracket-match .score { font-weight: 700; color: #1d4ed8; font-size: 0.85rem; }
+.bracket-match .unplayed { color: #94a3b8; font-size: 0.75rem; }
+.bracket-match .winner-tag { font-size: 0.55rem; font-weight: 600; color: #16a34a; background: #dcfce7; padding: 0.05rem 0.5rem; border-radius: 20px; }
+.bracket-connector { text-align: center; color: #d1d8e0; font-size: 0.8rem; padding: 0.2rem 0; }
+.bracket-final { background: #fff9e6; border: 2px solid #fbbf24; border-radius: 16px; padding: 1.2rem 1.5rem; }
+.bracket-final .final-title { font-weight: 700; font-size: 1rem; color: #0b1e3a; margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.6rem; }
+.bracket-final .final-match {
+    display: flex; justify-content: space-between; align-items: center; padding: 0.7rem 1rem;
+    background: #fffbeb; border-radius: 12px; gap: 0.5rem; flex-wrap: wrap;
+}
+.bracket-final .final-match .teams { display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1rem; }
+.bracket-final .final-match .teams .vs { color: #94a3b8; font-size: 0.7rem; }
+.bracket-final .final-match .score { font-weight: 800; color: #f59e0b; font-size: 1.2rem; }
+.bracket-final .champion { text-align: center; font-size: 1.6rem; font-weight: 800; color: #f59e0b; margin-top: 0.8rem; }
 
-        /* Report button */
-        .report-btn {
-            background: rgba(255,255,255,0.08);
-            border: none;
-            border-radius: 30px;
-            padding: 0.15rem 0.7rem;
-            color: rgba(255,255,255,0.5);
-            cursor: pointer;
-            font-size: 0.6rem;
-            transition: all 0.2s;
-            font-weight: 600;
-        }
-        .report-btn:hover {
-            background: #667eea;
-            color: #fff;
-        }
-        .report-btn.has-report {
-            background: #667eea;
-            color: #fff;
-        }
-        .report-btn.has-report:hover {
-            background: #764ba2;
-        }
+.modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(6px); z-index: 1000; justify-content: center; align-items: center; padding: 1.5rem;
+}
+.modal-overlay.active { display: flex; }
+.modal-box {
+    background: #fff; border-radius: 24px; max-width: 620px; width: 100%; max-height: 90vh;
+    overflow-y: auto; padding: 2rem; box-shadow: 0 24px 80px rgba(0,0,0,0.12); animation: modalIn 0.3s ease;
+}
+@keyframes modalIn {
+    from { opacity: 0; transform: scale(0.96) translateY(20px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.modal-close { float: right; background: none; border: none; color: #6b7a8f; font-size: 1.8rem; cursor: pointer; }
+.modal-close:hover { color: #1a2a44; }
+.modal-box .report-header {
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;
+    border-bottom: 2px solid #e5e9f0; padding-bottom: 1rem; margin-bottom: 1rem;
+}
+.modal-box .report-header .teams { font-size: 1.2rem; font-weight: 700; color: #0b1e3a; }
+.modal-box .report-header .score { font-size: 2.2rem; font-weight: 800; color: #1d4ed8; }
+.modal-box .report-meta { color: #6b7a8f; font-size: 0.85rem; }
+.modal-box .report-comment {
+    background: #f8f9fc; border-radius: 12px; padding: 1rem; line-height: 1.8; font-size: 0.95rem;
+    max-height: 200px; overflow-y: auto; white-space: pre-wrap; color: #1a2a44; margin-bottom: 1rem;
+}
+.modal-box .section-label { font-weight: 600; color: #4a5a72; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; margin: 1rem 0 0.4rem 0; }
+.modal-box .goal-item {
+    display: flex; align-items: center; gap: 0.8rem; padding: 0.25rem 0; font-size: 0.9rem; border-bottom: 1px solid #f0f2f6;
+}
+.modal-box .goal-item .minute { font-weight: 700; color: #1d4ed8; min-width: 40px; }
+.modal-box .goal-item .scorer { font-weight: 600; }
+.modal-box .goal-item .assist { color: #6b7a8f; font-size: 0.8rem; }
+.modal-box .card-item { display: inline-block; padding: 0.05rem 0.6rem; border-radius: 4px; font-size: 0.7rem; font-weight: 700; margin-right: 0.3rem; }
+.modal-box .card-item.yellow { background: #fef3c7; color: #92400e; }
+.modal-box .card-item.red { background: #fee2e2; color: #991b1b; }
+.modal-box .card-text { color: #6b7a8f; font-size: 0.85rem; }
+.modal-box .close-btn {
+    margin-top: 1.5rem; width: 100%; padding: 0.7rem; background: #1d4ed8; border: none;
+    border-radius: 12px; color: #fff; font-weight: 700; font-size: 0.95rem; cursor: pointer;
+}
+.modal-box .close-btn:hover { background: #1a3db8; }
+.modal-box::-webkit-scrollbar { width: 4px; }
+.modal-box::-webkit-scrollbar-track { background: transparent; }
+.modal-box::-webkit-scrollbar-thumb { background: #1d4ed8; border-radius: 10px; }
 
-        /* Stats cards */
-        .stat-card {
-            background: rgba(255,255,255,0.05);
-            border-radius: 16px;
-            padding: 1.2rem;
-            text-align: center;
-            border: 1px solid rgba(255,255,255,0.06);
-            transition: 0.2s;
-        }
-        .stat-card:hover {
-            background: rgba(255,255,255,0.08);
-        }
-        .stat-card .number {
-            font-size: 2rem;
-            font-weight: 800;
-            color: #a5b4fc;
-        }
-        .stat-card .label {
-            font-size: 0.7rem;
-            color: rgba(255,255,255,0.4);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-top: 0.2rem;
-        }
+.loading-text { color: #6b7a8f; font-style: italic; padding: 1rem 0; }
 
-        /* Modal */
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.7);
-            backdrop-filter: blur(8px);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-            padding: 1.5rem;
-        }
-        .modal-overlay.active {
-            display: flex;
-        }
-        .modal-content {
-            background: #1a1a2e;
-            border-radius: 24px;
-            max-width: 600px;
-            width: 100%;
-            max-height: 90vh;
-            overflow-y: auto;
-            padding: 2rem;
-            color: #fff;
-            border: 1px solid rgba(255,255,255,0.1);
-            animation: modalIn 0.3s ease;
-        }
-        @keyframes modalIn {
-            from { opacity: 0; transform: scale(0.95) translateY(20px); }
-            to { opacity: 1; transform: scale(1) translateY(0); }
-        }
-        .modal-close {
-            float: right;
-            background: none;
-            border: none;
-            color: rgba(255,255,255,0.5);
-            font-size: 1.8rem;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .modal-close:hover { color: #fff; }
-        .modal-section-title {
-            font-weight: 600;
-            color: rgba(255,255,255,0.4);
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin: 1rem 0 0.5rem;
-        }
-        .report-goal {
-            display: flex;
-            align-items: center;
-            gap: 0.8rem;
-            padding: 0.3rem 0;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-        }
-        .report-goal .minute {
-            color: #667eea;
-            font-weight: 700;
-            min-width: 40px;
-        }
-        .report-card {
-            display: inline-block;
-            padding: 0.1rem 0.6rem;
-            border-radius: 4px;
-            font-size: 0.7rem;
-            font-weight: 700;
-            margin-right: 0.3rem;
-        }
-        .report-card.yellow { background: #ffd700; color: #1a1a2e; }
-        .report-card.red { background: #ef4444; color: #fff; }
-
-        /* Scrollbar */
-        .modal-content::-webkit-scrollbar { width: 4px; }
-        .modal-content::-webkit-scrollbar-track { background: transparent; }
-        .modal-content::-webkit-scrollbar-thumb { background: #667eea; border-radius: 10px; }
-
-        @media (max-width: 640px) {
-            .tab-btn { padding: 0.4rem 1rem; font-size: 0.75rem; }
-            .modal-content { padding: 1.5rem; }
-            .bracket-match { flex-wrap: wrap; gap: 0.3rem; }
-        }
+@media (max-width: 768px) {
+    body { padding: 1rem; }
+    .ucl-header { padding: 1rem; flex-direction: column; align-items: stretch; gap: 0.5rem; }
+    .ucl-header-right { justify-content: flex-end; }
+    .ucl-tab { padding: 0.4rem 1rem; font-size: 0.8rem; }
+    .bracket-grid { grid-template-columns: 1fr; }
+    .fixture-item { flex-direction: column; align-items: stretch; gap: 0.3rem; }
+    .fixture-item .right { justify-content: flex-end; }
+    .modal-box { padding: 1.2rem; }
+}
     </style>
 </head>
-<body class="p-4 md:p-8">
+<body>
 
-    <div class="max-w-7xl mx-auto">
-        <!-- ===== HEADER ===== -->
-        <div class="glass-card p-6 mb-6 flex flex-wrap items-center justify-between gap-4">
-            <div>
-                <h1 class="text-3xl md:text-4xl font-bold text-white flex items-center gap-2">
-                    🏆 Champions League
-                </h1>
-                <p class="text-white/50 text-sm">Group Stage • Season 2025/26</p>
-            </div>
-            <div class="flex gap-3">
-                <button onclick="window.location.href='index.html'" class="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl font-bold transition text-sm backdrop-blur-sm">
-                    ⬅️ Back
-                </button>
-                <div id="admin-controls" class="hidden">
-                    <button onclick="window.location.href='admin.html'" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-xl font-bold transition text-sm">
-                        ⚙️ Admin
-                    </button>
+    <div class="ucl-container">
+
+        <!-- Header -->
+        <header class="ucl-header">
+            <div class="ucl-header-left">
+                <span class="ucl-trophy">🏆</span>
+                <div>
+                    <h1>Champions League</h1>
+                    <p class="ucl-subtitle" id="phaseSubtitle">2025/26 • League Phase</p>
                 </div>
             </div>
+            <div class="ucl-header-right">
+                <button onclick="window.location.href='index.html'" class="btn-back">⬅ Back</button>
+                <button id="adminBtn" class="btn-admin hidden" onclick="window.location.href='admin.html'">⚙️ Admin</button>
+            </div>
+        </header>
+
+        <!-- Completion Banner -->
+        <div id="completionBanner" class="completion-banner hidden">
+            🏆 League Phase Complete • The Top 16 Clubs have qualified for the Knockout Stage.
         </div>
 
-        <!-- ===== TABS ===== -->
-        <div class="flex flex-wrap gap-2 mb-6 border-b border-white/10 pb-2">
-            <button class="tab-btn active" data-tab="groups">Groups</button>
-            <button class="tab-btn" data-tab="fixtures">Fixtures</button>
-            <button class="tab-btn" data-tab="knockout">Knockout</button>
-        </div>
+        <!-- Tabs -->
+        <nav class="ucl-tabs" id="uclTabs">
+            <button class="ucl-tab active" data-tab="table">📊 League Table</button>
+            <button class="ucl-tab" data-tab="fixtures">📅 Fixtures</button>
+            <button class="ucl-tab" data-tab="bracket">🏆 Bracket</button>
+        </nav>
 
-        <!-- ===== TAB CONTENT ===== -->
-        <div id="tab-groups" class="tab-content active">
-            <div id="groups-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="glass-card p-6">
-                    <div class="group-header text-white rounded-xl p-3 mb-4">
-                        <h4 class="text-xl font-bold">Group A</h4>
+        <!-- Tab: League Table -->
+        <div id="tab-table" class="ucl-tab-content active">
+            <div class="table-card">
+                <div id="leagueTableContainer"><p class="loading-text">Loading league table...</p></div>
+                <div id="archiveContainer" class="archive-section hidden">
+                    <button class="archive-toggle" onclick="toggleArchive()">📂 League Phase Archive</button>
+                    <div id="archiveContent" class="archive-content hidden">
+                        <p class="archive-note">Final standings after all matches.</p>
+                        <div id="archiveTable"></div>
                     </div>
-                    <div id="group-A" class="group-table">Loading...</div>
-                </div>
-                <div class="glass-card p-6">
-                    <div class="group-header text-white rounded-xl p-3 mb-4">
-                        <h4 class="text-xl font-bold">Group B</h4>
-                    </div>
-                    <div id="group-B" class="group-table">Loading...</div>
                 </div>
             </div>
         </div>
 
-        <div id="tab-fixtures" class="tab-content">
-            <div id="fixtures-container" class="glass-card p-6">
-                <p class="text-white/50">Loading fixtures...</p>
+        <!-- Tab: Fixtures -->
+        <div id="tab-fixtures" class="ucl-tab-content">
+            <div class="fixtures-card">
+                <div class="fixtures-controls">
+                    <label>Matchday</label>
+                    <select id="roundSelect" onchange="renderFixtures()"></select>
+                </div>
+                <div id="fixturesContainer"><p class="loading-text">Loading fixtures...</p></div>
             </div>
         </div>
 
-        <div id="tab-knockout" class="tab-content">
-            <div id="knockout-container" class="glass-card p-6">
-                <p class="text-white/50">Loading knockout stage...</p>
+        <!-- Tab: Bracket -->
+        <div id="tab-bracket" class="ucl-tab-content">
+            <div id="bracketContainer" class="bracket-wrap">
+                <p class="loading-text">Loading bracket...</p>
             </div>
         </div>
+
     </div>
 
-    <!-- ===== MATCH REPORT MODAL ===== -->
+    <!-- Match Report Modal -->
     <div class="modal-overlay" id="reportModal">
-        <div class="modal-content">
+        <div class="modal-box">
             <button class="modal-close" onclick="closeReportModal()">✕</button>
-            <div id="reportContent">
-                <div class="text-center py-8 text-white/50">Loading report...</div>
-            </div>
+            <div id="reportContent"><p class="loading-text">Loading report...</p></div>
         </div>
     </div>
 
     <script>
-        // ============================================================
-        //  FIREBASE CONFIG
-        // ============================================================
-        const firebaseConfig = {
-            apiKey: "AIzaSyBmy0tmvaYcw9KsQQRH7RLKcXC8EN6WFqY",
-            authDomain: "dls-premier-league.firebaseapp.com",
-            projectId: "dls-premier-league",
-            storageBucket: "dls-premier-league.firebasestorage.app",
-            messagingSenderId: "975087030284",
-            appId: "1:975087030284:web:7708718fffd9180c009e29"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
+// ============================================================
+//  FIREBASE CONFIG
+// ============================================================
+const firebaseConfig = {
+    apiKey: "AIzaSyBmy0tmvaYcw9KsQQRH7RLKcXC8EN6WFqY",
+    authDomain: "dls-premier-league.firebaseapp.com",
+    projectId: "dls-premier-league",
+    storageBucket: "dls-premier-league.firebasestorage.app",
+    messagingSenderId: "975087030284",
+    appId: "1:975087030284:web:7708718fffd9180c009e29"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
-        // ============================================================
-        //  ADMIN CHECK
-        // ============================================================
-        const isAdmin = sessionStorage.getItem('championsAdmin') === 'true';
-        if (isAdmin) {
-            document.getElementById('admin-controls').classList.remove('hidden');
-        }
+// ============================================================
+//  GLOBALS
+// ============================================================
+let uclData = null, currentTab = 'table';
+const isAdmin = sessionStorage.getItem('championsAdmin') === 'true';
+if (isAdmin) document.getElementById('adminBtn').classList.remove('hidden');
 
-        // ============================================================
-        //  TAB SWITCHING
-        // ============================================================
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                const tab = btn.dataset.tab;
-                document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-                document.getElementById(`tab-${tab}`).classList.add('active');
-                // Re-render if needed
-                if (tab === 'fixtures') renderFixtures();
-                if (tab === 'knockout') renderKnockout();
-                if (tab === 'stats') renderStats();
-            });
-        });
+// ============================================================
+//  TABS
+// ============================================================
+document.querySelectorAll('.ucl-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.ucl-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentTab = btn.dataset.tab;
+        document.querySelectorAll('.ucl-tab-content').forEach(el => el.classList.remove('active'));
+        document.getElementById(`tab-${currentTab}`).classList.add('active');
+        if (currentTab === 'fixtures') renderFixtures();
+        if (currentTab === 'bracket') renderBracket();
+    });
+});
 
-        // ============================================================
-        //  DATA LOADING
-        // ============================================================
-        let championsData = null;
-
-        async function loadChampionsLeague() {
-            try {
-                const snap = await db.ref('champions_league').once('value');
-                championsData = snap.val();
-                if (!championsData) {
-                    document.querySelector('#groups-container').innerHTML = `
-                        <div class="glass-card p-8 col-span-2 text-center">
-                            <p class="text-white/70 text-xl">🏆 No Champions League data found.</p>
-                            <p class="text-white/40 mt-2">The tournament hasn't been created yet.</p>
-                            ${isAdmin ? `<button onclick="window.location.href='admin.html'" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold transition">Create Champions League →</button>` : ''}
-                        </div>
-                    `;
-                    return;
-                }
-                renderGroups();
-                renderFixtures();
-                renderKnockout();
-                renderStats();
-            } catch (error) {
-                console.error(error);
-                document.querySelector('#groups-container').innerHTML = `
-                    <div class="glass-card p-8 col-span-2 text-center text-red-400">
-                        Error loading data: ${error.message}
-                    </div>
-                `;
-            }
-        }
-
-function renderGroups() {
-    ['A', 'B'].forEach(letter => {
-        const container = document.getElementById(`group-${letter}`);
-        const groupData = championsData.groups?.[letter];
-        if (!groupData || groupData.length === 0) {
-            container.innerHTML = '<p class="text-white/30 text-sm">No teams</p>';
+// ============================================================
+//  MAIN LOADER
+// ============================================================
+async function loadChampionsLeague() {
+    try {
+        const snap = await db.ref('champions_league').once('value');
+        uclData = snap.val();
+        if (!uclData) {
+            document.getElementById('leagueTableContainer').innerHTML = `
+                <div style="text-align:center; padding:2rem;">
+                    <p style="font-size:2rem;">🏆</p>
+                    <p style="color:#6b7a8f; font-size:1.1rem;">No Champions League data found.</p>
+                    <p style="color:#94a3b8; font-size:0.9rem;">The tournament hasn't been created yet.</p>
+                    ${isAdmin ? `<button onclick="window.location.href='admin.html'" style="margin-top:1rem; background:#1d4ed8; color:#fff; border:none; padding:0.6rem 2rem; border-radius:30px; font-weight:600; cursor:pointer;">Create Champions League →</button>` : ''}
+                </div>
+            `;
             return;
         }
-        const sorted = [...groupData].sort((a, b) => {
-            if (b.pts_cl !== a.pts_cl) return b.pts_cl - a.pts_cl;
-            if (b.gd_cl !== a.gd_cl) return b.gd_cl - a.gd_cl;
-            return b.gf_cl - a.gf_cl;
-        });
-        let html = `<table class="w-full text-sm group-table">
-            <thead><tr><th class="text-left">Team</th><th class="text-center">P</th><th class="text-center">W</th><th class="text-center">D</th><th class="text-center">L</th><th class="text-center">GF</th><th class="text-center">GA</th><th class="text-center">GD</th><th class="text-center font-bold">Pts</th></tr></thead><tbody>`;
-        sorted.forEach((team, i) => {
-            const gd = team.gd_cl || 0;
-            const gdClass = gd > 0 ? 'text-green-400' : (gd < 0 ? 'text-red-400' : 'text-white/30');
-            html += `<tr>
-                <td class="flex items-center gap-2">
-                    <span class="text-white/30 w-5">${i+1}</span>
-                    ${team.name}
-                </td>
-                <td class="text-center">${team.mp || 0}</td>
-                <td class="text-center">${team.w || 0}</td>
-                <td class="text-center">${team.d || 0}</td>
-                <td class="text-center">${team.l || 0}</td>
-                <td class="text-center">${team.gf_cl || 0}</td>
-                <td class="text-center">${team.ga_cl || 0}</td>
-                <td class="text-center ${gdClass}">${gd > 0 ? '+' : ''}${gd}</td>
-                <td class="text-center font-bold text-indigo-400">${team.pts_cl || 0}</td>
-            </tr>`;
-        });
-        html += '</tbody></table>';
-        container.innerHTML = html;
-    });
+        renderLeagueTable();
+        populateRoundSelect();
+        renderFixtures();
+        renderBracket();
+        checkPhaseCompletion();
+    } catch (err) {
+        console.error(err);
+        document.getElementById('leagueTableContainer').innerHTML =
+            `<div style="color:#dc2626; text-align:center; padding:2rem;">Error loading data: ${err.message}</div>`;
+    }
 }
 
-        // ============================================================
-        //  RENDER FIXTURES
-        // ============================================================
-        function renderFixtures() {
-            const container = document.getElementById('fixtures-container');
-            if (!championsData || !championsData.fixtures) {
-                container.innerHTML = '<p class="text-white/50">No fixtures available.</p>';
-                return;
-            }
-            let html = '';
-            ['A', 'B'].forEach(letter => {
-                const fixtures = championsData.fixtures[letter];
-                if (!fixtures || fixtures.length === 0) return;
-                html += `<div class="mb-6"><h4 class="text-white/60 text-sm font-bold mb-2">Group ${letter}</h4>`;
-                const byRound = {};
-                fixtures.forEach(f => {
-                    if (!byRound[f.round]) byRound[f.round] = [];
-                    byRound[f.round].push(f);
-                });
-                const rounds = Object.keys(byRound).sort((a,b) => Number(a)-Number(b));
-                rounds.forEach(round => {
-                    html += `<div class="mb-3"><p class="text-white/30 text-xs font-semibold mb-1">Matchday ${round}</p>`;
-                    byRound[round].forEach((f, idx) => {
-                        const hasReport = f.played && f.report;
-                        html += `
-                            <div class="fixture-card">
-                                <div class="teams">
-                                    <span>${f.home}</span>
-                                    <span class="text-white/20">vs</span>
-                                    <span>${f.away}</span>
-                                </div>
-                                <div class="flex items-center gap-3">
-                                    ${f.played ? `
-                                        <span class="score">${f.homeScore} – ${f.awayScore}</span>
-                                        <button class="report-btn ${hasReport ? 'has-report' : ''}" onclick="openMatchReport('${letter}', ${round}, ${idx})">
-                                            ${hasReport ? '📋 Report' : '📝 Add'}
-                                        </button>
-                                    ` : `
-                                        <span class="score unplayed">– : –</span>
-                                    `}
-                                </div>
-                            </div>
-                        `;
-                    });
-                    html += `</div>`;
-                });
-                html += `</div>`;
-            });
-            container.innerHTML = html || '<p class="text-white/50">No fixtures scheduled.</p>';
+// ============================================================
+//  LEAGUE TABLE
+// ============================================================
+function renderLeagueTable() {
+    const container = document.getElementById('leagueTableContainer');
+    const table = uclData.leagueTable || [];
+    if (!table.length) { container.innerHTML = '<p class="loading-text">No league data available.</p>'; return; }
+    const sorted = [...table].sort((a,b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
+    const isCompleted = uclData.phase === 'completed' || uclData.phase === 'knockout';
+    let html = `<div class="league-table-wrap"><table class="league-table">
+        <thead><tr>
+            <th>#</th><th>Club</th>
+            <th class="stat">P</th><th class="stat">W</th><th class="stat">D</th><th class="stat">L</th>
+            <th class="stat">GF</th><th class="stat">GA</th><th class="stat">GD</th>
+            <th class="stat">Pts</th>
+            ${isCompleted ? '<th class="stat">Status</th>' : ''}
+        </tr></thead><tbody>`;
+    sorted.forEach((team, i) => {
+        const pos = i+1, gd = team.gd || 0;
+        let gdClass = 'gd-zero';
+        if (gd > 0) gdClass = 'gd-pos'; else if (gd < 0) gdClass = 'gd-neg';
+        let badge = '';
+        if (isCompleted) badge = pos <= 16 ? `<span class="badge-q">✓ Qualified</span>` : `<span class="badge-e">✗ Eliminated</span>`;
+        html += `<tr>
+            <td class="pos">${pos}</td>
+            <td><span class="club"><span class="emblem">⚽</span> ${team.name}</span></td>
+            <td class="stat">${team.played || 0}</td>
+            <td class="stat">${team.won || 0}</td>
+            <td class="stat">${team.drawn || 0}</td>
+            <td class="stat">${team.lost || 0}</td>
+            <td class="stat">${team.gf || 0}</td>
+            <td class="stat">${team.ga || 0}</td>
+            <td class="stat ${gdClass}">${gd > 0 ? '+' : ''}${gd}</td>
+            <td class="pts">${team.pts || 0}</td>
+            ${isCompleted ? `<td class="stat">${badge}</td>` : ''}
+        </tr>`;
+    });
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+    if (isCompleted) {
+        document.getElementById('archiveContainer').classList.remove('hidden');
+        document.getElementById('archiveTable').innerHTML = html;
+    } else {
+        document.getElementById('archiveContainer').classList.add('hidden');
+    }
+}
+
+// ============================================================
+//  PHASE COMPLETION
+// ============================================================
+function checkPhaseCompletion() {
+    const phase = uclData.phase;
+    const banner = document.getElementById('completionBanner');
+    const subtitle = document.getElementById('phaseSubtitle');
+    if (phase === 'completed' || phase === 'knockout') {
+        banner.classList.remove('hidden');
+        subtitle.textContent = '2025/26 • Knockout Stage';
+        if (currentTab !== 'bracket') {
+            document.querySelectorAll('.ucl-tab').forEach(b => b.classList.remove('active'));
+            document.querySelector('[data-tab="bracket"]').classList.add('active');
+            document.querySelectorAll('.ucl-tab-content').forEach(el => el.classList.remove('active'));
+            document.getElementById('tab-bracket').classList.add('active');
+            currentTab = 'bracket';
+            renderBracket();
         }
+    } else {
+        banner.classList.add('hidden');
+        subtitle.textContent = '2025/26 • League Phase';
+    }
+}
 
-        // ============================================================
-        //  RENDER KNOCKOUT
-        // ============================================================
-        function renderKnockout() {
-            const container = document.getElementById('knockout-container');
-            if (!championsData || !championsData.knockout) {
-                container.innerHTML = '<p class="text-white/50">Knockout stage not yet generated.</p>';
-                return;
-            }
-            const ko = championsData.knockout;
-            const quarters = ko.quarterFinals || [];
-            const semis = ko.semiFixtures || [];
-            const final = ko.finalFixture;
-            let html = '<div class="bracket">';
-
-            // Quarter-finals
-            if (quarters.length) {
-                html += `<div class="bracket-round">
-                    <div class="bracket-round-title">⚔️ Quarter-Finals</div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">`;
-                quarters.forEach((f, i) => {
-                    const hasReport = f.played && f.report;
-                    html += `
-                        <div class="bracket-match">
-                            <div class="teams">
-                                <span>${f.home}</span>
-                                <span class="vs">vs</span>
-                                <span>${f.away}</span>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                ${f.played ? `
-                                    <span class="score">${f.homeScore} – ${f.awayScore}</span>
-                                    <button class="report-btn ${hasReport ? 'has-report' : ''}" onclick="openKnockoutReport('quarter', ${i})">
-                                        ${hasReport ? '📋' : '📝'}
-                                    </button>
-                                ` : `<span class="text-white/30 text-sm">⏳</span>`}
-                            </div>
-                        </div>
-                    `;
-                });
-                html += `</div></div>`;
-                html += `<div class="bracket-connector">⬇️</div>`;
-            }
-
-            // Semi-finals
-            if (semis.length) {
-                html += `<div class="bracket-round">
-                    <div class="bracket-round-title">⚔️ Semi-Finals (Two Legs)</div>`;
-                const ties = {};
-                semis.forEach(f => {
-                    if (!ties[f.tieId]) ties[f.tieId] = [];
-                    ties[f.tieId].push(f);
-                });
-                for (const tieId in ties) {
-                    const legs = ties[tieId].sort((a,b) => a.leg - b.leg);
-                    const leg1 = legs.find(l => l.leg === 1);
-                    const leg2 = legs.find(l => l.leg === 2);
-                    if (!leg1 || !leg2) continue;
-                    let agg = '', winner = '';
-                    if (leg1.played && leg2.played) {
-                        const aggHome = (leg1.homeScore || 0) + (leg2.awayScore || 0);
-                        const aggAway = (leg1.awayScore || 0) + (leg2.homeScore || 0);
-                        agg = `Agg: ${aggHome}–${aggAway}`;
-                        winner = aggHome > aggAway ? leg1.home : (aggAway > aggHome ? leg1.away : 'Penalties');
-                    }
-                    html += `
-                        <div class="glass-card p-3 mb-3">
-                            <div class="text-white/40 text-xs font-semibold mb-2">Tie ${tieId}</div>
-                            <div class="space-y-2">
-                                <div class="bracket-match" style="border-left-color: #667eea;">
-                                    <span class="text-sm">Leg 1: ${leg1.home} vs ${leg1.away}</span>
-                                    ${leg1.played ? `<span class="score">${leg1.homeScore}–${leg1.awayScore} ${leg1.report ? `<button class="report-btn has-report" onclick="openKnockoutReport('semi', ${semis.indexOf(leg1)})">📋</button>` : ''}</span>` : `<span class="text-white/30 text-sm">⏳</span>`}
-                                </div>
-                                <div class="bracket-match" style="border-left-color: #764ba2;">
-                                    <span class="text-sm">Leg 2: ${leg2.home} vs ${leg2.away}</span>
-                                    ${leg2.played ? `<span class="score">${leg2.homeScore}–${leg2.awayScore} ${leg2.report ? `<button class="report-btn has-report" onclick="openKnockoutReport('semi', ${semis.indexOf(leg2)})">📋</button>` : ''}</span>` : `<span class="text-white/30 text-sm">⏳</span>`}
-                                </div>
-                                ${winner ? `<div class="text-green-400 text-sm font-semibold">🏆 Winner: ${winner}</div>` : ''}
-                                ${agg ? `<div class="text-white/30 text-xs">${agg}</div>` : ''}
-                            </div>
-                        </div>
-                    `;
-                }
-                html += `</div>`;
-                html += `<div class="bracket-connector">⬇️</div>`;
-            }
-
-            // Final
-            if (final) {
-                const hasReport = final.played && final.report;
-                html += `<div class="bracket-round">
-                    <div class="bracket-round-title">🏆 Final</div>
-                    <div class="bracket-match" style="border-left-color: #fbbf24; border-left-width: 4px; background: rgba(255,215,0,0.05);">
-                        <div class="teams">
-                            <span class="font-bold">${final.home || '?'}</span>
-                            <span class="vs">vs</span>
-                            <span class="font-bold">${final.away || '?'}</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            ${final.played ? `
-                                <span class="score text-yellow-400">${final.homeScore} – ${final.awayScore}</span>
-                                <button class="report-btn ${hasReport ? 'has-report' : ''}" onclick="openKnockoutReport('final', 0)">
-                                    ${hasReport ? '📋' : '📝'}
-                                </button>
-                            ` : `<span class="text-white/30 text-sm">⏳</span>`}
-                        </div>
-                    </div>
-                    ${ko.champion ? `<div class="text-center text-2xl font-bold text-yellow-400 mt-4">🏆 Champion: ${ko.champion}</div>` : ''}
-                </div>`;
-            }
-
-            html += `</div>`;
-            container.innerHTML = html;
-        }
-
-        // ============================================================
-        //  RENDER STATS (placeholder)
-        // ============================================================
-        function renderStats() {
-            const container = document.getElementById('stats-container');
-            // Could compute top scorers from reports, but for now a placeholder
-            container.innerHTML = `
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="stat-card">
-                        <div class="number">—</div>
-                        <div class="label">Top Scorer</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="number">—</div>
-                        <div class="label">Most Assists</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="number">—</div>
-                        <div class="label">Clean Sheets</div>
-                    </div>
+// ============================================================
+//  FIXTURES
+// ============================================================
+function populateRoundSelect() {
+    const select = document.getElementById('roundSelect');
+    const fixtures = uclData.leagueFixtures || [];
+    const maxRound = fixtures.reduce((max, f) => Math.max(max, f.round || 1), 1);
+    select.innerHTML = '';
+    for (let i = 1; i <= maxRound; i++) {
+        const opt = document.createElement('option');
+        opt.value = i; opt.textContent = `Matchday ${i}`;
+        select.appendChild(opt);
+    }
+}
+function renderFixtures() {
+    const container = document.getElementById('fixturesContainer');
+    const select = document.getElementById('roundSelect');
+    const round = parseInt(select.value) || 1;
+    const fixtures = (uclData.leagueFixtures || []).filter(f => f.round === round);
+    if (!fixtures.length) { container.innerHTML = '<p class="loading-text">No fixtures for this matchday.</p>'; return; }
+    let html = '';
+    fixtures.forEach((m, idx) => {
+        const hasReport = m.played && m.report;
+        html += `
+            <div class="fixture-item">
+                <div class="teams"><span>${m.home}</span><span class="vs">vs</span><span>${m.away}</span></div>
+                <div class="right">
+                    ${m.played ? `
+                        <span class="score">${m.homeScore} – ${m.awayScore}</span>
+                        <button class="report-btn ${hasReport ? 'has-report' : ''}" onclick="openMatchReport('league', ${idx}, ${round})">
+                            ${hasReport ? '📋 Report' : '📝 Add'}
+                        </button>
+                    ` : `<span class="score unplayed">– : –</span>`}
                 </div>
-                <p class="text-white/30 text-sm text-center mt-6">Stats will appear after matches are played.</p>
-            `;
-        }
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+}
 
-        // ============================================================
-        //  MATCH REPORT FUNCTIONS
-        // ============================================================
-        async function openMatchReport(group, round, matchIndex) {
-            const data = championsData;
-            if (!data) return;
-            const matches = data.fixtures?.[group]?.filter(f => f.round == round);
-            if (!matches || matchIndex >= matches.length) return;
-            const match = matches[matchIndex];
-            if (!match || !match.played) return;
-            showReportModal(match, `Group ${group} • Matchday ${round}`);
-        }
-
-        async function openKnockoutReport(type, index) {
-            const data = championsData;
-            if (!data || !data.knockout) return;
-            const ko = data.knockout;
-            let match, title = '';
-            if (type === 'quarter') {
-                match = ko.quarterFinals?.[index];
-                title = 'Quarter-final';
-            } else if (type === 'semi') {
-                match = ko.semiFixtures?.[index];
-                title = 'Semi-final';
-            } else if (type === 'final') {
-                match = ko.finalFixture;
-                title = 'Final';
-            }
-            if (!match || !match.played) return;
-            showReportModal(match, title);
-        }
-
-        function showReportModal(match, title) {
-            const modal = document.getElementById('reportModal');
-            const content = document.getElementById('reportContent');
-            modal.classList.add('active');
-            document.body.style.overflow = 'hidden';
-
-            const report = match.report || {};
-            const fullComment = report.fullComment || report.comment || report.summary || 'No match report available.';
-
-            let goalsHtml = '';
-            if (report.goals && report.goals.length > 0) {
-                goalsHtml = report.goals.map(g => `
-                    <div class="report-goal">
-                        <span class="minute">${g.minute}'</span>
-                        <span class="text-white">${g.scorer}</span>
-                        ${g.assist ? `<span class="text-white/30 text-sm">(assist: ${g.assist})</span>` : ''}
-                        <span class="text-white/40 text-sm">${g.team === 'home' ? match.home : match.away}</span>
-                    </div>
-                `).join('');
-            } else {
-                goalsHtml = '<span class="text-white/30">No goals recorded</span>';
-            }
-
-            let cardsHtml = '';
-            if (report.cards && report.cards.length > 0) {
-                cardsHtml = report.cards.map(c => `
-                    <span class="report-card ${c.type}">${c.type.toUpperCase()}</span>
-                    <span class="text-white/60">${c.player} (${c.team === 'home' ? match.home : match.away})</span><br>
-                `).join('');
-            } else {
-                cardsHtml = '<span class="text-white/30">No cards</span>';
-            }
-
-            content.innerHTML = `
-                <div class="border-b border-white/10 pb-3 mb-4">
-                    <div class="flex justify-between items-start flex-wrap gap-3">
-                        <div>
-                            <div class="text-xl font-bold">${match.home} vs ${match.away}</div>
-                            <div class="text-white/40 text-sm">${title} • ${match.homeScore > match.awayScore ? match.home+' won' : match.awayScore > match.homeScore ? match.away+' won' : 'Draw'}</div>
-                        </div>
-                        <div class="text-3xl font-bold text-indigo-400">${match.homeScore} – ${match.awayScore}</div>
-                    </div>
+// ============================================================
+//  BRACKET
+// ============================================================
+function renderBracket() {
+    const container = document.getElementById('bracketContainer');
+    const ko = uclData.knockout || {};
+    if (!ko.roundOf16 || !ko.roundOf16.length) {
+        container.innerHTML = '<p class="loading-text">Knockout stage not yet generated.</p>';
+        return;
+    }
+    let html = `<div class="bracket">`;
+    html += renderKnockoutRound('Round of 16', ko.roundOf16 || [], 'r16');
+    html += renderKnockoutRound('Quarter-finals', ko.quarterFinals || [], 'qf');
+    html += renderKnockoutRound('Semi-finals', ko.semiFinals || [], 'sf');
+    const final = ko.final;
+    if (final) {
+        html += `<div class="bracket-final">
+            <div class="final-title">🏆 Final</div>
+            <div class="final-match">
+                <div class="teams"><span>${final.home || '?'}</span><span class="vs">vs</span><span>${final.away || '?'}</span></div>
+                <div style="display:flex; align-items:center; gap:0.6rem;">
+                    ${final.played ? `
+                        <span class="score">${final.homeScore} – ${final.awayScore}</span>
+                        <button class="report-btn ${final.report ? 'has-report' : ''}" onclick="openKnockoutReport('final')">
+                            ${final.report ? '📋' : '📝'}
+                        </button>
+                    ` : `<span class="unplayed">⏳</span>`}
                 </div>
-
-                <div class="bg-white/5 rounded-xl p-3 mb-4">
-                    <div class="text-white/40 text-xs uppercase tracking-wider">📝 Match Report</div>
-                    <div class="text-white/90 text-sm whitespace-pre-wrap leading-relaxed mt-1 max-h-48 overflow-y-auto">${fullComment}</div>
+            </div>
+            ${ko.champion ? `<div class="champion">🏆 Champion: ${ko.champion}</div>` : ''}
+        </div>`;
+    }
+    html += `</div>`;
+    container.innerHTML = html;
+}
+function renderKnockoutRound(title, matches, type) {
+    if (!matches || !matches.length) return '';
+    const isTwoLeg = matches.some(m => m.leg && m.leg > 1);
+    let html = `<div class="bracket-round">
+        <div class="bracket-round-title">⚔️ ${title} <span class="badge">${isTwoLeg ? 'Two Legs' : 'Single Leg'}</span></div>
+        <div class="bracket-grid">`;
+    matches.forEach((m, idx) => {
+        const hasReport = m.played && m.report;
+        const scoreDisplay = m.played ? `${m.homeScore} – ${m.awayScore}` : '';
+        html += `
+            <div class="bracket-match">
+                <div class="teams">
+                    <span>${m.home}</span><span class="vs">vs</span><span>${m.away}</span>
+                    ${m.played && m.homeScore > m.awayScore ? `<span class="winner-tag">⬆</span>` : ''}
+                    ${m.played && m.awayScore > m.homeScore ? `<span class="winner-tag">⬆</span>` : ''}
                 </div>
-
-                <div class="mb-3">
-                    <div class="text-white/40 text-xs uppercase tracking-wider">⚽ Goals</div>
-                    <div class="mt-1">${goalsHtml}</div>
+                <div style="display:flex; align-items:center; gap:0.4rem;">
+                    ${m.played ? `
+                        <span class="score">${scoreDisplay}</span>
+                        <button class="report-btn ${hasReport ? 'has-report' : ''}" onclick="openKnockoutReport('${type}', ${idx})">
+                            ${hasReport ? '📋' : '📝'}
+                        </button>
+                    ` : `<span class="unplayed">⏳</span>`}
                 </div>
+            </div>
+        `;
+    });
+    html += `</div></div><div class="bracket-connector">⬇</div>`;
+    return html;
+}
 
-                <div>
-                    <div class="text-white/40 text-xs uppercase tracking-wider">🟨 Cards</div>
-                    <div class="mt-1">${cardsHtml}</div>
-                </div>
+// ============================================================
+//  MATCH REPORTS
+// ============================================================
+async function openMatchReport(type, index, round) {
+    const match = uclData.leagueFixtures?.filter(f => f.round === round)?.[index];
+    if (!match || !match.played) return;
+    showReportModal(match, `Matchday ${round}`);
+}
+async function openKnockoutReport(type, index) {
+    const ko = uclData.knockout;
+    let match, title = '';
+    const map = {
+        'r16': { arr: ko.roundOf16, label: 'Round of 16' },
+        'qf': { arr: ko.quarterFinals, label: 'Quarter-final' },
+        'sf': { arr: ko.semiFinals, label: 'Semi-final' },
+        'final': { arr: [ko.final], label: 'Final' }
+    };
+    const entry = map[type];
+    if (!entry) return;
+    match = entry.arr[index];
+    title = entry.label;
+    if (!match || !match.played) return;
+    showReportModal(match, title);
+}
+function showReportModal(match, title) {
+    const modal = document.getElementById('reportModal');
+    const content = document.getElementById('reportContent');
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
 
-                <button onclick="closeReportModal()" class="mt-5 w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-xl font-bold transition">Close</button>
-            `;
-        }
+    const report = match.report || {};
+    const fullComment = report.fullComment || report.comment || report.summary || 'No match report available.';
 
-        function closeReportModal() {
-            document.getElementById('reportModal').classList.remove('active');
-            document.body.style.overflow = '';
-        }
+    let goalsHtml = '';
+    if (report.goals && report.goals.length > 0) {
+        goalsHtml = report.goals.map(g => {
+            const teamName = g.team === 'home' ? match.home : match.away;
+            return `<div class="goal-item"><span class="minute">${g.minute}'</span><span class="scorer">${g.scorer}</span>${g.assist ? `<span class="assist">(assist: ${g.assist})</span>` : ''}<span style="color:#6b7a8f;font-size:0.8rem;">${teamName}</span></div>`;
+        }).join('');
+    } else {
+        goalsHtml = '<span style="color:#94a3b8;font-style:italic;">No goals recorded</span>';
+    }
 
-        document.getElementById('reportModal').addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) closeReportModal();
-        });
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') closeReportModal();
-        });
+    let cardsHtml = '';
+    if (report.cards && report.cards.length > 0) {
+        cardsHtml = report.cards.map(c => {
+            const teamName = c.team === 'home' ? match.home : match.away;
+            return `<span class="card-item ${c.type}">${c.type.toUpperCase()}</span><span class="card-text">${c.player} (${teamName})</span><br>`;
+        }).join('');
+    } else {
+        cardsHtml = '<span style="color:#94a3b8;font-style:italic;">No cards</span>';
+    }
 
-        // ============================================================
-        //  INIT
-        // ============================================================
-        loadChampionsLeague();
-        setInterval(loadChampionsLeague, 30000);
+    const isHomeWin = match.homeScore > match.awayScore;
+    const isAwayWin = match.awayScore > match.homeScore;
+    const resultText = isHomeWin ? `${match.home} won` : isAwayWin ? `${match.away} won` : 'Draw';
+
+    content.innerHTML = `
+        <button class="modal-close" onclick="closeReportModal()">✕</button>
+        <div class="report-header">
+            <div><div class="teams">${match.home} vs ${match.away}</div><div class="report-meta">${title} • ${resultText}</div></div>
+            <div class="score">${match.homeScore} – ${match.awayScore}</div>
+        </div>
+        <div class="report-comment">${fullComment.replace(/\n/g, '<br>')}</div>
+        <div class="section-label"> Goals</div>
+        <div style="margin-bottom:1rem;">${goalsHtml}</div>
+        <div class="section-label">Cards</div>
+        <div style="margin-bottom:1rem;">${cardsHtml}</div>
+        <button class="close-btn" onclick="closeReportModal()">Close</button>
+    `;
+}
+function closeReportModal() {
+    document.getElementById('reportModal').classList.remove('active');
+    document.body.style.overflow = '';
+}
+document.getElementById('reportModal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeReportModal();
+});
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeReportModal();
+});
+
+// ============================================================
+//  ARCHIVE
+// ============================================================
+function toggleArchive() {
+    document.getElementById('archiveContent').classList.toggle('hidden');
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+loadChampionsLeague();
+setInterval(loadChampionsLeague, 30000);
+
     </script>
 </body>
 </html>
