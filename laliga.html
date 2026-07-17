@@ -956,6 +956,26 @@ body {
     transform: scale(1.02);
 }
 
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+    padding: 1.5rem;
+    animation: fadeIn 0.3s ease;
+}
+
+.modal-overlay.active {
+    display: flex;
+}
+
 /* Responsive Modal */
 @media (max-width: 600px) {
     .modal-stats-grid {
@@ -1149,6 +1169,71 @@ body {
 }
 
 /* ============================================================
+   FIXTURE CARD – VS / SCORE & BUTTON
+   ============================================================ */
+.vs-compact {
+    color: #94a3b8;
+    font-size: 0.7rem;
+    font-weight: 400;
+}
+
+.vs-score {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: #37003c;
+    background: #ffffff;
+    padding: 0.05rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+    min-width: 40px;
+    text-align: center;
+}
+
+.fixture-button-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 0.5rem;
+}
+
+.fixture-card-compact {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.7rem 1rem;
+    margin-bottom: 0.4rem;
+    border-radius: 10px;
+    background: #fafafa;
+    border-left: 4px solid #37003c;
+    transition: all 0.2s;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.fixture-card-compact:hover {
+    background: #f5f5f5;
+    transform: translateX(4px);
+}
+
+.fixture-card-compact:last-child {
+    margin-bottom: 0;
+}
+
+.fixture-teams-compact {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 500;
+    font-size: 0.9rem;
+    flex: 1;
+    min-width: 150px;
+}
+
+.team-name-compact {
+    font-weight: 500;
+}
+
+/* ============================================================
    TOAST
    ============================================================ */
 #toast-container {
@@ -1335,8 +1420,8 @@ body {
 
         <!-- ===== TABS ===== -->
         <div class="tabs">
-            <button class="tab-btn active" data-tab="standings">📊 Standings</button>
-            <button class="tab-btn" data-tab="fixtures">📅 Fixtures</button>
+            <button class="tab-btn active" data-tab="standings"> Standings</button>
+            <button class="tab-btn" data-tab="fixtures"> Matchweeks</button>
         </div>
 
         <!-- ===== TAB: STANDINGS ===== -->
@@ -1638,7 +1723,7 @@ function buildSingleWeekFixtures(week) {
     const matches = data.matches || [];
     if (matches.length === 0) return '';
 
-    // Determine week status - NO ICONS, just text
+    // Determine week status
     const allPlayed = matches.every(m => m.played);
     const somePlayed = matches.some(m => m.played);
     let statusText = '';
@@ -1669,19 +1754,28 @@ function buildSingleWeekFixtures(week) {
         const m = matches[i];
         const hasReport = m.played && m.report;
 
+        // Build the middle part: "vs" or score
+        let middleDisplay = '';
+        if (m.played) {
+            middleDisplay = `<span class="vs-score">${m.homeScore} – ${m.awayScore}</span>`;
+        } else {
+            middleDisplay = `<span class="vs-compact">vs</span>`;
+        }
+
+        // Button for played matches
+        let buttonHtml = '';
+        if (m.played) {
+            buttonHtml = `<button class="report-btn ${hasReport ? 'has-report' : ''}" onclick="openMatchReport('${week}', ${i})">${hasReport ? '📋 Report' : '📝 Add Report'}</button>`;
+        }
+
         html += `
             <div class="fixture-card-compact">
                 <div class="fixture-teams-compact">
                     <span class="team-name-compact">${m.home}</span>
-                    <span class="vs-compact">vs</span>
+                    ${middleDisplay}
                     <span class="team-name-compact">${m.away}</span>
                 </div>
-                <div class="fixture-result-compact">
-                    <span class="fixture-score-compact ${m.played ? '' : 'unplayed'}">
-                        ${m.played ? `${m.homeScore} – ${m.awayScore}` : '– : –'}
-                    </span>
-                    ${m.played ? `<button class="report-btn ${hasReport ? 'has-report' : ''}" onclick="openMatchReport('${week}', ${i})">${hasReport ? '📋 Report' : '📝 Add Report'}</button>` : ''}
-                </div>
+                ${buttonHtml ? `<div class="fixture-button-wrap">${buttonHtml}</div>` : ''}
             </div>
         `;
     }
@@ -1718,20 +1812,30 @@ function switchFixtureWeek(week) {
 }
 
 // ============================================================
-//  TEAM MODAL - REDESIGNED
+//  TEAM MODAL - REDESIGNED (FIXED)
 // ============================================================
 function openTeamModal(teamName) {
+    // Get the modal elements
     const modal = document.getElementById('teamModal');
     const content = document.getElementById('modalContent');
-    modal.classList.add('active');
-    document.body.style.overflow = 'hidden';
-
-    const stats = allStandings.find(s => s.name === teamName);
-    if (!stats) {
-        content.innerHTML = `<div class="loading">No data found for ${teamName}</div>`;
+    
+    // Make sure modal exists
+    if (!modal || !content) {
+        console.error('Modal elements not found');
+        showToast('Error opening team details');
         return;
     }
 
+    // Find team stats
+    const stats = allStandings.find(s => s.name === teamName);
+    if (!stats) {
+        content.innerHTML = `<div class="loading">No data found for ${teamName}</div>`;
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        return;
+    }
+
+    // Get team fixtures
     const teamFixtures = [];
     for (const wk in allMatchweeks) {
         const matches = allMatchweeks[wk]?.matches || [];
@@ -1816,6 +1920,7 @@ function openTeamModal(teamName) {
     const formPercentage = stats.played > 0 ? Math.round((stats.won / stats.played) * 100) : 0;
     const goalsPerGame = stats.played > 0 ? (stats.gf / stats.played).toFixed(1) : '0.0';
 
+    // Build the modal content
     content.innerHTML = `
         <!-- Team Header -->
         <div class="modal-team-header">
@@ -1877,7 +1982,7 @@ function openTeamModal(teamName) {
         <!-- Recent Form -->
         <div class="modal-section">
             <div class="modal-section-header">
-                <span>📊 Recent Form</span>
+                <span>Recent Form</span>
             </div>
             <div class="modal-form-dots">${formDots}</div>
         </div>
@@ -1885,7 +1990,7 @@ function openTeamModal(teamName) {
         <!-- Recent Matches -->
         <div class="modal-section">
             <div class="modal-section-header">
-                <span>📋 Recent Matches</span>
+                <span>Recent Matches</span>
             </div>
             <div class="modal-fixture-list">${recentHtml}</div>
         </div>
@@ -1893,7 +1998,7 @@ function openTeamModal(teamName) {
         <!-- Upcoming Fixtures -->
         <div class="modal-section">
             <div class="modal-section-header">
-                <span>📅 Upcoming Fixtures</span>
+                <span>Upcoming Fixtures</span>
             </div>
             <div class="modal-fixture-list">${upcomingHtml}</div>
         </div>
@@ -1904,6 +2009,10 @@ function openTeamModal(teamName) {
             <button class="modal-btn modal-btn-secondary" onclick="switchToFixtures('${teamName}')">📅 View All Fixtures</button>
         </div>
     `;
+
+    // SHOW THE MODAL
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
 }
 
 function closeModal() {
@@ -2061,19 +2170,28 @@ function buildSingleFilteredWeekFixtures(week, teamName) {
             'border-left: 4px solid #ffd700; background: #fef9e7;' :
             'border-left: 4px solid #d1d5db; opacity: 0.5;';
 
+        // Build the middle part: "vs" or score
+        let middleDisplay = '';
+        if (m.played) {
+            middleDisplay = `<span class="vs-score">${m.homeScore} – ${m.awayScore}</span>`;
+        } else {
+            middleDisplay = `<span class="vs-compact">vs</span>`;
+        }
+
+        // Button for played matches
+        let buttonHtml = '';
+        if (m.played) {
+            buttonHtml = `<button class="report-btn ${hasReport ? 'has-report' : ''}" onclick="openMatchReport('${week}', ${data.matches.indexOf(m)})">${hasReport ? '📋 Report' : '📝 Add Report'}</button>`;
+        }
+
         html += `
             <div class="fixture-card-compact" style="${highlightStyle}">
                 <div class="fixture-teams-compact">
                     <span class="team-name-compact" style="${m.home === teamName ? 'font-weight:700; color:#37003c;' : ''}">${m.home}</span>
-                    <span class="vs-compact">vs</span>
+                    ${middleDisplay}
                     <span class="team-name-compact" style="${m.away === teamName ? 'font-weight:700; color:#37003c;' : ''}">${m.away}</span>
                 </div>
-                <div class="fixture-result-compact">
-                    <span class="fixture-score-compact ${m.played ? '' : 'unplayed'}">
-                        ${m.played ? `${m.homeScore} – ${m.awayScore}` : '– : –'}
-                    </span>
-                    ${m.played ? `<button class="report-btn ${hasReport ? 'has-report' : ''}" onclick="openMatchReport('${week}', ${data.matches.indexOf(m)})">${hasReport ? '📋 Report' : '📝 Add Report'}</button>` : ''}
-                </div>
+                ${buttonHtml ? `<div class="fixture-button-wrap">${buttonHtml}</div>` : ''}
             </div>
         `;
     }
@@ -2084,6 +2202,102 @@ function buildSingleFilteredWeekFixtures(week, teamName) {
     `;
 
     return html;
+}
+
+// ============================================================
+//  MATCH REPORT FUNCTIONS
+// ============================================================
+function openMatchReport(week, matchIndex) {
+    const matches = allMatchweeks[week]?.matches || [];
+    const match = matches[matchIndex];
+    if (!match || !match.played) {
+        showToast('This match has not been played yet');
+        return;
+    }
+
+    const modal = document.getElementById('teamModal');
+    const content = document.getElementById('modalContent');
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+
+    const report = match.report || {};
+
+    // Get full comment
+    let fullComment = report.fullComment || report.comment || report.summary || 'No match report available.';
+
+    // Build goals HTML
+    let goalsHtml = '';
+    if (report.goals && report.goals.length > 0) {
+        goalsHtml = report.goals.map(g => {
+            const teamName = g.team === 'home' ? match.home : match.away;
+            return `
+                <div class="report-goal">
+                    <span class="minute">${g.minute}'</span>
+                    <span class="scorer">${g.scorer}</span>
+                    ${g.assist ? `<span class="assist">(assist: ${g.assist})</span>` : ''}
+                    <span style="font-weight:600; color:#37003c;">${teamName}</span>
+                </div>
+            `;
+        }).join('');
+    } else {
+        goalsHtml = '<div class="no-data">No goals recorded</div>';
+    }
+
+    // Build cards HTML
+    let cardsHtml = '';
+    if (report.cards && report.cards.length > 0) {
+        cardsHtml = report.cards.map(c => {
+            const teamName = c.team === 'home' ? match.home : match.away;
+            return `
+                <span class="report-card ${c.type}">${c.type === 'yellow' ? '🟨' : '🟥'} ${c.type.toUpperCase()}</span>
+                <span class="report-card-text">${c.player} (${teamName})</span>
+                <br>
+            `;
+        }).join('');
+    }
+
+    const isHomeWin = match.homeScore > match.awayScore;
+    const isAwayWin = match.awayScore > match.homeScore;
+    const resultText = isHomeWin ? `${match.home} won` : isAwayWin ? `${match.away} won` : 'Draw';
+
+    content.innerHTML = `
+        <div class="report-header">
+            <div>
+                <div class="report-teams">
+                    <span class="home">${match.home}</span>
+                    <span class="vs">vs</span>
+                    <span class="away">${match.away}</span>
+                </div>
+                <div class="report-meta">Matchweek ${week} • ${resultText}</div>
+            </div>
+            <div class="report-score">${match.homeScore} – ${match.awayScore}</div>
+        </div>
+
+        <div style="margin-bottom:0.5rem;">
+            <div style="font-weight:600; color:#6b7280; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:0.5rem;">📝 Match Report</div>
+            <div class="report-comment">${fullComment.replace(/\n/g, '<br>')}</div>
+        </div>
+
+        <div style="margin-top:1rem;">
+            <div style="font-weight:600; color:#6b7280; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:0.5rem;">⚽ Goals</div>
+            <div style="background:#f8f9fa; padding:0.8rem 1rem; border-radius:12px; max-height:150px; overflow-y:auto;">
+                ${goalsHtml}
+            </div>
+        </div>
+
+        ${report.cards && report.cards.length > 0 ? `
+        <div style="margin-top:1rem;">
+            <div style="font-weight:600; color:#6b7280; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:0.5rem;">🟨 Cards</div>
+            <div style="background:#f8f9fa; padding:0.8rem 1rem; border-radius:12px;">
+                ${cardsHtml}
+            </div>
+        </div>
+        ` : ''}
+
+        <div class="report-actions">
+            <button class="modal-btn modal-btn-primary" onclick="closeModal()">Close</button>
+        </div>
+    `;
 }
 
 // ============================================================

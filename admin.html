@@ -496,68 +496,94 @@ button.small {
             </div>
         </div>
 
-        <!-- ===== TAB 3: RESULTS ===== -->
-        <div id="tab-results" class="tab-content">
-            <div class="card">
-                <h2>📝 Submit Match Result</h2>
-                <div class="flex" style="gap:0.5rem;">
-                    <select id="resultLeague" style="flex:0 0 100px;">
-                        <option value="premier">PL</option>
-                        <option value="laliga">LL</option>
-                    </select>
-                    <input id="resWeek" placeholder="Week #" type="number" style="width:80px;" />
-                    <input id="resHome" placeholder="Home" />
-                    <input id="resAway" placeholder="Away" />
-                    <input id="resHScore" placeholder="H" type="number" style="width:60px;" />
-                    <input id="resAScore" placeholder="A" type="number" style="width:60px;" />
-                    <button onclick="submitResult()">Submit</button>
-                </div>
-                <div id="resultMsg" style="margin-top:0.5rem; font-size:0.9rem;"></div>
+<!-- ===== TAB: RESULTS ===== -->
+<div id="tab-results" class="tab-content">
+    <div class="card">
+        <h2>📝 Submit Match Result</h2>
+        <div class="flex" style="gap:0.5rem; flex-wrap:wrap;">
+            <select id="resultLeague" style="flex:0 0 100px; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;">
+                <option value="premier">🏴󠁧󠁢󠁥󠁮󠁧󠁿 PL</option>
+                <option value="laliga">🇪🇸 LL</option>
+            </select>
+            <input id="resWeek" placeholder="Week #" type="number" style="width:80px; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
+            <button onclick="loadFixtureDropdown('result')" style="background:#1f6feb; padding:0.6rem 1.5rem; border:none; border-radius:8px; color:#fff; font-weight:600; cursor:pointer;">📋 Load Fixtures</button>
+        </div>
+        
+        <div id="resultFixtureSelect" style="margin-top:0.5rem; display:none;">
+            <div class="flex" style="gap:0.5rem;">
+                <select id="resultFixtureDropdown" style="flex:1; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;">
+                    <option value="">— Select a fixture —</option>
+                </select>
+                <button onclick="fillResultFromDropdown()" style="background:#2ea043; padding:0.6rem 1.5rem; border:none; border-radius:8px; color:#fff; font-weight:600; cursor:pointer;">📌 Select</button>
             </div>
         </div>
+        
+        <div id="resultInputs" style="margin-top:0.5rem; display:none;">
+            <div class="flex" style="gap:0.5rem; flex-wrap:wrap;">
+                <input id="resHome" placeholder="Home" readonly style="flex:1; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#1c2333; color:#8b949e; cursor:not-allowed;" />
+                <input id="resAway" placeholder="Away" readonly style="flex:1; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#1c2333; color:#8b949e; cursor:not-allowed;" />
+                <input id="resHScore" placeholder="H" type="number" style="width:70px; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
+                <span style="color:#8b949e; font-weight:700;">-</span>
+                <input id="resAScore" placeholder="A" type="number" style="width:70px; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
+                <button onclick="submitResult()" style="background:#2ea043; padding:0.6rem 1.5rem; border:none; border-radius:8px; color:#fff; font-weight:600; cursor:pointer;">💾 Save</button>
+            </div>
+        </div>
+        <div id="resultMsg" style="margin-top:0.5rem; font-size:0.9rem;"></div>
+    </div>
+</div>
 
-<!-- ===== TAB 4: REPORTS ===== -->
+<!-- ===== TAB: REPORTS ===== -->
 <div id="tab-reports" class="tab-content">
     <div class="card">
         <h2>📝 Match Report Editor</h2>
         <div class="flex" style="gap:0.5rem; flex-wrap:wrap;">
             <select id="reportLeague" style="flex:0 0 100px; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;">
-                <option value="premier">PL</option>
-                <option value="laliga">LL</option>
+                <option value="premier">🏴󠁧󠁢󠁥󠁮󠁧󠁿 PL</option>
+                <option value="laliga">🇪🇸 LL</option>
             </select>
             <input id="reportWeek" placeholder="Week #" type="number" style="width:80px; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
-            <input id="reportHome" placeholder="Home" style="flex:1; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
-            <input id="reportAway" placeholder="Away" style="flex:1; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
-            <button onclick="loadMatchForReport()">Load</button>
+            <button onclick="loadFixtureDropdown('report')" style="background:#1f6feb; padding:0.6rem 1.5rem; border:none; border-radius:8px; color:#fff; font-weight:600; cursor:pointer;">📋 Load Fixtures</button>
         </div>
+        
+        <div id="reportFixtureSelect" style="margin-top:0.5rem; display:none;">
+            <div class="flex" style="gap:0.5rem;">
+                <select id="reportFixtureDropdown" style="flex:1; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;">
+                    <option value="">— Select a fixture —</option>
+                </select>
+                <button onclick="fillReportFromDropdown()" style="background:#2ea043; padding:0.6rem 1.5rem; border:none; border-radius:8px; color:#fff; font-weight:600; cursor:pointer;">📌 Load Report</button>
+            </div>
+        </div>
+        
         <div id="reportEditor" style="margin-top:1rem; display:none;">
+            <!-- Scores -->
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; margin-bottom:0.5rem;">
                 <input id="reportHomeScore" placeholder="Home Score" type="number" style="padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
                 <input id="reportAwayScore" placeholder="Away Score" type="number" style="padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
             </div>
             
-            <!-- ===== MATCH COMMENTS ===== -->
+            <!-- Match Comments -->
             <div style="margin-bottom:0.5rem;">
                 <label style="display:block; font-size:0.8rem; color:#8b949e; margin-bottom:0.3rem;">📝 Match Report / Comments</label>
-                <textarea id="reportComments" placeholder="Write a detailed match report...&#10;&#10;Example:&#10;BARCELONA FC secured a convincing 2-0 league match victory over HYPEMAN RICHIE ADO EKITI!&#10;The possession battle was split perfectly down the middle at 50% apiece, but the hosts proved far more clinical with their opportunities. After a scoreless first half, Barcelona FC broke the deadlock in the 61st minute when Mbappé turned playmaker, picking out Bellingham to fire home the opening goal.&#10;The hosts doubled their advantage in the 75th minute when Vini Jr. confidently stepped up to bury a clinical penalty kick.&#10;The match wrapped up at the 90-minute mark with the opponent leaving the match. For opening the scoring and controlling the midfield tempo, Bellingham was deservingly awarded the Player of the Match honors with a 7.2 rating." style="width:100%; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff; min-height:180px; font-family:inherit; resize:vertical;"></textarea>
+                <textarea id="reportComments" placeholder="Write a detailed match report..." style="width:100%; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff; min-height:180px; font-family:inherit; resize:vertical;"></textarea>
                 <div style="display:flex; justify-content:space-between; margin-top:0.2rem;">
                     <span style="font-size:0.7rem; color:#8b949e;">Write a detailed match report with goals, assists, stats, and player ratings</span>
                     <span style="font-size:0.7rem; color:#8b949e;" id="commentCharCount">0 characters</span>
                 </div>
             </div>
-
+            
+            <!-- Goals -->
             <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.5rem;">
                 <input id="reportGoalScorer" placeholder="Scorer" style="flex:1; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
                 <input id="reportGoalMinute" placeholder="Minute" type="number" style="width:80px; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
                 <select id="reportGoalTeam" style="padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;">
-                    <option value="home">🏠 Home</option>
-                    <option value="away">✈️ Away</option>
+                    <option value="">— Select Team —</option>
                 </select>
                 <input id="reportGoalAssist" placeholder="Assist" style="flex:1; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
-                <button onclick="addGoalToReport()" style="padding:0.6rem 1.5rem; background:#2ea043;">Add Goal</button>
+                <button onclick="addGoalToReport()" style="padding:0.6rem 1.5rem; background:#2ea043; border:none; border-radius:8px; color:#fff; font-weight:600; cursor:pointer;">Add Goal</button>
             </div>
-            <div id="reportGoalsList" style="background:#0d1117; padding:0.5rem; border-radius:8px; margin-bottom:0.5rem; font-size:0.85rem; max-height:100px; overflow-y:auto; border:1px solid #21262d;"></div>
-
+            <div id="reportGoalsList" style="background:#0d1117; padding:0.5rem; border-radius:8px; margin-bottom:0.5rem; font-size:0.85rem; max-height:120px; overflow-y:auto; border:1px solid #21262d;"></div>
+            
+            <!-- Cards -->
             <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.5rem;">
                 <input id="reportCardPlayer" placeholder="Player" style="flex:1; padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;" />
                 <select id="reportCardType" style="padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;">
@@ -565,13 +591,13 @@ button.small {
                     <option value="red">🟥 Red</option>
                 </select>
                 <select id="reportCardTeam" style="padding:0.6rem; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#fff;">
-                    <option value="home">🏠 Home</option>
-                    <option value="away">✈️ Away</option>
+                    <option value="">— Select Team —</option>
                 </select>
-                <button onclick="addCardToReport()" style="padding:0.6rem 1.5rem; background:#d29922;">Add Card</button>
+                <button onclick="addCardToReport()" style="padding:0.6rem 1.5rem; background:#d29922; border:none; border-radius:8px; color:#fff; font-weight:600; cursor:pointer;">Add Card</button>
             </div>
-            <div id="reportCardsList" style="background:#0d1117; padding:0.5rem; border-radius:8px; margin-bottom:0.5rem; font-size:0.85rem; max-height:100px; overflow-y:auto; border:1px solid #21262d;"></div>
-
+            <div id="reportCardsList" style="background:#0d1117; padding:0.5rem; border-radius:8px; margin-bottom:0.5rem; font-size:0.85rem; max-height:120px; overflow-y:auto; border:1px solid #21262d;"></div>
+            
+            <!-- Save Button -->
             <button onclick="saveMatchReport()" style="width:100%; padding:0.8rem; background:#4cc9f0; border:none; border-radius:8px; color:#0b001a; font-weight:bold; font-size:1rem; cursor:pointer;">💾 Save Match Report</button>
         </div>
         <div id="reportStatus" style="margin-top:0.5rem; font-size:0.9rem;"></div>
@@ -643,11 +669,6 @@ button.small {
 
     <!-- ===== JAVASCRIPT WILL BE IN BLOCK 3 ===== -->
     <script>
-
-        /* ================================================================
-   BLOCK 3: COMPLETE JAVASCRIPT
-   ================================================================ */
-
 // ================================================================
 //  🔥 FIREBASE CONFIG
 // ================================================================
@@ -761,36 +782,21 @@ function log(msg, type = 'info') {
 // ================================================================
 //  🔥 ULTIMATE RANDOM FIXTURE GENERATION
 // ================================================================
-
 function generateStrictRoundRobin(teamNames) {
-    // ============================================================
-    // STEP 1: Prepare teams (add BYE if odd)
-    // ============================================================
     let teams = [...teamNames];
     const n = teams.length;
-    if (n < 3) {
-        console.error("❌ Need at least 3 teams");
-        return null;
-    }
-
     const isOdd = n % 2 !== 0;
     if (isOdd) teams.push("BYE");
     const m = teams.length;
     const half = m / 2;
-
-    // ============================================================
-    // STEP 2: Generate first half (fixed rotation)
-    // ============================================================
-    const firstHalf = [];
-    let workingTeams = [...teams];
+    const rounds = [];
 
     for (let round = 0; round < m - 1; round++) {
         const roundFixtures = [];
         for (let i = 0; i < half; i++) {
-            const home = workingTeams[i];
-            const away = workingTeams[m - 1 - i];
+            const home = teams[i];
+            const away = teams[m - 1 - i];
             if (home !== "BYE" && away !== "BYE") {
-                // Alternate home/away for balance
                 if (round % 2 === 0) {
                     roundFixtures.push({ home, away });
                 } else {
@@ -798,300 +804,215 @@ function generateStrictRoundRobin(teamNames) {
                 }
             }
         }
-        firstHalf.push(roundFixtures);
-        // Rotate (keep first fixed, shift others)
-        const last = workingTeams.pop();
-        workingTeams.splice(1, 0, last);
+        rounds.push(roundFixtures);
+        const last = teams.pop();
+        teams.splice(1, 0, last);
     }
 
-    // ============================================================
-    // STEP 3: Create second half (mirrored with home/away swapped)
-    // ============================================================
-    const secondHalf = firstHalf.map(round =>
-        round.map(f => ({ home: f.away, away: f.home }))
-    );
+    const secondHalf = rounds.map(r => r.map(f => ({ home: f.away, away: f.home })));
 
-    // ============================================================
-    // STEP 4: Shuffle second half rounds (different matchweeks)
-    // ============================================================
-    for (let i = secondHalf.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [secondHalf[i], secondHalf[j]] = [secondHalf[j], secondHalf[i]];
+    function ultimateShuffle(array, passes = 10) {
+        const getRandom = () => {
+            if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+                const arr = new Uint32Array(1);
+                crypto.getRandomValues(arr);
+                return arr[0] / 4294967295;
+            }
+            return Math.random();
+        };
+
+        for (let pass = 0; pass < passes; pass++) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(getRandom() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            if (pass % 2 === 0 && array.length > 3) {
+                const start = Math.floor(getRandom() * (array.length - 2));
+                const end = start + Math.floor(getRandom() * (array.length - start - 1)) + 1;
+                const segment = array.slice(start, end);
+                segment.reverse();
+                array.splice(start, segment.length, ...segment);
+            }
+            if (pass % 3 === 0 && array.length > 4) {
+                for (let s = 0; s < Math.floor(array.length / 2); s++) {
+                    const idx1 = Math.floor(getRandom() * array.length);
+                    const idx2 = Math.floor(getRandom() * array.length);
+                    if (idx1 !== idx2) {
+                        [array[idx1], array[idx2]] = [array[idx2], array[idx1]];
+                    }
+                }
+            }
+            if (pass % 5 === 0 && array.length > 5) {
+                const rotateAmount = Math.floor(getRandom() * array.length);
+                const part1 = array.slice(0, rotateAmount);
+                const part2 = array.slice(rotateAmount);
+                array.splice(0, array.length, ...part2, ...part1);
+            }
+        }
+        return array;
     }
 
-    // ============================================================
-    // STEP 5: Shuffle positions within all rounds
-    // ============================================================
-    const allRounds = [...firstHalf, ...secondHalf];
-    for (let round = 0; round < allRounds.length; round++) {
-        const fixtures = allRounds[round];
-        for (let i = fixtures.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [fixtures[i], fixtures[j]] = [fixtures[j], fixtures[i]];
+    ultimateShuffle(rounds, 15);
+    ultimateShuffle(secondHalf, 15);
+
+    for (let round = 0; round < rounds.length; round++) {
+        ultimateShuffle(rounds[round], 20);
+    }
+    for (let round = 0; round < secondHalf.length; round++) {
+        ultimateShuffle(secondHalf[round], 20);
+    }
+
+    for (let round = 0; round < rounds.length; round++) {
+        const fixtures = rounds[round];
+        for (let i = 0; i < fixtures.length; i++) {
+            if (Math.random() < 0.15) {
+                [fixtures[i].home, fixtures[i].away] = [fixtures[i].away, fixtures[i].home];
+            }
         }
     }
 
-    // ============================================================
-    // STEP 6: Build the final structure with round numbers
-    // ============================================================
-    const rounds = {};
-    allRounds.forEach((roundFixtures, index) => {
-        rounds[index + 1] = roundFixtures;
-    });
+    const mirroredSecondHalf = rounds.map(r => r.map(f => ({ home: f.away, away: f.home })));
 
-    // ============================================================
-    // STEP 7: Run integrity validation (self-check)
-    // ============================================================
-    const allFixtures = [];
-    for (const round in rounds) {
-        rounds[round].forEach(f => {
-            allFixtures.push({
-                round: parseInt(round),
-                home: f.home,
-                away: f.away
-            });
-        });
+    ultimateShuffle(mirroredSecondHalf, 15);
+    for (let round = 0; round < mirroredSecondHalf.length; round++) {
+        ultimateShuffle(mirroredSecondHalf[round], 20);
     }
 
-    const validationResult = validateFixtureIntegrity(allFixtures, teamNames, true);
-
-    if (!validationResult.valid) {
-        console.error("❌ Generated fixtures failed validation:", validationResult.issues);
-        return null;
+    const firstHalfMatchups = new Set();
+    for (let round = 0; round < rounds.length; round++) {
+        const fixtures = rounds[round];
+        for (const f of fixtures) {
+            const key = `${f.home}|${f.away}`;
+            const reverseKey = `${f.away}|${f.home}`;
+            if (firstHalfMatchups.has(key) || firstHalfMatchups.has(reverseKey)) {
+                [f.home, f.away] = [f.away, f.home];
+            }
+            firstHalfMatchups.add(`${f.home}|${f.away}`);
+        }
     }
 
-    if (validationResult.warnings.length > 0) {
-        console.warn("⚠️ Generated fixtures have warnings:", validationResult.warnings);
+    for (let round = 0; round < rounds.length; round++) {
+        const fixtures = rounds[round];
+        const teamsInRound = new Set();
+        for (const f of fixtures) {
+            if (teamsInRound.has(f.home) || teamsInRound.has(f.away)) {
+                [f.home, f.away] = [f.away, f.home];
+            }
+            teamsInRound.add(f.home);
+            teamsInRound.add(f.away);
+        }
     }
 
-    console.log(`✅ Generated ${allRounds.length} rounds for ${teamNames.length} teams`);
-
-    return rounds;
+    return [...rounds, ...mirroredSecondHalf];
 }
 
 // ================================================================
 //  🔥 FIXTURE VALIDATION
 // ================================================================
-
-function validateFixtureIntegrity(fixtures, teamNames, silent = false) {
-    // ============================================================
-    // INITIALIZATION
-    // ============================================================
+function validateFixtureIntegrity(fixtures, teamList, silent = false) {
+    const totalRounds = Math.max(...fixtures.map(f => f.round));
+    const halfRounds = totalRounds / 2;
     const issues = [];
     const warnings = [];
-    const totalRounds = fixtures.length > 0 ? Math.max(...fixtures.map(f => f.round)) : 0;
-    const halfRounds = Math.floor(totalRounds / 2);
-    const teamSet = new Set(teamNames);
-    const allTeams = new Set(teamNames);
-    const hasBye = teamNames.some(t => t === "BYE");
 
-    if (totalRounds === 0) {
-        return { valid: true, issues: [], warnings: ['No fixtures to validate'] };
-    }
-
-    // ============================================================
-    // CHECK 1: No team plays twice in the same round
-    // ============================================================
     for (let round = 1; round <= totalRounds; round++) {
         const roundFixtures = fixtures.filter(f => f.round === round);
-        const teamsInRound = new Set();
+        const teamsInRound = [];
         for (const f of roundFixtures) {
-            if (f.home !== "BYE" && f.away !== "BYE") {
-                if (teamsInRound.has(f.home)) {
-                    issues.push(`❌ Round ${round}: "${f.home}" appears twice!`);
+            if (teamsInRound.includes(f.home)) {
+                issues.push(`❌ Round ${round}: ${f.home} appears twice!`);
+            }
+            if (teamsInRound.includes(f.away)) {
+                issues.push(`❌ Round ${round}: ${f.away} appears twice!`);
+            }
+            teamsInRound.push(f.home, f.away);
+        }
+    }
+
+    const firstHalfMatches = new Set();
+    for (let round = 1; round <= halfRounds; round++) {
+        const roundFixtures = fixtures.filter(f => f.round === round);
+        for (const f of roundFixtures) {
+            const matchup = `${f.home}|${f.away}`;
+            const reverseMatchup = `${f.away}|${f.home}`;
+            if (firstHalfMatches.has(matchup) || firstHalfMatches.has(reverseMatchup)) {
+                issues.push(`❌ Duplicate matchup in first half: ${f.home} vs ${f.away}`);
+            }
+            firstHalfMatches.add(matchup);
+        }
+    }
+
+    for (let round = 1; round <= halfRounds; round++) {
+        const secondHalfRound = round + halfRounds;
+        const firstHalfFixtures = fixtures.filter(f => f.round === round);
+        const secondHalfFixtures = fixtures.filter(f => f.round === secondHalfRound);
+
+        const sortedFirst = [...firstHalfFixtures].sort((a, b) => a.home.localeCompare(b.home));
+        const sortedSecond = [...secondHalfFixtures].sort((a, b) => a.home.localeCompare(b.home));
+
+        for (let i = 0; i < sortedFirst.length; i++) {
+            const first = sortedFirst[i];
+            const second = sortedSecond[i];
+            if (second) {
+                const match = secondHalfFixtures.find(f =>
+                    f.home === first.away && f.away === first.home
+                );
+                if (!match) {
+                    warnings.push(`⚠️ Round ${secondHalfRound} does not mirror Round ${round}: ${first.home} vs ${first.away}`);
                 }
-                if (teamsInRound.has(f.away)) {
-                    issues.push(`❌ Round ${round}: "${f.away}" appears twice!`);
-                }
-                teamsInRound.add(f.home);
-                teamsInRound.add(f.away);
             }
         }
     }
 
-    // ============================================================
-    // CHECK 2: No duplicate matchups within the same half
-    // ============================================================
-    const firstHalfMatchups = new Set();
-    const secondHalfMatchups = new Set();
-
-    for (const f of fixtures) {
-        if (f.home === "BYE" || f.away === "BYE") continue;
-        const matchup = `${f.home}|${f.away}`;
-        const reverseMatchup = `${f.away}|${f.home}`;
-
-        if (f.round <= halfRounds) {
-            // Check first half
-            if (firstHalfMatchups.has(matchup) || firstHalfMatchups.has(reverseMatchup)) {
-                issues.push(`❌ Duplicate matchup in first half: "${f.home}" vs "${f.away}" (Round ${f.round})`);
-            }
-            firstHalfMatchups.add(matchup);
-        } else {
-            // Check second half
-            if (secondHalfMatchups.has(matchup) || secondHalfMatchups.has(reverseMatchup)) {
-                issues.push(`❌ Duplicate matchup in second half: "${f.home}" vs "${f.away}" (Round ${f.round})`);
-            }
-            secondHalfMatchups.add(matchup);
-        }
-    }
-
-    // ============================================================
-    // CHECK 3: Second half mirrors first half (swapped)
-    // ============================================================
-    // Build a map of first half matchups (normalized)
-    const firstHalfMap = new Map();
-    for (const f of fixtures) {
-        if (f.round <= halfRounds && f.home !== "BYE" && f.away !== "BYE") {
-            const key = [f.home, f.away].sort().join('|');
-            firstHalfMap.set(key, { home: f.home, away: f.away });
-        }
-    }
-
-    // Build a map of second half matchups (normalized)
-    const secondHalfMap = new Map();
-    for (const f of fixtures) {
-        if (f.round > halfRounds && f.home !== "BYE" && f.away !== "BYE") {
-            const key = [f.home, f.away].sort().join('|');
-            secondHalfMap.set(key, { home: f.home, away: f.away });
-        }
-    }
-
-    // Check that every first half matchup appears in second half (swapped)
-    for (const [key, match] of firstHalfMap) {
-        const swapped = { home: match.away, away: match.home };
-        const found = secondHalfMap.get(key);
-        if (!found) {
-            issues.push(`❌ First half matchup "${match.home}" vs "${match.away}" is missing from second half!`);
-        } else if (found.home !== swapped.home || found.away !== swapped.away) {
-            issues.push(`❌ Second half has "${found.home}" vs "${found.away}" but should be "${swapped.home}" vs "${swapped.away}"`);
-        }
-    }
-
-    // Check that every second half matchup appears in first half (swapped)
-    for (const [key, match] of secondHalfMap) {
-        const swapped = { home: match.away, away: match.home };
-        const found = firstHalfMap.get(key);
-        if (!found) {
-            issues.push(`❌ Second half matchup "${match.home}" vs "${match.away}" is missing from first half!`);
-        } else if (found.home !== swapped.home || found.away !== swapped.away) {
-            issues.push(`❌ First half has "${found.home}" vs "${found.away}" but should be "${swapped.home}" vs "${swapped.away}"`);
-        }
-    }
-
-    // ============================================================
-    // CHECK 4: No team plays against itself
-    // ============================================================
     for (const f of fixtures) {
         if (f.home === f.away && f.home !== "BYE") {
-            issues.push(`❌ Invalid fixture: "${f.home}" vs "${f.away}" (team cannot play itself)`);
+            issues.push(`❌ Invalid fixture: ${f.home} vs ${f.away} (team cannot play itself)`);
         }
     }
 
-// ============================================================
-// CHECK 5: Balanced home/away games in first half (FIXED)
-// ============================================================
-const homeCount = {};
-const awayCount = {};
-const firstHalfRounds = [];
-
-for (const f of fixtures) {
-    if (f.round <= halfRounds && f.home !== "BYE" && f.away !== "BYE") {
-        homeCount[f.home] = (homeCount[f.home] || 0) + 1;
-        awayCount[f.away] = (awayCount[f.away] || 0) + 1;
-        if (!firstHalfRounds.includes(f.round)) firstHalfRounds.push(f.round);
+    const homeCount = {};
+    const awayCount = {};
+    for (let round = 1; round <= halfRounds; round++) {
+        const roundFixtures = fixtures.filter(f => f.round === round);
+        for (const f of roundFixtures) {
+            if (f.home !== "BYE") homeCount[f.home] = (homeCount[f.home] || 0) + 1;
+            if (f.away !== "BYE") awayCount[f.away] = (awayCount[f.away] || 0) + 1;
+        }
     }
-}
-
-const allActiveTeams = teamNames.filter(t => t !== "BYE");
-const expectedGames = Math.floor((allActiveTeams.length - 1) / 2);
-
-for (const team of allActiveTeams) {
-    const h = homeCount[team] || 0;
-    const a = awayCount[team] || 0;
-    const total = h + a;
-    
-    // Check if total games is correct
-    if (total !== expectedGames) {
-        issues.push(`❌ "${team}" has ${total} matches in first half, expected ${expectedGames}`);
+    for (const team in homeCount) {
+        if (homeCount[team] !== awayCount[team]) {
+            warnings.push(`⚠️ ${team} has ${homeCount[team]} home games and ${awayCount[team]} away games in first half`);
+        }
     }
-    
-    // Check home/away balance
-    if (h !== a) {
-        // Find which round is causing the imbalance
-        const teamFixtures = fixtures.filter(f => 
-            (f.home === team || f.away === team) && 
-            f.round <= halfRounds
-        );
-        
-        let homeRounds = teamFixtures.filter(f => f.home === team).map(f => f.round).join(', ');
-        let awayRounds = teamFixtures.filter(f => f.away === team).map(f => f.round).join(', ');
-        
-        issues.push(`❌ "${team}" has ${h} home games (rounds ${homeRounds || 'none'}) and ${a} away games (rounds ${awayRounds || 'none'}) in first half (should be equal)`);
-    }
-}
 
-    // ============================================================
-    // CHECK 6: All teams have equal number of matches in first half
-    // ============================================================
     const matchCounts = {};
-    for (const f of fixtures) {
-        if (f.round <= halfRounds && f.home !== "BYE" && f.away !== "BYE") {
-            matchCounts[f.home] = (matchCounts[f.home] || 0) + 1;
-            matchCounts[f.away] = (matchCounts[f.away] || 0) + 1;
+    for (let round = 1; round <= halfRounds; round++) {
+        const roundFixtures = fixtures.filter(f => f.round === round);
+        for (const f of roundFixtures) {
+            if (f.home !== "BYE") matchCounts[f.home] = (matchCounts[f.home] || 0) + 1;
+            if (f.away !== "BYE") matchCounts[f.away] = (matchCounts[f.away] || 0) + 1;
         }
     }
-
     const counts = Object.values(matchCounts);
     if (counts.length > 0) {
         const expected = counts[0];
-        for (const team of allActiveTeams) {
-            const count = matchCounts[team] || 0;
+        for (const [team, count] of Object.entries(matchCounts)) {
             if (count !== expected) {
-                warnings.push(`⚠️ "${team}" has ${count} matches, expected ${expected} in first half`);
+                warnings.push(`⚠️ ${team} has ${count} matches, expected ${expected} in first half`);
             }
         }
     }
 
-    // ============================================================
-    // CHECK 7: All fixtures are between valid teams
-    // ============================================================
-    for (const f of fixtures) {
-        if (f.home !== "BYE" && !allTeams.has(f.home)) {
-            issues.push(`❌ Unknown team "${f.home}" in fixture (Round ${f.round})`);
-        }
-        if (f.away !== "BYE" && !allTeams.has(f.away)) {
-            issues.push(`❌ Unknown team "${f.away}" in fixture (Round ${f.round})`);
-        }
+    const allIssues = [...issues, ...warnings];
+    if (allIssues.length > 0) {
+        console.warn("⚠️ Integrity issues found:", allIssues);
+        if (!silent) showToast(`⚠️ Found ${allIssues.length} issues! Check console.`);
+    } else {
+        console.log("✅ All fixtures are valid!");
+        if (!silent) showToast("✅ Fixture integrity check passed!");
     }
 
-    // ============================================================
-    // OUTPUT RESULTS
-    // ============================================================
-    const totalIssues = issues.length;
-    const totalWarnings = warnings.length;
-
-    if (!silent) {
-        if (totalIssues === 0 && totalWarnings === 0) {
-            console.log("✅ All fixtures are valid!");
-            showToast("✅ Fixture integrity check passed!");
-        } else if (totalIssues === 0 && totalWarnings > 0) {
-            console.warn(`⚠️ ${totalWarnings} warning(s) found, but no critical issues.`);
-            showToast(`⚠️ ${totalWarnings} warning(s) found (see console)`);
-        } else {
-            console.error(`❌ ${totalIssues} critical issue(s) and ${totalWarnings} warning(s) found.`);
-            showToast(`❌ ${totalIssues} critical issue(s) found!`);
-        }
-    }
-
-    return {
-        valid: totalIssues === 0,
-        issues: issues,
-        warnings: warnings,
-        totalIssues: totalIssues,
-        totalWarnings: totalWarnings,
-        halfRounds: halfRounds,
-        totalRounds: totalRounds
-    };
+    return { issues, warnings, valid: issues.length === 0 };
 }
 
 // ================================================================
@@ -1153,26 +1074,15 @@ async function generateFixtures() {
 
     log(`🔄 Generating fixtures for ${teams.length} teams...`, 'info');
 
-    // ============================================================
-    // GENERATE FIXTURES
-    // ============================================================
     const rounds = generateStrictRoundRobin(teams);
 
-    if (!rounds) {
-        log('❌ Failed to generate fixtures', 'error');
-        document.getElementById('fixtureStatus').innerHTML = `<span class="red">❌ Failed to generate fixtures</span>`;
-        return;
-    }
-
-    // ============================================================
-    // CONVERT TO FIREBASE STRUCTURE
-    // ============================================================
     const matchweeks = {};
     let fixtureId = 0;
 
-    for (const roundNum in rounds) {
+    rounds.forEach((roundFixtures, roundIndex) => {
+        const roundNum = roundIndex + 1;
         matchweeks[roundNum] = { matches: [] };
-        rounds[roundNum].forEach(({ home, away }) => {
+        roundFixtures.forEach(({ home, away }) => {
             matchweeks[roundNum].matches.push({
                 id: fixtureId++,
                 home: home,
@@ -1183,64 +1093,46 @@ async function generateFixtures() {
                 cancelled: false
             });
         });
-    }
+    });
 
-    // ============================================================
-    // VALIDATE BEFORE SAVING (using the same validator)
-    // ============================================================
     const allFixtures = [];
     for (const round in matchweeks) {
-        matchweeks[round].matches.forEach(m => {
+        const matches = matchweeks[round].matches || [];
+        matches.forEach(m => {
             allFixtures.push({
                 round: parseInt(round),
                 home: m.home,
-                away: m.away
+                away: m.away,
+                played: m.played || false,
+                cancelled: m.cancelled || false
             });
         });
     }
 
-    const validation = validateFixtureIntegrity(allFixtures, teams, true);
-
-    if (!validation.valid) {
-        log(`❌ Validation failed: ${validation.issues.join(', ')}`, 'error');
-        document.getElementById('fixtureStatus').innerHTML = `
-            <span class="red">❌ Validation failed: ${validation.issues.length} issues found</span>
-            <ul style="margin-top:0.3rem;font-size:0.8rem;list-style:none;padding-left:0;">
-                ${validation.issues.map(e => `<li>• ${e}</li>`).join('')}
-            </ul>
-        `;
+    const result = validateFixtureIntegrity(allFixtures, teams, true);
+    if (!result.valid) {
+        log(`❌ Validation failed: ${result.issues.join(', ')}`, 'error');
+        document.getElementById('fixtureStatus').innerHTML =
+            `<span class="red">❌ Validation failed: ${result.issues.join(', ')}</span>`;
         return;
     }
 
-    // ============================================================
-    // SAVE TO FIREBASE
-    // ============================================================
     await db.ref(`leagues/${currentLeague}/matchweeks`).set(matchweeks);
-
     const totalWeeks = Object.keys(matchweeks).length;
-    const halfRounds = validation.halfRounds || Math.floor(totalWeeks / 2);
+    const halfRounds = totalWeeks / 2;
 
     log(`✅ Generated ${totalWeeks} matchweeks (${halfRounds} first half, ${halfRounds} second half) for ${currentLeague}`, 'success');
 
-    let statusHtml = `
+    document.getElementById('fixtureStatus').innerHTML = `
         <span class="green">✅ ${totalWeeks} matchweeks generated</span>
         <span style="display:block;font-size:0.8rem;margin-top:0.3rem;">
-            First half: ${halfRounds} weeks | Second half: ${halfRounds} weeks
+            First half: ${halfRounds} weeks | Second half: ${halfRounds} weeks (Ultimate Random)
         </span>
         <span style="display:block;font-size:0.8rem;margin-top:0.2rem;color:#8b949e;">
             ${teams.length} teams • ${allFixtures.length} total matches
         </span>
     `;
 
-    if (validation.warnings.length > 0) {
-        statusHtml += `
-            <span style="display:block;font-size:0.8rem;margin-top:0.3rem;color:#d29922;">
-                ⚠️ ${validation.warnings.length} warning(s): ${validation.warnings.join('; ')}
-            </span>
-        `;
-    }
-
-    document.getElementById('fixtureStatus').innerHTML = statusHtml;
     updateFixtureStats();
 }
 
@@ -1291,12 +1183,10 @@ async function checkFixtureIntegrity() {
         return;
     }
 
-    // ============================================================
-    // CONVERT TO FIXTURE ARRAY
-    // ============================================================
     const fixtures = [];
     for (const round in matchweeks) {
-        matchweeks[round].matches.forEach(m => {
+        const matches = matchweeks[round].matches || [];
+        matches.forEach(m => {
             fixtures.push({
                 round: parseInt(round),
                 home: m.home,
@@ -1307,22 +1197,16 @@ async function checkFixtureIntegrity() {
         });
     }
 
-    // ============================================================
-    // RUN VALIDATION
-    // ============================================================
     const result = validateFixtureIntegrity(fixtures, teams, false);
     const statusEl = document.getElementById('fixtureStatus');
 
-    // ============================================================
-    // DISPLAY RESULTS
-    // ============================================================
-    let html = '';
-
     if (result.valid && result.warnings.length === 0) {
-        html = `
+        const total = Object.keys(matchweeks).length;
+        const halfRounds = total / 2;
+        statusEl.innerHTML = `
             <span class="green">✅ All fixtures are valid!</span>
             <span style="display:block;font-size:0.8rem;margin-top:0.3rem;">
-                ${result.totalRounds} matchweeks total (${result.halfRounds} first half, ${result.halfRounds} second half)
+                ${total} matchweeks total (${halfRounds} first half, ${halfRounds} second half)
             </span>
             <span style="display:block;font-size:0.8rem;color:#8b949e;">
                 No issues found ✅
@@ -1330,34 +1214,27 @@ async function checkFixtureIntegrity() {
         `;
         log('✅ Fixture integrity check passed', 'success');
     } else {
+        let html = '';
         if (result.issues.length > 0) {
             html += `<span class="red">❌ ${result.issues.length} critical issue(s):</span>
                 <ul style="margin-top:0.3rem;font-size:0.8rem;list-style:none;padding-left:0;">
                     ${result.issues.map(e => `<li>• ${e}</li>`).join('')}
-                </ul>
-            `;
+                </ul>`;
         }
-
         if (result.warnings.length > 0) {
             html += `<span class="yellow">⚠️ ${result.warnings.length} warning(s):</span>
                 <ul style="margin-top:0.3rem;font-size:0.8rem;list-style:none;padding-left:0;">
                     ${result.warnings.map(e => `<li>• ${e}</li>`).join('')}
-                </ul>
-            `;
+                </ul>`;
         }
-
         html += `
             <button onclick="fixFixtureIntegrity()" class="warning" style="margin-top:0.5rem;padding:0.3rem 1rem;font-size:0.8rem;">
                 🔧 Attempt Auto-Fix
             </button>
         `;
-
         statusEl.innerHTML = html;
-        log(`⚠️ Integrity check: ${result.issues.length} issues, ${result.warnings.length} warnings`, 'warning');
-        return;
+        log(`⚠️ Integrity check: ${result.issues.length} issues, ${result.warnings.length} warnings found`, 'warning');
     }
-
-    statusEl.innerHTML = html;
 }
 
 async function fixFixtureIntegrity() {
@@ -1367,13 +1244,83 @@ async function fixFixtureIntegrity() {
 }
 
 // ================================================================
+//  FIXTURE DROPDOWN LOADER (Shared for Results & Reports)
+// ================================================================
+async function loadFixtureDropdown(mode) {
+    const league = document.getElementById(mode === 'result' ? 'resultLeague' : 'reportLeague').value;
+    const week = document.getElementById(mode === 'result' ? 'resWeek' : 'reportWeek').value;
+
+    if (!week) {
+        showToast('⚠️ Please enter a week number');
+        return;
+    }
+
+    const ref = db.ref(`leagues/${league}/matchweeks/${week}/matches`);
+    const snap = await ref.once('value');
+    const matches = snap.val() || [];
+
+    if (matches.length === 0) {
+        showToast(`⚠️ No fixtures found for ${league.toUpperCase()} Week ${week}`);
+        document.getElementById(mode === 'result' ? 'resultFixtureSelect' : 'reportFixtureSelect').style.display = 'none';
+        document.getElementById(mode === 'result' ? 'resultInputs' : 'reportEditor').style.display = 'none';
+        return;
+    }
+
+    const dropdown = document.getElementById(mode === 'result' ? 'resultFixtureDropdown' : 'reportFixtureDropdown');
+    dropdown.innerHTML = '<option value="">— Select a fixture —</option>';
+    matches.forEach((m, index) => {
+        const option = document.createElement('option');
+        option.value = index;
+        option.textContent = `${m.home} vs ${m.away}`;
+        dropdown.appendChild(option);
+    });
+
+    document.getElementById(mode === 'result' ? 'resultFixtureSelect' : 'reportFixtureSelect').style.display = 'block';
+    document.getElementById(mode === 'result' ? 'resultInputs' : 'reportEditor').style.display = 'none';
+
+    window._loadedMatches = matches;
+    window._loadedMode = mode;
+    window._loadedLeague = league;
+    window._loadedWeek = week;
+
+    showToast(`✅ Loaded ${matches.length} fixtures for ${league.toUpperCase()} Week ${week}`);
+}
+
+// ================================================================
+//  FILL RESULT FROM DROPDOWN
+// ================================================================
+function fillResultFromDropdown() {
+    const dropdown = document.getElementById('resultFixtureDropdown');
+    const index = parseInt(dropdown.value);
+    if (isNaN(index)) {
+        showToast('⚠️ Please select a fixture');
+        return;
+    }
+
+    const matches = window._loadedMatches;
+    if (!matches || index >= matches.length) {
+        showToast('⚠️ Fixture data not found');
+        return;
+    }
+
+    const fixture = matches[index];
+    document.getElementById('resHome').value = fixture.home;
+    document.getElementById('resAway').value = fixture.away;
+    document.getElementById('resHScore').value = fixture.homeScore || '';
+    document.getElementById('resAScore').value = fixture.awayScore || '';
+
+    document.getElementById('resultInputs').style.display = 'block';
+    showToast(`📌 Loaded ${fixture.home} vs ${fixture.away}`);
+}
+
+// ================================================================
 //  SUBMIT RESULT
 // ================================================================
 async function submitResult() {
     const league = document.getElementById('resultLeague').value;
     const week = document.getElementById('resWeek').value;
-    const home = document.getElementById('resHome').value.trim();
-    const away = document.getElementById('resAway').value.trim();
+    let home = document.getElementById('resHome').value.trim();
+    let away = document.getElementById('resAway').value.trim();
     const hs = parseInt(document.getElementById('resHScore').value);
     const as = parseInt(document.getElementById('resAScore').value);
 
@@ -1382,99 +1329,135 @@ async function submitResult() {
         return;
     }
 
+    const matches = window._loadedMatches;
+    let fixtureIndex = -1;
+    if (matches && window._loadedMode === 'result') {
+        fixtureIndex = matches.findIndex(m => m.home === home && m.away === away);
+    }
+
     const ref = db.ref(`leagues/${league}/matchweeks/${week}/matches`);
     const snap = await ref.once('value');
-    const matches = snap.val() || [];
-    let found = false;
+    let matchesData = snap.val() || [];
 
-    for (let i = 0; i < matches.length; i++) {
-        if (matches[i].home === home && matches[i].away === away) {
-            matches[i].homeScore = hs;
-            matches[i].awayScore = as;
-            matches[i].played = true;
-            found = true;
-            break;
+    if (fixtureIndex !== -1 && matchesData[fixtureIndex]) {
+        matchesData[fixtureIndex].homeScore = hs;
+        matchesData[fixtureIndex].awayScore = as;
+        matchesData[fixtureIndex].played = true;
+    } else {
+        let found = false;
+        for (let i = 0; i < matchesData.length; i++) {
+            if (matchesData[i].home === home && matchesData[i].away === away) {
+                matchesData[i].homeScore = hs;
+                matchesData[i].awayScore = as;
+                matchesData[i].played = true;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            matchesData.push({ home, away, homeScore: hs, awayScore: as, played: true });
         }
     }
 
-    if (!found) {
-        matches.push({ home, away, homeScore: hs, awayScore: as, played: true });
-    }
+    await ref.set(matchesData);
+    document.getElementById('resultMsg').innerHTML = `<span style="color:#3fb950;">✅ Result saved! ${home} ${hs}-${as} ${away}</span>`;
+    log(`✅ Result: ${home} ${hs}–${as} ${away} (${league} wk${week})`, 'success');
 
-    await ref.set(matches);
-    document.getElementById('resultMsg').innerHTML = `<span style="color:#3fb950;">✅ Result saved!</span>`;
-    log(`Result: ${home} ${hs}–${as} ${away} (${league} wk${week})`, 'success');
-
-    document.getElementById('resHome').value = '';
-    document.getElementById('resAway').value = '';
     document.getElementById('resHScore').value = '';
     document.getElementById('resAScore').value = '';
-    updateFixtureStats();
 }
 
 // ================================================================
-//  MATCH REPORT EDITOR (UPDATED with Comments)
+//  FILL REPORT FROM DROPDOWN
 // ================================================================
-let currentReportData = { goals: [], cards: [], matchIndex: -1, league: 'premier', week: '', home: '', away: '' };
-
-async function loadMatchForReport() {
-    const league = document.getElementById('reportLeague').value;
-    const week = document.getElementById('reportWeek').value;
-    const home = document.getElementById('reportHome').value.trim();
-    const away = document.getElementById('reportAway').value.trim();
-
-    if (!week || !home || !away) {
-        document.getElementById('reportStatus').innerHTML = '<span style="color:#f85149;">❌ Fill all fields</span>';
+function fillReportFromDropdown() {
+    const dropdown = document.getElementById('reportFixtureDropdown');
+    const index = parseInt(dropdown.value);
+    if (isNaN(index)) {
+        showToast('⚠️ Please select a fixture');
         return;
     }
 
-    const ref = db.ref(`leagues/${league}/matchweeks/${week}/matches`);
-    const snap = await ref.once('value');
-    const matches = snap.val() || [];
-    let found = null;
-    let index = -1;
-    for (let i = 0; i < matches.length; i++) {
-        if (matches[i].home === home && matches[i].away === away) {
-            found = matches[i];
-            index = i;
-            break;
-        }
-    }
-
-    if (!found) {
-        document.getElementById('reportStatus').innerHTML = '<span style="color:#f85149;">❌ Match not found</span>';
+    const matches = window._loadedMatches;
+    if (!matches || index >= matches.length) {
+        showToast('⚠️ Fixture data not found');
         return;
     }
 
-    document.getElementById('reportEditor').style.display = 'block';
-    document.getElementById('reportHomeScore').value = found.homeScore || '';
-    document.getElementById('reportAwayScore').value = found.awayScore || '';
-    document.getElementById('reportComments').value = found.report?.comment || found.report?.summary || '';
+    const fixture = matches[index];
+    const report = fixture.report || {};
+
+    document.getElementById('reportHomeScore').value = fixture.homeScore || '';
+    document.getElementById('reportAwayScore').value = fixture.awayScore || '';
+    document.getElementById('reportComments').value = report.fullComment || report.comment || report.summary || '';
+    updateCommentCharCount();
+
+    const goals = (report.goals || []).map(g => {
+        if (g.team === 'home') return { ...g, team: fixture.home };
+        if (g.team === 'away') return { ...g, team: fixture.away };
+        return g;
+    });
+    const cards = (report.cards || []).map(c => {
+        if (c.team === 'home') return { ...c, team: fixture.home };
+        if (c.team === 'away') return { ...c, team: fixture.away };
+        return c;
+    });
 
     currentReportData = {
-        goals: found.report?.goals || [],
-        cards: found.report?.cards || [],
+        goals: goals,
+        cards: cards,
         matchIndex: index,
-        league: league,
-        week: week,
-        home: home,
-        away: away
+        league: window._loadedLeague,
+        week: window._loadedWeek,
+        home: fixture.home,
+        away: fixture.away
     };
 
+    populateTeamSelects(fixture.home, fixture.away);
     renderReportGoals();
     renderReportCards();
-    updateCommentCharCount();
-    document.getElementById('reportStatus').innerHTML = `<span style="color:#3fb950;">✅ Match loaded</span>`;
+
+    document.getElementById('reportEditor').style.display = 'block';
+    showToast(`📌 Loaded report for ${fixture.home} vs ${fixture.away}`);
 }
 
-// Character counter for comments
-document.getElementById('reportComments').addEventListener('input', updateCommentCharCount);
+// ================================================================
+//  POPULATE TEAM SELECTS
+// ================================================================
+function populateTeamSelects(home, away) {
+    const goalTeamSelect = document.getElementById('reportGoalTeam');
+    const cardTeamSelect = document.getElementById('reportCardTeam');
 
+    [goalTeamSelect, cardTeamSelect].forEach(select => {
+        select.innerHTML = '';
+        const opt1 = document.createElement('option');
+        opt1.value = home;
+        opt1.textContent = home;
+        select.appendChild(opt1);
+
+        const opt2 = document.createElement('option');
+        opt2.value = away;
+        opt2.textContent = away;
+        select.appendChild(opt2);
+    });
+}
+
+// ================================================================
+//  COMMENT CHARACTER COUNT
+// ================================================================
 function updateCommentCharCount() {
     const el = document.getElementById('reportComments');
-    const count = el.value.length;
-    document.getElementById('commentCharCount').textContent = count + ' characters';
+    if (el) {
+        const count = el.value.length;
+        const display = document.getElementById('commentCharCount');
+        if (display) display.textContent = count + ' characters';
+    }
 }
+
+// ================================================================
+//  MATCH REPORT EDITOR - GOALS & CARDS
+// ================================================================
+let currentReportData = { goals: [], cards: [], matchIndex: -1, league: 'premier', week: '', home: '', away: '' };
 
 function addGoalToReport() {
     const scorer = document.getElementById('reportGoalScorer').value.trim();
@@ -1484,6 +1467,10 @@ function addGoalToReport() {
 
     if (!scorer || !minute) {
         document.getElementById('reportStatus').innerHTML = '<span style="color:#f85149;">❌ Scorer and minute required</span>';
+        return;
+    }
+    if (!team) {
+        document.getElementById('reportStatus').innerHTML = '<span style="color:#f85149;">❌ Select a team</span>';
         return;
     }
 
@@ -1504,6 +1491,10 @@ function addCardToReport() {
         document.getElementById('reportStatus').innerHTML = '<span style="color:#f85149;">❌ Player name required</span>';
         return;
     }
+    if (!team) {
+        document.getElementById('reportStatus').innerHTML = '<span style="color:#f85149;">❌ Select a team</span>';
+        return;
+    }
 
     currentReportData.cards.push({ player, type, team });
     document.getElementById('reportCardPlayer').value = '';
@@ -1518,9 +1509,9 @@ function renderReportGoals() {
         return;
     }
     container.innerHTML = currentReportData.goals.map((g, i) => `
-        <div class="report-goal-item">
-            <span>${g.minute}' ${g.scorer} ${g.assist ? '(assist: '+g.assist+')' : ''} (${g.team === 'home' ? '🏠' : '✈️'})</span>
-            <button class="remove" onclick="removeReportGoal(${i})">✕</button>
+        <div style="display:flex; justify-content:space-between; padding:0.2rem 0; border-bottom:1px solid #21262d;">
+            <span>${g.minute}' ${g.scorer} ${g.assist ? '(assist: '+g.assist+')' : ''} (${g.team})</span>
+            <button onclick="removeReportGoal(${i})" style="background:transparent; border:none; color:#f85149; cursor:pointer;">✕</button>
         </div>
     `).join('');
 }
@@ -1532,9 +1523,9 @@ function renderReportCards() {
         return;
     }
     container.innerHTML = currentReportData.cards.map((c, i) => `
-        <div class="report-card-item">
-            <span>${c.type === 'yellow' ? '🟨' : '🟥'} ${c.player} (${c.team === 'home' ? '🏠' : '✈️'})</span>
-            <button class="remove" onclick="removeReportCard(${i})">✕</button>
+        <div style="display:flex; justify-content:space-between; padding:0.2rem 0; border-bottom:1px solid #21262d;">
+            <span>${c.type === 'yellow' ? '🟨' : '🟥'} ${c.player} (${c.team})</span>
+            <button onclick="removeReportCard(${i})" style="background:transparent; border:none; color:#f85149; cursor:pointer;">✕</button>
         </div>
     `).join('');
 }
@@ -1561,7 +1552,7 @@ async function saveMatchReport() {
     }
 
     if (!comments) {
-        document.getElementById('reportStatus').innerHTML = '<span style="color:#f85149;">❌ Please write match comments/report</span>';
+        document.getElementById('reportStatus').innerHTML = '<span style="color:#f85149;">❌ Please write match comments</span>';
         return;
     }
 
@@ -1576,13 +1567,15 @@ async function saveMatchReport() {
         matches[matchIndex].report = {
             comment: comments,
             summary: comments.substring(0, 200) + (comments.length > 200 ? '...' : ''),
+            fullComment: comments,
             goals: goals,
-            cards: cards,
-            fullComment: comments
+            cards: cards
         };
         await ref.set(matches);
         document.getElementById('reportStatus').innerHTML = `<span style="color:#3fb950;">✅ Report saved successfully!</span>`;
         log(`📝 Match report saved: ${home} ${homeScore}-${awayScore} ${away} (${league} wk${week})`, 'success');
+    } else {
+        document.getElementById('reportStatus').innerHTML = '<span style="color:#f85149;">❌ Match not found</span>';
     }
 }
 
@@ -1818,6 +1811,9 @@ async function clearChampionsLeague() {
     document.getElementById('uclStatus').innerHTML = `<span class="yellow">⚠️ Champions League cleared</span>`;
 }
 
+// ================================================================
+//  SEASON MANAGEMENT
+// ================================================================
 async function triggerEndSeason() {
     if (!confirm('⚠️ Relegate bottom 3 teams from both leagues? This will remove them and reset fixtures.')) return;
 
@@ -1933,6 +1929,7 @@ function computeStandingsLocal(matchweeks, teamNames) {
             return b.gf - a.gf;
         });
 }
-    </script>
+
+</script>
 </body>
 </html>
