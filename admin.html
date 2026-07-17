@@ -321,15 +321,14 @@ button.full-width { width: 100%; }
             </div>
         </div>
 
-<!-- ===== TAB: CHAMPIONS LEAGUE (NEW) ===== -->
+<!-- ===== TAB: CHAMPIONS LEAGUE ===== -->
 <div id="tab-ucl" class="tab-content">
     <div class="card">
-        <h2>🏆 Champions League Management</h2>
+        <h2>🏆 Champions League</h2>
         <p style="color: #4a5a72; margin-bottom: 1rem;">
-            Click the button below to go to the dedicated Champions League admin panel.
-            You can manage league phase results, knockout stage, and more.
+            Manage the full Champions League tournament – league phase results, knockout stage, and bracket.
         </p>
-        <button onclick="window.location.href='champions-league-admin.html'" class="primary" style="width:100%; padding:0.8rem; font-size:1rem;">
+        <button onclick="goToUCLAdmin()" class="primary" style="width:100%; padding:0.8rem; font-size:1rem;">
             ⚽ Go to Champions League Admin
         </button>
     </div>
@@ -430,6 +429,12 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
         document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
     });
 });
+
+function goToUCLAdmin() {
+    // Set admin flag for the unified page
+    sessionStorage.setItem('uclAdmin', 'true');
+    window.location.href = 'champions-league.html';
+}
 
 // ============================================================
 //  TOAST & LOG
