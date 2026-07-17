@@ -321,29 +321,19 @@ button.full-width { width: 100%; }
             </div>
         </div>
 
-        <!-- ===== TAB: CHAMPIONS LEAGUE ===== -->
-        <div id="tab-ucl" class="tab-content">
-            <div class="card-grid">
-                <div class="card">
-                    <h2>🏆 Champions League Management</h2>
-                    <div class="btn-group">
-                        <button onclick="generateChampionsLeague()" class="primary">🎲 Generate UCL (Top 10 each)</button>
-                        <button onclick="generateKnockout()" class="warning">🏆 Generate Knockout</button>
-                        <button onclick="clearChampionsLeague()" class="danger">🗑️ Clear UCL</button>
-                    </div>
-                    <div id="uclStatus" class="status-box">Ready to generate Champions League</div>
-                </div>
-                <div class="card">
-                    <h2>📊 UCL Format</h2>
-                    <div class="info-box">
-                        <p><strong>20 teams</strong> (Top 10 PL + Top 10 LL)</p>
-                        <p>League Phase – 19 matches each</p>
-                        <p>Top 16 qualify for Round of 16</p>
-                        <p>Two‑leg ties until Final</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+<!-- ===== TAB: CHAMPIONS LEAGUE (NEW) ===== -->
+<div id="tab-ucl" class="tab-content">
+    <div class="card">
+        <h2>🏆 Champions League Management</h2>
+        <p style="color: #4a5a72; margin-bottom: 1rem;">
+            Click the button below to go to the dedicated Champions League admin panel.
+            You can manage league phase results, knockout stage, and more.
+        </p>
+        <button onclick="window.location.href='champions-league-admin.html'" class="primary" style="width:100%; padding:0.8rem; font-size:1rem;">
+            ⚽ Go to Champions League Admin
+        </button>
+    </div>
+</div>
 
         <!-- ===== TAB: SEASON ===== -->
         <div id="tab-season" class="tab-content">
