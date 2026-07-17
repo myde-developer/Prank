@@ -122,33 +122,21 @@
             <button class="tab-btn" data-tab="generate">⚙️ Generate</button>
         </nav>
 
-        <!-- ===== LEAGUE PHASE ===== -->
-        <div id="tab-league" class="tab-content active">
-            <div class="card">
-                <h2>📝 League Phase Results</h2>
-                <div class="input-group">
-                    <select id="uclLeagueRoundSelect" onchange="loadUCLLeagueFixtures()"></select>
-                    <button onclick="loadUCLLeagueFixtures()" class="secondary">📋 Load Fixtures</button>
-                </div>
-                <div id="uclLeagueFixtureSelect" class="hidden">
-                    <div class="input-group">
-                        <select id="uclLeagueFixtureDropdown"><option value="">— Select a match —</option></select>
-                        <button onclick="fillUCLLeagueResult()" class="primary">📌 Load</button>
-                    </div>
-                </div>
-                <div id="uclLeagueResultInputs" class="hidden">
-                    <div class="input-group">
-                        <span id="uclLeagueHomeName">Home</span>
-                        <input id="uclLeagueHomeScore" placeholder="Score" type="number" />
-                        <span>–</span>
-                        <input id="uclLeagueAwayScore" placeholder="Score" type="number" />
-                        <span id="uclLeagueAwayName">Away</span>
-                        <button onclick="saveUCLLeagueResult()" class="success">💾 Save</button>
-                    </div>
-                </div>
-                <div id="uclLeagueResultMsg" class="msg"></div>
-            </div>
+<!-- ===== LEAGUE PHASE ===== -->
+<div id="tab-league" class="tab-content active">
+    <div class="card">
+        <h2>📝 League Phase Results</h2>
+        <div class="input-group">
+            <select id="uclLeagueRoundSelect" onchange="loadUCLLeagueFixtures()"></select>
+            <button onclick="loadUCLLeagueFixtures()" class="secondary">📋 Load Fixtures</button>
         </div>
+        <div id="uclLeagueFixtureList" style="margin-top: 1rem;">
+            <!-- Fixtures will be rendered here as a list -->
+            <p class="loading-text">Select a matchday and click Load.</p>
+        </div>
+        <div id="uclLeagueResultMsg" class="msg"></div>
+    </div>
+</div>
 
         <!-- ===== KNOCKOUT ===== -->
         <div id="tab-knockout" class="tab-content">
@@ -370,105 +358,104 @@
         }
 
         // ============================================================
-        //  LEAGUE PHASE RESULTS
-        // ============================================================
-        let currentUCLLeagueMatch = null;
-        let currentUCLLeagueRound = 1;
-        let currentUCLLeagueFixtures = [];
+//  LEAGUE PHASE RESULTS (List View)
+// ============================================================
+let currentUCLLeagueFixtures = [];
+let currentUCLLeagueRound = 1;
 
-        async function loadUCLLeagueFixtures() {
-            const snap = await db.ref('champions_league').once('value');
-            const data = snap.val();
-            if (!data || !data.leagueFixtures) {
-                showToast('No UCL league phase data found');
-                return;
-            }
-            const fixtures = data.leagueFixtures || [];
-            const rounds = [...new Set(fixtures.map(f => f.round))].sort((a, b) => a - b);
-            const select = document.getElementById('uclLeagueRoundSelect');
-            if (select.options.length <= 1) {
-                select.innerHTML = '';
-                rounds.forEach(r => {
-                    const opt = document.createElement('option');
-                    opt.value = r;
-                    opt.textContent = `Matchday ${r}`;
-                    select.appendChild(opt);
-                });
-            }
-            const round = parseInt(document.getElementById('uclLeagueRoundSelect').value);
-            if (isNaN(round)) { showToast('Select a matchday'); return; }
-            currentUCLLeagueRound = round;
-            const roundFixtures = fixtures.filter(f => f.round === round);
-            if (!roundFixtures.length) { showToast(`No fixtures for Matchday ${round}`); return; }
-            currentUCLLeagueFixtures = roundFixtures;
-            const dropdown = document.getElementById('uclLeagueFixtureDropdown');
-            dropdown.innerHTML = '<option value="">— Select a match —</option>';
-            roundFixtures.forEach((m, idx) => {
-                const opt = document.createElement('option');
-                opt.value = idx;
-                opt.textContent = `${m.home} vs ${m.away}`;
-                dropdown.appendChild(opt);
-            });
-            document.getElementById('uclLeagueFixtureSelect').style.display = 'block';
-            document.getElementById('uclLeagueResultInputs').style.display = 'none';
-            showToast(`Loaded ${roundFixtures.length} fixtures`);
-        }
+async function loadUCLLeagueFixtures() {
+    const snap = await db.ref('champions_league').once('value');
+    const data = snap.val();
+    if (!data || !data.leagueFixtures) {
+        showToast('No UCL league phase data found');
+        return;
+    }
+    const fixtures = data.leagueFixtures || [];
+    const rounds = [...new Set(fixtures.map(f => f.round))].sort((a, b) => a - b);
+    const select = document.getElementById('uclLeagueRoundSelect');
+    if (select.options.length <= 1) {
+        select.innerHTML = '';
+        rounds.forEach(r => {
+            const opt = document.createElement('option');
+            opt.value = r;
+            opt.textContent = `Matchday ${r}`;
+            select.appendChild(opt);
+        });
+    }
+    const round = parseInt(document.getElementById('uclLeagueRoundSelect').value);
+    if (isNaN(round)) { showToast('Select a matchday'); return; }
+    currentUCLLeagueRound = round;
+    const roundFixtures = fixtures.filter(f => f.round === round);
+    if (!roundFixtures.length) { 
+        document.getElementById('uclLeagueFixtureList').innerHTML = `<p class="loading-text">No fixtures for Matchday ${round}</p>`;
+        return;
+    }
+    currentUCLLeagueFixtures = roundFixtures;
 
-        function fillUCLLeagueResult() {
-            const idx = parseInt(document.getElementById('uclLeagueFixtureDropdown').value);
-            if (isNaN(idx)) { showToast('Select a match'); return; }
-            const match = currentUCLLeagueFixtures[idx];
-            if (!match) return;
-            currentUCLLeagueMatch = match;
-            document.getElementById('uclLeagueHomeName').textContent = match.home;
-            document.getElementById('uclLeagueAwayName').textContent = match.away;
-            document.getElementById('uclLeagueHomeScore').value = match.homeScore !== null ? match.homeScore : '';
-            document.getElementById('uclLeagueAwayScore').value = match.awayScore !== null ? match.awayScore : '';
-            document.getElementById('uclLeagueResultInputs').style.display = 'block';
-            showToast(`Loaded ${match.home} vs ${match.away}`);
-        }
+    // Render fixture list with input fields
+    let html = '';
+    roundFixtures.forEach((m, idx) => {
+        const played = m.played || false;
+        const homeScore = m.homeScore !== null ? m.homeScore : '';
+        const awayScore = m.awayScore !== null ? m.awayScore : '';
+        html += `
+            <div class="fixture-row" style="display:flex; align-items:center; gap:0.8rem; padding:0.4rem 0; border-bottom:1px solid #e5e9f0; flex-wrap:wrap;">
+                <span style="font-weight:500; min-width:100px;">${m.home}</span>
+                <span style="color:#94a3b8;">vs</span>
+                <span style="font-weight:500; min-width:100px;">${m.away}</span>
+                <input type="number" id="uclHomeScore_${idx}" placeholder="H" value="${homeScore}" style="width:60px; padding:0.2rem; border-radius:6px; border:1px solid #d1d8e0;" />
+                <span>–</span>
+                <input type="number" id="uclAwayScore_${idx}" placeholder="A" value="${awayScore}" style="width:60px; padding:0.2rem; border-radius:6px; border:1px solid #d1d8e0;" />
+                <button onclick="saveUCLLeagueMatch(${idx})" class="success" style="padding:0.2rem 0.8rem;">💾 Save</button>
+                ${played ? `<span style="color:#16a34a; font-size:0.8rem;">✅ Saved</span>` : ''}
+            </div>
+        `;
+    });
+    document.getElementById('uclLeagueFixtureList').innerHTML = html;
+    showToast(`Loaded ${roundFixtures.length} fixtures for Matchday ${round}`);
+}
 
-        async function saveUCLLeagueResult() {
-            if (!currentUCLLeagueMatch) { showToast('No match loaded'); return; }
-            const homeScore = parseInt(document.getElementById('uclLeagueHomeScore').value);
-            const awayScore = parseInt(document.getElementById('uclLeagueAwayScore').value);
-            if (isNaN(homeScore) || isNaN(awayScore)) { showToast('Enter valid scores'); return; }
-            currentUCLLeagueMatch.homeScore = homeScore;
-            currentUCLLeagueMatch.awayScore = awayScore;
-            currentUCLLeagueMatch.played = true;
+async function saveUCLLeagueMatch(idx) {
+    const match = currentUCLLeagueFixtures[idx];
+    if (!match) { showToast('Match not found'); return; }
+    const homeScore = parseInt(document.getElementById(`uclHomeScore_${idx}`).value);
+    const awayScore = parseInt(document.getElementById(`uclAwayScore_${idx}`).value);
+    if (isNaN(homeScore) || isNaN(awayScore)) { showToast('Enter valid scores'); return; }
 
-            // Update league table
-            const snap = await db.ref('champions_league/leagueTable').once('value');
-            let leagueTable = snap.val() || [];
-            const homeTeam = leagueTable.find(t => t.name === currentUCLLeagueMatch.home);
-            const awayTeam = leagueTable.find(t => t.name === currentUCLLeagueMatch.away);
-            if (homeTeam && awayTeam) {
-                homeTeam.played = (homeTeam.played || 0) + 1;
-                homeTeam.gf = (homeTeam.gf || 0) + homeScore;
-                homeTeam.ga = (homeTeam.ga || 0) + awayScore;
-                if (homeScore > awayScore) { homeTeam.won = (homeTeam.won || 0) + 1; homeTeam.pts = (homeTeam.pts || 0) + 3; }
-                else if (homeScore < awayScore) { homeTeam.lost = (homeTeam.lost || 0) + 1; }
-                else { homeTeam.drawn = (homeTeam.drawn || 0) + 1; homeTeam.pts = (homeTeam.pts || 0) + 1; }
-                homeTeam.gd = homeTeam.gf - homeTeam.ga;
+    match.homeScore = homeScore;
+    match.awayScore = awayScore;
+    match.played = true;
 
-                awayTeam.played = (awayTeam.played || 0) + 1;
-                awayTeam.gf = (awayTeam.gf || 0) + awayScore;
-                awayTeam.ga = (awayTeam.ga || 0) + homeScore;
-                if (awayScore > homeScore) { awayTeam.won = (awayTeam.won || 0) + 1; awayTeam.pts = (awayTeam.pts || 0) + 3; }
-                else if (awayScore < homeScore) { awayTeam.lost = (awayTeam.lost || 0) + 1; }
-                else { awayTeam.drawn = (awayTeam.drawn || 0) + 1; awayTeam.pts = (awayTeam.pts || 0) + 1; }
-                awayTeam.gd = awayTeam.gf - awayTeam.ga;
-            }
+    // Update league table
+    const snap = await db.ref('champions_league/leagueTable').once('value');
+    let leagueTable = snap.val() || [];
+    const homeTeam = leagueTable.find(t => t.name === match.home);
+    const awayTeam = leagueTable.find(t => t.name === match.away);
+    if (homeTeam && awayTeam) {
+        homeTeam.played = (homeTeam.played || 0) + 1;
+        homeTeam.gf = (homeTeam.gf || 0) + homeScore;
+        homeTeam.ga = (homeTeam.ga || 0) + awayScore;
+        if (homeScore > awayScore) { homeTeam.won = (homeTeam.won || 0) + 1; homeTeam.pts = (homeTeam.pts || 0) + 3; }
+        else if (homeScore < awayScore) { homeTeam.lost = (homeTeam.lost || 0) + 1; }
+        else { homeTeam.drawn = (homeTeam.drawn || 0) + 1; homeTeam.pts = (homeTeam.pts || 0) + 1; }
+        homeTeam.gd = homeTeam.gf - homeTeam.ga;
 
-            await db.ref('champions_league/leagueFixtures').set(currentUCLLeagueFixtures);
-            await db.ref('champions_league/leagueTable').set(leagueTable);
+        awayTeam.played = (awayTeam.played || 0) + 1;
+        awayTeam.gf = (awayTeam.gf || 0) + awayScore;
+        awayTeam.ga = (awayTeam.ga || 0) + homeScore;
+        if (awayScore > homeScore) { awayTeam.won = (awayTeam.won || 0) + 1; awayTeam.pts = (awayTeam.pts || 0) + 3; }
+        else if (awayScore < homeScore) { awayTeam.lost = (awayTeam.lost || 0) + 1; }
+        else { awayTeam.drawn = (awayTeam.drawn || 0) + 1; awayTeam.pts = (awayTeam.pts || 0) + 1; }
+        awayTeam.gd = awayTeam.gf - awayTeam.ga;
+    }
 
-            document.getElementById('uclLeagueResultMsg').innerHTML =
-                `<span style="color:#16a34a;">✅ Saved! ${currentUCLLeagueMatch.home} ${homeScore}–${awayScore} ${currentUCLLeagueMatch.away}</span>`;
-            showToast(`Result saved: ${currentUCLLeagueMatch.home} ${homeScore}–${awayScore} ${currentUCLLeagueMatch.away}`);
-            document.getElementById('uclLeagueHomeScore').value = '';
-            document.getElementById('uclLeagueAwayScore').value = '';
-        }
+    await db.ref('champions_league/leagueFixtures').set(currentUCLLeagueFixtures);
+    await db.ref('champions_league/leagueTable').set(leagueTable);
+
+    // Re‑render the row to show the saved status
+    loadUCLLeagueFixtures();  // Refresh the list
+    showToast(`✅ ${match.home} ${homeScore}–${awayScore} ${match.away} saved!`);
+}
 
         // ============================================================
         //  KNOCKOUT RESULTS

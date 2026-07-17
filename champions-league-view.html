@@ -287,11 +287,13 @@ body {
     background: #f8f9fc; border-radius: 14px; margin-bottom: 0.5rem; transition: 0.2s; gap: 0.5rem; flex-wrap: wrap;
 }
 
-/* ── Center Fixtures ── */
+#uclFixturesContainer {
+    max-width: 900px;
+    margin: 0 auto;
+}
 .fixture-item {
     max-width: 700px;
-    margin-left: auto;
-    margin-right: auto;
+    margin: 0 auto 0.5rem auto;
 }
 .fixture-item:hover { background: #f0f3f8; }
 .fixture-item .teams { display: flex; align-items: center; gap: 0.5rem; font-weight: 500; font-size: 0.9rem; }
@@ -436,10 +438,8 @@ body {
 <!-- ===== TAB: FIXTURES ===== -->
 <div id="tab-fixtures" class="ucl-tab-content">
     <div class="fixtures-card">
-        <div class="fixture-tabs-wrapper" id="uclFixtureTabs">
-            <!-- populated by JS -->
-        </div>
-        <div id="uclFixturesContainer"><p class="loading-text">Loading fixtures...</p></div>
+        <div class="fixture-tabs-wrapper" id="uclFixtureTabs"></div>
+        <div id="uclFixturesContainer"></div>
     </div>
 </div>
 
@@ -621,8 +621,8 @@ function renderBracket() {
         const leg2 = data?.leg2;
         const home = leg1?.home || '?';
         const away = leg1?.away || '?';
-        const homeLogo = '⚽';
-        const awayLogo = '⚽';
+        const homeLogo = '';
+        const awayLogo = '';
         const played = res?.played || false;
 
         let scoreDisplay = '– : –';
@@ -1083,7 +1083,7 @@ function renderLeagueTable() {
         if (isCompleted) badge = pos <= 16 ? `<span class="badge-q">✓ Qualified</span>` : `<span class="badge-e">✗ Eliminated</span>`;
         html += `<tr>
             <td class="pos">${pos}</td>
-            <td><span class="club"><span class="emblem">⚽</span> ${team.name}</span></td>
+            <td><span class="club"><span class="emblem"></span> ${team.name}</span></td>
             <td class="stat">${team.played || 0}</td>
             <td class="stat">${team.won || 0}</td>
             <td class="stat">${team.drawn || 0}</td>
@@ -1106,7 +1106,7 @@ function renderLeagueTable() {
 }
 
 // ============================================================
-//  UCL FIXTURES (Tabs)
+//  UCL FIXTURES (Tabs, same style as Premier/La Liga)
 // ============================================================
 let currentUCLFixtureWeek = null;
 
@@ -1128,7 +1128,7 @@ function renderFixtures() {
     });
     tabsHtml += `</div>`;
     tabsContainer.innerHTML = tabsHtml;
-    // Show first round by default
+
     if (rounds.length) {
         currentUCLFixtureWeek = rounds[0];
         renderUCLFixtureWeek(rounds[0]);
@@ -1153,29 +1153,32 @@ function renderUCLFixtureWeek(round) {
     let html = '';
     fixtures.forEach((m, idx) => {
         const hasReport = m.played && m.report;
+        // Build middle display: "vs" or score
+        let middleDisplay = '';
+        if (m.played) {
+            middleDisplay = `<span class="vs-score">${m.homeScore} – ${m.awayScore}</span>`;
+        } else {
+            middleDisplay = `<span class="vs-compact">vs</span>`;
+        }
+        // Button for played matches
+        let buttonHtml = '';
+        if (m.played) {
+            buttonHtml = `<button class="report-btn ${hasReport ? 'has-report' : ''}" onclick="openMatchReport('league', ${idx}, ${round})">${hasReport ? '📋 Report' : '📝 Add Report'}</button>`;
+        }
         html += `
-    <div class="fixture-item">
-        <div class="teams">
-            <span>${m.home}</span>
-            ${m.played ? `
-                <span class="score">${m.homeScore} – ${m.awayScore}</span>
-            ` : `
-                <span class="vs">vs</span>
-            `}
-            <span>${m.away}</span>
-        </div>
-        <div class="right">
-            ${m.played ? `
-                <button class="report-btn ${hasReport ? 'has-report' : ''}" onclick="openMatchReport('league', ${idx}, ${round})">
-                    ${hasReport ? '📋 Report' : '📝 Add'}
-                </button>
-            ` : ''}
-        </div>
-    </div>
-`;
+            <div class="fixture-item">
+                <div class="fixture-teams-compact">
+                    <span class="team-name-compact">${m.home}</span>
+                    ${middleDisplay}
+                    <span class="team-name-compact">${m.away}</span>
+                </div>
+                ${buttonHtml ? `<div class="fixture-button-wrap">${buttonHtml}</div>` : ''}
+            </div>
+        `;
     });
     container.innerHTML = html;
 }
+
 async function openMatchReport(type, index, round) {
     const match = uclData?.leagueFixtures?.filter(f => f.round === round)?.[index];
     if (!match || !match.played) return;
