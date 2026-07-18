@@ -571,8 +571,8 @@ function validateFixtureIntegrity(silent = false) {
     const totalRounds = Math.max(...fixtures.map(f => f.round));
     const halfRounds = totalRounds / 2;
     let issues = [];
-    
-    // Check 1: No team plays twice in the same round
+
+    // 1. No team plays twice in the same round
     for (let round = 1; round <= totalRounds; round++) {
         const roundFixtures = fixtures.filter(f => f.round === round);
         const teamsInRound = [];
@@ -582,56 +582,76 @@ function validateFixtureIntegrity(silent = false) {
             teamsInRound.push(f.home, f.away);
         }
     }
-    
-    // Check 2: No duplicate matchups in the same half
-    const firstHalfMatches = new Set();
-    for (let round = 1; round <= halfRounds; round++) {
-        const roundFixtures = fixtures.filter(f => f.round === round);
-        for (const f of roundFixtures) {
-            const matchup = `${f.home} vs ${f.away}`;
-            if (firstHalfMatches.has(matchup)) issues.push(`Duplicate matchup in first half: ${matchup}`);
-            firstHalfMatches.add(matchup);
-        }
-    }
-    
-    // Check 3: Second half mirrors first half
-    for (let round = 1; round <= halfRounds; round++) {
-        const secondHalfRound = round + halfRounds;
-        const firstHalfFixtures = fixtures.filter(f => f.round === round);
-        const secondHalfFixtures = fixtures.filter(f => f.round === secondHalfRound);
-        
-        for (let i = 0; i < firstHalfFixtures.length; i++) {
-            const first = firstHalfFixtures[i];
-            const second = secondHalfFixtures[i];
-            if (second && (second.home !== first.away || second.away !== first.home)) {
-                issues.push(`Round ${secondHalfRound} does not mirror Round ${round}`);
-            }
-        }
-    }
-    
-    // Check 4: No team plays against itself
+
+    // 2. No team plays itself
     for (const f of fixtures) {
         if (f.home === f.away && f.home !== "BYE") {
             issues.push(`Invalid fixture: ${f.home} vs ${f.away} (team cannot play itself)`);
         }
     }
-    
-    // Check 5: Each team has equal number of home and away games in first half
+
+    // 3. First half: no duplicate matchups (home-away pair) within the first half
+    const firstHalfFixtures = fixtures.filter(f => f.round <= halfRounds);
+    const firstHalfSet = new Set();
+    for (const f of firstHalfFixtures) {
+        const key = `${f.home}|${f.away}`;
+        if (firstHalfSet.has(key)) {
+            issues.push(`Duplicate matchup in first half: ${f.home} vs ${f.away}`);
+        }
+        firstHalfSet.add(key);
+    }
+
+    // 4. Second half: no duplicate matchups within the second half
+    const secondHalfFixtures = fixtures.filter(f => f.round > halfRounds);
+    const secondHalfSet = new Set();
+    for (const f of secondHalfFixtures) {
+        const key = `${f.home}|${f.away}`;
+        if (secondHalfSet.has(key)) {
+            issues.push(`Duplicate matchup in second half: ${f.home} vs ${f.away}`);
+        }
+        secondHalfSet.add(key);
+    }
+
+    // 5. Every first-half matchup must have a reverse in the second half
+    //    and vice versa (i.e., the sets are mirrors)
+    const reverseSet = new Set();
+    for (const f of secondHalfFixtures) {
+        reverseSet.add(`${f.away}|${f.home}`);
+    }
+    for (const f of firstHalfFixtures) {
+        const key = `${f.home}|${f.away}`;
+        if (!reverseSet.has(key)) {
+            issues.push(`Missing reverse fixture for ${f.home} vs ${f.away} in second half`);
+        }
+    }
+    // Check that second half doesn't contain extra matchups
+    const firstHalfReverseSet = new Set();
+    for (const f of firstHalfFixtures) {
+        firstHalfReverseSet.add(`${f.away}|${f.home}`);
+    }
+    for (const f of secondHalfFixtures) {
+        const key = `${f.home}|${f.away}`;
+        if (!firstHalfReverseSet.has(key)) {
+            issues.push(`Extra fixture in second half: ${f.home} vs ${f.away} (no reverse in first half)`);
+        }
+    }
+
+    // 6. Home/away balance per team across the whole season
     const homeCount = {};
     const awayCount = {};
-    for (let round = 1; round <= halfRounds; round++) {
-        const roundFixtures = fixtures.filter(f => f.round === round);
-        for (const f of roundFixtures) {
-            if (f.home !== "BYE") homeCount[f.home] = (homeCount[f.home] || 0) + 1;
-            if (f.away !== "BYE") awayCount[f.away] = (awayCount[f.away] || 0) + 1;
+    for (const f of fixtures) {
+        if (f.home !== "BYE") homeCount[f.home] = (homeCount[f.home] || 0) + 1;
+        if (f.away !== "BYE") awayCount[f.away] = (awayCount[f.away] || 0) + 1;
+    }
+    const allTeams = new Set([...Object.keys(homeCount), ...Object.keys(awayCount)]);
+    for (const team of allTeams) {
+        const h = homeCount[team] || 0;
+        const a = awayCount[team] || 0;
+        if (h !== a) {
+            issues.push(`${team} has ${h} home games and ${a} away games (should be equal)`);
         }
     }
-    for (const team in homeCount) {
-        if (homeCount[team] !== awayCount[team]) {
-            issues.push(`${team} has ${homeCount[team]} home games and ${awayCount[team]} away games in first half`);
-        }
-    }
-    
+
     if (issues.length > 0) {
         console.warn("⚠️ Integrity issues found:", issues);
         if (!silent) showToast(`⚠️ Found ${issues.length} integrity issues! Check console.`);
@@ -639,7 +659,7 @@ function validateFixtureIntegrity(silent = false) {
         console.log("✅ All fixtures are valid!");
         if (!silent) showToast("✅ Fixture integrity check passed!");
     }
-    
+
     return issues;
 }
 
@@ -1291,28 +1311,53 @@ function generateRandomRoundRobinFirstHalf(teamNames) {
 function regenerateSecondHalf() {
     const totalRounds = Math.max(...fixtures.map(f => f.round));
     const halfRounds = totalRounds / 2;
-    
+
+    // Get first‑half fixtures grouped by round
+    const firstHalfRounds = [];
     for (let round = 1; round <= halfRounds; round++) {
-        const firstHalfRound = round;
-        const secondHalfRound = round + halfRounds;
-        const firstHalfFixtures = fixtures.filter(f => f.round === firstHalfRound);
-        const secondHalfFixtures = fixtures.filter(f => f.round === secondHalfRound);
-        
-        for (let i = 0; i < firstHalfFixtures.length && i < secondHalfFixtures.length; i++) {
-            const first = firstHalfFixtures[i];
-            const second = secondHalfFixtures[i];
-            if (first && second) {
-                second.home = first.away;
-                second.away = first.home;
-                second.homeScore = null;
-                second.awayScore = null;
-                second.played = false;
-                second.cancelled = false;
-                second.report = null;
-                second.events = [];
-            }
-        }
+        const roundFixtures = fixtures.filter(f => f.round === round);
+        firstHalfRounds.push(roundFixtures);
     }
+
+    // Generate mirrored second half
+    const secondHalfRounds = firstHalfRounds.map(roundFixtures =>
+        roundFixtures.map(f => ({ home: f.away, away: f.home }))
+    );
+
+    // Shuffle the order of second‑half rounds (Fisher‑Yates)
+    shuffleArray(secondHalfRounds);
+
+    // Assign new round numbers and update fixtures
+    const secondHalfStart = halfRounds + 1;
+    secondHalfRounds.forEach((roundFixtures, idx) => {
+        const newRound = secondHalfStart + idx;
+        roundFixtures.forEach((f, i) => {
+            // Find the existing fixture in the second half (by position)
+            const existing = fixtures.find(fi =>
+                fi.round === newRound &&
+                fi.home === f.home &&
+                fi.away === f.away
+            );
+            if (existing) {
+                // Preserve result/events if already played?
+                // In our usage, regenerateSecondHalf is called when we want to reset results,
+                // but we can decide to keep the old fixture data if it exists.
+                // For safety, we'll just overwrite teams and reset scores.
+                existing.home = f.home;
+                existing.away = f.away;
+                existing.homeScore = null;
+                existing.awayScore = null;
+                existing.played = false;
+                existing.cancelled = false;
+                existing.report = null;
+                existing.events = [];
+            } else {
+                // Shouldn't happen, but if missing, create a new fixture?
+                // Better to just log an error.
+                console.warn(`Missing second‑half fixture for round ${newRound}: ${f.home} vs ${f.away}`);
+            }
+        });
+    });
 }
 
 // ==================== STANDINGS & KNOCKOUT ====================
@@ -1584,12 +1629,8 @@ function renderGameweekTabs() {
 
 function checkRoundIntegrity(roundNumber) {
     const roundFixtures = fixtures.filter(f => f.round === roundNumber && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
-    const totalRounds = Math.max(...fixtures.map(f => f.round));
-    const halfRounds = totalRounds / 2;
-    const isFirstHalf = roundNumber <= halfRounds;
-    
     let issues = [];
-    
+
     // Check 1: No team plays twice in this round
     const teamsInRound = [];
     for (const f of roundFixtures) {
@@ -1597,47 +1638,17 @@ function checkRoundIntegrity(roundNumber) {
         if (teamsInRound.includes(f.away)) issues.push(`❌ ${f.away} appears twice in Round ${roundNumber}!`);
         teamsInRound.push(f.home, f.away);
     }
-    
-    // Check 2: No duplicate matchups in the same half (only for first half rounds)
-    if (isFirstHalf) {
-        for (let round = 1; round <= halfRounds; round++) {
-            const roundFixturesCheck = fixtures.filter(f => f.round === round);
-            for (const f of roundFixturesCheck) {
-                if (f.round !== roundNumber) {
-                    const isDuplicate = roundFixtures.some(rf => 
-                        (rf.home === f.home && rf.away === f.away) || 
-                        (rf.home === f.away && rf.away === f.home)
-                    );
-                    if (isDuplicate) {
-                        issues.push(`⚠️ Matchup ${f.home} vs ${f.away} appears in both Round ${roundNumber} and Round ${round}`);
-                    }
-                }
-            }
-        }
-    }
-    
-    // Check 3: No team plays against itself
+
+    // Check 2: No team plays itself
     for (const f of roundFixtures) {
         if (f.home === f.away && f.home !== "BYE") {
             issues.push(`❌ Invalid fixture: ${f.home} vs ${f.away} (team cannot play itself)`);
         }
     }
-    
-    // Check 4: For first half, check if second half mirrors correctly
-    if (isFirstHalf) {
-        const secondHalfRound = roundNumber + halfRounds;
-        const secondHalfFixtures = fixtures.filter(f => f.round === secondHalfRound);
-        
-        for (let i = 0; i < roundFixtures.length && i < secondHalfFixtures.length; i++) {
-            const first = roundFixtures[i];
-            const second = secondHalfFixtures[i];
-            if (second && (second.home !== first.away || second.away !== first.home)) {
-                issues.push(`⚠️ Round ${secondHalfRound} does not mirror Round ${roundNumber}`);
-            }
-        }
-    }
-    
-    // Display results in a modal
+
+    // (Mirroring checks are removed because second half is shuffled)
+
+    // Display results in a modal (same as before)
     let modalHtml = `
         <div id="integrity-modal" class="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-y-auto">
@@ -1647,13 +1658,13 @@ function checkRoundIntegrity(roundNumber) {
                 </div>
                 <div class="p-4">
     `;
-    
+
     if (issues.length === 0) {
         modalHtml += `
             <div class="text-center py-8">
                 <div class="text-5xl mb-3">✅</div>
                 <p class="text-green-600 font-bold">No issues found!</p>
-                <p class="text-sm text-gray-500 mt-2">Round ${roundNumber} is valid.</p>
+                <p class="text-sm text-gray-500 mt-2">Round ${roundNumber} is internally valid.</p>
             </div>
         `;
     } else {
@@ -1669,7 +1680,7 @@ function checkRoundIntegrity(roundNumber) {
         }
         modalHtml += `</div>`;
     }
-    
+
     modalHtml += `
                 </div>
                 <div class="p-3 bg-gray-50 text-right rounded-b-2xl">
@@ -1678,7 +1689,7 @@ function checkRoundIntegrity(roundNumber) {
             </div>
         </div>
     `;
-    
+
     const existingModal = document.getElementById('integrity-modal');
     if (existingModal) existingModal.remove();
     document.body.insertAdjacentHTML('beforeend', modalHtml);
