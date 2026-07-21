@@ -189,7 +189,7 @@
         <div class="p-4 bg-gray-50 flex flex-wrap gap-2 justify-end rounded-b-2xl">
             <button onclick="closeTeamModal()" class="px-5 py-2 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition">Close</button>
             <!-- NEW Upcoming Fixtures button -->
-            <button onclick="showUpcomingFixtures(document.getElementById('team-modal-name').innerText)" class="px-5 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">📅 Upcoming Fixtures</button>
+            <button onclick="showUpcomingFixtures(document.getElementById('team-modal-name').innerText)" class="px-5 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">View Team's Fixtures</button>
             <!-- Admin-only buttons (hidden by default, shown via JS when admin) -->
             <button id="modal-penalty-btn" onclick="closeTeamModal(); openPenaltyModal(document.getElementById('team-modal-name').innerText)" class="hidden px-5 py-2 text-sm font-medium bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition">⚖️ Edit Penalty</button>
             <button id="modal-replace-btn" onclick="closeTeamModal(); openReplaceTeamModal(document.getElementById('team-modal-name').innerText)" class="hidden px-5 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">🔄 Replace Team</button>
@@ -202,7 +202,7 @@
         <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-gray-200 overflow-y-auto max-h-[90vh]">
             <div class="p-5 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white">
                 <div>
-                    <h3 class="font-bold text-lg">📅 Upcoming Fixtures</h3>
+                    <h3 class="font-bold text-lg">Team's Fixtures</h3>
                     <p class="text-xs text-gray-500" id="upcoming-team-name"></p>
                 </div>
                 <button onclick="closeUpcomingFixturesModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>

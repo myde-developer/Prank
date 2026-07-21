@@ -1878,7 +1878,7 @@ function showTeamDetails(teamName) {
     // Build footer buttons
     let footerButtons = `
         <button onclick="closeTeamModal()" class="px-5 py-2 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition">Close</button>
-        <button onclick="showUpcomingFixtures('${teamName}')" class="px-5 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">📅 Upcoming Fixtures</button>
+        <button onclick="showUpcomingFixtures('${teamName}')" class="px-5 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">View Team's Fixtures</button>
     `;
 
     // Admin-only buttons
