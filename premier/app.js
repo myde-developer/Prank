@@ -2042,14 +2042,14 @@ function showUpcomingFixtures(teamName) {
         return;
     }
 
-    teamNameSpan.innerText = `📌 ${teamName}`;
+    teamNameSpan.innerText = ` ${teamName}`;
 
     if (filtered.length === 0) {
         listContainer.innerHTML = `
             <div class="text-center text-gray-400 py-6">
                 <span class="text-3xl block mb-2">✅</span>
                 <p>No upcoming fixtures for ${teamName}</p>
-                <p class="text-xs mt-1">All matches played or released?</p>
+                <p class="text-xs mt-1">All matches played or not released yet</p>
             </div>
         `;
     } else {
