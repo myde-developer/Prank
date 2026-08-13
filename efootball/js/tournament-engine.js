@@ -1,92 +1,103 @@
 /**
- * Generates a single round-robin fixture list.
- * Returns an array of rounds, each round is an array of matches:
- *   { home: string, away: string }
- * If odd number of teams, adds a "BYE" (ignored later).
+ * Helper: Shuffle array (Fisher-Yates)
  */
-export function generateRoundRobin(teamNames) {
-  if (teamNames.length < 2) return [];
-  const teams = [...teamNames];
-  if (teams.length % 2 !== 0) teams.push("BYE");
-
-  const rounds = [];
-  const n = teams.length;
-  const mid = n / 2;
-
-  for (let round = 0; round < n - 1; round++) {
-    const roundMatches = [];
-    for (let i = 0; i < mid; i++) {
-      const home = teams[i];
-      const away = teams[n - 1 - i];
-      if (home !== "BYE" && away !== "BYE") {
-        // Alternate home/away for fairness
-        if (i === 0 && round % 2 === 1) {
-          roundMatches.push({ home: away, away: home });
-        } else {
-          roundMatches.push({ home, away });
-        }
-      }
-    }
-    rounds.push(roundMatches);
-    // Rotate array (keep first fixed)
-    teams.splice(1, 0, teams.pop());
+export function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
   }
-  return rounds;
+  return a;
 }
 
 /**
- * Generates a DOUBLE round-robin fixture list.
- * First half: normal fixtures.
- * Second half: mirrors first half with home/away swapped.
- * Returns an object: { firstHalf: [rounds], secondHalf: [rounds], totalRounds: number }
+ * Generate two‑legged ties for a given phase.
+ * Returns an array of tie objects:
+ *   { homeTeam, awayTeam, phase, leg1, leg2 }
+ * where leg1/leg2 contain match details.
  */
-export function generateDoubleRoundRobin(teamNames) {
-  const firstHalf = generateRoundRobin(teamNames);
-  const secondHalf = firstHalf.map(round =>
-    round.map(match => ({ home: match.away, away: match.home }))
-  );
+export function generateTwoLeggedTies(teamNames, phase) {
+  const shuffled = shuffleArray(teamNames);
+  const ties = [];
+  for (let i = 0; i < shuffled.length; i += 2) {
+    const home = shuffled[i];
+    const away = shuffled[i+1];
+    ties.push({
+      homeTeam: home,
+      awayTeam: away,
+      phase: phase,
+      leg1: {
+        home: home,
+        away: away,
+        status: 'pending',
+        homeScore: 0,
+        awayScore: 0
+      },
+      leg2: {
+        home: away,
+        away: home,
+        status: 'pending',
+        homeScore: 0,
+        awayScore: 0
+      }
+    });
+  }
+  return ties;
+}
+
+/**
+ * Generate a single final match.
+ */
+export function generateFinalMatch(teamNames) {
+  if (teamNames.length !== 2) throw new Error('Final needs exactly 2 teams.');
   return {
-    firstHalf,
-    secondHalf,
-    totalRounds: firstHalf.length * 2
+    homeTeam: teamNames[0],
+    awayTeam: teamNames[1],
+    phase: 'final',
+    leg: null,
+    status: 'pending',
+    homeScore: 0,
+    awayScore: 0,
+    winner: null
   };
 }
 
 /**
- * Calculates standings from an array of matches (only 'played' ones).
- * Returns array sorted by: Points > Goal Difference > Goals For.
- * Each entry: { team, played, won, drawn, lost, gf, ga, gd, pts }
+ * Compute aggregate score from two matches (leg1, leg2).
+ * Returns { homeAgg, awayAgg, winner }.
  */
-export function calculateStandings(matches) {
-  const stats = {};
-  matches.forEach(m => {
+export function computeAggregate(match1, match2) {
+  const homeAgg = match1.homeScore + match2.homeScore;
+  const awayAgg = match1.awayScore + match2.awayScore;
+  let winner = null;
+  if (homeAgg > awayAgg) winner = match1.homeTeam;
+  else if (awayAgg > homeAgg) winner = match1.awayTeam;
+  return { homeAgg, awayAgg, winner };
+}
+
+/**
+ * Rank losing teams from playoff matches by GD, GF.
+ * Returns array of team names (best N).
+ */
+export function getBestLosers(playoffMatches, numToQualify) {
+  const losers = [];
+  playoffMatches.forEach(m => {
     if (m.status !== 'played') return;
-    const { homeTeam, awayTeam, homeScore, awayScore } = m;
-    if (!stats[homeTeam]) stats[homeTeam] = { team: homeTeam, played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, gd: 0, pts: 0 };
-    if (!stats[awayTeam]) stats[awayTeam] = { team: awayTeam, played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, gd: 0, pts: 0 };
-
-    const h = stats[homeTeam];
-    const a = stats[awayTeam];
-    h.played += 1; a.played += 1;
-    h.gf += homeScore; h.ga += awayScore;
-    a.gf += awayScore; a.ga += homeScore;
-    h.gd = h.gf - h.ga;
-    a.gd = a.gf - a.ga;
-
-    if (homeScore > awayScore) {
-      h.won += 1; h.pts += 3;
-      a.lost += 1;
-    } else if (homeScore < awayScore) {
-      a.won += 1; a.pts += 3;
-      h.lost += 1;
+    let loser, gd, gf;
+    if (m.homeScore > m.awayScore) {
+      loser = m.awayTeam;
+      gd = m.awayScore - m.homeScore;
+      gf = m.awayScore;
+    } else if (m.awayScore > m.homeScore) {
+      loser = m.homeTeam;
+      gd = m.homeScore - m.awayScore;
+      gf = m.homeScore;
     } else {
-      h.drawn += 1; h.pts += 1;
-      a.drawn += 1; a.pts += 1;
+      // draw – not expected, skip
+      return;
     }
+    losers.push({ team: loser, gd, gf });
   });
-  return Object.values(stats).sort((a, b) => {
-    if (b.pts !== a.pts) return b.pts - a.pts;
-    if (b.gd !== a.gd) return b.gd - a.gd;
-    return b.gf - a.gf;
-  });
+  losers.sort((a,b) => b.gd - a.gd || b.gf - a.gf);
+  return losers.slice(0, numToQualify).map(l => l.team);
 }

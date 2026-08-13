@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>eFootball League</title>
+  <title>DLS League – Knockout</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
   <script type="importmap">
@@ -17,39 +17,14 @@
 </head>
 <body>
   <header>
-    <h1>⚽ eFootball League</h1>
+    <h1>⚽ DLS Tournament</h1>
     <p id="tournament-status">Loading...</p>
   </header>
 
-  <!-- Standings Table -->
-  <section id="standings-section">
-    <h2>League Table</h2>
-    <div class="table-wrapper">
-      <table id="standings-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Team</th>
-            <th>P</th>
-            <th>W</th>
-            <th>D</th>
-            <th>L</th>
-            <th>GF</th>
-            <th>GA</th>
-            <th>GD</th>
-            <th>Pts</th>
-          </tr>
-        </thead>
-        <tbody id="standings-body"></tbody>
-      </table>
-    </div>
-  </section>
-
-  <!-- Fixtures with Week Tabs -->
-  <section id="fixtures-section">
-    <h2>Fixtures</h2>
-    <div id="week-tabs" class="week-tabs"></div>
-    <div id="week-matches" class="week-matches"></div>
+  <!-- Bracket Section -->
+  <section id="bracket-section">
+    <h2>Knockout Bracket</h2>
+    <div id="bracket-container"></div>
   </section>
 
   <script type="module" src="js/viewer.js"></script>

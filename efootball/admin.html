@@ -3,11 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin – eFootball Tournament</title>
+  <title>DLS Tournament Admin</title>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
 
-  <!-- Firebase Import Map -->
   <script type="importmap">
   {
     "imports": {
@@ -17,35 +16,27 @@
   }
   </script>
 </head>
-
 <body>
 
-  <!-- ===== TOAST ===== -->
   <div id="toast" class="toast" style="display:none;"></div>
 
   <!-- ===== AUTH PAGE ===== -->
   <div id="auth-page">
     <div class="auth-box">
-      <h2>⚽ Admin</h2>
-      
-      <!-- Tab Buttons -->
+      <h2>⚽ DLS Admin</h2>
       <div class="auth-tabs">
         <button class="auth-tab active" id="register-tab">Register</button>
         <button class="auth-tab" id="login-tab">Login</button>
       </div>
-
-      <!-- Register Form (visible by default) -->
       <div id="register-form" class="auth-form">
         <input type="email" id="register-email" placeholder="Email" />
         <input type="password" id="register-password" placeholder="Password (min 6 chars)" />
         <input type="password" id="register-confirm" placeholder="Confirm Password" />
-        <input type="text" id="register-code" placeholder="Admin Code (if required)" />
+        <input type="text" id="register-code" placeholder="Admin Code" />
         <button class="neon-btn full" id="register-btn">Register</button>
         <p id="register-error" class="auth-error"></p>
         <p id="register-success" class="auth-success" style="display:none;"></p>
       </div>
-
-      <!-- Login Form (hidden by default) -->
       <div id="login-form" class="auth-form" style="display:none;">
         <input type="email" id="login-email" placeholder="Email" />
         <input type="password" id="login-password" placeholder="Password" />
@@ -55,10 +46,10 @@
     </div>
   </div>
 
-  <!-- ===== DASHBOARD (hidden until logged in) ===== -->
+  <!-- ===== DASHBOARD ===== -->
   <div id="admin-dashboard" style="display:none;">
     <header>
-      <h1>⚽ Admin Panel</h1>
+      <h1>⚽ DLS Admin Panel</h1>
       <button id="logout-btn" class="neon-btn small">Logout</button>
     </header>
 
@@ -76,10 +67,12 @@
 
       <!-- Controls -->
       <section class="card">
-        <h2>Controls</h2>
-        <button id="generate-btn" class="neon-btn full">Generate Next Round</button>
-        <button id="trim-btn" class="neon-btn full danger">Trim Bottom 2</button>
+        <h2>Tournament Controls</h2>
+        <button id="generate-playoff-btn" class="neon-btn full">Generate Playoff</button>
+        <button id="generate-next-btn" class="neon-btn full">Generate Next Round</button>
+        <button id="reset-tournament-btn" class="neon-btn full danger">Reset Tournament</button>
         <div id="status-msg" class="status"></div>
+        <p id="tournament-phase" style="margin-top:8px; font-size:0.9rem;"></p>
       </section>
 
       <!-- Settings -->

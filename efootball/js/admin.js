@@ -1,8 +1,8 @@
 import { db } from "./firebase-config.js";
 import { 
-  ref, set, update, push, onValue, get, child 
+  ref, set, update, push, onValue, get, child, remove 
 } from "firebase/database";
-import { generateDoubleRoundRobin, calculateStandings } from "./tournament-engine.js";
+import { shuffleArray, generateTwoLeggedTies, generateFinalMatch } from "./tournament-engine.js";
 
 // ===== TOAST SYSTEM =====
 function showToast(message, type = 'success') {
@@ -39,8 +39,11 @@ const teamNameInput = document.getElementById('team-name-input');
 const addTeamBtn = document.getElementById('add-team-btn');
 const teamList = document.getElementById('team-list');
 const activeCount = document.getElementById('active-count');
-const generateBtn = document.getElementById('generate-btn');
+const generatePlayoffBtn = document.getElementById('generate-playoff-btn');
+const generateNextBtn = document.getElementById('generate-next-btn');
+const resetBtn = document.getElementById('reset-tournament-btn');
 const statusMsg = document.getElementById('status-msg');
+const tournamentPhaseEl = document.getElementById('tournament-phase');
 const matchesContainer = document.getElementById('matches-container');
 const setCodeBtn = document.getElementById('set-code-btn');
 const codeModal = document.getElementById('code-modal');
@@ -323,6 +326,7 @@ logoutBtn.addEventListener('click', () => {
 // ===== STATE & LISTENERS =====
 let allTeams = [];
 let allMatches = [];
+let currentPhase = null;
 
 function setStatus(msg, isError = false) {
   statusMsg.textContent = msg;
@@ -340,6 +344,7 @@ function listenToData() {
       }
     }
     renderTeams();
+    updatePhaseDisplay();
   });
 
   const matchesRef = ref(db, 'matches');
@@ -353,7 +358,25 @@ function listenToData() {
     }
     allMatches.sort((a, b) => (a.round || 0) - (b.round || 0));
     renderMatches();
+    updatePhaseDisplay();
+    // Auto-process playoff results if all playoff matches are played
+    autoProcessPlayoff();
   });
+
+  const phaseRef = ref(db, 'tournament/phase');
+  onValue(phaseRef, (snapshot) => {
+    if (snapshot.exists()) {
+      currentPhase = snapshot.val();
+    } else {
+      currentPhase = null;
+    }
+    updatePhaseDisplay();
+  });
+}
+
+function updatePhaseDisplay() {
+  const active = allTeams.filter(t => !t.eliminated).length;
+  tournamentPhaseEl.textContent = `Active Teams: ${active} | Phase: ${currentPhase ? currentPhase.toUpperCase() : 'Not started'}`;
 }
 
 // ===== RENDER TEAMS =====
@@ -386,37 +409,114 @@ addTeamBtn.addEventListener('click', async () => {
   }
 });
 
-// ===== RENDER MATCHES (EDITABLE SCORES) =====
+// ===== RENDER MATCHES (with tie resolution) =====
 function renderMatches() {
   if (!allMatches.length) {
     matchesContainer.innerHTML = '<p class="empty">No matches scheduled yet.</p>';
     return;
   }
   let html = '';
+  // Group by tieId
+  const ties = {};
   allMatches.forEach(m => {
-    const isPending = m.status === 'pending';
-    const hs = m.status === 'played' ? m.homeScore : '';
-    const as = m.status === 'played' ? m.awayScore : '';
-    const btnText = isPending ? 'Save Score' : 'Update Score';
-    const playedClass = isPending ? '' : ' played-match';
-    html += `
-      <div class="match-admin-card${playedClass}" data-id="${m.id}">
-        <span class="match-teams">${m.homeTeam} vs ${m.awayTeam}</span>
-        <div class="score-inputs">
-          <input type="number" min="0" max="99" class="score-home" value="${hs}" />
-          <span>–</span>
-          <input type="number" min="0" max="99" class="score-away" value="${as}" />
-        </div>
-        <button class="save-score-btn neon-btn small" data-id="${m.id}">
-          ${btnText}
-        </button>
-        <span class="match-stage-badge">R${m.round}</span>
-      </div>
-    `;
+    const key = m.tieId || m.id;
+    if (!ties[key]) ties[key] = [];
+    ties[key].push(m);
   });
+
+  for (const [tieId, matches] of Object.entries(ties)) {
+    const first = matches[0];
+    const phase = first.phase || 'unknown';
+    const legCount = matches.length;
+    const isTwoLegged = legCount === 2;
+    const isPlayed = matches.every(m => m.status === 'played');
+    const hasWinner = matches.some(m => m.winner);
+
+    html += `<div class="match-admin-tie" data-tie="${tieId}">`;
+    html += `<div class="tie-header"><strong>${phase.toUpperCase()}</strong> ${isTwoLegged ? '(Home & Away)' : '(Single)'}</div>`;
+
+    matches.forEach((m, idx) => {
+      const legLabel = m.leg ? `Leg ${m.leg}` : '';
+      const homeScore = m.status === 'played' ? m.homeScore : '';
+      const awayScore = m.status === 'played' ? m.awayScore : '';
+      html += `
+        <div class="match-admin-card" data-id="${m.id}">
+          <span class="match-teams">${m.homeTeam} vs ${m.awayTeam} ${legLabel}</span>
+          <div class="score-inputs">
+            <input type="number" min="0" max="99" class="score-home" value="${homeScore}" ${m.status === 'played' ? 'disabled' : ''} />
+            <span>–</span>
+            <input type="number" min="0" max="99" class="score-away" value="${awayScore}" ${m.status === 'played' ? 'disabled' : ''} />
+          </div>
+          <button class="save-score-btn neon-btn small" data-id="${m.id}" ${m.status === 'played' ? 'disabled' : ''}>
+            ${m.status === 'played' ? 'Saved' : 'Save Score'}
+          </button>
+          <span class="match-stage-badge">${m.status}</span>
+        </div>
+      `;
+    });
+
+    // If two-legged and both played, show aggregate and winner selection
+    if (isTwoLegged && isPlayed && !hasWinner) {
+      const agg = computeAggregate(matches[0], matches[1]);
+      html += `<div class="aggregate-info">Aggregate: ${agg.homeAgg} – ${agg.awayAgg}</div>`;
+      if (agg.homeAgg === agg.awayAgg) {
+        html += `
+          <div class="tie-resolution">
+            <span>Tie! Select winner:</span>
+            <select class="tie-winner-select" data-tie="${tieId}">
+              <option value="">--</option>
+              <option value="${matches[0].homeTeam}">${matches[0].homeTeam}</option>
+              <option value="${matches[0].awayTeam}">${matches[0].awayTeam}</option>
+            </select>
+            <button class="resolve-tie-btn neon-btn small" data-tie="${tieId}">Resolve</button>
+          </div>
+        `;
+      } else {
+        // Winner already determined by aggregate, but we can auto-set
+        const winner = agg.homeAgg > agg.awayAgg ? matches[0].homeTeam : matches[0].awayTeam;
+        html += `<div class="winner-display">🏆 Winner: ${winner}</div>`;
+        // Optionally auto-update winner field
+        (async () => {
+          for (const m of matches) {
+            if (!m.winner) {
+              await update(ref(db, `matches/${m.id}`), { winner });
+            }
+          }
+        })();
+      }
+    } else if (isPlayed && !isTwoLegged && !hasWinner) {
+      // Single match (playoff or final)
+      const m = matches[0];
+      if (m.homeScore !== m.awayScore) {
+        const winner = m.homeScore > m.awayScore ? m.homeTeam : m.awayTeam;
+        html += `<div class="winner-display">🏆 Winner: ${winner}</div>`;
+        (async () => {
+          if (!m.winner) {
+            await update(ref(db, `matches/${m.id}`), { winner });
+          }
+        })();
+      } else {
+        html += `
+          <div class="tie-resolution">
+            <span>Draw! Select winner:</span>
+            <select class="tie-winner-select" data-tie="${tieId}">
+              <option value="">--</option>
+              <option value="${m.homeTeam}">${m.homeTeam}</option>
+              <option value="${m.awayTeam}">${m.awayTeam}</option>
+            </select>
+            <button class="resolve-tie-btn neon-btn small" data-tie="${tieId}">Resolve</button>
+          </div>
+        `;
+      }
+    }
+
+    html += `</div>`;
+  }
+
   matchesContainer.innerHTML = html;
 
-  document.querySelectorAll('.save-score-btn').forEach(btn => {
+  // Attach event listeners for score saving
+  document.querySelectorAll('.save-score-btn:not([disabled])').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const card = e.target.closest('.match-admin-card');
       const id = card.dataset.id;
@@ -431,6 +531,36 @@ function renderMatches() {
       await saveMatchResult(id, home, away);
     });
   });
+
+  // Attach resolve tie listeners
+  document.querySelectorAll('.resolve-tie-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const tieId = btn.dataset.tie;
+      const select = document.querySelector(`.tie-winner-select[data-tie="${tieId}"]`);
+      const winner = select.value;
+      if (!winner) {
+        showToast('❌ Please select a winner.', 'error');
+        return;
+      }
+      await resolveTie(tieId, winner);
+    });
+  });
+}
+
+function computeAggregate(m1, m2) {
+  const homeAgg = (m1.status === 'played' ? m1.homeScore : 0) + (m2.status === 'played' ? m2.homeScore : 0);
+  const awayAgg = (m1.status === 'played' ? m1.awayScore : 0) + (m2.status === 'played' ? m2.awayScore : 0);
+  return { homeAgg, awayAgg };
+}
+
+async function resolveTie(tieId, winnerTeam) {
+  const matches = allMatches.filter(m => m.tieId === tieId);
+  for (const m of matches) {
+    await update(ref(db, `matches/${m.id}`), { winner: winnerTeam });
+  }
+  showToast(`✅ Winner ${winnerTeam} selected.`, 'success');
+  // After resolving, maybe generate next round if all ties resolved
+  await autoAdvanceTournament();
 }
 
 // ===== SAVE/UPDATE SCORE =====
@@ -449,62 +579,290 @@ async function saveMatchResult(matchId, homeScore, awayScore) {
   }
 }
 
-// ===== GENERATE NEXT ROUND (Double Round-Robin only) =====
-generateBtn.addEventListener('click', async () => {
+// ===== GENERATE PLAYOFF =====
+generatePlayoffBtn.addEventListener('click', async () => {
+  await generatePlayoff();
+});
+
+async function generatePlayoff() {
   const active = allTeams.filter(t => !t.eliminated);
-  if (active.length < 2) {
-    showToast('❌ Need at least 2 active teams.', 'error');
+  if (active.length !== 18) {
+    showToast('❌ Need exactly 18 active teams for playoff.', 'error');
     return;
   }
-
-  // Get only group matches (ignore any leftover knockout matches if any)
-  const groupMatches = allMatches.filter(m => m.stage === 'group');
-
-  // Double Round-Robin
+  // Clear previous matches (optional) – we'll remove all matches first
+  await removeAllMatches();
+  // Shuffle and pair
   const names = active.map(t => t.name);
-  const doubleRR = generateDoubleRoundRobin(names);
-  const totalRounds = doubleRR.totalRounds;
-
-  const lastRound = groupMatches.reduce((max, m) => Math.max(max, m.round), 0);
-  const nextRound = lastRound + 1;
-
-  if (nextRound > totalRounds) {
-    showToast('⏳ All rounds generated! Season complete.', 'info');
-    return;
+  const shuffled = shuffleArray([...names]);
+  const pairs = [];
+  for (let i = 0; i < shuffled.length; i += 2) {
+    pairs.push([shuffled[i], shuffled[i+1]]);
   }
-
-  const firstHalfRounds = doubleRR.firstHalf.length;
-  let roundFixtures = [];
-  let roundLabel = '';
-
-  if (nextRound <= firstHalfRounds) {
-    roundFixtures = doubleRR.firstHalf[nextRound - 1];
-    roundLabel = `Round ${nextRound} (First Half)`;
-  } else {
-    const secondHalfIndex = nextRound - firstHalfRounds - 1;
-    roundFixtures = doubleRR.secondHalf[secondHalfIndex];
-    roundLabel = `Round ${nextRound} (Second Half)`;
-  }
-
-  if (!roundFixtures || roundFixtures.length === 0) {
-    showToast('❌ No fixtures to generate.', 'error');
-    return;
-  }
-
-  for (const f of roundFixtures) {
+  // Create matches
+  for (const [home, away] of pairs) {
     const newMatchRef = push(ref(db, 'matches'));
     await set(newMatchRef, {
-      homeTeam: f.home,
-      awayTeam: f.away,
-      round: nextRound,
-      stage: 'group',
+      homeTeam: home,
+      awayTeam: away,
+      phase: 'playoff',
+      leg: null,
       status: 'pending',
       homeScore: 0,
       awayScore: 0,
-      half: nextRound <= firstHalfRounds ? 'first' : 'second'
+      winner: null,
+      tieId: null
     });
   }
+  await set(ref(db, 'tournament/phase'), 'playoff');
+  showToast('✅ Playoff generated!', 'success');
+}
 
-  setStatus(`${roundLabel} generated (${roundFixtures.length} matches).`);
-  showToast(`✅ ${roundLabel} generated.`, 'success');
+async function removeAllMatches() {
+  const snapshot = await get(ref(db, 'matches'));
+  if (snapshot.exists()) {
+    const updates = {};
+    const keys = Object.keys(snapshot.val());
+    for (const key of keys) {
+      updates[key] = null;
+    }
+    await update(ref(db, 'matches'), updates);
+  }
+}
+
+// ===== AUTO-PROCESS PLAYOFF =====
+async function autoProcessPlayoff() {
+  if (currentPhase !== 'playoff') return;
+  const playoffMatches = allMatches.filter(m => m.phase === 'playoff');
+  if (playoffMatches.length !== 9) return;
+  const allPlayed = playoffMatches.every(m => m.status === 'played' && m.winner);
+  if (!allPlayed) return;
+
+  // Determine winners and losers
+  const winners = [];
+  const losers = [];
+  for (const m of playoffMatches) {
+    if (m.winner) {
+      winners.push(m.winner);
+      const loser = m.homeTeam === m.winner ? m.awayTeam : m.homeTeam;
+      // compute goal difference for loser
+      const loserScore = m.homeTeam === loser ? m.homeScore : m.awayScore;
+      const winnerScore = m.homeTeam === m.winner ? m.homeScore : m.awayScore;
+      const gd = loserScore - winnerScore;
+      const gf = loserScore;
+      losers.push({ team: loser, gd, gf });
+    } else {
+      // not resolved yet
+      return;
+    }
+  }
+
+  // Sort losers by GD, GF
+  losers.sort((a,b) => b.gd - a.gd || b.gf - a.gf);
+  const bestLosers = losers.slice(0, 7).map(l => l.team);
+  const eliminated = losers.slice(7).map(l => l.team);
+
+  // Eliminate bottom 2
+  for (const team of eliminated) {
+    const teamObj = allTeams.find(t => t.name === team);
+    if (teamObj) {
+      await update(ref(db, `teams/${teamObj.id}`), { eliminated: true });
+    }
+  }
+
+  // Qualified for Round of 16: winners + best losers
+  const qualified = [...winners, ...bestLosers];
+  if (qualified.length !== 16) {
+    showToast('❌ Error: qualified teams != 16', 'error');
+    return;
+  }
+
+  // Generate Round of 16
+  await generateRoundOf16(qualified);
+}
+
+// ===== GENERATE ROUND OF 16 =====
+async function generateRoundOf16(teams) {
+  const shuffled = shuffleArray([...teams]);
+  const ties = [];
+  for (let i = 0; i < shuffled.length; i += 2) {
+    const home = shuffled[i];
+    const away = shuffled[i+1];
+    const tieId = push(ref(db, 'ties')).key;
+    // Leg 1
+    const leg1Ref = push(ref(db, 'matches'));
+    await set(leg1Ref, {
+      homeTeam: home,
+      awayTeam: away,
+      phase: 'round16',
+      leg: 1,
+      tieId: tieId,
+      status: 'pending',
+      homeScore: 0,
+      awayScore: 0,
+      winner: null
+    });
+    // Leg 2 (swap)
+    const leg2Ref = push(ref(db, 'matches'));
+    await set(leg2Ref, {
+      homeTeam: away,
+      awayTeam: home,
+      phase: 'round16',
+      leg: 2,
+      tieId: tieId,
+      status: 'pending',
+      homeScore: 0,
+      awayScore: 0,
+      winner: null
+    });
+    ties.push(tieId);
+  }
+  await set(ref(db, 'tournament/phase'), 'round16');
+  showToast(`✅ Round of 16 generated (${ties.length} ties).`, 'success');
+}
+
+// ===== GENERATE NEXT ROUND (automatically after all ties resolved) =====
+generateNextBtn.addEventListener('click', async () => {
+  await autoAdvanceTournament();
+});
+
+async function autoAdvanceTournament() {
+  // Check current phase and if all matches in that phase are resolved
+  if (!currentPhase) {
+    showToast('❌ No tournament phase active.', 'error');
+    return;
+  }
+  const phaseMatches = allMatches.filter(m => m.phase === currentPhase);
+  if (phaseMatches.length === 0) {
+    showToast('❌ No matches in current phase.', 'error');
+    return;
+  }
+  // Check if all matches have a winner (for playoff) or all ties have winners (for two-legged)
+  let allResolved = true;
+  const ties = {};
+  phaseMatches.forEach(m => {
+    const key = m.tieId || m.id;
+    if (!ties[key]) ties[key] = [];
+    ties[key].push(m);
+  });
+  for (const [key, matches] of Object.entries(ties)) {
+    const hasWinner = matches.some(m => m.winner);
+    if (!hasWinner) {
+      allResolved = false;
+      break;
+    }
+  }
+  if (!allResolved) {
+    showToast('❌ Please resolve all ties (select winners) before proceeding.', 'error');
+    return;
+  }
+
+  // Determine winners of this phase
+  const winners = [];
+  for (const [key, matches] of Object.entries(ties)) {
+    // find winner from any match
+    const winnerMatch = matches.find(m => m.winner);
+    if (winnerMatch) {
+      winners.push(winnerMatch.winner);
+    }
+  }
+  if (winners.length === 0) {
+    showToast('❌ No winners found.', 'error');
+    return;
+  }
+
+  // Map phase to next phase
+  const phaseMap = {
+    'playoff': 'round16',
+    'round16': 'quarter',
+    'quarter': 'semi',
+    'semi': 'final'
+  };
+  const nextPhase = phaseMap[currentPhase];
+  if (!nextPhase) {
+    // If final, declare champion
+    if (currentPhase === 'final') {
+      const champion = winners[0];
+      showToast(`🏆 Champion: ${champion}!`, 'success');
+      await set(ref(db, 'tournament/champion'), champion);
+      return;
+    }
+    showToast('❌ Unknown phase.', 'error');
+    return;
+  }
+
+  // Generate next phase
+  if (nextPhase === 'final') {
+    if (winners.length !== 2) {
+      showToast('❌ Need exactly 2 winners for final.', 'error');
+      return;
+    }
+    const finalMatch = {
+      homeTeam: winners[0],
+      awayTeam: winners[1],
+      phase: 'final',
+      leg: null,
+      tieId: null,
+      status: 'pending',
+      homeScore: 0,
+      awayScore: 0,
+      winner: null
+    };
+    const refMatch = push(ref(db, 'matches'));
+    await set(refMatch, finalMatch);
+    await set(ref(db, 'tournament/phase'), 'final');
+    showToast('✅ Final generated!', 'success');
+  } else {
+    // Two-legged rounds
+    const shuffled = shuffleArray([...winners]);
+    const ties = [];
+    for (let i = 0; i < shuffled.length; i += 2) {
+      const home = shuffled[i];
+      const away = shuffled[i+1];
+      const tieId = push(ref(db, 'ties')).key;
+      const leg1Ref = push(ref(db, 'matches'));
+      await set(leg1Ref, {
+        homeTeam: home,
+        awayTeam: away,
+        phase: nextPhase,
+        leg: 1,
+        tieId: tieId,
+        status: 'pending',
+        homeScore: 0,
+        awayScore: 0,
+        winner: null
+      });
+      const leg2Ref = push(ref(db, 'matches'));
+      await set(leg2Ref, {
+        homeTeam: away,
+        awayTeam: home,
+        phase: nextPhase,
+        leg: 2,
+        tieId: tieId,
+        status: 'pending',
+        homeScore: 0,
+        awayScore: 0,
+        winner: null
+      });
+      ties.push(tieId);
+    }
+    await set(ref(db, 'tournament/phase'), nextPhase);
+    showToast(`✅ ${nextPhase.toUpperCase()} generated (${ties.length} ties).`, 'success');
+  }
+}
+
+// ===== RESET TOURNAMENT =====
+resetBtn.addEventListener('click', async () => {
+  if (!confirm('Are you sure you want to reset the tournament? All matches will be deleted and teams will be reactivated.')) return;
+  try {
+    await removeAllMatches();
+    // Reactivate all teams
+    for (const team of allTeams) {
+      await update(ref(db, `teams/${team.id}`), { eliminated: false });
+    }
+    await remove(ref(db, 'tournament'));
+    showToast('✅ Tournament reset.', 'success');
+  } catch (e) {
+    showToast('❌ Error resetting: ' + e.message, 'error');
+  }
 });
