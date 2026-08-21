@@ -47,6 +47,14 @@ let pendingReplaceOldTeam = null;
 let isLoadingLeague = false;
 let userRole = null;
 
+function shuffleArray(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
 // ==================== TOURNAMENT DATA STRUCTURE ====================
 const TOURNAMENT_CONFIG = {
     qualificationRounds: 2,
@@ -99,37 +107,33 @@ function selectRole(role) {
 }
 
 function checkAndLoadTournament() {
-
-const setupSection = document.getElementById('setup-section');
+    const setupSection = document.getElementById('setup-section');
     if (setupSection) setupSection.classList.add('hidden');
-    
-    const tbody = document.getElementById('league-table-body');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="12" class="text-center py-8 text-gray-400">Loading Champions League...</td></tr>';
-    const fixturesContainer = document.getElementById('fixtures-container');
-    if (fixturesContainer) fixturesContainer.innerHTML = '<div class="skeleton h-24 w-full rounded-xl"></div>';
-    
+
     getTournamentRef().once('value', (snapshot) => {
         const data = snapshot.val();
-        if (data && data.teams && data.fixtures) {
+        // Check for existing tournament data (players or qualificationPlayoffs)
+        if (data && (data.players || data.qualificationPlayoffs)) {
             loadTournamentData(data);
             if (userRole === 'viewer') {
                 document.getElementById('admin-toggle-container')?.classList.add('hidden');
                 document.getElementById('admin-reset-container')?.classList.add('hidden');
                 document.getElementById('floating-admin-menu')?.classList.add('hidden');
-                document.getElementById('th-admin-actions')?.classList.add('hidden');
-                document.getElementById('admin-table-hint')?.classList.add('hidden');
-                document.getElementById('relegation-zone')?.classList.add('hidden');
+                document.getElementById('command-center')?.classList.add('hidden');
             } else if (userRole === 'admin') {
                 document.getElementById('admin-toggle-container')?.classList.remove('hidden');
                 document.getElementById('admin-reset-container')?.classList.remove('hidden');
+                document.getElementById('command-center')?.classList.remove('hidden');
+                document.getElementById('floating-admin-menu')?.classList.remove('hidden');
             }
         } else {
+            // No tournament data
             if (userRole === 'viewer') {
                 document.getElementById('dashboard-section')?.classList.add('hidden');
                 document.getElementById('setup-section')?.classList.add('hidden');
                 const roleSelector = document.getElementById('role-selector');
                 if (roleSelector) {
-                    roleSelector.innerHTML = `<div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center"><div class="mb-4"><div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3"><span class="text-3xl">🏆</span></div><h2 class="text-2xl font-bold text-gray-800">No Champions League Yet</h2><p class="text-gray-500 text-sm mt-1">An admin hasn't started the Champions League.</p></div><button onclick="selectRole('admin')" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition">🔑 Switch to Admin to Create</button></div>`;
+                    roleSelector.innerHTML = `<div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center"><div class="mb-4"><div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3"><span class="text-3xl">🏆</span></div><h2 class="text-2xl font-bold text-gray-800">No Tournament Yet</h2><p class="text-gray-500 text-sm mt-1">An admin hasn't started the tournament.</p></div><button onclick="selectRole('admin')" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition">🔑 Switch to Admin to Create</button></div>`;
                     roleSelector.style.display = 'flex';
                 }
             } else if (userRole === 'admin') {
@@ -137,7 +141,7 @@ const setupSection = document.getElementById('setup-section');
                 document.getElementById('dashboard-section')?.classList.add('hidden');
                 document.getElementById('admin-toggle-container')?.classList.add('hidden');
                 document.getElementById('floating-admin-menu')?.classList.add('hidden');
-                showToast("Setup mode – create Champions League");
+                showToast("Setup mode – create tournament");
             }
         }
     }).catch(error => { console.error(error); showToast("Error loading data"); });
@@ -147,38 +151,29 @@ function loadTournamentData(data) {
     tournamentPassword = data.password || "090541";
     teams = data.players || {};
 
-    // Convert legacy fixtures if needed
+    // Qualification playoffs
     if (data.fixtures && data.fixtures.length > 0 && !data.qualificationPlayoffs) {
         tournament.qualificationPlayoffs = [{ round: 1, fixtures: data.fixtures }];
     } else {
         tournament.qualificationPlayoffs = data.qualificationPlayoffs || [];
     }
 
-    // Ensure knockoutStages has proper structure
+    // Build default knockout stages (ensures every stage exists with ties array)
     const defaultStages = {
         ROUND_OF_16: { ties: [], status: 'NOT_CREATED' },
         QUARTER_FINAL: { ties: [], status: 'NOT_CREATED' },
         SEMI_FINAL: { ties: [], status: 'NOT_CREATED' },
         FINAL: { ties: [], status: 'NOT_CREATED' }
     };
-    if (!data.knockoutStages) {
-        tournament.knockoutStages = defaultStages;
-    } else {
-        tournament.knockoutStages = data.knockoutStages;
-        // Ensure every stage has ties array and status
-        for (let s in defaultStages) {
-            if (!tournament.knockoutStages[s]) {
-                tournament.knockoutStages[s] = { ties: [], status: 'NOT_CREATED' };
-            } else {
-                if (!Array.isArray(tournament.knockoutStages[s].ties)) {
-                    tournament.knockoutStages[s].ties = [];
-                }
-                if (!tournament.knockoutStages[s].status) {
-                    tournament.knockoutStages[s].status = 'NOT_CREATED';
-                }
+    if (data.knockoutStages) {
+        for (let stage in defaultStages) {
+            if (data.knockoutStages[stage]) {
+                defaultStages[stage].ties = Array.isArray(data.knockoutStages[stage].ties) ? data.knockoutStages[stage].ties : [];
+                defaultStages[stage].status = data.knockoutStages[stage].status || 'NOT_CREATED';
             }
         }
     }
+    tournament.knockoutStages = defaultStages;
 
     tournament.currentStage = data.currentStage || null;
     tournament.champion = data.champion || null;
@@ -193,8 +188,11 @@ function loadTournamentData(data) {
     updateTournamentStatusBar();
     generateTickerFacts();
 
-    document.getElementById('setup-section')?.classList.add('hidden');
-    document.getElementById('dashboard-section')?.classList.remove('hidden');
+    const setup = document.getElementById('setup-section');
+    if (setup) setup.classList.add('hidden');
+    const dashboard = document.getElementById('dashboard-section');
+    if (dashboard) dashboard.classList.remove('hidden');
+
     initBackToTop();
     initChatListener();
     if (userRole === 'admin') updateAdminUIElements();
@@ -206,6 +204,10 @@ function showToast(msg) {
     if (c) { let t = document.createElement("div"); t.className = "toast"; t.innerText = msg; c.appendChild(t); setTimeout(() => t.remove(), 2500); }
 }
 function saveToStorage() {
+    if (!isAdmin) {
+        console.warn("Only admin can save data.");
+        return;
+    }
     const data = {
         password: tournamentPassword,
         players: teams,
@@ -216,7 +218,9 @@ function saveToStorage() {
         championDate: tournament.championDate,
         commandHistory: tournament.commandHistory
     };
-    getTournamentRef().set(data);
+    getTournamentRef().set(data)
+        .then(() => console.log("Data saved."))
+        .catch(err => { console.error("Save error:", err); showToast("Error saving data."); });
 }
 
 function getCurrentUserId() {
@@ -1650,23 +1654,45 @@ function verifyAdminPassword() { const val = document.getElementById('admin-pass
 function activateAdminMode() { isAdmin = true; updateAdminUIElements(); showToast("Admin mode ACTIVE"); }
 function deactivateAdminMode() { isAdmin = false; updateAdminUIElements(); showToast("Admin mode deactivated"); }
 function updateAdminUIElements() {
-    const btn = document.getElementById('admin-btn'), dot = document.getElementById('admin-btn-dot'), statusText = document.getElementById('admin-status-text'), resetContainer = document.getElementById('admin-reset-container'), thActions = document.getElementById('th-admin-actions'), hint = document.getElementById('admin-table-hint'), relegationZone = document.getElementById('relegation-zone');
+    const btn = document.getElementById('admin-btn');
+    const dot = document.getElementById('admin-btn-dot');
+    const statusText = document.getElementById('admin-status-text');
+    const resetContainer = document.getElementById('admin-reset-container');
+    const thActions = document.getElementById('th-admin-actions');
+    const hint = document.getElementById('admin-table-hint');
+    const relegationZone = document.getElementById('relegation-zone');
     const floatMenu = document.getElementById('floating-admin-menu');
+
     if (isAdmin) {
-        btn?.classList.replace('bg-gray-300', 'bg-indigo-600'); dot?.classList.replace('translate-x-0', 'translate-x-5');
-        if (statusText) { statusText.innerText = "⚡ ADMIN MODE"; statusText.classList.replace('text-gray-600', 'text-indigo-600'); }
-        if (resetContainer) resetContainer.classList.remove('hidden'); if (thActions) thActions.classList.remove('hidden'); if (hint) hint.classList.remove('hidden');
+        if (btn) btn.classList.replace('bg-gray-300', 'bg-indigo-600');
+        if (dot) dot.classList.replace('translate-x-0', 'translate-x-5');
+        if (statusText) {
+            statusText.innerText = "⚡ ADMIN MODE";
+            statusText.classList.replace('text-gray-600', 'text-indigo-600');
+        }
+        if (resetContainer) resetContainer.classList.remove('hidden');
+        if (thActions) thActions.classList.remove('hidden');
+        if (hint) hint.classList.remove('hidden');
         if (relegationZone) relegationZone.classList.remove('hidden');
         if (floatMenu) floatMenu.classList.remove('hidden');
-        renderRelegatedTeams();
+        // Only call render functions if their containers exist
+        if (document.getElementById('league-table-body')) renderTable();
+        if (document.getElementById('gameweek-tabs')) renderGameweekTabs();
+        if (document.getElementById('fixtures-container')) renderFixtures();
+        if (document.getElementById('relegated-teams-list')) renderRelegatedTeams();
     } else {
-        btn?.classList.replace('bg-indigo-600', 'bg-gray-300'); dot?.classList.replace('translate-x-5', 'translate-x-0');
-        if (statusText) { statusText.innerText = "🔒 READ ONLY"; statusText.classList.replace('text-indigo-600', 'text-gray-600'); }
-        if (resetContainer) resetContainer.classList.add('hidden'); if (thActions) thActions.classList.add('hidden'); if (hint) hint.classList.add('hidden');
+        if (btn) btn.classList.replace('bg-indigo-600', 'bg-gray-300');
+        if (dot) dot.classList.replace('translate-x-5', 'translate-x-0');
+        if (statusText) {
+            statusText.innerText = "🔒 READ ONLY";
+            statusText.classList.replace('text-indigo-600', 'text-gray-600');
+        }
+        if (resetContainer) resetContainer.classList.add('hidden');
+        if (thActions) thActions.classList.add('hidden');
+        if (hint) hint.classList.add('hidden');
         if (relegationZone) relegationZone.classList.add('hidden');
         if (floatMenu) floatMenu.classList.add('hidden');
     }
-    renderTable(); renderGameweekTabs(); renderFixtures();
 }
 
 // ==================== PASSWORD CHANGE ====================
@@ -1695,7 +1721,6 @@ function initializeTournament() {
     const pass = document.getElementById('tournament-password').value.trim();
     if (pass) tournamentPassword = pass;
 
-    // Collect team names
     let list = [];
     for (let i = 1; i <= count; i++) {
         let name = document.getElementById(`team-input-${i}`).value.trim();
@@ -1704,7 +1729,6 @@ function initializeTournament() {
     }
     if (list.length % 2 !== 0) list.push({ name: "BYE" });
 
-    // Initialize teams (players)
     teams = {};
     list.forEach(item => {
         if (item.name !== "BYE") {
@@ -1720,29 +1744,7 @@ function initializeTournament() {
         }
     });
 
-    // Reset tournament data
-    tournament = {
-        players: teams, // keep a reference, but we use `teams` directly
-        qualificationPlayoffs: [],
-        qualificationStandings: [],
-        knockoutStages: {
-            ROUND_OF_16: { ties: [], status: 'NOT_CREATED' },
-            QUARTER_FINAL: { ties: [], status: 'NOT_CREATED' },
-            SEMI_FINAL: { ties: [], status: 'NOT_CREATED' },
-            FINAL: { ties: [], status: 'NOT_CREATED' }
-        },
-        currentStage: null,
-        champion: null,
-        championDate: null,
-        commandHistory: []
-    };
-    // Also update the global `tournament` variable (it's already declared)
-    // We'll reassign it to the new object, but we need to keep the reference.
-    // Since we declared `let tournament = { ... }` at the top, we can assign:
-    // but we must use the same variable name.
-    // Actually, we already have `let tournament = { ... }` earlier.
-    // We'll just assign properties directly to avoid re-declaration.
-    // Simpler: use the existing tournament object and reset its properties.
+    // Reset tournament object
     tournament.players = teams;
     tournament.qualificationPlayoffs = [];
     tournament.qualificationStandings = [];
@@ -1760,11 +1762,11 @@ function initializeTournament() {
     // Save to Firebase
     saveToStorage();
 
-    // Switch UI to dashboard
+    // UI transition
     document.getElementById('setup-section').classList.add('hidden');
     document.getElementById('dashboard-section').classList.remove('hidden');
 
-    // Initialize qualification standings and render
+    // Render
     updateQualificationStandings();
     renderQualificationTable();
     renderPlayoffTabs();
@@ -1773,7 +1775,6 @@ function initializeTournament() {
     updateTournamentStatusBar();
     generateTickerFacts();
 
-    // Show admin controls if admin
     if (isAdmin) {
         document.getElementById('admin-toggle-container')?.classList.remove('hidden');
         document.getElementById('admin-reset-container')?.classList.remove('hidden');
@@ -2310,9 +2311,12 @@ function editKnockoutResult(matchId) {
 
 // ==================== RENDER LEAGUE TABLE ====================
 function renderTable() {
+    const tbody = document.getElementById('league-table-body');
+    if (!tbody) return; // tournament view doesn't have this table
+
+    // --- original renderTable logic below (keep unchanged) ---
     const activeTeams = Object.values(teams).filter(t => !t.relegated);
     const sorted = activeTeams.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
-    const tbody = document.getElementById('league-table-body');
     tbody.innerHTML = "";
     sorted.forEach((team, idx) => {
         const pos = idx + 1;
@@ -2326,6 +2330,7 @@ function renderTable() {
 </td>` : "";
         tbody.innerHTML += `<tr class="hover:bg-gray-50 transition ${pos === 1 ? 'champions-row' : (pos > sorted.length - 2 ? 'relegation-row' : '')}" onclick="showTeamDetails('${team.name}')"><td class="py-2 px-2 text-center font-bold text-xs ${pos === 1 ? 'text-indigo-600' : ''}">${pos}</td><td class="py-2 px-2"><span class="font-semibold text-xs">${team.name}</span>${penaltyBadge}</td><td class="py-2 px-1 text-center text-xs">${team.mp}</td><td class="py-2 px-1 text-center text-emerald-600 text-xs">${team.w}</td><td class="py-2 px-1 text-center text-xs">${team.d}</td><td class="py-2 px-1 text-center text-rose-500 text-xs">${team.l}</td><td class="py-2 px-1 text-center text-xs">${team.gf}</td><td class="py-2 px-1 text-center text-xs">${team.ga}</td><td class="py-2 px-1 text-center font-mono text-xs ${team.gd >= 0 ? 'text-emerald-600' : 'text-rose-500'}">${team.gd > 0 ? '+' + team.gd : team.gd}</td><td class="py-2 px-2 text-center font-black text-indigo-600 text-xs">${team.pts}</td><td class="py-2 px-2 text-center">${formHtml}</td>${actionBtn}</tr>`;
     });
+    // phase indicator update if exists
     const phaseIndicator = document.getElementById('phase-indicator');
     if (phaseIndicator) phaseIndicator.innerText = tournamentPhase === 'league' ? '🏆 League Phase' : '🥇 Knockout Stage';
     generateTickerFacts();
