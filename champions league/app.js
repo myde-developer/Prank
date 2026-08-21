@@ -146,23 +146,45 @@ const setupSection = document.getElementById('setup-section');
 function loadTournamentData(data) {
     tournamentPassword = data.password || "090541";
     teams = data.players || {};
-    // Convert existing fixtures (legacy) to qualification playoffs if needed
+
+    // Convert legacy fixtures if needed
     if (data.fixtures && data.fixtures.length > 0 && !data.qualificationPlayoffs) {
         tournament.qualificationPlayoffs = [{ round: 1, fixtures: data.fixtures }];
     } else {
         tournament.qualificationPlayoffs = data.qualificationPlayoffs || [];
     }
-    tournament.knockoutStages = data.knockoutStages || {
+
+    // Ensure knockoutStages has proper structure
+    const defaultStages = {
         ROUND_OF_16: { ties: [], status: 'NOT_CREATED' },
         QUARTER_FINAL: { ties: [], status: 'NOT_CREATED' },
         SEMI_FINAL: { ties: [], status: 'NOT_CREATED' },
         FINAL: { ties: [], status: 'NOT_CREATED' }
     };
+    if (!data.knockoutStages) {
+        tournament.knockoutStages = defaultStages;
+    } else {
+        tournament.knockoutStages = data.knockoutStages;
+        // Ensure every stage has ties array and status
+        for (let s in defaultStages) {
+            if (!tournament.knockoutStages[s]) {
+                tournament.knockoutStages[s] = { ties: [], status: 'NOT_CREATED' };
+            } else {
+                if (!Array.isArray(tournament.knockoutStages[s].ties)) {
+                    tournament.knockoutStages[s].ties = [];
+                }
+                if (!tournament.knockoutStages[s].status) {
+                    tournament.knockoutStages[s].status = 'NOT_CREATED';
+                }
+            }
+        }
+    }
+
     tournament.currentStage = data.currentStage || null;
     tournament.champion = data.champion || null;
     tournament.championDate = data.championDate || null;
     tournament.commandHistory = data.commandHistory || [];
-    
+
     updateQualificationStandings();
     renderQualificationTable();
     renderPlayoffTabs();
@@ -170,7 +192,7 @@ function loadTournamentData(data) {
     renderKnockoutBracket();
     updateTournamentStatusBar();
     generateTickerFacts();
-    
+
     document.getElementById('setup-section')?.classList.add('hidden');
     document.getElementById('dashboard-section')?.classList.remove('hidden');
     initBackToTop();
@@ -710,17 +732,17 @@ function renderKnockoutBracket() {
     const stages = ['ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'FINAL'];
     let hasStage = false;
     let html = '<div class="bracket-grid">';
-    stages.forEach((stageId, idx) => {
-        const ties = tournament.knockoutStages[stageId]?.ties || [];
-        if (ties.length === 0) return;
+    stages.forEach((stageId) => {
+        const stageObj = tournament.knockoutStages?.[stageId];
+        if (!stageObj || !Array.isArray(stageObj.ties) || stageObj.ties.length === 0) return;
         hasStage = true;
         const label = getStageLabel(stageId);
         html += `<div class="bracket-round">`;
         html += `<div class="bracket-round-label">${label}</div>`;
-        ties.forEach((tie, tIdx) => {
+        stageObj.ties.forEach((tie) => {
             html += `<div class="bracket-tie">`;
-            const leg1 = tie.legs[0];
-            const leg2 = tie.legs[1];
+            const leg1 = tie.legs?.[0];
+            const leg2 = tie.legs?.[1];
             if (leg1) {
                 const score1 = leg1.played ? `${leg1.homeScore}-${leg1.awayScore}` : '—';
                 html += `<div class="bracket-match">${leg1.home} ${score1} ${leg1.away}</div>`;
@@ -771,10 +793,11 @@ function updateTournamentStatusBar() {
     const progressBar = document.getElementById('tournament-progress-bar');
     const progressText = document.getElementById('tournament-progress');
     if (!stageDisplay) return;
+
     const current = tournament.currentStage;
-    if (current && tournament.knockoutStages[current]) {
+    if (current && tournament.knockoutStages && tournament.knockoutStages[current]) {
         stageDisplay.innerText = getStageLabel(current);
-        const status = tournament.knockoutStages[current].status;
+        const status = tournament.knockoutStages[current].status || 'UNKNOWN';
         statusDisplay.innerText = status;
         statusDisplay.className = 'text-xs font-mono bg-gray-100 px-3 py-1 rounded-full';
         if (status === 'COMPLETED') statusDisplay.classList.add('text-emerald-600');
@@ -785,14 +808,21 @@ function updateTournamentStatusBar() {
         stageDisplay.innerText = '—';
         statusDisplay.innerText = '—';
     }
+
     let totalTies = 0, completedTies = 0;
-    for (let stage in tournament.knockoutStages) {
-        const ties = tournament.knockoutStages[stage].ties;
-        if (ties.length > 0) {
-            totalTies += ties.length;
-            ties.forEach(t => { if (t.status === 'COMPLETED' || t.status === 'ADVANCED') completedTies++; });
+    if (tournament.knockoutStages) {
+        for (let stage in tournament.knockoutStages) {
+            const stageObj = tournament.knockoutStages[stage];
+            if (stageObj && Array.isArray(stageObj.ties)) {
+                const ties = stageObj.ties;
+                totalTies += ties.length;
+                ties.forEach(t => {
+                    if (t.status === 'COMPLETED' || t.status === 'ADVANCED') completedTies++;
+                });
+            }
         }
     }
+
     if (totalTies > 0) {
         const pct = Math.round((completedTies / totalTies) * 100);
         progressBar.style.width = pct + '%';
@@ -801,6 +831,7 @@ function updateTournamentStatusBar() {
         progressBar.style.width = '0%';
         progressText.innerText = '0% complete';
     }
+
     if (tournament.champion) {
         document.getElementById('champion-display').classList.remove('hidden');
         document.getElementById('champion-name').innerText = tournament.champion;
