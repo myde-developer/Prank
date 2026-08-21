@@ -1663,28 +1663,94 @@ function initializeTournament() {
     const count = parseInt(document.getElementById('team-count').value);
     const pass = document.getElementById('tournament-password').value.trim();
     if (pass) tournamentPassword = pass;
+
+    // Collect team names
     let list = [];
-    for (let i = 1; i <= count; i++) { let name = document.getElementById(`team-input-${i}`).value.trim(); if (name === "") name = `Team ${i}`; list.push({ name }); }
+    for (let i = 1; i <= count; i++) {
+        let name = document.getElementById(`team-input-${i}`).value.trim();
+        if (name === "") name = `Team ${i}`;
+        list.push({ name });
+    }
     if (list.length % 2 !== 0) list.push({ name: "BYE" });
+
+    // Initialize teams (players)
     teams = {};
-    list.forEach(item => { if (item.name !== "BYE") teams[item.name] = { name: item.name, mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0, deductedPoints: 0, formHistory: [], relegated: false }; });
-    const teamNames = Object.keys(teams);
-    const rounds = generateStrictRoundRobin(teamNames);
-    fixtures = [];
-    let fixtureId = 0;
-    rounds.forEach((roundFixtures, roundIndex) => {
-        roundFixtures.forEach(({ home, away }) => {
-            fixtures.push({ id: fixtureId++, round: roundIndex + 1, home, away, homeScore: null, awayScore: null, played: false, cancelled: false, comment: null, predictions: [], banter: [], events: [], report: null, deadline: null });
-        });
+    list.forEach(item => {
+        if (item.name !== "BYE") {
+            teams[item.name] = {
+                name: item.name,
+                mp: 0, w: 0, d: 0, l: 0,
+                gf: 0, ga: 0, gd: 0, pts: 0,
+                deductedPoints: 0,
+                formHistory: [],
+                relegated: false,
+                qualified: false
+            };
+        }
     });
-    tournamentPhase = 'league';
-    knockoutMatches = [];
-    roundStartTimes = {};
-    autoStartNextRound = false;
-    currentSelectedRound = 1;
-   releasedGameweeks = { 1: true };
+
+    // Reset tournament data
+    tournament = {
+        players: teams, // keep a reference, but we use `teams` directly
+        qualificationPlayoffs: [],
+        qualificationStandings: [],
+        knockoutStages: {
+            ROUND_OF_16: { ties: [], status: 'NOT_CREATED' },
+            QUARTER_FINAL: { ties: [], status: 'NOT_CREATED' },
+            SEMI_FINAL: { ties: [], status: 'NOT_CREATED' },
+            FINAL: { ties: [], status: 'NOT_CREATED' }
+        },
+        currentStage: null,
+        champion: null,
+        championDate: null,
+        commandHistory: []
+    };
+    // Also update the global `tournament` variable (it's already declared)
+    // We'll reassign it to the new object, but we need to keep the reference.
+    // Since we declared `let tournament = { ... }` at the top, we can assign:
+    // but we must use the same variable name.
+    // Actually, we already have `let tournament = { ... }` earlier.
+    // We'll just assign properties directly to avoid re-declaration.
+    // Simpler: use the existing tournament object and reset its properties.
+    tournament.players = teams;
+    tournament.qualificationPlayoffs = [];
+    tournament.qualificationStandings = [];
+    tournament.knockoutStages = {
+        ROUND_OF_16: { ties: [], status: 'NOT_CREATED' },
+        QUARTER_FINAL: { ties: [], status: 'NOT_CREATED' },
+        SEMI_FINAL: { ties: [], status: 'NOT_CREATED' },
+        FINAL: { ties: [], status: 'NOT_CREATED' }
+    };
+    tournament.currentStage = null;
+    tournament.champion = null;
+    tournament.championDate = null;
+    tournament.commandHistory = [];
+
+    // Save to Firebase
     saveToStorage();
-    showToast(`Champions League launched with ${count} teams!`);
+
+    // Switch UI to dashboard
+    document.getElementById('setup-section').classList.add('hidden');
+    document.getElementById('dashboard-section').classList.remove('hidden');
+
+    // Initialize qualification standings and render
+    updateQualificationStandings();
+    renderQualificationTable();
+    renderPlayoffTabs();
+    renderPlayoffFixtures();
+    renderKnockoutBracket();
+    updateTournamentStatusBar();
+    generateTickerFacts();
+
+    // Show admin controls if admin
+    if (isAdmin) {
+        document.getElementById('admin-toggle-container')?.classList.remove('hidden');
+        document.getElementById('admin-reset-container')?.classList.remove('hidden');
+        document.getElementById('command-center')?.classList.remove('hidden');
+        document.getElementById('floating-admin-menu')?.classList.remove('hidden');
+    }
+
+    showToast(`Tournament launched with ${Object.keys(teams).length} players!`);
 }
 
 function openReplaceTeamModal(teamName) {
