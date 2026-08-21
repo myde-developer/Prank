@@ -64,9 +64,9 @@ const TOURNAMENT_CONFIG = {
 };
 
 let tournament = {
-    players: {},        // { playerName: { name, mp, w, d, l, gf, ga, gd, pts, deductedPoints, formHistory, relegated, qualified } }
-    qualificationPlayoffs: [], // [{ round: 1, fixtures: [ {id, home, away, homeScore, awayScore, played, cancelled, events, report} ] }]
-    qualificationStandings: [], // sorted array of player objects with combined stats
+    players: {},
+    qualificationPlayoffs: [],
+    qualificationStandings: [],
     knockoutStages: {
         ROUND_OF_16: { ties: [], status: 'NOT_CREATED' },
         QUARTER_FINAL: { ties: [], status: 'NOT_CREATED' },
@@ -76,7 +76,8 @@ let tournament = {
     currentStage: null,
     champion: null,
     championDate: null,
-    commandHistory: []
+    commandHistory: [],
+    qualificationConfirmed: false   // <-- ADD THIS LINE
 };
 
 // ==================== ROLE SELECTION ====================
@@ -179,6 +180,7 @@ function loadTournamentData(data) {
     tournament.champion = data.champion || null;
     tournament.championDate = data.championDate || null;
     tournament.commandHistory = data.commandHistory || [];
+    tournament.qualificationConfirmed = data.qualificationConfirmed || false;
 
     updateQualificationStandings();
     renderQualificationTable();
@@ -204,10 +206,7 @@ function showToast(msg) {
     if (c) { let t = document.createElement("div"); t.className = "toast"; t.innerText = msg; c.appendChild(t); setTimeout(() => t.remove(), 2500); }
 }
 function saveToStorage() {
-    if (!isAdmin) {
-        console.warn("Only admin can save data.");
-        return;
-    }
+    if (!isAdmin) return;
     const data = {
         password: tournamentPassword,
         players: teams,
@@ -216,11 +215,10 @@ function saveToStorage() {
         currentStage: tournament.currentStage,
         champion: tournament.champion,
         championDate: tournament.championDate,
-        commandHistory: tournament.commandHistory
+        commandHistory: tournament.commandHistory,
+        qualificationConfirmed: tournament.qualificationConfirmed   // <-- ADD THIS
     };
-    getTournamentRef().set(data)
-        .then(() => console.log("Data saved."))
-        .catch(err => { console.error("Save error:", err); showToast("Error saving data."); });
+    getTournamentRef().set(data);
 }
 
 function getCurrentUserId() {
@@ -321,7 +319,7 @@ function renderQualificationTable() {
     sorted.forEach((p, idx) => {
         const pos = idx + 1;
         const isQualified = p.qualified === true;
-        const isEliminated = !isQualified && idx >= TOURNAMENT_CONFIG.qualifiers;
+        const isEliminated = tournament.qualificationConfirmed && !isQualified && idx >= TOURNAMENT_CONFIG.qualifiers;
         const statusClass = isQualified ? 'text-emerald-600 font-bold' : (isEliminated ? 'text-rose-500' : 'text-gray-400');
         const statusText = isQualified ? '✅ Qualified' : (isEliminated ? '❌ Eliminated' : '—');
         const rowClass = isQualified ? 'bg-emerald-50/50' : (isEliminated ? 'bg-rose-50/50' : '');
@@ -597,17 +595,18 @@ function confirmCommand(command) {
 
 function executeParsedCommand(parsed, originalCommand) {
     if (parsed.intent === 'QUALIFY') {
-        updateQualificationStandings();
-        const sorted = tournament.qualificationStandings;
-        sorted.forEach((p, idx) => {
-            p.qualified = (idx < TOURNAMENT_CONFIG.qualifiers);
-        });
-        saveToStorage();
-        renderQualificationTable();
-        showToast(`Top ${TOURNAMENT_CONFIG.qualifiers} qualified.`);
-        addCommandHistory(originalCommand);
-        return;
-    }
+    updateQualificationStandings();
+    const sorted = tournament.qualificationStandings;
+    sorted.forEach((p, idx) => {
+        p.qualified = (idx < TOURNAMENT_CONFIG.qualifiers);
+    });
+    tournament.qualificationConfirmed = true;   // <-- ADD THIS
+    saveToStorage();
+    renderQualificationTable();
+    showToast(`Top ${TOURNAMENT_CONFIG.qualifiers} qualified.`);
+    addCommandHistory(originalCommand);
+    return;
+}
     if (parsed.stageType === 'qualification') {
         const round = parsed.stage === 'PLAYOFF_1' ? 1 : 2;
         generateQualificationPlayoff(round);
@@ -853,6 +852,97 @@ function getStageLabel(stageId) {
         'FINAL': 'Final'
     };
     return map[stageId] || stageId;
+}
+
+function simulateTournament() {
+    if (!isAdmin) {
+        showToast("Admin only.");
+        return;
+    }
+    const playerNames = Object.keys(teams).filter(name => !teams[name].relegated);
+    if (playerNames.length === 0) {
+        showToast("No players. Launch tournament first.");
+        return;
+    }
+
+    // 1. Create playoff 1 if not exists
+    if (!tournament.qualificationPlayoffs.some(p => p.round === 1)) {
+        generateQualificationPlayoff(1);
+    }
+    // 2. Create playoff 2 if not exists
+    if (!tournament.qualificationPlayoffs.some(p => p.round === 2)) {
+        generateQualificationPlayoff(2);
+    }
+
+    // 3. Fill random scores for all qualification fixtures
+    tournament.qualificationPlayoffs.forEach(playoff => {
+        playoff.fixtures.forEach(f => {
+            if (!f.played) {
+                f.homeScore = Math.floor(Math.random() * 5);
+                f.awayScore = Math.floor(Math.random() * 5);
+                f.played = true;
+                f.report = `${f.home} ${f.homeScore}-${f.awayScore} ${f.away}`;
+                f.events = [];
+            }
+        });
+    });
+    saveToStorage();
+    updateQualificationStandings();
+    renderQualificationTable();
+    renderPlayoffFixtures();
+
+    // 4. Qualify top 16
+    const sorted = tournament.qualificationStandings;
+    sorted.forEach((p, idx) => {
+        p.qualified = (idx < TOURNAMENT_CONFIG.qualifiers);
+    });
+    tournament.qualificationConfirmed = true;
+    saveToStorage();
+    renderQualificationTable();
+
+    // 5. Create knockout stages sequentially
+    const stages = ['ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'FINAL'];
+    let prevStage = null;
+    for (let stage of stages) {
+        let source = 'QUALIFIED_TOP_16';
+        if (prevStage) {
+            const prevTies = tournament.knockoutStages[prevStage].ties;
+            if (prevTies.length === 0) break;
+            const allAdvanced = prevTies.every(t => t.winner);
+            if (!allAdvanced) break;
+            source = 'PREVIOUS_STAGE_WINNERS';
+        }
+        createKnockoutStage(stage, source, 'RANDOM', stage === 'FINAL' ? 1 : 2);
+        prevStage = stage;
+    }
+
+    // 6. Fill random scores for all knockout legs
+    for (let stage in tournament.knockoutStages) {
+        const ties = tournament.knockoutStages[stage].ties;
+        ties.forEach(tie => {
+            tie.legs.forEach(leg => {
+                if (!leg.played) {
+                    leg.homeScore = Math.floor(Math.random() * 4);
+                    leg.awayScore = Math.floor(Math.random() * 4);
+                    leg.played = true;
+                    leg.report = `${leg.home} ${leg.homeScore}-${leg.awayScore} ${leg.away}`;
+                }
+            });
+            const agg = calculateAggregate(tie);
+            if (agg) {
+                if (agg.home > agg.away) tie.winner = tie.home;
+                else if (agg.away > agg.home) tie.winner = tie.away;
+                else {
+                    tie.winner = Math.random() < 0.5 ? tie.home : tie.away;
+                }
+                tie.status = 'COMPLETED';
+            }
+        });
+    }
+    saveToStorage();
+    renderKnockoutBracket();
+    updateTournamentStatusBar();
+    showToast("Simulation complete! Check the bracket and champion.");
 }
 
 function autoReleaseCurrentRound() {
