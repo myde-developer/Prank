@@ -1064,23 +1064,28 @@ function updateTournamentStatusBar() {
     const statusDisplay = document.getElementById('stage-status-display');
     const progressBar = document.getElementById('tournament-progress-bar');
     const progressText = document.getElementById('tournament-progress');
-    if (!stageDisplay) return;
 
-    const current = tournament.currentStage;
-    if (current && tournament.knockoutStages && tournament.knockoutStages[current]) {
-        stageDisplay.innerText = getStageLabel(current);
-        const status = tournament.knockoutStages[current].status || 'UNKNOWN';
-        statusDisplay.innerText = status;
-        statusDisplay.className = 'text-xs font-mono bg-gray-100 px-3 py-1 rounded-full';
-        if (status === 'COMPLETED') statusDisplay.classList.add('text-emerald-600');
-        else if (status === 'DRAW_CREATED') statusDisplay.classList.add('text-indigo-600');
-        else if (status === 'IN_PROGRESS') statusDisplay.classList.add('text-amber-600');
-        else statusDisplay.classList.add('text-gray-500');
-    } else {
-        stageDisplay.innerText = '—';
-        statusDisplay.innerText = '—';
+    // --- Update stage & status ---
+    if (stageDisplay) {
+        const current = tournament.currentStage;
+        if (current && tournament.knockoutStages && tournament.knockoutStages[current]) {
+            stageDisplay.innerText = getStageLabel(current);
+            const status = tournament.knockoutStages[current].status || 'UNKNOWN';
+            if (statusDisplay) {
+                statusDisplay.innerText = status;
+                statusDisplay.className = 'text-xs font-mono bg-gray-100 px-3 py-1 rounded-full';
+                if (status === 'COMPLETED') statusDisplay.classList.add('text-emerald-600');
+                else if (status === 'DRAW_CREATED') statusDisplay.classList.add('text-indigo-600');
+                else if (status === 'IN_PROGRESS') statusDisplay.classList.add('text-amber-600');
+                else statusDisplay.classList.add('text-gray-500');
+            }
+        } else {
+            stageDisplay.innerText = '—';
+            if (statusDisplay) statusDisplay.innerText = '—';
+        }
     }
 
+    // --- Update progress bar ---
     let totalTies = 0, completedTies = 0;
     if (tournament.knockoutStages) {
         for (let stage in tournament.knockoutStages) {
@@ -1095,21 +1100,31 @@ function updateTournamentStatusBar() {
         }
     }
 
-    if (totalTies > 0) {
-        const pct = Math.round((completedTies / totalTies) * 100);
-        progressBar.style.width = pct + '%';
-        progressText.innerText = `${pct}% complete`;
-    } else {
-        progressBar.style.width = '0%';
-        progressText.innerText = '0% complete';
+    if (progressBar && progressText) {
+        if (totalTies > 0) {
+            const pct = Math.round((completedTies / totalTies) * 100);
+            progressBar.style.width = pct + '%';
+            progressText.innerText = `${pct}% complete`;
+        } else {
+            progressBar.style.width = '0%';
+            progressText.innerText = '0% complete';
+        }
     }
 
-    if (tournament.champion) {
-        document.getElementById('champion-display').classList.remove('hidden');
-        document.getElementById('champion-name').innerText = tournament.champion;
-        document.getElementById('champion-date').innerText = tournament.championDate ? new Date(tournament.championDate).toLocaleDateString() : '';
-    } else {
-        document.getElementById('champion-display').classList.add('hidden');
+    // --- Champion display (removed from HTML) – just skip if elements missing ---
+    // No longer needed – champion is shown on bracket overlay.
+    // If you still have the champion-display section, these lines will work.
+    const championDisplay = document.getElementById('champion-display');
+    if (championDisplay) {
+        if (tournament.champion) {
+            championDisplay.classList.remove('hidden');
+            const nameEl = document.getElementById('champion-name');
+            const dateEl = document.getElementById('champion-date');
+            if (nameEl) nameEl.innerText = tournament.champion;
+            if (dateEl) dateEl.innerText = tournament.championDate ? new Date(tournament.championDate).toLocaleDateString() : '';
+        } else {
+            championDisplay.classList.add('hidden');
+        }
     }
 }
 
