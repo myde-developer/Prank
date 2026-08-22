@@ -55,6 +55,13 @@ function shuffleArray(arr) {
     return arr;
 }
 
+function getStageWinners(stageId) {
+    const stage = tournament.knockoutStages[stageId];
+    if (!stage || !Array.isArray(stage.ties)) return [];
+    const winners = stage.ties.map(t => t.winner).filter(w => w);
+    return winners;
+}
+
 // ==================== KNOCKOUT SCORE EDITOR ====================
 let currentEditingTie = null;
 let currentEditingStage = null;
@@ -105,36 +112,58 @@ function closeTieEditor() {
 }
 
 function saveTieScores() {
-    if (!currentEditingTie) return;
+    if (!currentEditingTie) {
+        showToast("No tie being edited.");
+        return;
+    }
+
     const { stageId, tieIndex } = currentEditingTie;
     const stage = tournament.knockoutStages[stageId];
+    if (!stage) {
+        showToast("Stage not found.");
+        return;
+    }
     const tie = stage.ties[tieIndex];
+    if (!tie) {
+        showToast("Tie not found.");
+        return;
+    }
 
-    // Read scores for each leg
-    const legs = tie.legs;
-    let allPlayed = true;
-    legs.forEach((leg, idx) => {
+    // --- 1. Read scores from inputs ---
+    let allLegsPlayed = true;
+    tie.legs.forEach((leg, idx) => {
         const homeInput = document.getElementById(`tie-home-${idx}`);
         const awayInput = document.getElementById(`tie-away-${idx}`);
+        if (!homeInput || !awayInput) return;
+
         const homeVal = homeInput.value.trim();
         const awayVal = awayInput.value.trim();
+
         if (homeVal === '' || awayVal === '') {
-            allPlayed = false;
+            // Leg not played – clear existing data
             leg.played = false;
             leg.homeScore = null;
             leg.awayScore = null;
             leg.report = null;
+            leg.events = [];
+            allLegsPlayed = false;
         } else {
-            leg.homeScore = parseInt(homeVal);
-            leg.awayScore = parseInt(awayVal);
+            const h = parseInt(homeVal, 10);
+            const a = parseInt(awayVal, 10);
+            if (isNaN(h) || isNaN(a) || h < 0 || a < 0) {
+                alert(`Invalid score for Leg ${idx+1}. Please enter numbers ≥ 0.`);
+                return;
+            }
+            leg.homeScore = h;
+            leg.awayScore = a;
             leg.played = true;
-            leg.report = `${leg.home} ${leg.homeScore}-${leg.awayScore} ${leg.away}`;
+            leg.report = `${leg.home} ${h}-${a} ${leg.away}`;
             leg.events = [];
         }
     });
 
-    // Calculate aggregate and determine winner if both legs played
-    if (allPlayed) {
+    // --- 2. Determine winner if all legs are played ---
+    if (allLegsPlayed) {
         const agg = calculateAggregate(tie);
         if (agg) {
             if (agg.home > agg.away) {
@@ -146,23 +175,67 @@ function saveTieScores() {
             } else {
                 // Aggregate tie – admin must resolve manually
                 tie.winner = null;
-                tie.status = 'COMPLETED'; // still completed, but no winner set
-                showToast("Aggregate tie! Click 'Resolve Tie' to select winner.");
-                // For now, we'll leave it unresolved; admin can use a separate function or pick manually.
+                tie.status = 'COMPLETED'; // still completed, but no winner
+                showToast(`⚠️ Aggregate tie in ${getStageLabel(stageId)}: ${tie.home} vs ${tie.away} – resolve manually.`);
+                // Optionally, you can auto-resolve by random:
+                // tie.winner = Math.random() < 0.5 ? tie.home : tie.away;
+                // But we leave it for admin to decide.
+            }
+        } else {
+            // Only one leg (Final) – winner is the team with higher score
+            const leg = tie.legs[0];
+            if (leg && leg.played) {
+                if (leg.homeScore > leg.awayScore) {
+                    tie.winner = tie.home;
+                    tie.status = 'COMPLETED';
+                } else if (leg.awayScore > leg.homeScore) {
+                    tie.winner = tie.away;
+                    tie.status = 'COMPLETED';
+                } else {
+                    tie.winner = null;
+                    tie.status = 'COMPLETED';
+                    showToast(`⚠️ Final is tied – resolve manually.`);
+                }
             }
         }
     } else {
-        // Not all legs played – reset winner
+        // Not all legs played – reset winner and status
         tie.winner = null;
         tie.status = 'PENDING';
     }
 
+    // --- 3. Update stage status if all ties in this stage have winners ---
+    const allTiesHaveWinner = stage.ties.every(t => t.winner);
+    if (allTiesHaveWinner) {
+        stage.status = 'COMPLETED';
+        showToast(`✅ All ties in ${getStageLabel(stageId)} are complete!`);
+        // If this is the final stage and champion is set, update champion display
+        if (stageId === 'FINAL') {
+            const finalTie = stage.ties[0];
+            if (finalTie && finalTie.winner) {
+                tournament.champion = finalTie.winner;
+                tournament.championDate = Date.now();
+                showToast(`🏆 ${tournament.champion} is the CHAMPION!`);
+                if (typeof confetti === 'function') {
+                    confetti({ particleCount: 300, spread: 100, origin: { y: 0.6 } });
+                }
+            }
+        }
+    } else {
+        // If some ties still pending, set stage status to IN_PROGRESS if not already
+        if (stage.status !== 'COMPLETED' && stage.status !== 'ADVANCED') {
+            stage.status = 'IN_PROGRESS';
+        }
+    }
+
+    // --- 4. Save, re-render, close modal ---
     saveToStorage();
     renderKnockoutBracket();
     updateTournamentStatusBar();
     closeTieEditor();
     showToast(`Scores saved for ${tie.home} vs ${tie.away}`);
 }
+
 // ==================== TOURNAMENT DATA STRUCTURE ====================
 const TOURNAMENT_CONFIG = {
     qualificationRounds: 2,
@@ -764,6 +837,7 @@ function createKnockoutStage(stageId, source, drawType, legs, force = false) {
     if (tournament.knockoutStages[stageId].ties.length > 0 && !force) {
         if (!confirm(`${getStageLabel(stageId)} already exists. Overwrite?`)) return;
     }
+
     let eligible = [];
     if (source === 'QUALIFIED_TOP_16') {
         eligible = tournament.qualificationStandings.filter(p => p.qualified).map(p => p.name);
@@ -777,21 +851,38 @@ function createKnockoutStage(stageId, source, drawType, legs, force = false) {
         if (idx === -1) { showToast("Cannot determine previous stage"); return; }
         const prevStage = stages[idx-1];
         if (!prevStage) { showToast("No previous stage"); return; }
+
+        // Get winners from previous stage – even if stage status is not COMPLETED
+        const winners = getStageWinners(prevStage);
+        if (winners.length === 0) {
+            showToast(`No winners found in ${getStageLabel(prevStage)}. Complete all ties first.`);
+            return;
+        }
+
+        // Check if every tie in previous stage has a winner
         const prevTies = tournament.knockoutStages[prevStage].ties;
-        if (prevTies.length === 0) { showToast(`No ties found in ${getStageLabel(prevStage)}`); return; }
-        const allComplete = prevTies.every(t => t.status === 'COMPLETED' || t.status === 'ADVANCED');
-        if (!allComplete) { showToast(`Previous stage (${getStageLabel(prevStage)}) is not complete.`); return; }
-        eligible = prevTies.map(t => t.winner).filter(w => w);
-        if (eligible.length !== prevTies.length) { showToast("Some ties have no winner yet."); return; }
+        const allHaveWinners = prevTies.every(t => t.winner);
+        if (!allHaveWinners) {
+            showToast(`Not all ties in ${getStageLabel(prevStage)} have winners.`);
+            return;
+        }
+
+        eligible = winners;
+        if (eligible.length !== prevTies.length) {
+            showToast(`Some ties in ${getStageLabel(prevStage)} have no winner.`);
+            return;
+        }
     } else {
         showToast("Unknown source for stage.");
         return;
     }
+
     if (eligible.length % 2 !== 0) { showToast("Odd number of players – cannot create ties."); return; }
+
     let tiePlayers = [...eligible];
     if (drawType === 'RANDOM') shuffleArray(tiePlayers);
+
     const ties = [];
-    const now = Date.now();
     for (let i = 0; i < tiePlayers.length; i += 2) {
         const home = tiePlayers[i];
         const away = tiePlayers[i+1];
@@ -828,6 +919,7 @@ function createKnockoutStage(stageId, source, drawType, legs, force = false) {
         }
         ties.push(tie);
     }
+
     tournament.knockoutStages[stageId].ties = ties;
     tournament.knockoutStages[stageId].status = 'DRAW_CREATED';
     tournament.currentStage = stageId;
@@ -1036,7 +1128,7 @@ function simulateTournament() {
         return;
     }
 
-    // --- STEP 1: Ensure qualification playoffs exist ---
+    // ----- 1. Qualification Playoffs -----
     if (!tournament.qualificationPlayoffs.some(p => p.round === 1)) {
         generateQualificationPlayoff(1);
     }
@@ -1044,7 +1136,7 @@ function simulateTournament() {
         generateQualificationPlayoff(2);
     }
 
-    // --- STEP 2: Fill random scores for ALL qualification fixtures ---
+    // Fill random scores for all qualification fixtures
     tournament.qualificationPlayoffs.forEach(playoff => {
         playoff.fixtures.forEach(f => {
             if (!f.played) {
@@ -1061,7 +1153,7 @@ function simulateTournament() {
     renderQualificationTable();
     renderPlayoffFixtures();
 
-    // --- STEP 3: Qualify top 16 ---
+    // ----- 2. Qualify top 16 -----
     const sorted = tournament.qualificationStandings;
     sorted.forEach((p, idx) => {
         p.qualified = (idx < TOURNAMENT_CONFIG.qualifiers);
@@ -1070,110 +1162,112 @@ function simulateTournament() {
     saveToStorage();
     renderQualificationTable();
 
-    // --- STEP 4: Generate knockout stages sequentially with random scores ---
-    const stages = ['ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'FINAL'];
+    // ----- 3. Knockout stages (R16, QF, SF) using createKnockoutStage -----
+    const stages = ['ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL'];
     let previousStage = null;
-    let allStagesCreated = true;
-
-    for (let i = 0; i < stages.length; i++) {
-        const stageId = stages[i];
-        const isFinal = (stageId === 'FINAL');
-        const legs = isFinal ? 1 : 2;
+    for (let stage of stages) {
         let source = 'QUALIFIED_TOP_16';
-
-        // For subsequent stages, source is previous stage winners
         if (previousStage) {
-            const prevTies = tournament.knockoutStages[previousStage].ties;
-            // Ensure previous stage is complete and has winners
-            const allHaveWinners = prevTies.every(t => t.winner);
-            if (prevTies.length === 0 || !allHaveWinners) {
-                showToast(`Cannot create ${getStageLabel(stageId)} – ${getStageLabel(previousStage)} is not complete.`);
-                allStagesCreated = false;
-                break;
-            }
             source = 'PREVIOUS_STAGE_WINNERS';
         }
+        createKnockoutStage(stage, source, 'RANDOM', 2, true); // force = true
 
-        // Create the stage (force overwrite)
-        createKnockoutStage(stageId, source, 'RANDOM', legs, true); // force = true
-
-        // Fill random scores for this stage's ties
-        const stage = tournament.knockoutStages[stageId];
-        if (stage.ties.length > 0) {
-            stage.ties.forEach(tie => {
-                // For each leg, assign random scores and mark played
-                tie.legs.forEach(leg => {
-                    if (!leg.played) {
-                        leg.homeScore = Math.floor(Math.random() * 4);
-                        leg.awayScore = Math.floor(Math.random() * 4);
-                        leg.played = true;
-                        leg.report = `${leg.home} ${leg.homeScore}-${leg.awayScore} ${leg.away}`;
-                        leg.events = [];
-                    }
-                });
-
-                // Calculate aggregate and determine winner
-                const agg = calculateAggregate(tie);
-                if (agg) {
-                    if (agg.home > agg.away) {
-                        tie.winner = tie.home;
-                        tie.status = 'COMPLETED';
-                    } else if (agg.away > agg.home) {
-                        tie.winner = tie.away;
-                        tie.status = 'COMPLETED';
-                    } else {
-                        // Tie aggregate – randomly pick winner for simulation
-                        tie.winner = Math.random() < 0.5 ? tie.home : tie.away;
-                        tie.status = 'COMPLETED';
-                        showToast(`Aggregate tie in ${getStageLabel(stageId)}: ${tie.home} vs ${tie.away} – random winner selected.`);
-                    }
-                } else {
-                    // If only one leg (Final), winner is the one with higher score
-                    if (isFinal && tie.legs.length === 1) {
-                        const leg = tie.legs[0];
-                        if (leg.homeScore > leg.awayScore) {
-                            tie.winner = tie.home;
-                        } else if (leg.awayScore > leg.homeScore) {
-                            tie.winner = tie.away;
-                        } else {
-                            tie.winner = Math.random() < 0.5 ? tie.home : tie.away;
-                        }
-                        tie.status = 'COMPLETED';
-                    }
+        // Fill random scores and determine winners for this stage
+        const stageObj = tournament.knockoutStages[stage];
+        stageObj.ties.forEach(tie => {
+            tie.legs.forEach(leg => {
+                if (!leg.played) {
+                    leg.homeScore = Math.floor(Math.random() * 4);
+                    leg.awayScore = Math.floor(Math.random() * 4);
+                    leg.played = true;
+                    leg.report = `${leg.home} ${leg.homeScore}-${leg.awayScore} ${leg.away}`;
+                    leg.events = [];
                 }
             });
-        }
-
-        // Update stage status
-        stage.status = 'COMPLETED';
+            const agg = calculateAggregate(tie);
+            if (agg) {
+                if (agg.home > agg.away) tie.winner = tie.home;
+                else if (agg.away > agg.home) tie.winner = tie.away;
+                else tie.winner = Math.random() < 0.5 ? tie.home : tie.away;
+                tie.status = 'COMPLETED';
+            }
+        });
+        stageObj.status = 'COMPLETED';
         saveToStorage();
-
-        // Render bracket after each stage
         renderKnockoutBracket();
         updateTournamentStatusBar();
-
-        // If it's the final and we have a winner, declare champion
-        if (isFinal) {
-            const finalTie = stage.ties[0];
-            if (finalTie && finalTie.winner) {
-                tournament.champion = finalTie.winner;
-                tournament.championDate = Date.now();
-                saveToStorage();
-                updateTournamentStatusBar();
-                showToast(`🏆 ${tournament.champion} is the CHAMPION!`);
-                if (typeof confetti === 'function') {
-                    confetti({ particleCount: 300, spread: 100, origin: { y: 0.6 } });
-                }
-            }
-        }
-
-        previousStage = stageId;
+        previousStage = stage;
     }
 
-    if (allStagesCreated) {
-        showToast("Simulation complete! Check the bracket and champion.");
+    // ----- 4. Create Final manually (bypass createKnockoutStage) -----
+    const semiTies = tournament.knockoutStages['SEMI_FINAL'].ties;
+    if (semiTies.length !== 2) {
+        showToast("Semi-finals incomplete – cannot create final.");
+        return;
+    }
+    const finalists = semiTies.map(t => t.winner).filter(w => w);
+    if (finalists.length !== 2) {
+        showToast("Semi-finals winners not determined.");
+        return;
+    }
+
+    // Build final tie (single leg)
+    const finalTie = {
+        tieId: 'FINAL_tie_1',
+        stage: 'FINAL',
+        home: finalists[0],
+        away: finalists[1],
+        legs: [
+            {
+                id: Date.now() + 1000,
+                tieId: 'FINAL_tie_1',
+                leg: 1,
+                home: finalists[0],
+                away: finalists[1],
+                homeScore: null,
+                awayScore: null,
+                played: false,
+                cancelled: false,
+                events: [],
+                report: null,
+                predictions: [],
+                banter: []
+            }
+        ],
+        winner: null,
+        status: 'PENDING'
+    };
+
+    tournament.knockoutStages['FINAL'].ties = [finalTie];
+    tournament.knockoutStages['FINAL'].status = 'DRAW_CREATED';
+    tournament.currentStage = 'FINAL';
+    saveToStorage();
+
+    // Fill random score for the final
+    const finalLeg = finalTie.legs[0];
+    finalLeg.homeScore = Math.floor(Math.random() * 4);
+    finalLeg.awayScore = Math.floor(Math.random() * 4);
+    finalLeg.played = true;
+    finalLeg.report = `${finalLeg.home} ${finalLeg.homeScore}-${finalLeg.awayScore} ${finalLeg.away}`;
+    if (finalLeg.homeScore > finalLeg.awayScore) {
+        finalTie.winner = finalTie.home;
+    } else if (finalLeg.awayScore > finalLeg.homeScore) {
+        finalTie.winner = finalTie.away;
     } else {
-        showToast("Simulation stopped early. Check console for details.");
+        finalTie.winner = Math.random() < 0.5 ? finalTie.home : finalTie.away;
+    }
+    finalTie.status = 'COMPLETED';
+    tournament.knockoutStages['FINAL'].status = 'COMPLETED';
+    tournament.champion = finalTie.winner;
+    tournament.championDate = Date.now();
+    saveToStorage();
+
+    renderKnockoutBracket();
+    updateTournamentStatusBar();
+
+    showToast(`🏆 ${tournament.champion} is the CHAMPION!`);
+    if (typeof confetti === 'function') {
+        confetti({ particleCount: 300, spread: 100, origin: { y: 0.6 } });
     }
 }
 
