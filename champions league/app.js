@@ -55,6 +55,114 @@ function shuffleArray(arr) {
     return arr;
 }
 
+// ==================== KNOCKOUT SCORE EDITOR ====================
+let currentEditingTie = null;
+let currentEditingStage = null;
+
+function openTieEditor(stageId, tieIndex) {
+    if (!isAdmin) return;
+    const stage = tournament.knockoutStages[stageId];
+    if (!stage || !stage.ties[tieIndex]) return;
+    const tie = stage.ties[tieIndex];
+    currentEditingTie = { stageId, tieIndex };
+    currentEditingStage = stageId;
+
+    const modal = document.getElementById('tie-editor-modal');
+    const title = document.getElementById('tie-editor-title');
+    const body = document.getElementById('tie-editor-body');
+
+    title.innerText = `${getStageLabel(stageId)} – ${tie.home} vs ${tie.away}`;
+
+    let html = '';
+    tie.legs.forEach((leg, idx) => {
+        const legLabel = `Leg ${idx + 1}`;
+        const homeScore = leg.played ? leg.homeScore : '';
+        const awayScore = leg.played ? leg.awayScore : '';
+        html += `
+            <div class="border-b border-gray-200 pb-3 mb-3">
+                <p class="text-xs font-semibold text-gray-500">${legLabel}</p>
+                <div class="flex items-center gap-3 mt-1">
+                    <span class="text-sm font-medium w-20 truncate">${leg.home}</span>
+                    <input type="number" id="tie-home-${idx}" value="${homeScore}" placeholder="0" class="w-12 text-center border rounded-lg px-2 py-1 text-sm">
+                    <span class="text-gray-400">:</span>
+                    <input type="number" id="tie-away-${idx}" value="${awayScore}" placeholder="0" class="w-12 text-center border rounded-lg px-2 py-1 text-sm">
+                    <span class="text-sm font-medium w-20 truncate">${leg.away}</span>
+                </div>
+                ${leg.played ? `<div class="text-xs text-gray-400 mt-1">✅ Already played – overwriting will reset aggregate.</div>` : ''}
+            </div>
+        `;
+    });
+    body.innerHTML = html;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeTieEditor() {
+    document.getElementById('tie-editor-modal').classList.add('hidden');
+    document.getElementById('tie-editor-modal').classList.remove('flex');
+    currentEditingTie = null;
+    currentEditingStage = null;
+}
+
+function saveTieScores() {
+    if (!currentEditingTie) return;
+    const { stageId, tieIndex } = currentEditingTie;
+    const stage = tournament.knockoutStages[stageId];
+    const tie = stage.ties[tieIndex];
+
+    // Read scores for each leg
+    const legs = tie.legs;
+    let allPlayed = true;
+    legs.forEach((leg, idx) => {
+        const homeInput = document.getElementById(`tie-home-${idx}`);
+        const awayInput = document.getElementById(`tie-away-${idx}`);
+        const homeVal = homeInput.value.trim();
+        const awayVal = awayInput.value.trim();
+        if (homeVal === '' || awayVal === '') {
+            allPlayed = false;
+            leg.played = false;
+            leg.homeScore = null;
+            leg.awayScore = null;
+            leg.report = null;
+        } else {
+            leg.homeScore = parseInt(homeVal);
+            leg.awayScore = parseInt(awayVal);
+            leg.played = true;
+            leg.report = `${leg.home} ${leg.homeScore}-${leg.awayScore} ${leg.away}`;
+            leg.events = [];
+        }
+    });
+
+    // Calculate aggregate and determine winner if both legs played
+    if (allPlayed) {
+        const agg = calculateAggregate(tie);
+        if (agg) {
+            if (agg.home > agg.away) {
+                tie.winner = tie.home;
+                tie.status = 'COMPLETED';
+            } else if (agg.away > agg.home) {
+                tie.winner = tie.away;
+                tie.status = 'COMPLETED';
+            } else {
+                // Aggregate tie – admin must resolve manually
+                tie.winner = null;
+                tie.status = 'COMPLETED'; // still completed, but no winner set
+                showToast("Aggregate tie! Click 'Resolve Tie' to select winner.");
+                // For now, we'll leave it unresolved; admin can use a separate function or pick manually.
+            }
+        }
+    } else {
+        // Not all legs played – reset winner
+        tie.winner = null;
+        tie.status = 'PENDING';
+    }
+
+    saveToStorage();
+    renderKnockoutBracket();
+    updateTournamentStatusBar();
+    closeTieEditor();
+    showToast(`Scores saved for ${tie.home} vs ${tie.away}`);
+}
 // ==================== TOURNAMENT DATA STRUCTURE ====================
 const TOURNAMENT_CONFIG = {
     qualificationRounds: 2,
@@ -651,9 +759,9 @@ function quickCommand(text) {
 }
 
 // ==================== KNOCKOUT STAGE ENGINE ====================
-function createKnockoutStage(stageId, source, drawType, legs) {
+function createKnockoutStage(stageId, source, drawType, legs, force = false) {
     if (!isAdmin) return;
-    if (tournament.knockoutStages[stageId].ties.length > 0) {
+    if (tournament.knockoutStages[stageId].ties.length > 0 && !force) {
         if (!confirm(`${getStageLabel(stageId)} already exists. Overwrite?`)) return;
     }
     let eligible = [];
@@ -731,51 +839,114 @@ function createKnockoutStage(stageId, source, drawType, legs) {
 
 function renderKnockoutBracket() {
     const container = document.getElementById('bracket-inner');
-    if (!container) return;
+    if (!container) {
+        console.warn('Bracket container not found');
+        return;
+    }
+
     const stages = ['ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'FINAL'];
     let hasStage = false;
     let html = '<div class="bracket-grid">';
+
     stages.forEach((stageId) => {
         const stageObj = tournament.knockoutStages?.[stageId];
         if (!stageObj || !Array.isArray(stageObj.ties) || stageObj.ties.length === 0) return;
+
         hasStage = true;
         const label = getStageLabel(stageId);
+        const isFinal = (stageId === 'FINAL');
+
         html += `<div class="bracket-round">`;
         html += `<div class="bracket-round-label">${label}</div>`;
-        stageObj.ties.forEach((tie) => {
-            html += `<div class="bracket-tie">`;
+
+        stageObj.ties.forEach((tie, tieIdx) => {
             const leg1 = tie.legs?.[0];
             const leg2 = tie.legs?.[1];
+
+            // Determine if this tie has a winner to show advancement line
+            const hasWinner = !!tie.winner;
+
+            html += `<div class="bracket-tie" data-stage="${stageId}" data-index="${tieIdx}">`;
+
+            // ---- LEG 1 ----
             if (leg1) {
                 const score1 = leg1.played ? `${leg1.homeScore}-${leg1.awayScore}` : '—';
-                html += `<div class="bracket-match">${leg1.home} ${score1} ${leg1.away}</div>`;
+                const isWinner1 = hasWinner && tie.winner === leg1.home;
+                const isLoser1 = hasWinner && tie.winner !== leg1.home && tie.winner === leg1.away;
+                html += `<div class="bracket-match ${isWinner1 ? 'winner' : ''} ${isLoser1 ? 'loser' : ''}">
+                    <span class="team-name">${leg1.home}</span>
+                    <span class="score">${score1}</span>
+                    <span class="team-name">${leg1.away}</span>
+                </div>`;
             }
+
+            // ---- LEG 2 (if exists) ----
             if (leg2) {
                 const score2 = leg2.played ? `${leg2.homeScore}-${leg2.awayScore}` : '—';
-                html += `<div class="bracket-match">${leg2.home} ${score2} ${leg2.away}</div>`;
+                const isWinner2 = hasWinner && tie.winner === leg2.home;
+                const isLoser2 = hasWinner && tie.winner !== leg2.home && tie.winner === leg2.away;
+                html += `<div class="bracket-match ${isWinner2 ? 'winner' : ''} ${isLoser2 ? 'loser' : ''}">
+                    <span class="team-name">${leg2.home}</span>
+                    <span class="score">${score2}</span>
+                    <span class="team-name">${leg2.away}</span>
+                </div>`;
             }
-            const agg = calculateAggregate(tie);
-            if (agg) {
-                html += `<div class="bracket-aggregate">Agg: ${agg.home} - ${agg.away}</div>`;
+
+            // ---- AGGREGATE (only for two‑leg ties) ----
+            if (leg1 && leg2) {
+                const agg = calculateAggregate(tie);
+                if (agg) {
+                    html += `<div class="bracket-aggregate">Agg: ${agg.home} – ${agg.away}</div>`;
+                } else if (leg1.played && !leg2.played) {
+                    html += `<div class="bracket-aggregate text-gray-400">Leg 2 pending</div>`;
+                } else if (!leg1.played && leg2.played) {
+                    html += `<div class="bracket-aggregate text-gray-400">Leg 1 pending</div>`;
+                }
             }
+
+            // ---- WINNER / STATUS ----
             if (tie.winner) {
                 html += `<div class="bracket-winner">✓ ${tie.winner} advances</div>`;
             } else if (tie.status === 'COMPLETED') {
-                html += `<div class="bracket-winner text-amber-600">Tie level – admin resolve</div>`;
-            } else if (tie.status === 'PENDING') {
-                html += `<div class="bracket-winner text-gray-400">Pending</div>`;
+                html += `<div class="bracket-winner text-amber-600">⚖️ Tie – admin resolve</div>`;
+            } else if (tie.legs.some(l => l.played)) {
+                html += `<div class="bracket-winner text-blue-500">⏳ In progress</div>`;
+            } else {
+                html += `<div class="bracket-winner text-gray-400">⏳ Pending</div>`;
             }
+
+            // ---- ADMIN: EDIT SCORES BUTTON ----
+            if (isAdmin) {
+                html += `<div class="bracket-admin-actions">
+                    <button onclick="openTieEditor('${stageId}', ${tieIdx})" 
+                            class="edit-scores-btn" title="Edit scores for this tie">
+                        ✏️ Edit Scores
+                    </button>
+                </div>`;
+            }
+
             html += `</div>`;
         });
+
         html += `</div>`;
     });
+
     html += '</div>';
-    if (!hasStage) {
-        container.innerHTML = '<div class="text-center text-gray-400 py-8">No knockout stage created yet.</div>';
-        document.getElementById('knockout-bracket-section').classList.add('hidden');
-    } else {
-        document.getElementById('knockout-bracket-section').classList.remove('hidden');
+
+    const section = document.getElementById('knockout-bracket-section');
+    if (!section) return;
+
+    if (hasStage) {
         container.innerHTML = html;
+        section.classList.remove('hidden');
+        const label = document.getElementById('knockout-stage-label');
+        if (label) {
+            const current = tournament.currentStage;
+            label.innerText = current ? getStageLabel(current) : 'Knockout';
+        }
+    } else {
+        container.innerHTML = '<div class="text-center text-gray-400 py-8">No knockout stage created yet.</div>';
+        section.classList.add('hidden');
     }
 }
 
@@ -865,16 +1036,15 @@ function simulateTournament() {
         return;
     }
 
-    // 1. Create playoff 1 if not exists
+    // --- STEP 1: Ensure qualification playoffs exist ---
     if (!tournament.qualificationPlayoffs.some(p => p.round === 1)) {
         generateQualificationPlayoff(1);
     }
-    // 2. Create playoff 2 if not exists
     if (!tournament.qualificationPlayoffs.some(p => p.round === 2)) {
         generateQualificationPlayoff(2);
     }
 
-    // 3. Fill random scores for all qualification fixtures
+    // --- STEP 2: Fill random scores for ALL qualification fixtures ---
     tournament.qualificationPlayoffs.forEach(playoff => {
         playoff.fixtures.forEach(f => {
             if (!f.played) {
@@ -891,7 +1061,7 @@ function simulateTournament() {
     renderQualificationTable();
     renderPlayoffFixtures();
 
-    // 4. Qualify top 16
+    // --- STEP 3: Qualify top 16 ---
     const sorted = tournament.qualificationStandings;
     sorted.forEach((p, idx) => {
         p.qualified = (idx < TOURNAMENT_CONFIG.qualifiers);
@@ -900,49 +1070,111 @@ function simulateTournament() {
     saveToStorage();
     renderQualificationTable();
 
-    // 5. Create knockout stages sequentially
+    // --- STEP 4: Generate knockout stages sequentially with random scores ---
     const stages = ['ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'FINAL'];
-    let prevStage = null;
-    for (let stage of stages) {
+    let previousStage = null;
+    let allStagesCreated = true;
+
+    for (let i = 0; i < stages.length; i++) {
+        const stageId = stages[i];
+        const isFinal = (stageId === 'FINAL');
+        const legs = isFinal ? 1 : 2;
         let source = 'QUALIFIED_TOP_16';
-        if (prevStage) {
-            const prevTies = tournament.knockoutStages[prevStage].ties;
-            if (prevTies.length === 0) break;
-            const allAdvanced = prevTies.every(t => t.winner);
-            if (!allAdvanced) break;
+
+        // For subsequent stages, source is previous stage winners
+        if (previousStage) {
+            const prevTies = tournament.knockoutStages[previousStage].ties;
+            // Ensure previous stage is complete and has winners
+            const allHaveWinners = prevTies.every(t => t.winner);
+            if (prevTies.length === 0 || !allHaveWinners) {
+                showToast(`Cannot create ${getStageLabel(stageId)} – ${getStageLabel(previousStage)} is not complete.`);
+                allStagesCreated = false;
+                break;
+            }
             source = 'PREVIOUS_STAGE_WINNERS';
         }
-        createKnockoutStage(stage, source, 'RANDOM', stage === 'FINAL' ? 1 : 2);
-        prevStage = stage;
-    }
 
-    // 6. Fill random scores for all knockout legs
-    for (let stage in tournament.knockoutStages) {
-        const ties = tournament.knockoutStages[stage].ties;
-        ties.forEach(tie => {
-            tie.legs.forEach(leg => {
-                if (!leg.played) {
-                    leg.homeScore = Math.floor(Math.random() * 4);
-                    leg.awayScore = Math.floor(Math.random() * 4);
-                    leg.played = true;
-                    leg.report = `${leg.home} ${leg.homeScore}-${leg.awayScore} ${leg.away}`;
+        // Create the stage (force overwrite)
+        createKnockoutStage(stageId, source, 'RANDOM', legs, true); // force = true
+
+        // Fill random scores for this stage's ties
+        const stage = tournament.knockoutStages[stageId];
+        if (stage.ties.length > 0) {
+            stage.ties.forEach(tie => {
+                // For each leg, assign random scores and mark played
+                tie.legs.forEach(leg => {
+                    if (!leg.played) {
+                        leg.homeScore = Math.floor(Math.random() * 4);
+                        leg.awayScore = Math.floor(Math.random() * 4);
+                        leg.played = true;
+                        leg.report = `${leg.home} ${leg.homeScore}-${leg.awayScore} ${leg.away}`;
+                        leg.events = [];
+                    }
+                });
+
+                // Calculate aggregate and determine winner
+                const agg = calculateAggregate(tie);
+                if (agg) {
+                    if (agg.home > agg.away) {
+                        tie.winner = tie.home;
+                        tie.status = 'COMPLETED';
+                    } else if (agg.away > agg.home) {
+                        tie.winner = tie.away;
+                        tie.status = 'COMPLETED';
+                    } else {
+                        // Tie aggregate – randomly pick winner for simulation
+                        tie.winner = Math.random() < 0.5 ? tie.home : tie.away;
+                        tie.status = 'COMPLETED';
+                        showToast(`Aggregate tie in ${getStageLabel(stageId)}: ${tie.home} vs ${tie.away} – random winner selected.`);
+                    }
+                } else {
+                    // If only one leg (Final), winner is the one with higher score
+                    if (isFinal && tie.legs.length === 1) {
+                        const leg = tie.legs[0];
+                        if (leg.homeScore > leg.awayScore) {
+                            tie.winner = tie.home;
+                        } else if (leg.awayScore > leg.homeScore) {
+                            tie.winner = tie.away;
+                        } else {
+                            tie.winner = Math.random() < 0.5 ? tie.home : tie.away;
+                        }
+                        tie.status = 'COMPLETED';
+                    }
                 }
             });
-            const agg = calculateAggregate(tie);
-            if (agg) {
-                if (agg.home > agg.away) tie.winner = tie.home;
-                else if (agg.away > agg.home) tie.winner = tie.away;
-                else {
-                    tie.winner = Math.random() < 0.5 ? tie.home : tie.away;
+        }
+
+        // Update stage status
+        stage.status = 'COMPLETED';
+        saveToStorage();
+
+        // Render bracket after each stage
+        renderKnockoutBracket();
+        updateTournamentStatusBar();
+
+        // If it's the final and we have a winner, declare champion
+        if (isFinal) {
+            const finalTie = stage.ties[0];
+            if (finalTie && finalTie.winner) {
+                tournament.champion = finalTie.winner;
+                tournament.championDate = Date.now();
+                saveToStorage();
+                updateTournamentStatusBar();
+                showToast(`🏆 ${tournament.champion} is the CHAMPION!`);
+                if (typeof confetti === 'function') {
+                    confetti({ particleCount: 300, spread: 100, origin: { y: 0.6 } });
                 }
-                tie.status = 'COMPLETED';
             }
-        });
+        }
+
+        previousStage = stageId;
     }
-    saveToStorage();
-    renderKnockoutBracket();
-    updateTournamentStatusBar();
-    showToast("Simulation complete! Check the bracket and champion.");
+
+    if (allStagesCreated) {
+        showToast("Simulation complete! Check the bracket and champion.");
+    } else {
+        showToast("Simulation stopped early. Check console for details.");
+    }
 }
 
 function autoReleaseCurrentRound() {

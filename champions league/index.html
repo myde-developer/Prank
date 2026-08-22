@@ -38,16 +38,6 @@
         </div>
     </div>
 
-    <!-- Ticker -->
-    <div class="ticker-container">
-        <div class="ticker-wrapper" id="news-ticker">
-            <span class="inline-flex items-center gap-2">
-                <span class="w-2 h-2 bg-white rounded-full animate-pulse"></span>
-                🏆 DLS Tournament
-            </span>
-        </div>
-    </div>
-
     <!-- Header -->
     <header class="sticky top-0 z-40 bg-white/70 backdrop-blur-md border-b border-gray-200/80 shadow-xs px-6 py-4 flex flex-wrap justify-between items-center gap-3">
         <div class="flex items-center gap-3">
@@ -193,6 +183,23 @@
                 <p id="champion-date" class="text-sm text-amber-600 mt-1">—</p>
                 <button onclick="resetTournament()" class="mt-4 text-xs text-amber-700 underline decoration-dotted">Reset Tournament</button>
             </div>
+
+<!-- Tie Editor Modal (for knockout scores) -->
+<div id="tie-editor-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-gray-200 overflow-y-auto max-h-[90vh]">
+        <div class="p-5 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white">
+            <h3 class="font-bold text-lg" id="tie-editor-title">Edit Tie</h3>
+            <button onclick="closeTieEditor()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+        </div>
+        <div class="p-5 space-y-4" id="tie-editor-body">
+            <!-- Dynamically populated -->
+        </div>
+        <div class="p-4 bg-gray-50 flex gap-3 justify-end rounded-b-2xl">
+            <button onclick="closeTieEditor()" class="px-4 py-2 text-sm border rounded-lg">Cancel</button>
+            <button onclick="saveTieScores()" class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-500">💾 Save All</button>
+        </div>
+    </div>
+</div>
 
             <!-- Admin reset container -->
             <div id="admin-reset-container" class="text-center hidden pt-4 space-x-3">
