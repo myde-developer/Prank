@@ -954,49 +954,41 @@ function renderKnockoutBracket() {
         stageObj.ties.forEach((tie, tieIdx) => {
             const leg1 = tie.legs?.[0];
             const leg2 = tie.legs?.[1];
-
-            // Determine if this tie has a winner to show advancement line
             const hasWinner = !!tie.winner;
 
             html += `<div class="bracket-tie" data-stage="${stageId}" data-index="${tieIdx}">`;
 
-            // ---- LEG 1 ----
+            // Leg 1
             if (leg1) {
                 const score1 = leg1.played ? `${leg1.homeScore}-${leg1.awayScore}` : '—';
                 const isWinner1 = hasWinner && tie.winner === leg1.home;
-                const isLoser1 = hasWinner && tie.winner !== leg1.home && tie.winner === leg1.away;
-                html += `<div class="bracket-match ${isWinner1 ? 'winner' : ''} ${isLoser1 ? 'loser' : ''}">
+                html += `<div class="bracket-match ${isWinner1 ? 'winner' : ''}">
                     <span class="team-name">${leg1.home}</span>
                     <span class="score">${score1}</span>
                     <span class="team-name">${leg1.away}</span>
                 </div>`;
             }
 
-            // ---- LEG 2 (if exists) ----
+            // Leg 2
             if (leg2) {
                 const score2 = leg2.played ? `${leg2.homeScore}-${leg2.awayScore}` : '—';
                 const isWinner2 = hasWinner && tie.winner === leg2.home;
-                const isLoser2 = hasWinner && tie.winner !== leg2.home && tie.winner === leg2.away;
-                html += `<div class="bracket-match ${isWinner2 ? 'winner' : ''} ${isLoser2 ? 'loser' : ''}">
+                html += `<div class="bracket-match ${isWinner2 ? 'winner' : ''}">
                     <span class="team-name">${leg2.home}</span>
                     <span class="score">${score2}</span>
                     <span class="team-name">${leg2.away}</span>
                 </div>`;
             }
 
-            // ---- AGGREGATE (only for two‑leg ties) ----
+            // Aggregate (only for two-leg ties)
             if (leg1 && leg2) {
                 const agg = calculateAggregate(tie);
                 if (agg) {
                     html += `<div class="bracket-aggregate">Agg: ${agg.home} – ${agg.away}</div>`;
-                } else if (leg1.played && !leg2.played) {
-                    html += `<div class="bracket-aggregate text-gray-400">Leg 2 pending</div>`;
-                } else if (!leg1.played && leg2.played) {
-                    html += `<div class="bracket-aggregate text-gray-400">Leg 1 pending</div>`;
                 }
             }
 
-            // ---- WINNER / STATUS ----
+            // Winner / status
             if (tie.winner) {
                 html += `<div class="bracket-winner">✓ ${tie.winner} advances</div>`;
             } else if (tie.status === 'COMPLETED') {
@@ -1007,7 +999,7 @@ function renderKnockoutBracket() {
                 html += `<div class="bracket-winner text-gray-400">⏳ Pending</div>`;
             }
 
-            // ---- ADMIN: EDIT SCORES BUTTON ----
+            // Admin edit button
             if (isAdmin) {
                 html += `<div class="bracket-admin-actions">
                     <button onclick="openTieEditor('${stageId}', ${tieIdx})" 
@@ -1024,6 +1016,20 @@ function renderKnockoutBracket() {
     });
 
     html += '</div>';
+
+    // ---- ADD CHAMPION OVERLAY IF FINAL IS COMPLETE ----
+    if (tournament.champion) {
+        html += `
+            <div class="champion-overlay">
+                <div class="champion-content">
+                    <div class="champion-trophy">🏆</div>
+                    <div class="champion-name">${tournament.champion}</div>
+                    <div class="champion-label">TOURNAMENT CHAMPION</div>
+                    ${tournament.championDate ? `<div class="champion-date">${new Date(tournament.championDate).toLocaleDateString()}</div>` : ''}
+                </div>
+            </div>
+        `;
+    }
 
     const section = document.getElementById('knockout-bracket-section');
     if (!section) return;
