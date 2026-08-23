@@ -58,7 +58,7 @@ function selectRole(role) {
         if (entered === null) { location.reload(); return; }
         getTournamentRef().child('password').once('value', (snapshot) => {
             const storedPass = snapshot.val();
-            const validPassword = storedPass ? entered === storedPass : entered === "090541";
+            const validPassword = storedPass ? entered === storedPass : entered === "Soft";
             if (validPassword) {
                 isAdmin = true;
                 showToast("Admin access granted");
@@ -120,7 +120,7 @@ const setupSection = document.getElementById('setup-section');
 }
 
 function loadTournamentData(data) {
-    tournamentPassword = data.password || "090541";
+    tournamentPassword = data.password || "Soft";
     teams = data.teams;
     fixtures = data.fixtures || [];
 
