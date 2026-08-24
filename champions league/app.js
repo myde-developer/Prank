@@ -2236,29 +2236,73 @@ function closeReplaceTeamModal() {
     pendingReplaceOldTeam = null;
 }
 function confirmReplaceTeam() {
-    if (!pendingReplaceOldTeam) return;
+    if (!pendingReplaceOldTeam) {
+        showToast("No team selected for replacement.");
+        return;
+    }
+
     const newName = document.getElementById('replace-new-team-name').value.trim();
-    if (newName === "") { alert("Please enter a new team name"); return; }
-    if (teams[newName] && !teams[newName].relegated) { alert(`Team "${newName}" already exists.`); return; }
-    if (newName.length > 30) { alert("Team name too long"); return; }
+    if (newName === "") {
+        alert("Please enter a new team name");
+        return;
+    }
+    if (teams[newName] && !teams[newName].relegated) {
+        alert(`Team "${newName}" already exists.`);
+        return;
+    }
+    if (newName.length > 30) {
+        alert("Team name too long (max 30 characters).");
+        return;
+    }
+
     const oldName = pendingReplaceOldTeam;
     const oldTeamData = teams[oldName];
-    if (!oldTeamData) return;
+    if (!oldTeamData) {
+        showToast("Old team not found.");
+        return;
+    }
+
+    // --- 1. Rename in teams object ---
     teams[newName] = { ...oldTeamData, name: newName };
     delete teams[oldName];
-    fixtures.forEach(f => { if (f.home === oldName) f.home = newName; if (f.away === oldName) f.away = newName; });
-    knockoutMatches.forEach(k => { if (k.home === oldName) k.home = newName; if (k.away === oldName) k.away = newName; });
+
+    // --- 2. Update qualification playoffs ---
+    tournament.qualificationPlayoffs.forEach(playoff => {
+        playoff.fixtures.forEach(f => {
+            if (f.home === oldName) f.home = newName;
+            if (f.away === oldName) f.away = newName;
+        });
+    });
+
+    // --- 3. Update knockout stages (ties and legs) ---
+    for (let stageId in tournament.knockoutStages) {
+        const stage = tournament.knockoutStages[stageId];
+        if (!stage || !Array.isArray(stage.ties)) continue;
+        stage.ties.forEach(tie => {
+            if (tie.home === oldName) tie.home = newName;
+            if (tie.away === oldName) tie.away = newName;
+            // Update legs as well
+            if (tie.legs) {
+                tie.legs.forEach(leg => {
+                    if (leg.home === oldName) leg.home = newName;
+                    if (leg.away === oldName) leg.away = newName;
+                });
+            }
+        });
+    }
+
+    // --- 4. Save and re-render ---
     saveToStorage();
-    updateTableCalculations();
-    renderTable();
-    renderGameweekTabs();
-    renderFixtures();
+    updateQualificationStandings();
+    renderQualificationTable();
+    renderPlayoffTabs();
+    renderPlayoffFixtures();
     renderKnockoutBracket();
-    renderRelegatedTeams();
+    updateTournamentStatusBar();
     generateTickerFacts();
+
     showToast(`Team "${oldName}" replaced with "${newName}"`);
     closeReplaceTeamModal();
-   validateFixtureIntegrity();
 }
 
 // ==================== FIXTURE MANAGEMENT ====================
