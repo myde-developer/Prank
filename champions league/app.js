@@ -846,23 +846,25 @@ function createKnockoutStage(stageId, source, drawType, legs, force = false) {
             return;
         }
     } else if (source === 'PREVIOUS_STAGE_WINNERS') {
-        const stages = ['ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL'];
-        const idx = stages.indexOf(stageId);
-        if (idx === -1) {
-            showToast("Cannot determine previous stage");
-            return;
-        }
-        const prevStage = stages[idx - 1];
+        // Define previous stage for each knockout stage
+        const prevStageMap = {
+            'ROUND_OF_16': null,
+            'QUARTER_FINAL': 'ROUND_OF_16',
+            'SEMI_FINAL': 'QUARTER_FINAL',
+            'FINAL': 'SEMI_FINAL'
+        };
+        const prevStage = prevStageMap[stageId];
         if (!prevStage) {
-            showToast("No previous stage");
+            showToast("No previous stage defined for this stage.");
             return;
         }
+
         const prevTies = tournament.knockoutStages[prevStage].ties;
         if (prevTies.length === 0) {
             showToast(`No ties found in ${getStageLabel(prevStage)}.`);
             return;
         }
-        // ✅ FIX: Check if every tie has a winner (instead of checking status)
+        // Check if every tie has a winner
         const allHaveWinners = prevTies.every(t => t.winner);
         if (!allHaveWinners) {
             showToast(`Not all ties in ${getStageLabel(prevStage)} have a winner. Complete all ties first.`);
