@@ -848,36 +848,36 @@ function createKnockoutStage(stageId, source, drawType, legs, force = false) {
     } else if (source === 'PREVIOUS_STAGE_WINNERS') {
         const stages = ['ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL'];
         const idx = stages.indexOf(stageId);
-        if (idx === -1) { showToast("Cannot determine previous stage"); return; }
-        const prevStage = stages[idx-1];
-        if (!prevStage) { showToast("No previous stage"); return; }
-
-        // Get winners from previous stage – even if stage status is not COMPLETED
-        const winners = getStageWinners(prevStage);
-        if (winners.length === 0) {
-            showToast(`No winners found in ${getStageLabel(prevStage)}. Complete all ties first.`);
+        if (idx === -1) {
+            showToast("Cannot determine previous stage");
             return;
         }
-
-        // Check if every tie in previous stage has a winner
+        const prevStage = stages[idx - 1];
+        if (!prevStage) {
+            showToast("No previous stage");
+            return;
+        }
         const prevTies = tournament.knockoutStages[prevStage].ties;
+        if (prevTies.length === 0) {
+            showToast(`No ties found in ${getStageLabel(prevStage)}.`);
+            return;
+        }
+        // ✅ FIX: Check if every tie has a winner (instead of checking status)
         const allHaveWinners = prevTies.every(t => t.winner);
         if (!allHaveWinners) {
-            showToast(`Not all ties in ${getStageLabel(prevStage)} have winners.`);
+            showToast(`Not all ties in ${getStageLabel(prevStage)} have a winner. Complete all ties first.`);
             return;
         }
-
-        eligible = winners;
-        if (eligible.length !== prevTies.length) {
-            showToast(`Some ties in ${getStageLabel(prevStage)} have no winner.`);
-            return;
-        }
+        eligible = prevTies.map(t => t.winner);
     } else {
         showToast("Unknown source for stage.");
         return;
     }
 
-    if (eligible.length % 2 !== 0) { showToast("Odd number of players – cannot create ties."); return; }
+    if (eligible.length % 2 !== 0) {
+        showToast("Odd number of players – cannot create ties.");
+        return;
+    }
 
     let tiePlayers = [...eligible];
     if (drawType === 'RANDOM') shuffleArray(tiePlayers);
@@ -885,8 +885,8 @@ function createKnockoutStage(stageId, source, drawType, legs, force = false) {
     const ties = [];
     for (let i = 0; i < tiePlayers.length; i += 2) {
         const home = tiePlayers[i];
-        const away = tiePlayers[i+1];
-        const tieId = `${stageId}_tie_${i/2 + 1}`;
+        const away = tiePlayers[i + 1];
+        const tieId = `${stageId}_tie_${i / 2 + 1}`;
         const tie = {
             tieId: tieId,
             stage: stageId,
@@ -901,7 +901,7 @@ function createKnockoutStage(stageId, source, drawType, legs, force = false) {
             const legHome = isHomeLeg ? home : away;
             const legAway = isHomeLeg ? away : home;
             const match = {
-                id: Date.now() + i*100 + leg,
+                id: Date.now() + i * 100 + leg,
                 tieId: tieId,
                 leg: leg,
                 home: legHome,
