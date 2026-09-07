@@ -1050,38 +1050,61 @@ function initializeTournament() {
         });
     });
 
-    // ===== MULTI‑DAY SCHEDULING =====
+    // ===== PROFESSIONAL WEEKEND SCHEDULING =====
     const now = Date.now();
     const dayMs = 24 * 60 * 60 * 1000;
-    const maxDaysPerRound = 3;
 
+    // Helper: get the next Friday from a given date
+    function getNextFriday(timestamp) {
+        const date = new Date(timestamp);
+        const day = date.getDay(); // 0=Sun, 5=Fri
+        const diff = (day <= 5) ? 5 - day : 12 - day; // days until Friday
+        date.setDate(date.getDate() + diff);
+        date.setHours(0, 0, 0, 0);
+        return date.getTime();
+    }
+
+    // Find the first Friday on or after the creation date
+    const firstFriday = getNextFriday(now);
+
+    // Define slot configuration for each round:
+    // Friday: 1 match, Saturday: 2 matches, Sunday: 2 matches
+    const slots = [
+        { dayOffset: 0, count: 1 }, // Friday
+        { dayOffset: 1, count: 2 }, // Saturday
+        { dayOffset: 2, count: 2 }  // Sunday
+    ];
+
+    // Group fixtures by round
     const roundGroups = {};
     fixtures.forEach(f => {
         if (!roundGroups[f.round]) roundGroups[f.round] = [];
         roundGroups[f.round].push(f);
     });
 
+    // Assign dates per round
     Object.keys(roundGroups).forEach(roundKey => {
         const round = parseInt(roundKey);
         const roundFixtures = roundGroups[round];
-        const startDate = now + (round - 1) * 7 * dayMs;
-        const numFixtures = roundFixtures.length;
-        let numDays = Math.ceil(numFixtures / 2);
-        numDays = Math.min(numDays, maxDaysPerRound);
-        if (numDays < 1) numDays = 1;
+        const roundStart = firstFriday + (round - 1) * 7 * dayMs; // each round starts on a Friday, 7 days apart
 
-        const fixturesPerDay = Math.floor(numFixtures / numDays);
-        let remainder = numFixtures % numDays;
+        // Shuffle fixtures to randomise which match gets which slot
+        const shuffled = [...roundFixtures];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+
         let index = 0;
-        for (let d = 0; d < numDays; d++) {
-            const count = fixturesPerDay + (d < remainder ? 1 : 0);
-            for (let i = 0; i < count; i++) {
-                if (index < numFixtures) {
-                    roundFixtures[index].scheduledDate = startDate + d * dayMs;
+        slots.forEach(slot => {
+            for (let i = 0; i < slot.count; i++) {
+                if (index < shuffled.length) {
+                    const fixture = shuffled[index];
+                    fixture.scheduledDate = roundStart + slot.dayOffset * dayMs;
                     index++;
                 }
             }
-        }
+        });
     });
 
     tournamentPhase = 'league';
@@ -3021,3 +3044,7 @@ window.lockGameweek = lockGameweek;
 window.isGameweekReleased = isGameweekReleased;
 window.showUpcomingFixtures = showUpcomingFixtures;
 window.closeUpcomingFixturesModal = closeUpcomingFixturesModal;
+// ===== EXPOSE CALENDAR FUNCTIONS =====
+window.openCalendarModal = openCalendarModal;
+window.closeCalendarModal = closeCalendarModal;
+window.renderCalendar = renderCalendar;
