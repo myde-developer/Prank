@@ -632,7 +632,6 @@ async function generateKnockoutStage() {
         });
     }
 
-    // ===== NEW CALENDAR CODE =====
     const baseDate = Date.now();
     const dayMs = 24 * 60 * 60 * 1000;
     // Round of 16: leg1 +7 days, leg2 +14 days
@@ -641,15 +640,22 @@ async function generateKnockoutStage() {
         tie.leg2.scheduledDate = baseDate + 14 * dayMs;
     });
 
-    // We'll also store the base date for later rounds in the knockout data
     const knockoutData = {
         round16: round16Ties,
         quarterfinals: [],
         semifinals: [],
-        final: { home: null, away: null, homeScore: null, awayScore: null, played: false, winner: null },
+        final: {
+            home: null,
+            away: null,
+            homeScore: null,
+            awayScore: null,
+            played: false,
+            winner: null,
+            scheduledDate: baseDate + 49 * dayMs   // <-- ADD THIS LINE
+        },
         champion: null,
         currentRound: 'round16',
-        baseDate: baseDate  // store so we can calculate future rounds when advancing
+        baseDate: baseDate
     };
 
     await db.ref('champions_league/knockout').set(knockoutData);

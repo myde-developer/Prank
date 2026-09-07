@@ -1105,11 +1105,38 @@ function initializeTournament() {
         });
     });
 
-    // 📅 Assign scheduled dates to fixtures (each round 7 days apart)
+    // ===== MULTI‑DAY SCHEDULING =====
     const now = Date.now();
     const dayMs = 24 * 60 * 60 * 1000;
+    const maxDaysPerRound = 3;
+
+    const roundGroups = {};
     fixtures.forEach(f => {
-        f.scheduledDate = now + (f.round - 1) * 7 * dayMs;
+        if (!roundGroups[f.round]) roundGroups[f.round] = [];
+        roundGroups[f.round].push(f);
+    });
+
+    Object.keys(roundGroups).forEach(roundKey => {
+        const round = parseInt(roundKey);
+        const roundFixtures = roundGroups[round];
+        const startDate = now + (round - 1) * 7 * dayMs;
+        const numFixtures = roundFixtures.length;
+        let numDays = Math.ceil(numFixtures / 2);
+        numDays = Math.min(numDays, maxDaysPerRound);
+        if (numDays < 1) numDays = 1;
+
+        const fixturesPerDay = Math.floor(numFixtures / numDays);
+        let remainder = numFixtures % numDays;
+        let index = 0;
+        for (let d = 0; d < numDays; d++) {
+            const count = fixturesPerDay + (d < remainder ? 1 : 0);
+            for (let i = 0; i < count; i++) {
+                if (index < numFixtures) {
+                    roundFixtures[index].scheduledDate = startDate + d * dayMs;
+                    index++;
+                }
+            }
+        }
     });
 
     tournamentPhase = 'league';
