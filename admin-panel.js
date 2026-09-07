@@ -284,13 +284,6 @@ async function performLeagueDraw() {
             });
         });
 
-        // ===== NEW CALENDAR CODE =====
-        const now = Date.now();
-        const dayMs = 24 * 60 * 60 * 1000;
-        fixtures.forEach(f => {
-            f.scheduledDate = now + (f.round - 1) * 7 * dayMs;
-        });
-
         const championsData = {
             currentPhase: 'league',
             leaguePhase: {
@@ -459,7 +452,6 @@ function renderCLFixtures() {
     roundFixtures.forEach((f) => {
         const homeScore = f.played ? f.homeScore : '';
         const awayScore = f.played ? f.awayScore : '';
-        const dateStr = f.scheduledDate ? new Date(f.scheduledDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : 'TBD';
         html += `
             <div class="flex items-center gap-4 p-3 bg-gray-50 rounded-lg mb-2">
                 <span class="font-medium w-32 text-right">${f.home}</span>
@@ -469,8 +461,6 @@ function renderCLFixtures() {
                 <span class="text-gray-400">-</span>
                 <input type="number" min="0" max="99" class="w-12 border rounded px-1 py-0.5 text-center cl-score" data-fixture-id="${f.id}" data-type="away" value="${awayScore}" ${f.played ? 'disabled' : ''}>
                 ${f.played ? `<span class="text-green-600 text-sm font-bold ml-2">✅ Played</span>` : `<button onclick="saveCLMatch(${f.id})" class="bg-blue-500 hover:bg-blue-600 text-white text-xs px-3 py-1 rounded ml-2">Save</button>`}
-                <!-- ===== NEW CALENDAR CODE ===== -->
-                <span class="text-[10px] text-gray-400 ml-2">📅 ${dateStr}</span>
             </div>
         `;
     });
@@ -632,30 +622,13 @@ async function generateKnockoutStage() {
         });
     }
 
-    const baseDate = Date.now();
-    const dayMs = 24 * 60 * 60 * 1000;
-    // Round of 16: leg1 +7 days, leg2 +14 days
-    round16Ties.forEach((tie, idx) => {
-        tie.leg1.scheduledDate = baseDate + 7 * dayMs;
-        tie.leg2.scheduledDate = baseDate + 14 * dayMs;
-    });
-
     const knockoutData = {
         round16: round16Ties,
         quarterfinals: [],
         semifinals: [],
-        final: {
-            home: null,
-            away: null,
-            homeScore: null,
-            awayScore: null,
-            played: false,
-            winner: null,
-            scheduledDate: baseDate + 49 * dayMs   // <-- ADD THIS LINE
-        },
+        final: { home: null, away: null, homeScore: null, awayScore: null, played: false, winner: null },
         champion: null,
-        currentRound: 'round16',
-        baseDate: baseDate
+        currentRound: 'round16'
     };
 
     await db.ref('champions_league/knockout').set(knockoutData);
@@ -743,8 +716,6 @@ async function renderKnockoutStage() {
                             <span>${final.away || '?'}</span>
                         </div>
                         ${final.winner ? `<div style="margin-top:4px;font-weight:700;font-size:0.8rem;">🏆 ${final.winner}</div>` : ''}
-                        <!-- ===== NEW CALENDAR CODE ===== -->
-                        ${final.scheduledDate ? `<div style="font-size:0.65rem;color:#0b1a33;margin-top:4px;">📅 ${new Date(final.scheduledDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</div>` : ''}
                     </div>
                 </td>`;
             }
@@ -763,7 +734,7 @@ async function renderKnockoutStage() {
         championDisplay.classList.add('hidden');
     }
 
-    // Render fixtures with score inputs and dates
+    // Render fixtures with score inputs
     let fixturesHtml = '';
     const allTies = [...(data.round16 || []), ...(data.quarterfinals || []), ...(data.semifinals || [])];
     allTies.forEach((tie, idx) => {
@@ -772,11 +743,6 @@ async function renderKnockoutStage() {
         const tieId = tie.id || `tie_${idx}`;
         const played1 = leg1.played || false;
         const played2 = leg2.played || false;
-
-        // Format dates if available
-        const date1 = leg1.scheduledDate ? new Date(leg1.scheduledDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : 'TBD';
-        const date2 = leg2.scheduledDate ? new Date(leg2.scheduledDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : 'TBD';
-
         fixturesHtml += `
             <div style="background:#f8fafc;border-radius:8px;padding:8px 12px;margin-bottom:6px;border:1px solid #e2e8f0;">
                 <div style="display:flex;justify-content:space-between;font-weight:500;">
@@ -791,7 +757,6 @@ async function renderKnockoutStage() {
                         <span style="color:#94a3b8;">–</span>
                         <input type="number" min="0" max="99" style="width:40px;text-align:center;border:1px solid #cbd5e1;border-radius:4px;padding:2px;" class="ko-score" data-tie-id="${tieId}" data-leg="1" data-type="away" value="${played1 ? leg1.awayScore : ''}" ${played1 ? 'disabled' : ''}>
                         ${!played1 ? `<button onclick="saveKOLeg('${tieId}', 1)" style="background:#3b82f6;color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:0.7rem;cursor:pointer;">Save</button>` : '<span style="font-size:0.7rem;color:#22c55e;">✅</span>'}
-                        <span style="font-size:0.65rem;color:#94a3b8;margin-left:4px;">📅 ${date1}</span>
                     </div>
                     <div style="display:flex;align-items:center;gap:4px;">
                         <span style="font-size:0.75rem;color:#64748b;">Leg 2:</span>
@@ -799,7 +764,6 @@ async function renderKnockoutStage() {
                         <span style="color:#94a3b8;">–</span>
                         <input type="number" min="0" max="99" style="width:40px;text-align:center;border:1px solid #cbd5e1;border-radius:4px;padding:2px;" class="ko-score" data-tie-id="${tieId}" data-leg="2" data-type="away" value="${played2 ? leg2.awayScore : ''}" ${played2 ? 'disabled' : ''}>
                         ${!played2 ? `<button onclick="saveKOLeg('${tieId}', 2)" style="background:#3b82f6;color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:0.7rem;cursor:pointer;">Save</button>` : '<span style="font-size:0.7rem;color:#22c55e;">✅</span>'}
-                        <span style="font-size:0.65rem;color:#94a3b8;margin-left:4px;">📅 ${date2}</span>
                     </div>
                     ${tie.aggregate ? `<span style="font-size:0.75rem;font-weight:600;margin-left:auto;">agg: ${tie.aggregate}</span>` : ''}
                     ${tie.winner ? `<span style="font-size:0.75rem;font-weight:700;color:#f59e0b;margin-left:8px;">🏆 ${tie.winner}</span>` : ''}
@@ -811,7 +775,6 @@ async function renderKnockoutStage() {
     if (data.final) {
         const final = data.final;
         const played = final.played || false;
-        const dateFinal = final.scheduledDate ? new Date(final.scheduledDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : 'TBD';
         fixturesHtml += `
             <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:8px;padding:8px 12px;margin-top:8px;border:1px solid #f59e0b;">
                 <div style="display:flex;justify-content:space-between;font-weight:700;">
@@ -819,14 +782,13 @@ async function renderKnockoutStage() {
                     <span style="color:#0b1a33;">vs</span>
                     <span>${final.away || '?'}</span>
                 </div>
-                <div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap;">
+                <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
                     <span style="font-size:0.75rem;">Final:</span>
                     <input type="number" min="0" max="99" style="width:40px;text-align:center;border:1px solid #cbd5e1;border-radius:4px;padding:2px;" class="ko-score" data-tie-id="final" data-leg="1" data-type="home" value="${played ? final.homeScore : ''}" ${played ? 'disabled' : ''}>
                     <span style="color:#94a3b8;">–</span>
                     <input type="number" min="0" max="99" style="width:40px;text-align:center;border:1px solid #cbd5e1;border-radius:4px;padding:2px;" class="ko-score" data-tie-id="final" data-leg="1" data-type="away" value="${played ? final.awayScore : ''}" ${played ? 'disabled' : ''}>
                     ${!played ? `<button onclick="saveKOLeg('final', 1)" style="background:#3b82f6;color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:0.7rem;cursor:pointer;">Save Final</button>` : `<span style="font-size:0.7rem;color:#22c55e;">✅</span>`}
                     ${final.winner ? `<span style="font-size:0.75rem;font-weight:700;color:#f59e0b;margin-left:8px;">🏆 ${final.winner}</span>` : ''}
-                    <span style="font-size:0.65rem;color:#94a3b8;margin-left:4px;">📅 ${dateFinal}</span>
                 </div>
             </div>
         `;
@@ -843,8 +805,6 @@ function renderTieCard(tie, roundName) {
     const played2 = leg2.played || false;
     const score1 = played1 ? `${leg1.homeScore} – ${leg1.awayScore}` : 'vs';
     const score2 = played2 ? `${leg2.homeScore} – ${leg2.awayScore}` : 'vs';
-    const date1 = leg1.scheduledDate ? new Date(leg1.scheduledDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : '';
-    const date2 = leg2.scheduledDate ? new Date(leg2.scheduledDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : '';
     const winner = tie.winner ? `<span style="background:#fbbf24;padding:0 6px;border-radius:12px;font-size:0.6rem;font-weight:700;">🏆 ${tie.winner}</span>` : '';
     return `
         <div style="background:#fff;border-radius:8px;padding:6px 10px;border:1px solid #eef2f6;box-shadow:0 1px 4px rgba(0,0,0,0.04);font-size:0.8rem;">
@@ -854,8 +814,8 @@ function renderTieCard(tie, roundName) {
                 <span>${tie.away}</span>
             </div>
             <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:#475569;margin-top:2px;">
-                <span>L1: ${score1} ${date1 ? `(${date1})` : ''}</span>
-                <span>L2: ${score2} ${date2 ? `(${date2})` : ''}</span>
+                <span>L1: ${score1}</span>
+                <span>L2: ${score2}</span>
             </div>
             ${tie.aggregate ? `<div style="text-align:center;font-size:0.7rem;font-weight:600;">agg: ${tie.aggregate}</div>` : ''}
             ${winner}
@@ -952,37 +912,32 @@ async function saveKOLeg(tieId, leg) {
 async function advanceWinner(tie, currentRound, tieIndex, allData) {
     const roundOrder = ['round16', 'quarterfinals', 'semifinals'];
     const currentIdx = roundOrder.indexOf(currentRound);
-    if (currentIdx === -1 || currentIdx === roundOrder.length - 1) return;
+    if (currentIdx === -1 || currentIdx === roundOrder.length - 1) return; // no next round
     const nextRound = roundOrder[currentIdx + 1];
     const nextTies = allData[nextRound] || [];
-    const baseDate = allData.baseDate || Date.now();
-    const dayMs = 24 * 60 * 60 * 1000;
-    const offsetMap = {
-        'quarterfinals': { leg1: 21, leg2: 28 },
-        'semifinals': { leg1: 35, leg2: 42 }
-    };
-    const offsets = offsetMap[nextRound] || { leg1: 0, leg2: 0 };
 
+    // Find the correct position in the next round based on tie index
     const nextIndex = Math.floor(tieIndex / 2);
     let nextTie = nextTies[nextIndex];
     if (!nextTie) {
+        // Create a new tie with the winner as home or away depending on position
         const isHome = (tieIndex % 2 === 0);
         nextTie = {
             id: Date.now() + nextIndex,
             home: isHome ? tie.winner : null,
             away: isHome ? null : tie.winner,
-            leg1: { homeScore: null, awayScore: null, played: false, scheduledDate: baseDate + offsets.leg1 * dayMs },
-            leg2: { homeScore: null, awayScore: null, played: false, scheduledDate: baseDate + offsets.leg2 * dayMs },
+            leg1: { homeScore: null, awayScore: null, played: false },
+            leg2: { homeScore: null, awayScore: null, played: false },
             aggregate: null,
             winner: null
         };
         nextTies.push(nextTie);
     } else {
+        // Fill the empty side
         if (nextTie.home === null) nextTie.home = tie.winner;
         else if (nextTie.away === null) nextTie.away = tie.winner;
-        if (!nextTie.leg1.scheduledDate) nextTie.leg1.scheduledDate = baseDate + offsets.leg1 * dayMs;
-        if (!nextTie.leg2.scheduledDate) nextTie.leg2.scheduledDate = baseDate + offsets.leg2 * dayMs;
     }
+    // Update the next round array
     await db.ref(`champions_league/knockout/${nextRound}`).set(nextTies);
 }
 

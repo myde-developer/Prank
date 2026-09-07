@@ -36,6 +36,7 @@ let chatMessagesRef = null;
 let autoStartNextRound = false;
 let releasedGameweeks = {};
 let roundStartTimes = {};
+let roundDeadlines = {};
 let roundPaused = {};
 let typingTimeout = null;
 let isTyping = false;
@@ -128,6 +129,7 @@ document.getElementById('setup-section')?.classList.add('hidden');
     knockoutMatches = data.knockoutMatches || [];
     tournamentPhase = data.tournamentPhase || 'league';
     roundStartTimes = data.roundStartTimes || {};
+roundDeadlines = data.roundDeadlines || {};
     roundPaused = data.roundPaused || {};
     releasedGameweeks = data.releasedGameweeks || {};
     autoStartNextRound = data.autoStartNextRound || false;
@@ -149,13 +151,130 @@ document.getElementById('setup-section')?.classList.add('hidden');
    validateFixtureIntegrity(true);
 }
 
+// ==================== DEADLINE TIMER ====================
+function updateTimerDisplay() {
+    const container = document.getElementById('round-timer-container');
+    const countdownEl = document.getElementById('round-timer-countdown');
+    if (!container || !countdownEl) return;
+    const round = currentSelectedRound;
+    const deadline = roundDeadlines[round];
+    if (!deadline) {
+        countdownEl.innerText = 'No deadline set';
+        return;
+    }
+    const now = Date.now();
+    const diff = deadline - now;
+    if (diff <= 0) {
+        countdownEl.innerText = '⏰ Deadline passed!';
+        // try auto-resolve if not already done
+        autoResolveRoundIfNeeded(round);
+        return;
+    }
+    const hours = Math.floor(diff / (1000*60*60));
+    const mins = Math.floor((diff % (1000*60*60)) / (1000*60));
+    const secs = Math.floor((diff % (1000*60)) / 1000);
+    countdownEl.innerText = `${String(hours).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+}
+
+function autoResolveRoundIfNeeded(roundNumber) {
+    const deadline = roundDeadlines[roundNumber];
+    if (!deadline) return;
+    if (Date.now() < deadline) return;
+    // Check if round already fully resolved
+    const roundFixtures = fixtures.filter(f => f.round === roundNumber && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
+    const allResolved = roundFixtures.every(f => f.played || f.cancelled);
+    if (allResolved) return;
+    // Auto-resolve
+    autoResolveRound(roundNumber);
+}
+
+function autoResolveRound(roundNumber) {
+    if (!isAdmin) return;
+    const roundFixtures = fixtures.filter(f => f.round === roundNumber && !f.played && !f.cancelled && f.home !== "BYE" && f.away !== "BYE");
+    if (roundFixtures.length === 0) return;
+    if (!confirm(`⏰ Auto-resolve Gameweek ${roundNumber} with 0-0 for ${roundFixtures.length} matches?`)) return;
+    roundFixtures.forEach(f => {
+        f.homeScore = 0;
+        f.awayScore = 0;
+        f.played = true;
+        f.report = "Match ended 0-0 due to deadline.";
+        f.events = [];
+    });
+    updateTableCalculations();
+    saveToStorage();
+    renderTable();
+    renderFixtures();
+    renderGameweekTabs();
+    generateTickerFacts();
+    showToast(`✅ Gameweek ${roundNumber} auto-resolved (0-0 for all pending matches).`);
+}
+
+function setRoundDeadline(roundNumber, deadlineTimestamp) {
+    if (!isAdmin) return;
+    roundDeadlines[roundNumber] = deadlineTimestamp;
+    saveToStorage();
+    showToast(`⏰ Deadline set for Gameweek ${roundNumber}`);
+    renderGameweekTabs();
+    renderFixtures();
+    updateTimerDisplay();
+}
+
+function openSetDeadlineModal() {
+    if (!isAdmin) return;
+    document.getElementById('deadline-round-number').innerText = currentSelectedRound;
+    const existing = roundDeadlines[currentSelectedRound];
+    if (existing) {
+        const date = new Date(existing);
+        const iso = date.toISOString().slice(0, 16);
+        document.getElementById('deadline-datetime').value = iso;
+    } else {
+        document.getElementById('deadline-datetime').value = '';
+    }
+    document.getElementById('deadline-modal').classList.remove('hidden');
+    document.getElementById('deadline-modal').classList.add('flex');
+}
+
+function closeDeadlineModal() {
+    document.getElementById('deadline-modal').classList.add('hidden');
+    document.getElementById('deadline-modal').classList.remove('flex');
+}
+
+function confirmSetDeadline() {
+    const round = currentSelectedRound;
+    const dateStr = document.getElementById('deadline-datetime').value;
+    if (!dateStr) { alert("Please select a date and time."); return; }
+    const timestamp = new Date(dateStr).getTime();
+    if (isNaN(timestamp)) { alert("Invalid date/time."); return; }
+    setRoundDeadline(round, timestamp);
+    closeDeadlineModal();
+}
+
+function checkAllDeadlines() {
+    // Called periodically to auto-resolve any expired deadlines
+    const totalRounds = Math.max(...fixtures.map(f => f.round));
+    for (let round = 1; round <= totalRounds; round++) {
+        autoResolveRoundIfNeeded(round);
+    }
+}
+
 // ==================== HELPERS ====================
 function showToast(msg) {
     const c = document.getElementById("toast-container");
     if (c) { let t = document.createElement("div"); t.className = "toast"; t.innerText = msg; c.appendChild(t); setTimeout(() => t.remove(), 2500); }
 }
 function saveToStorage() { 
-    getTournamentRef().set({ teams, fixtures, knockoutMatches, tournamentPhase, password: tournamentPassword, roundStartTimes, autoStartNextRound, roundPaused, releasedGameweeks });
+    getTournamentRef().set({
+    teams,
+    fixtures,
+    knockoutMatches,
+    tournamentPhase,
+    password: tournamentPassword,
+    roundStartTimes,
+    autoStartNextRound,
+    roundPaused,
+    releasedGameweeks,
+    roundDeadlines   // <-- add this
+});
 }
 function getCurrentUserId() {
     let id = localStorage.getItem('chatUserId');
@@ -966,6 +1085,11 @@ function activateAdminMode() { isAdmin = true; updateAdminUIElements(); showToas
 function deactivateAdminMode() { isAdmin = false; updateAdminUIElements(); showToast("Admin mode deactivated"); }
 function updateAdminUIElements() {
     const btn = document.getElementById('admin-btn'), dot = document.getElementById('admin-btn-dot'), statusText = document.getElementById('admin-status-text'), resetContainer = document.getElementById('admin-reset-container'), thActions = document.getElementById('th-admin-actions'), hint = document.getElementById('admin-table-hint'), relegationZone = document.getElementById('relegation-zone');
+const deadlineBtn = document.getElementById('set-deadline-btn');
+if (deadlineBtn) {
+    if (isAdmin) deadlineBtn.classList.remove('hidden');
+    else deadlineBtn.classList.add('hidden');
+}
     const floatMenu = document.getElementById('floating-admin-menu');
     if (isAdmin) {
         btn?.classList.replace('bg-gray-300', 'bg-indigo-600'); dot?.classList.replace('translate-x-0', 'translate-x-5');
@@ -1010,165 +1134,27 @@ function initializeTournament() {
     const pass = document.getElementById('tournament-password').value.trim();
     if (pass) tournamentPassword = pass;
     let list = [];
-    for (let i = 1; i <= count; i++) { 
-        let name = document.getElementById(`team-input-${i}`).value.trim(); 
-        if (name === "") name = `Team ${i}`; 
-        list.push({ name }); 
-    }
+    for (let i = 1; i <= count; i++) { let name = document.getElementById(`team-input-${i}`).value.trim(); if (name === "") name = `Team ${i}`; list.push({ name }); }
     if (list.length % 2 !== 0) list.push({ name: "BYE" });
     teams = {};
-    list.forEach(item => { 
-        if (item.name !== "BYE") 
-            teams[item.name] = { 
-                name: item.name, 
-                mp: 0, w: 0, d: 0, l: 0, 
-                gf: 0, ga: 0, gd: 0, pts: 0, 
-                deductedPoints: 0, 
-                formHistory: [], 
-                relegated: false 
-            }; 
-    });
+    list.forEach(item => { if (item.name !== "BYE") teams[item.name] = { name: item.name, mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0, deductedPoints: 0, formHistory: [], relegated: false }; });
     const teamNames = Object.keys(teams);
     const rounds = generateStrictRoundRobin(teamNames);
     fixtures = [];
     let fixtureId = 0;
     rounds.forEach((roundFixtures, roundIndex) => {
         roundFixtures.forEach(({ home, away }) => {
-            fixtures.push({ 
-                id: fixtureId++, 
-                round: roundIndex + 1, 
-                home, away, 
-                homeScore: null, awayScore: null, 
-                played: false, cancelled: false, 
-                comment: null, 
-                predictions: [], 
-                banter: [], 
-                events: [], 
-                report: null, 
-                deadline: null 
-            });
+            fixtures.push({ id: fixtureId++, round: roundIndex + 1, home, away, homeScore: null, awayScore: null, played: false, cancelled: false, comment: null, predictions: [], banter: [], events: [], report: null, deadline: null });
         });
     });
-
-    // ===== PROFESSIONAL WEEKEND SCHEDULING =====
-    const now = Date.now();
-    const dayMs = 24 * 60 * 60 * 1000;
-
-    // Helper: get the next Friday from a given date
-    function getNextFriday(timestamp) {
-        const date = new Date(timestamp);
-        const day = date.getDay(); // 0=Sun, 5=Fri
-        const diff = (day <= 5) ? 5 - day : 12 - day; // days until Friday
-        date.setDate(date.getDate() + diff);
-        date.setHours(0, 0, 0, 0);
-        return date.getTime();
-    }
-
-    // Find the first Friday on or after the creation date
-    const firstFriday = getNextFriday(now);
-
-    // Define slot configuration for each round:
-    // Friday: 1 match, Saturday: 2 matches, Sunday: 2 matches
-    const slots = [
-        { dayOffset: 0, count: 1 }, // Friday
-        { dayOffset: 1, count: 2 }, // Saturday
-        { dayOffset: 2, count: 2 }  // Sunday
-    ];
-
-    // Group fixtures by round
-    const roundGroups = {};
-    fixtures.forEach(f => {
-        if (!roundGroups[f.round]) roundGroups[f.round] = [];
-        roundGroups[f.round].push(f);
-    });
-
-    // Assign dates per round
-    Object.keys(roundGroups).forEach(roundKey => {
-        const round = parseInt(roundKey);
-        const roundFixtures = roundGroups[round];
-        const roundStart = firstFriday + (round - 1) * 7 * dayMs; // each round starts on a Friday, 7 days apart
-
-        // Shuffle fixtures to randomise which match gets which slot
-        const shuffled = [...roundFixtures];
-        for (let i = shuffled.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-        }
-
-        let index = 0;
-        slots.forEach(slot => {
-            for (let i = 0; i < slot.count; i++) {
-                if (index < shuffled.length) {
-                    const fixture = shuffled[index];
-                    fixture.scheduledDate = roundStart + slot.dayOffset * dayMs;
-                    index++;
-                }
-            }
-        });
-    });
-
     tournamentPhase = 'league';
     knockoutMatches = [];
     roundStartTimes = {};
     autoStartNextRound = false;
     currentSelectedRound = 1;
-    releasedGameweeks = { 1: true };
+   releasedGameweeks = { 1: true };
     saveToStorage();
-    showToast(`League launched with ${count} teams!`);
-}
-
-// ===== CALENDAR FUNCTIONS =====
-function openCalendarModal() {
-    const modal = document.getElementById('calendar-modal');
-    if (!modal) return;
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-    renderCalendar();
-}
-
-function closeCalendarModal() {
-    const modal = document.getElementById('calendar-modal');
-    if (modal) {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-    }
-}
-
-function renderCalendar() {
-    const container = document.getElementById('calendar-content');
-    if (!container) return;
-    const allFixtures = fixtures.filter(f => !f.cancelled && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
-    if (allFixtures.length === 0) {
-        container.innerHTML = '<div class="text-center text-gray-400 py-8">No fixtures scheduled yet.</div>';
-        return;
-    }
-    const sorted = [...allFixtures].sort((a, b) => a.scheduledDate - b.scheduledDate);
-    const grouped = {};
-    sorted.forEach(f => {
-        const dateObj = new Date(f.scheduledDate);
-        const key = dateObj.toDateString();
-        if (!grouped[key]) grouped[key] = [];
-        grouped[key].push(f);
-    });
-    let html = '';
-    for (const [dateKey, fixturesList] of Object.entries(grouped)) {
-        const dateObj = new Date(dateKey);
-        const formattedDate = dateObj.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-        html += `<div class="mb-4"><h4 class="font-bold text-indigo-700 mb-2">📅 ${formattedDate}</h4>`;
-        fixturesList.forEach(f => {
-            const played = f.played ? '✅' : '⏳';
-            const score = f.played ? `${f.homeScore} - ${f.awayScore}` : 'vs';
-            html += `<div class="flex items-center gap-3 bg-gray-50 p-2 rounded-lg mb-1 text-sm">
-                <span class="font-medium w-24">${f.home}</span>
-                <span class="text-gray-400">${score}</span>
-                <span class="font-medium w-24">${f.away}</span>
-                <span class="text-xs text-gray-400 ml-auto">GW ${f.round}</span>
-                ${played ? `<span class="text-green-600 text-xs">Played</span>` : ''}
-            </div>`;
-        });
-        html += `</div>`;
-    }
-    container.innerHTML = html;
+    showToast(`Laliga League launched with ${count} teams!`);
 }
 
 function openReplaceTeamModal(teamName) {
@@ -1730,13 +1716,27 @@ function renderGameweekTabs() {
         const roundFixtures = fixtures.filter(f => f.round === r && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
         const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
         const isReleased = releasedGameweeks[r] === true;
+        const hasDeadline = roundDeadlines[r] ? true : false;
         
         let statusHtml = allResolved ? `<span class="text-[9px] font-mono text-green-600 ml-1">✅ Completed</span>` : 
                          (isReleased ? `<span class="text-[9px] font-mono text-emerald-500 ml-1">📢 Released</span>` : 
                           `<span class="text-[9px] font-mono text-gray-400 ml-1">🔒 Locked</span>`);
         
+        // Deadline indicator
+        if (hasDeadline && !allResolved) {
+            const deadline = new Date(roundDeadlines[r]);
+            const now = Date.now();
+            const diff = deadline.getTime() - now;
+            if (diff > 0) {
+                statusHtml += `<span class="text-[9px] font-mono text-amber-600 ml-1">⏰ ${Math.floor(diff/(1000*60*60))}h</span>`;
+            } else {
+                statusHtml += `<span class="text-[9px] font-mono text-red-500 ml-1">⏰ Expired</span>`;
+            }
+        }
+        
         let integrityBtnHtml = '';
         let releaseBtnHtml = '';
+        let deadlineBtnHtml = '';
         
         if (isAdmin) {
             integrityBtnHtml = `<button onclick="event.stopPropagation(); checkRoundIntegrity(${r})" class="ml-1 text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full hover:bg-blue-200" title="Check round integrity">🔍</button>`;
@@ -1746,6 +1746,11 @@ function renderGameweekTabs() {
             } else {
                 releaseBtnHtml = `<button onclick="event.stopPropagation(); releaseNextRound()" class="ml-1 text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full hover:bg-emerald-200" title="Release this gameweek">📢 Release</button>`;
             }
+            
+            // Deadline button
+            if (!allResolved) {
+                deadlineBtnHtml = `<button onclick="event.stopPropagation(); openSetDeadlineModal()" class="ml-1 text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full hover:bg-amber-200" title="Set deadline">⏰ Set</button>`;
+            }
         }
         
         const active = (r === currentSelectedRound);
@@ -1753,7 +1758,7 @@ function renderGameweekTabs() {
         
         const btn = document.createElement('button');
         btn.className = `px-3 py-1 text-[11px] font-mono rounded-full transition shrink-0 flex items-center gap-1 ${active ? 'bg-indigo-600 text-white shadow' : (canView ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-50')}`;
-        btn.innerHTML = `GW ${r} ${statusHtml} ${releaseBtnHtml} ${integrityBtnHtml}`;
+        btn.innerHTML = `GW ${r} ${statusHtml} ${releaseBtnHtml} ${deadlineBtnHtml} ${integrityBtnHtml}`;
         
         if (canView) {
             btn.onclick = () => { currentSelectedRound = r; renderGameweekTabs(); renderFixtures(); };
@@ -1873,6 +1878,18 @@ function renderFixtures() {
         return;
     }
     
+    // Display the round timer and deadline button (admin only)
+    const deadlineContainer = document.getElementById('round-timer-container');
+    if (deadlineContainer) {
+        const countdownEl = document.getElementById('round-timer-countdown');
+        const setDeadlineBtn = document.getElementById('set-deadline-btn');
+        if (setDeadlineBtn) {
+            if (isAdmin) setDeadlineBtn.classList.remove('hidden');
+            else setDeadlineBtn.classList.add('hidden');
+        }
+        // The actual timer value is updated by updateTimerDisplay() called below
+    }
+    
     roundFixtures.forEach(f => {
         const played = f.played;
         const cancelled = f.cancelled;
@@ -1883,50 +1900,21 @@ function renderFixtures() {
         if (isAdmin) {
             let homeDisplay = f.home === "VACANT" ? `<span class="font-semibold text-sm text-red-500 cursor-pointer" onclick="editFixtureTeamName(${f.id}, 'home')">[VACANT]</span>` : `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'home')">${f.home}</span>`;
             let awayDisplay = f.away === "VACANT" ? `<span class="font-semibold text-sm text-red-500 cursor-pointer" onclick="editFixtureTeamName(${f.id}, 'away')">[VACANT]</span>` : `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'away')">${f.away}</span>`;
-            container.innerHTML += `
-                <div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div class="flex-1 flex items-center justify-center gap-2 text-center">${homeDisplay}</div>
-                        <div class="flex items-center justify-center">
-                            <div class="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">
-                                <input type="number" id="home-score-${f.id}" value="${played ? f.homeScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm">
-                                <span class="text-gray-400">:</span>
-                                <input type="number" id="away-score-${f.id}" value="${played ? f.awayScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm">
-                            </div>
-                        </div>
-                        <div class="flex-1 flex items-center justify-center gap-2 text-center">${awayDisplay}</div>
-                    </div>
-                    <div class="mt-2 flex justify-center gap-1">
-                        <button onclick="swapFixture(${f.id})" class="text-[10px] font-bold bg-amber-50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100">🔄 Swap</button>
-                        <button onclick="saveResult(${f.id})" class="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full hover:bg-indigo-100">💾 Save</button>
-                        <button onclick="showMatchComment(${f.id})" class="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-full hover:bg-gray-200">📖</button>
-                        <button onclick="openBanterModal(${f.id})" class="text-[10px] font-bold bg-purple-50 text-purple-600 px-2 py-1 rounded-full hover:bg-purple-100">🤣 Banter</button>
-                    </div>
-                    <div class="text-[10px] text-gray-400 mt-1 text-center">
-                        📅 ${new Date(f.scheduledDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
-                    </div>
-                </div>`;
+            // If the fixture already has a result, we show it; if not, allow input
+            const homeScoreVal = played ? f.homeScore : '';
+            const awayScoreVal = played ? f.awayScore : '';
+            const disabledAttr = played ? 'disabled' : '';
+            container.innerHTML += `<div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div class="flex-1 flex items-center justify-center gap-2 text-center">${homeDisplay}</div><div class="flex items-center justify-center"><div class="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full"><input type="number" id="home-score-${f.id}" value="${homeScoreVal}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm" ${disabledAttr}><span class="text-gray-400">:</span><input type="number" id="away-score-${f.id}" value="${awayScoreVal}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm" ${disabledAttr}></div></div><div class="flex-1 flex items-center justify-center gap-2 text-center">${awayDisplay}</div></div><div class="mt-2 flex justify-center gap-1"><button onclick="swapFixture(${f.id})" class="text-[10px] font-bold bg-amber-50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100">🔄 Swap</button><button onclick="saveResult(${f.id})" class="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full hover:bg-indigo-100">💾 Save</button><button onclick="showMatchComment(${f.id})" class="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-full hover:bg-gray-200">📖</button><button onclick="openBanterModal(${f.id})" class="text-[10px] font-bold bg-purple-50 text-purple-600 px-2 py-1 rounded-full hover:bg-purple-100">🤣 Banter</button></div></div>`;
         } else {
             let homeName = f.home === "VACANT" ? "TBD" : f.home;
             let awayName = f.away === "VACANT" ? "TBD" : f.away;
             const predictionBtn = !played ? `<button onclick="openPredictionsModal(${f.id})" class="text-[11px] bg-gray-100 hover:bg-indigo-50 px-3 py-1 rounded-full">🔮 Predictions</button>` : `<div class="bg-gray-100 px-3 py-1 rounded-full font-mono font-bold text-sm">${f.homeScore} - ${f.awayScore}</div>`;
-            container.innerHTML += `
-                <div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div class="flex-1 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${homeName}</div>
-                        <div class="flex justify-center">${predictionBtn}</div>
-                        <div class="flex-1 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${awayName}</div>
-                    </div>
-                    <div class="mt-2 flex justify-center gap-1">
-                        <button onclick="showMatchComment(${f.id})" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full">📖</button>
-                        <button onclick="openBanterModal(${f.id})" class="text-[11px] bg-purple-50 hover:bg-purple-100 px-3 py-1 rounded-full">🤣 Banter</button>
-                    </div>
-                    <div class="text-[10px] text-gray-400 mt-1 text-center">
-                        📅 ${new Date(f.scheduledDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
-                    </div>
-                </div>`;
+            container.innerHTML += `<div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div class="flex-1 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${homeName}</div><div class="flex justify-center">${predictionBtn}</div><div class="flex-1 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${awayName}</div></div><div class="mt-2 flex justify-center gap-1"><button onclick="showMatchComment(${f.id})" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full">📖</button><button onclick="openBanterModal(${f.id})" class="text-[11px] bg-purple-50 hover:bg-purple-100 px-3 py-1 rounded-full">🤣 Banter</button></div></div>`;
         }
     });
+    
+    // Update the countdown display
+    updateTimerDisplay();
 }
 
 // ==================== TEAM DETAILS ====================
@@ -2958,6 +2946,12 @@ function deleteBanter(fixtureId, index) {
     const f = fixtures.find(f => f.id === fixtureId);
     if (f && f.banter && f.banter[index]) { f.banter.splice(index,1); saveToStorage(); renderBanterMessages(fixtureId); showToast("Banter deleted"); }
 }
+function checkAllDeadlines() {
+    const totalRounds = Math.max(...fixtures.map(f => f.round));
+    for (let round = 1; round <= totalRounds; round++) {
+        autoResolveRoundIfNeeded(round);
+    }
+}
 function escapeHtml(str) { return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m] || m)); }
 
 // ==================== RESET ====================
@@ -2968,11 +2962,33 @@ function resetTournament() {
 
 // ==================== INIT ====================
 window.onload = () => {
+    // 1. Load the league data (Firebase sync)
     initRealtimeDatabaseSync();
+
+    // 2. Restore saved role (if any)
     const savedRole = sessionStorage.getItem('tournamentRole');
     if (savedRole === 'viewer' || savedRole === 'admin') {
         selectRole(savedRole);
     }
+
+    // 3. Start the countdown timer (updates every second)
+    setInterval(() => {
+        updateTimerDisplay();
+    }, 1000);
+
+    // 4. Check for expired deadlines every 30 seconds
+    setInterval(() => {
+        checkAllDeadlines();
+    }, 30000);
+
+    // 5. Also run a one‑time check after the league data is fully loaded
+    //    (the check is also triggered inside loadTournamentData, but we'll
+    //     call it again after a short delay to catch any missed deadlines)
+    setTimeout(() => {
+        if (fixtures.length > 0) {
+            checkAllDeadlines();
+        }
+    }, 2000);
 };
 
 // ==================== EXPOSE FUNCTIONS ====================
@@ -3044,7 +3060,6 @@ window.lockGameweek = lockGameweek;
 window.isGameweekReleased = isGameweekReleased;
 window.showUpcomingFixtures = showUpcomingFixtures;
 window.closeUpcomingFixturesModal = closeUpcomingFixturesModal;
-// ===== EXPOSE CALENDAR FUNCTIONS =====
-window.openCalendarModal = openCalendarModal;
-window.closeCalendarModal = closeCalendarModal;
-window.renderCalendar = renderCalendar;
+window.openSetDeadlineModal = openSetDeadlineModal;
+window.closeDeadlineModal = closeDeadlineModal;
+window.confirmSetDeadline = confirmSetDeadline;
