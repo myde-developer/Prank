@@ -13,7 +13,7 @@ let isAdmin = false;
 let clTeamsData = null; // for league phase teams
 let clFixturesData = null;
 let clCurrentMatchday = 1;
-let clTotalMatchdays = 19;
+let clTotalMatchdays = 17; // 18 teams -> 17 matchdays (single round‑robin)
 
 // Admin authentication
 const entered = prompt("Enter admin master password:");
@@ -59,15 +59,15 @@ async function loadAllLeagueStatus() {
         const totalRounds = premierData.fixtures ? Math.max(...premierData.fixtures.map(f => f.round)) : 0;
         const halfRounds = Math.floor(totalRounds / 2);
         const firstHalfFixtures = premierFixtures.filter(f => f.round <= halfRounds);
-        premierComplete = premierFixtures.length > 0 && premierFixtures.every(f => f.played || f.cancelled);
+        premierComplete = firstHalfFixtures.length > 0 && firstHalfFixtures.every(f => f.played || f.cancelled);
         updateUI('premier', premierComplete, premierTeams.length);
         const sortFn = (a,b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf;
         const sorted = [...premierTeams].sort(sortFn);
-        window.premierTop10 = sorted.slice(0, 10);
-        displayCLPots('cl-pot1-teams', window.premierTop10, 'Premier League');
+        window.premierTop9 = sorted.slice(0, 9); // only top 9
+        displayCLPots('cl-pot1-teams', window.premierTop9, 'Premier League');
     } else {
         updateUI('premier', false, 0);
-        window.premierTop10 = [];
+        window.premierTop9 = [];
     }
 
     // La Liga
@@ -80,15 +80,15 @@ async function loadAllLeagueStatus() {
         const totalRounds = laligaData.fixtures ? Math.max(...laligaData.fixtures.map(f => f.round)) : 0;
         const halfRounds = Math.floor(totalRounds / 2);
         const firstHalfFixtures = laligaFixtures.filter(f => f.round <= halfRounds);
-        laligaComplete = laligaFixtures.length > 0 && laligaFixtures.every(f => f.played || f.cancelled);
+        laligaComplete = firstHalfFixtures.length > 0 && firstHalfFixtures.every(f => f.played || f.cancelled);
         updateUI('laliga', laligaComplete, laligaTeams.length);
         const sortFn = (a,b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf;
         const sorted = [...laligaTeams].sort(sortFn);
-        window.laligaTop10 = sorted.slice(0, 10);
-        displayCLPots('cl-pot2-teams', window.laligaTop10, 'La Liga');
+        window.laligaTop9 = sorted.slice(0, 9); // only top 9
+        displayCLPots('cl-pot2-teams', window.laligaTop9, 'La Liga');
     } else {
         updateUI('laliga', false, 0);
-        window.laligaTop10 = [];
+        window.laligaTop9 = [];
     }
 
     window.premierComplete = premierComplete;
@@ -204,7 +204,7 @@ async function checkChampionsLeagueStatus() {
             laligaHalfComplete = firstHalfFixtures.length > 0 && firstHalfFixtures.every(f => f.played || f.cancelled);
         }
         if (premierHalfComplete && laligaHalfComplete) {
-            statusEl.innerHTML = `<div class="text-green-600 font-bold text-xl">✅ First half of both leagues complete!</div><p class="text-gray-600 mt-2">${(window.premierTop10||[]).length} teams from Premier · ${(window.laligaTop10||[]).length} from La Liga</p>`;
+            statusEl.innerHTML = `<div class="text-green-600 font-bold text-xl">✅ First half of both leagues complete!</div><p class="text-gray-600 mt-2">${(window.premierTop9||[]).length} teams from Premier · ${(window.laligaTop9||[]).length} from La Liga</p>`;
             btn.disabled = false;
             btn.classList.remove('opacity-50');
             btn.textContent = '🎲 Generate Champions League League Phase';
@@ -227,8 +227,8 @@ function displayCLPots(containerId, teams, league) {
         container.innerHTML = `<p class="text-gray-500">No ${league} teams available</p>`;
         return;
     }
-    const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
-    const positionClasses = ['border-l-4 border-yellow-400', 'border-l-4 border-gray-300', 'border-l-4 border-amber-600', 'border-l-4 border-blue-400', 'border-l-4 border-green-400', 'border-l-4 border-purple-400', 'border-l-4 border-pink-400', 'border-l-4 border-indigo-400', 'border-l-4 border-cyan-400', 'border-l-4 border-orange-400'];
+    const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
+    const positionClasses = ['border-l-4 border-yellow-400', 'border-l-4 border-gray-300', 'border-l-4 border-amber-600', 'border-l-4 border-blue-400', 'border-l-4 border-green-400', 'border-l-4 border-purple-400', 'border-l-4 border-pink-400', 'border-l-4 border-indigo-400', 'border-l-4 border-cyan-400'];
     container.innerHTML = teams.map((team, index) => `
         <div class="bg-white rounded-lg p-2 shadow-sm ${positionClasses[index]} flex justify-between items-center">
             <span class="text-sm font-bold text-gray-400">${medals[index]}</span>
@@ -240,17 +240,17 @@ function displayCLPots(containerId, teams, league) {
 
 async function performLeagueDraw() {
     if (!isAdmin) return;
-    const pot1 = window.premierTop10 || [];
-    const pot2 = window.laligaTop10 || [];
-    if (pot1.length < 10 || pot2.length < 10) {
-        alert('Need exactly 10 teams from each league to generate the league phase.');
+    const pot1 = window.premierTop9 || [];
+    const pot2 = window.laligaTop9 || [];
+    if (pot1.length < 9 || pot2.length < 9) {
+        alert('Need exactly 9 teams from each league to generate the league phase.');
         return;
     }
     const allTeams = [...pot1, ...pot2];
     const confirmMsg = `🏆 GENERATE CHAMPIONS LEAGUE LEAGUE PHASE\n\n` +
-        `Premier League (10):\n${pot1.map(t => `  - ${t.name} (${t.pts} pts)`).join('\n')}\n\n` +
-        `La Liga (10):\n${pot2.map(t => `  - ${t.name} (${t.pts} pts)`).join('\n')}\n\n` +
-        `Total: 20 clubs · Single round‑robin (19 matchdays) · Top 16 qualify.\nContinue?`;
+        `Premier League (9):\n${pot1.map(t => `  - ${t.name} (${t.pts} pts)`).join('\n')}\n\n` +
+        `La Liga (9):\n${pot2.map(t => `  - ${t.name} (${t.pts} pts)`).join('\n')}\n\n` +
+        `Total: 18 clubs · Single round‑robin (17 matchdays) · Top 16 qualify.\nContinue?`;
     if (!confirm(confirmMsg)) return;
 
     try {
@@ -294,7 +294,7 @@ async function performLeagueDraw() {
                 round16: [],
                 quarterfinals: [],
                 semifinals: [],
-                final: [],
+                final: { home: null, away: null, homeScore: null, awayScore: null, played: false, winner: null },
                 champion: null
             },
             created: new Date().toISOString(),
@@ -307,7 +307,7 @@ async function performLeagueDraw() {
         document.getElementById('cl-groups-display').innerHTML = `
             <div class="col-span-2 text-center p-4 bg-green-50 rounded-xl">
                 <p class="text-2xl font-bold text-green-700">✅ League Phase Generated!</p>
-                <p class="text-gray-600">20 clubs · ${fixtures.length} matches · 19 matchdays</p>
+                <p class="text-gray-600">18 clubs · ${fixtures.length} matches · 17 matchdays</p>
                 <p class="text-sm text-gray-500 mt-2">Top 16 will qualify for the knockout stage.</p>
             </div>
         `;
@@ -604,7 +604,7 @@ async function generateKnockoutStage() {
         return;
     }
 
-    // Generate Round of 16 ties (two legs per tie)
+    // Generate Round of 16 ties (two legs)
     const round16Ties = [];
     const tieIdBase = Date.now();
     for (let i = 0; i < 8; i++) {
@@ -632,7 +632,7 @@ async function generateKnockoutStage() {
     };
 
     await db.ref('champions_league/knockout').set(knockoutData);
-    showToast('🏆 Knockout stage generated! (Round of 16 – two legs)');
+    showToast('🏆 Knockout stage generated! (Round of 16 – two legs, final single leg)');
     renderKnockoutStage();
     document.getElementById('cl-generate-knockout-btn').classList.add('hidden');
 }
@@ -655,7 +655,7 @@ async function renderKnockoutStage() {
     const labels = ['Round of 16', 'Quarter‑finals', 'Semi‑finals'];
     const roundData = rounds.map(r => data[r] || []);
     const firstRoundTies = roundData[0] || [];
-    const rowspans = [1, 2, 4]; // each round spans double the previous
+    const totalRows = firstRoundTies.length; // should be 8
 
     let html = `
         <div class="bracket-container" style="overflow-x:auto;padding:10px 0;">
@@ -674,13 +674,9 @@ async function renderKnockoutStage() {
     if (firstRoundTies.length === 0) {
         html += `<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:30px 0;">Knockout not yet generated</td></tr>`;
     } else {
-        const totalRows = firstRoundTies.length; // 8
-        // We have 4 rounds: R16, QF, SF, Final
-        // We need to display all ties in each round with proper rowspans
-        // Final is a single match, so it appears in the last column with rowspan = totalRows
         for (let row = 0; row < totalRows; row++) {
             html += `<tr>`;
-            // Round of 16 (col 0) – each tie gets 1 row
+            // Round of 16
             const r16Tie = firstRoundTies[row];
             if (r16Tie) {
                 html += `<td style="padding:4px 8px;vertical-align:middle;border:none;position:relative;" rowspan="1">
@@ -690,7 +686,7 @@ async function renderKnockoutStage() {
                 html += `<td style="padding:4px 8px;"></td>`;
             }
 
-            // Quarter‑finals (col 1) – rowspan 2
+            // Quarter‑finals (rowspan 2)
             const qfIdx = Math.floor(row / 2);
             if (row % 2 === 0 && qfIdx < roundData[1].length) {
                 const qfTie = roundData[1][qfIdx];
@@ -699,7 +695,7 @@ async function renderKnockoutStage() {
                 </td>`;
             }
 
-            // Semi‑finals (col 2) – rowspan 4
+            // Semi‑finals (rowspan 4)
             const sfIdx = Math.floor(row / 4);
             if (row % 4 === 0 && sfIdx < roundData[2].length) {
                 const sfTie = roundData[2][sfIdx];
@@ -708,7 +704,7 @@ async function renderKnockoutStage() {
                 </td>`;
             }
 
-            // Final (col 3) – rowspan 8 (single match)
+            // Final (rowspan = totalRows) – single match
             if (row === 0) {
                 const final = data.final || {};
                 html += `<td style="padding:4px 8px;vertical-align:middle;border:none;position:relative;" rowspan="${totalRows}">
@@ -738,7 +734,7 @@ async function renderKnockoutStage() {
         championDisplay.classList.add('hidden');
     }
 
-    // Render fixtures with score inputs (same as before, keeping existing logic)
+    // Render fixtures with score inputs
     let fixturesHtml = '';
     const allTies = [...(data.round16 || []), ...(data.quarterfinals || []), ...(data.semifinals || [])];
     allTies.forEach((tie, idx) => {
@@ -775,7 +771,7 @@ async function renderKnockoutStage() {
             </div>
         `;
     });
-    // Final fixture
+    // Final fixture (single leg)
     if (data.final) {
         const final = data.final;
         const played = final.played || false;
@@ -903,7 +899,6 @@ async function saveKOLeg(tieId, leg) {
             tie.aggregate += ' (tie)';
         }
         // Move winner to next round (quarterfinals, etc.)
-        // We'll implement a separate function to auto‑advance winners
         await advanceWinner(tie, roundKey, tieIndex, data);
     }
 
