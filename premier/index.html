@@ -122,8 +122,24 @@
                 <div class="flex flex-wrap justify-between items-center gap-3">
                     <h2 class="font-bold text-gray-700">📅 Match Schedule</h2>
                     <div id="gameweek-tabs" class="flex gap-1 overflow-x-auto pb-1"></div>
+                    <button onclick="openCalendarModal()" class="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1.5 rounded-full transition">📅 Calendar</button>
                 </div>
                 <div id="fixtures-container" class="flex flex-col gap-3">
+                  <!-- Calendar Modal -->
+<div id="calendar-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+        <div class="p-5 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white">
+            <h3 class="font-bold text-lg">📅 Match Calendar</h3>
+            <button onclick="closeCalendarModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+        </div>
+        <div id="calendar-content" class="p-5 space-y-4">
+            <!-- dynamically populated -->
+        </div>
+        <div class="p-4 bg-gray-50 text-right rounded-b-2xl">
+            <button onclick="closeCalendarModal()" class="px-5 py-2 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-100">Close</button>
+        </div>
+    </div>
+</div>
                     <div class="skeleton h-24 w-full rounded-xl"></div>
                 </div>
             </div>

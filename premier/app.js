@@ -231,6 +231,61 @@ function isGameweekReleased(roundNumber) {
     if (isAdmin) return true;
     return releasedGameweeks[roundNumber] === true;
 }
+
+// ===== CALENDAR FUNCTIONS =====
+function openCalendarModal() {
+    const modal = document.getElementById('calendar-modal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    renderCalendar();
+}
+
+function closeCalendarModal() {
+    const modal = document.getElementById('calendar-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+function renderCalendar() {
+    const container = document.getElementById('calendar-content');
+    if (!container) return;
+    const allFixtures = fixtures.filter(f => !f.cancelled && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
+    if (allFixtures.length === 0) {
+        container.innerHTML = '<div class="text-center text-gray-400 py-8">No fixtures scheduled yet.</div>';
+        return;
+    }
+    const sorted = [...allFixtures].sort((a, b) => a.scheduledDate - b.scheduledDate);
+    const grouped = {};
+    sorted.forEach(f => {
+        const dateObj = new Date(f.scheduledDate);
+        const key = dateObj.toDateString();
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(f);
+    });
+    let html = '';
+    for (const [dateKey, fixturesList] of Object.entries(grouped)) {
+        const dateObj = new Date(dateKey);
+        const formattedDate = dateObj.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        html += `<div class="mb-4"><h4 class="font-bold text-indigo-700 mb-2">📅 ${formattedDate}</h4>`;
+        fixturesList.forEach(f => {
+            const played = f.played ? '✅' : '⏳';
+            const score = f.played ? `${f.homeScore} - ${f.awayScore}` : 'vs';
+            html += `<div class="flex items-center gap-3 bg-gray-50 p-2 rounded-lg mb-1 text-sm">
+                <span class="font-medium w-24">${f.home}</span>
+                <span class="text-gray-400">${score}</span>
+                <span class="font-medium w-24">${f.away}</span>
+                <span class="text-xs text-gray-400 ml-auto">GW ${f.round}</span>
+                ${played ? `<span class="text-green-600 text-xs">Played</span>` : ''}
+            </div>`;
+        });
+        html += `</div>`;
+    }
+    container.innerHTML = html;
+}
+
 // ==================== FIXTURE GENERATION ====================
 function generateStrictRoundRobin(
     teamNames,
@@ -1010,27 +1065,61 @@ function initializeTournament() {
     const pass = document.getElementById('tournament-password').value.trim();
     if (pass) tournamentPassword = pass;
     let list = [];
-    for (let i = 1; i <= count; i++) { let name = document.getElementById(`team-input-${i}`).value.trim(); if (name === "") name = `Team ${i}`; list.push({ name }); }
+    for (let i = 1; i <= count; i++) { 
+        let name = document.getElementById(`team-input-${i}`).value.trim(); 
+        if (name === "") name = `Team ${i}`; 
+        list.push({ name }); 
+    }
     if (list.length % 2 !== 0) list.push({ name: "BYE" });
     teams = {};
-    list.forEach(item => { if (item.name !== "BYE") teams[item.name] = { name: item.name, mp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0, deductedPoints: 0, formHistory: [], relegated: false }; });
+    list.forEach(item => { 
+        if (item.name !== "BYE") 
+            teams[item.name] = { 
+                name: item.name, 
+                mp: 0, w: 0, d: 0, l: 0, 
+                gf: 0, ga: 0, gd: 0, pts: 0, 
+                deductedPoints: 0, 
+                formHistory: [], 
+                relegated: false 
+            }; 
+    });
     const teamNames = Object.keys(teams);
     const rounds = generateStrictRoundRobin(teamNames);
     fixtures = [];
     let fixtureId = 0;
     rounds.forEach((roundFixtures, roundIndex) => {
         roundFixtures.forEach(({ home, away }) => {
-            fixtures.push({ id: fixtureId++, round: roundIndex + 1, home, away, homeScore: null, awayScore: null, played: false, cancelled: false, comment: null, predictions: [], banter: [], events: [], report: null, deadline: null });
+            fixtures.push({ 
+                id: fixtureId++, 
+                round: roundIndex + 1, 
+                home, away, 
+                homeScore: null, awayScore: null, 
+                played: false, cancelled: false, 
+                comment: null, 
+                predictions: [], 
+                banter: [], 
+                events: [], 
+                report: null, 
+                deadline: null 
+            });
         });
     });
+
+    // 📅 Assign scheduled dates to fixtures (each round 7 days apart)
+    const now = Date.now();
+    const dayMs = 24 * 60 * 60 * 1000;
+    fixtures.forEach(f => {
+        f.scheduledDate = now + (f.round - 1) * 7 * dayMs;
+    });
+
     tournamentPhase = 'league';
     knockoutMatches = [];
     roundStartTimes = {};
     autoStartNextRound = false;
     currentSelectedRound = 1;
-   releasedGameweeks = { 1: true };
+    releasedGameweeks = { 1: true };
     saveToStorage();
-    showToast(`Premier League launched with ${count} teams!`);
+    showToast(`League launched with ${count} teams!`);
 }
 
 function openReplaceTeamModal(teamName) {
@@ -1745,12 +1834,48 @@ function renderFixtures() {
         if (isAdmin) {
             let homeDisplay = f.home === "VACANT" ? `<span class="font-semibold text-sm text-red-500 cursor-pointer" onclick="editFixtureTeamName(${f.id}, 'home')">[VACANT]</span>` : `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'home')">${f.home}</span>`;
             let awayDisplay = f.away === "VACANT" ? `<span class="font-semibold text-sm text-red-500 cursor-pointer" onclick="editFixtureTeamName(${f.id}, 'away')">[VACANT]</span>` : `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'away')">${f.away}</span>`;
-            container.innerHTML += `<div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div class="flex-1 flex items-center justify-center gap-2 text-center">${homeDisplay}</div><div class="flex items-center justify-center"><div class="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full"><input type="number" id="home-score-${f.id}" value="${played ? f.homeScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm"><span class="text-gray-400">:</span><input type="number" id="away-score-${f.id}" value="${played ? f.awayScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm"></div></div><div class="flex-1 flex items-center justify-center gap-2 text-center">${awayDisplay}</div></div><div class="mt-2 flex justify-center gap-1"><button onclick="swapFixture(${f.id})" class="text-[10px] font-bold bg-amber-50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100">🔄 Swap</button><button onclick="saveResult(${f.id})" class="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full hover:bg-indigo-100">💾 Save</button><button onclick="showMatchComment(${f.id})" class="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-full hover:bg-gray-200">📖</button><button onclick="openBanterModal(${f.id})" class="text-[10px] font-bold bg-purple-50 text-purple-600 px-2 py-1 rounded-full hover:bg-purple-100">🤣 Banter</button></div></div>`;
+            container.innerHTML += `
+                <div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div class="flex-1 flex items-center justify-center gap-2 text-center">${homeDisplay}</div>
+                        <div class="flex items-center justify-center">
+                            <div class="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">
+                                <input type="number" id="home-score-${f.id}" value="${played ? f.homeScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm">
+                                <span class="text-gray-400">:</span>
+                                <input type="number" id="away-score-${f.id}" value="${played ? f.awayScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm">
+                            </div>
+                        </div>
+                        <div class="flex-1 flex items-center justify-center gap-2 text-center">${awayDisplay}</div>
+                    </div>
+                    <div class="mt-2 flex justify-center gap-1">
+                        <button onclick="swapFixture(${f.id})" class="text-[10px] font-bold bg-amber-50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100">🔄 Swap</button>
+                        <button onclick="saveResult(${f.id})" class="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full hover:bg-indigo-100">💾 Save</button>
+                        <button onclick="showMatchComment(${f.id})" class="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-full hover:bg-gray-200">📖</button>
+                        <button onclick="openBanterModal(${f.id})" class="text-[10px] font-bold bg-purple-50 text-purple-600 px-2 py-1 rounded-full hover:bg-purple-100">🤣 Banter</button>
+                    </div>
+                    <div class="text-[10px] text-gray-400 mt-1 text-center">
+                        📅 ${new Date(f.scheduledDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                    </div>
+                </div>`;
         } else {
             let homeName = f.home === "VACANT" ? "TBD" : f.home;
             let awayName = f.away === "VACANT" ? "TBD" : f.away;
             const predictionBtn = !played ? `<button onclick="openPredictionsModal(${f.id})" class="text-[11px] bg-gray-100 hover:bg-indigo-50 px-3 py-1 rounded-full">🔮 Predictions</button>` : `<div class="bg-gray-100 px-3 py-1 rounded-full font-mono font-bold text-sm">${f.homeScore} - ${f.awayScore}</div>`;
-            container.innerHTML += `<div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div class="flex-1 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${homeName}</div><div class="flex justify-center">${predictionBtn}</div><div class="flex-1 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${awayName}</div></div><div class="mt-2 flex justify-center gap-1"><button onclick="showMatchComment(${f.id})" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full">📖</button><button onclick="openBanterModal(${f.id})" class="text-[11px] bg-purple-50 hover:bg-purple-100 px-3 py-1 rounded-full">🤣 Banter</button></div></div>`;
+            container.innerHTML += `
+                <div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div class="flex-1 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${homeName}</div>
+                        <div class="flex justify-center">${predictionBtn}</div>
+                        <div class="flex-1 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${awayName}</div>
+                    </div>
+                    <div class="mt-2 flex justify-center gap-1">
+                        <button onclick="showMatchComment(${f.id})" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full">📖</button>
+                        <button onclick="openBanterModal(${f.id})" class="text-[11px] bg-purple-50 hover:bg-purple-100 px-3 py-1 rounded-full">🤣 Banter</button>
+                    </div>
+                    <div class="text-[10px] text-gray-400 mt-1 text-center">
+                        📅 ${new Date(f.scheduledDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                    </div>
+                </div>`;
         }
     });
 }
