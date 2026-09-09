@@ -33,10 +33,10 @@ let pendingFixtureId = null, pendingHomeScore = null, pendingAwayScore = null;
 let currentPenaltyTeam = null, pendingAssignFixtureId = null, pendingAssignSide = null, currentViewerFixtureId = null;
 let currentPredictionFixtureId = null, currentBanterFixtureId = null;
 let chatMessagesRef = null;
+let roundDeadlines = {};
 let autoStartNextRound = false;
 let releasedGameweeks = {};
 let roundStartTimes = {};
-let roundDeadlines = {};
 let roundPaused = {};
 let typingTimeout = null;
 let isTyping = false;
@@ -106,7 +106,7 @@ const setupSection = document.getElementById('setup-section');
                 document.getElementById('setup-section')?.classList.add('hidden');
                 const roleSelector = document.getElementById('role-selector');
                 if (roleSelector) {
-                    roleSelector.innerHTML = `<div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center"><div class="mb-4"><div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3"><span class="text-3xl">🏆</span></div><h2 class="text-2xl font-bold text-gray-800">No Laliga Yet</h2><p class="text-gray-500 text-sm mt-1">An admin hasn't started the Laliga .</p></div><button onclick="selectRole('admin')" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition">🔑 Switch to Admin to Create</button></div>`;
+                    roleSelector.innerHTML = `<div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center"><div class="mb-4"><div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3"><span class="text-3xl">🏆</span></div><h2 class="text-2xl font-bold text-gray-800">No Laliga Yet</h2><p class="text-gray-500 text-sm mt-1">An admin hasn't started the Laliga.</p></div><button onclick="selectRole('admin')" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition">🔑 Switch to Admin to Create</button></div>`;
                     roleSelector.style.display = 'flex';
                 }
             } else if (userRole === 'admin') {
@@ -114,7 +114,7 @@ const setupSection = document.getElementById('setup-section');
                 document.getElementById('dashboard-section')?.classList.add('hidden');
                 document.getElementById('admin-toggle-container')?.classList.add('hidden');
                 document.getElementById('floating-admin-menu')?.classList.add('hidden');
-                showToast("Setup mode – create Laliga ");
+                showToast("Setup mode – create Laliga");
             }
         }
     }).catch(error => { console.error(error); showToast("Error loading data"); });
@@ -129,7 +129,7 @@ document.getElementById('setup-section')?.classList.add('hidden');
     knockoutMatches = data.knockoutMatches || [];
     tournamentPhase = data.tournamentPhase || 'league';
     roundStartTimes = data.roundStartTimes || {};
-roundDeadlines = data.roundDeadlines || {};
+    roundDeadlines = data.roundDeadlines || {};
     roundPaused = data.roundPaused || {};
     releasedGameweeks = data.releasedGameweeks || {};
     autoStartNextRound = data.autoStartNextRound || false;
@@ -149,6 +149,100 @@ roundDeadlines = data.roundDeadlines || {};
     initChatListener();
     if (userRole === 'admin') updateAdminUIElements();
    validateFixtureIntegrity(true);
+}
+
+// ==================== HELPERS ====================
+function showToast(msg) {
+    const c = document.getElementById("toast-container");
+    if (c) { let t = document.createElement("div"); t.className = "toast"; t.innerText = msg; c.appendChild(t); setTimeout(() => t.remove(), 2500); }
+}
+function saveToStorage() { 
+    getTournamentRef().set({
+    teams,
+    fixtures,
+    knockoutMatches,
+    tournamentPhase,
+    password: tournamentPassword,
+    roundStartTimes,
+    autoStartNextRound,
+    roundPaused,
+    releasedGameweeks,
+    roundDeadlines   // <-- add this
+});
+}
+function getCurrentUserId() {
+    let id = localStorage.getItem('chatUserId');
+    if (!id) {
+        id = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+        localStorage.setItem('chatUserId', id);
+    }
+    return id;
+}
+
+function autoReleaseCurrentRound() {
+    if (!isAdmin) return;
+    
+    const totalRounds = Math.max(...fixtures.map(f => f.round));
+    let highestCompletedRound = 0;
+    
+    for (let round = 1; round <= totalRounds; round++) {
+        const roundFixtures = fixtures.filter(f => f.round === round);
+        const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
+        if (allResolved) {
+            highestCompletedRound = round;
+        } else {
+            break;
+        }
+    }
+    
+    const nextRound = highestCompletedRound + 1;
+    
+    if (nextRound <= totalRounds && !releasedGameweeks[nextRound]) {
+        releasedGameweeks[nextRound] = true;
+        saveToStorage();
+        showToast(`📢 Gameweek ${nextRound} automatically released!`);
+        renderGameweekTabs();
+    }
+}
+
+function releaseNextRound() {
+    if (!isAdmin) return;
+    
+    const totalRounds = Math.max(...fixtures.map(f => f.round));
+    let nextUnreleasedRound = null;
+    
+    for (let round = 1; round <= totalRounds; round++) {
+        if (!releasedGameweeks[round]) {
+            nextUnreleasedRound = round;
+            break;
+        }
+    }
+    
+    if (nextUnreleasedRound) {
+        releasedGameweeks[nextUnreleasedRound] = true;
+        saveToStorage();
+        showToast(`📢 Gameweek ${nextUnreleasedRound} released!`);
+        renderGameweekTabs();
+        
+        currentSelectedRound = nextUnreleasedRound;
+        renderFixtures();
+    } else {
+        showToast("All gameweeks are already released!");
+    }
+}
+
+function lockGameweek(roundNumber) {
+    if (!isAdmin) return;
+    releasedGameweeks[roundNumber] = false;
+    saveToStorage();
+    showToast(`🔒 Gameweek ${roundNumber} locked!`);
+    renderGameweekTabs();
+    renderFixtures();
+}
+
+function isGameweekReleased(roundNumber) {
+    if (isAdmin) return true;
+    return releasedGameweeks[roundNumber] === true;
 }
 
 // ==================== DEADLINE TIMER ====================
@@ -255,100 +349,6 @@ function checkAllDeadlines() {
     for (let round = 1; round <= totalRounds; round++) {
         autoResolveRoundIfNeeded(round);
     }
-}
-
-// ==================== HELPERS ====================
-function showToast(msg) {
-    const c = document.getElementById("toast-container");
-    if (c) { let t = document.createElement("div"); t.className = "toast"; t.innerText = msg; c.appendChild(t); setTimeout(() => t.remove(), 2500); }
-}
-function saveToStorage() { 
-    getTournamentRef().set({
-    teams,
-    fixtures,
-    knockoutMatches,
-    tournamentPhase,
-    password: tournamentPassword,
-    roundStartTimes,
-    autoStartNextRound,
-    roundPaused,
-    releasedGameweeks,
-    roundDeadlines   // <-- add this
-});
-}
-function getCurrentUserId() {
-    let id = localStorage.getItem('chatUserId');
-    if (!id) {
-        id = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
-        localStorage.setItem('chatUserId', id);
-    }
-    return id;
-}
-
-function autoReleaseCurrentRound() {
-    if (!isAdmin) return;
-    
-    const totalRounds = Math.max(...fixtures.map(f => f.round));
-    let highestCompletedRound = 0;
-    
-    for (let round = 1; round <= totalRounds; round++) {
-        const roundFixtures = fixtures.filter(f => f.round === round);
-        const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
-        if (allResolved) {
-            highestCompletedRound = round;
-        } else {
-            break;
-        }
-    }
-    
-    const nextRound = highestCompletedRound + 1;
-    
-    if (nextRound <= totalRounds && !releasedGameweeks[nextRound]) {
-        releasedGameweeks[nextRound] = true;
-        saveToStorage();
-        showToast(`📢 Gameweek ${nextRound} automatically released!`);
-        renderGameweekTabs();
-    }
-}
-
-function releaseNextRound() {
-    if (!isAdmin) return;
-    
-    const totalRounds = Math.max(...fixtures.map(f => f.round));
-    let nextUnreleasedRound = null;
-    
-    for (let round = 1; round <= totalRounds; round++) {
-        if (!releasedGameweeks[round]) {
-            nextUnreleasedRound = round;
-            break;
-        }
-    }
-    
-    if (nextUnreleasedRound) {
-        releasedGameweeks[nextUnreleasedRound] = true;
-        saveToStorage();
-        showToast(`📢 Gameweek ${nextUnreleasedRound} released!`);
-        renderGameweekTabs();
-        
-        currentSelectedRound = nextUnreleasedRound;
-        renderFixtures();
-    } else {
-        showToast("All gameweeks are already released!");
-    }
-}
-
-function lockGameweek(roundNumber) {
-    if (!isAdmin) return;
-    releasedGameweeks[roundNumber] = false;
-    saveToStorage();
-    showToast(`🔒 Gameweek ${roundNumber} locked!`);
-    renderGameweekTabs();
-    renderFixtures();
-}
-
-function isGameweekReleased(roundNumber) {
-    if (isAdmin) return true;
-    return releasedGameweeks[roundNumber] === true;
 }
 // ==================== FIXTURE GENERATION ====================
 function generateStrictRoundRobin(
@@ -1067,7 +1067,7 @@ function generateTickerFacts() {
         if (sortedGF.length) topScorer = sortedGF[0];
     }
     fixtures.forEach(f => { if (f.played && f.homeScore !== null && !teams[f.home]?.relegated && !teams[f.away]?.relegated) { const total = f.homeScore + f.awayScore; if (!biggestWin || total > biggestWin.total) biggestWin = { home: f.home, away: f.away, homeScore: f.homeScore, awayScore: f.awayScore, total }; } });
-    tickerFacts = [`Laliga `, `⚽ ${totalTeams} teams`, `📊 ${totalMatchesPlayed}/${totalMatches} played`, leader ? `👑 Leader: ${leader.name} (${leader.pts} pts)` : null, topScorer ? `🔥 Top scorer: ${topScorer.name} (${topScorer.gf} goals)` : null, biggestWin ? `🎯 Biggest win: ${biggestWin.home} ${biggestWin.homeScore}-${biggestWin.awayScore} ${biggestWin.away}` : null, `🔮 Predict matches & post banter!`].filter(f => f);
+    tickerFacts = [`Laliga`, `⚽ ${totalTeams} teams`, `📊 ${totalMatchesPlayed}/${totalMatches} played`, leader ? `👑 Leader: ${leader.name} (${leader.pts} pts)` : null, topScorer ? `🔥 Top scorer: ${topScorer.name} (${topScorer.gf} goals)` : null, biggestWin ? `🎯 Biggest win: ${biggestWin.home} ${biggestWin.homeScore}-${biggestWin.awayScore} ${biggestWin.away}` : null, `🔮 Predict matches & post banter!`].filter(f => f);
     if (tickerFacts.length) {
         const el = document.getElementById('news-ticker');
         if (el) el.innerHTML = `<span class="inline-flex items-center gap-2"><span class="w-2 h-2 bg-white rounded-full animate-pulse"></span> ${tickerFacts[0]}</span>`;
@@ -1085,7 +1085,7 @@ function activateAdminMode() { isAdmin = true; updateAdminUIElements(); showToas
 function deactivateAdminMode() { isAdmin = false; updateAdminUIElements(); showToast("Admin mode deactivated"); }
 function updateAdminUIElements() {
     const btn = document.getElementById('admin-btn'), dot = document.getElementById('admin-btn-dot'), statusText = document.getElementById('admin-status-text'), resetContainer = document.getElementById('admin-reset-container'), thActions = document.getElementById('th-admin-actions'), hint = document.getElementById('admin-table-hint'), relegationZone = document.getElementById('relegation-zone');
-const deadlineBtn = document.getElementById('set-deadline-btn');
+    const deadlineBtn = document.getElementById('set-deadline-btn');
 if (deadlineBtn) {
     if (isAdmin) deadlineBtn.classList.remove('hidden');
     else deadlineBtn.classList.add('hidden');
@@ -1154,7 +1154,7 @@ function initializeTournament() {
     currentSelectedRound = 1;
    releasedGameweeks = { 1: true };
     saveToStorage();
-    showToast(`Laliga League launched with ${count} teams!`);
+    showToast(`Laliga launched with ${count} teams!`);
 }
 
 function openReplaceTeamModal(teamName) {
@@ -2956,7 +2956,7 @@ function escapeHtml(str) { return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<'
 
 // ==================== RESET ====================
 function resetTournament() { 
-    if (confirm("Wipe ALL data for Laliga ? Cannot be undone.")) 
+    if (confirm("Wipe ALL data for Laliga? Cannot be undone.")) 
         getTournamentRef().remove().then(() => location.reload()); 
 }
 
