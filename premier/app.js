@@ -284,9 +284,15 @@ function autoResolveRoundIfNeeded(roundNumber) {
 
 function autoResolveRound(roundNumber) {
     if (!isAdmin) return;
-    const roundFixtures = fixtures.filter(f => f.round === roundNumber && !f.played && !f.cancelled && f.home !== "BYE" && f.away !== "BYE");
+    const roundFixtures = fixtures.filter(f =>
+        f.round === roundNumber &&
+        !f.played && !f.cancelled &&
+        f.home !== "BYE" && f.away !== "BYE"
+    );
     if (roundFixtures.length === 0) return;
+
     if (!confirm(`⏰ Auto-resolve Gameweek ${roundNumber} with 0-0 for ${roundFixtures.length} matches?`)) return;
+
     roundFixtures.forEach(f => {
         f.homeScore = 0;
         f.awayScore = 0;
@@ -294,6 +300,7 @@ function autoResolveRound(roundNumber) {
         f.report = "Match ended 0-0 due to deadline.";
         f.events = [];
     });
+
     updateTableCalculations();
     saveToStorage();
     renderTable();
@@ -1897,20 +1904,40 @@ function renderFixtures() {
             container.innerHTML += `<div class="bg-gray-100 p-3 rounded-xl border border-red-200"><div class="flex justify-between items-center"><span class="line-through">${f.home}</span><span class="text-red-500 text-xs">CANCELLED</span><span class="line-through">${f.away}</span></div></div>`;
             return;
         }
-        if (isAdmin) {
-            let homeDisplay = f.home === "VACANT" ? `<span class="font-semibold text-sm text-red-500 cursor-pointer" onclick="editFixtureTeamName(${f.id}, 'home')">[VACANT]</span>` : `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'home')">${f.home}</span>`;
-            let awayDisplay = f.away === "VACANT" ? `<span class="font-semibold text-sm text-red-500 cursor-pointer" onclick="editFixtureTeamName(${f.id}, 'away')">[VACANT]</span>` : `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'away')">${f.away}</span>`;
-            // If the fixture already has a result, we show it; if not, allow input
-            const homeScoreVal = played ? f.homeScore : '';
-            const awayScoreVal = played ? f.awayScore : '';
-            const disabledAttr = played ? 'disabled' : '';
-            container.innerHTML += `<div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div class="flex-1 flex items-center justify-center gap-2 text-center">${homeDisplay}</div><div class="flex items-center justify-center"><div class="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full"><input type="number" id="home-score-${f.id}" value="${homeScoreVal}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm" ${disabledAttr}><span class="text-gray-400">:</span><input type="number" id="away-score-${f.id}" value="${awayScoreVal}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm" ${disabledAttr}></div></div><div class="flex-1 flex items-center justify-center gap-2 text-center">${awayDisplay}</div></div><div class="mt-2 flex justify-center gap-1"><button onclick="swapFixture(${f.id})" class="text-[10px] font-bold bg-amber-50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100">🔄 Swap</button><button onclick="saveResult(${f.id})" class="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full hover:bg-indigo-100">💾 Save</button><button onclick="showMatchComment(${f.id})" class="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-full hover:bg-gray-200">📖</button><button onclick="openBanterModal(${f.id})" class="text-[10px] font-bold bg-purple-50 text-purple-600 px-2 py-1 rounded-full hover:bg-purple-100">🤣 Banter</button></div></div>`;
-        } else {
-            let homeName = f.home === "VACANT" ? "TBD" : f.home;
-            let awayName = f.away === "VACANT" ? "TBD" : f.away;
-            const predictionBtn = !played ? `<button onclick="openPredictionsModal(${f.id})" class="text-[11px] bg-gray-100 hover:bg-indigo-50 px-3 py-1 rounded-full">🔮 Predictions</button>` : `<div class="bg-gray-100 px-3 py-1 rounded-full font-mono font-bold text-sm">${f.homeScore} - ${f.awayScore}</div>`;
-            container.innerHTML += `<div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div class="flex-1 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${homeName}</div><div class="flex justify-center">${predictionBtn}</div><div class="flex-1 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${awayName}</div></div><div class="mt-2 flex justify-center gap-1"><button onclick="showMatchComment(${f.id})" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full">📖</button><button onclick="openBanterModal(${f.id})" class="text-[11px] bg-purple-50 hover:bg-purple-100 px-3 py-1 rounded-full">🤣 Banter</button></div></div>`;
-        }
+       if (isAdmin) {
+    let homeDisplay = f.home === "VACANT"
+        ? `<span class="font-semibold text-sm text-red-500 cursor-pointer" onclick="editFixtureTeamName(${f.id}, 'home')">[VACANT]</span>`
+        : `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'home')">${f.home}</span>`;
+    let awayDisplay = f.away === "VACANT"
+        ? `<span class="font-semibold text-sm text-red-500 cursor-pointer" onclick="editFixtureTeamName(${f.id}, 'away')">[VACANT]</span>`
+        : `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'away')">${f.away}</span>`;
+
+    const homeScoreVal = played ? f.homeScore : '';
+    const awayScoreVal = played ? f.awayScore : '';
+
+    container.innerHTML += `
+        <div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex-1 flex items-center justify-center gap-2 text-center">${homeDisplay}</div>
+                <div class="flex items-center justify-center">
+                    <div class="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">
+                        <input type="number" id="home-score-${f.id}" value="${homeScoreVal}" placeholder="0"
+                               class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm">
+                        <span class="text-gray-400">:</span>
+                        <input type="number" id="away-score-${f.id}" value="${awayScoreVal}" placeholder="0"
+                               class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm">
+                    </div>
+                </div>
+                <div class="flex-1 flex items-center justify-center gap-2 text-center">${awayDisplay}</div>
+            </div>
+            <div class="mt-2 flex justify-center gap-1">
+                <button onclick="swapFixture(${f.id})" class="text-[10px] font-bold bg-amber-50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100">🔄 Swap</button>
+                <button onclick="saveResult(${f.id})" class="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full hover:bg-indigo-100">💾 Save</button>
+                <button onclick="showMatchComment(${f.id})" class="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-full hover:bg-gray-200">📖</button>
+                <button onclick="openBanterModal(${f.id})" class="text-[10px] font-bold bg-purple-50 text-purple-600 px-2 py-1 rounded-full hover:bg-purple-100">🤣 Banter</button>
+            </div>
+        </div>`;
+}
     });
     
     // Update the countdown display
@@ -2666,6 +2693,7 @@ function closeGoalEditor() { const modal = document.getElementById('goal-editor-
 function saveGoalsAndFinish() {
     const fixture = fixtures.find(f => f.id === pendingFixtureId);
     if (!fixture) return;
+
     const goalEntries = document.querySelectorAll('.goal-entry');
     const events = [];
     for (let i = 0; i < goalEntries.length; i++) {
@@ -2679,15 +2707,19 @@ function saveGoalsAndFinish() {
         if (isNaN(minute) || minute < 1 || minute > 120) { alert(`Please enter a valid minute (1-120)`); return; }
         events.push({ minute, type: 'goal', team, player: scorer, assist: assist || null, goalType: type });
     }
-    events.sort((a,b) => a.minute - b.minute);
+    events.sort((a, b) => a.minute - b.minute);
+
     const report = generateRichReportFromEvents(fixture.home, fixture.away, pendingHomeScore, pendingAwayScore, events);
+
     fixture.homeScore = pendingHomeScore;
     fixture.awayScore = pendingAwayScore;
     fixture.played = true;
     fixture.report = report;
     fixture.events = events;
+
     if (!fixture.predictions) fixture.predictions = [];
     if (!fixture.banter) fixture.banter = [];
+
     updateTableCalculations();
     saveToStorage();
     showToast(`Saved: ${fixture.home} ${pendingHomeScore}-${pendingAwayScore} ${fixture.away}`);
@@ -2696,12 +2728,10 @@ function saveGoalsAndFinish() {
     renderTable();
     renderFixtures();
     generateTickerFacts();
+
     if (typeof confetti === 'function') confetti({ particleCount: 60, spread: 45, origin: { y: 0.7 } });
-    
-    // Check if first half is now completed
+
     checkAndShowFirstHalfReview();
-    
-    // Auto-validate integrity
     validateFixtureIntegrity();
 }
 
