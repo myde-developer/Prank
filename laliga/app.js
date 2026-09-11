@@ -1714,13 +1714,17 @@ function renderTable() {
 // ==================== RENDER GAMEWEEK TABS ====================
 function renderGameweekTabs() {
     const container = document.getElementById('gameweek-tabs');
-    if (!fixtures.length) return;
-    const totalRounds = Math.max(...fixtures.map(f => f.round));
-    const halfRounds = totalRounds / 2;
+    if (!container) return;
+    
+    // Defensive fix: Ensure fixtures is an array
+    const fixtureArray = Array.isArray(fixtures) ? fixtures : Object.values(fixtures || {});
+    if (!fixtureArray.length) return;
+    
+    const totalRounds = Math.max(...fixtureArray.map(f => f.round));
     container.innerHTML = "";
     
     for (let r = 1; r <= totalRounds; r++) {
-        const roundFixtures = fixtures.filter(f => f.round === r && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
+        const roundFixtures = fixtureArray.filter(f => f && f.round === r && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
         const allResolved = roundFixtures.length > 0 && roundFixtures.every(f => f.played || f.cancelled);
         const isReleased = releasedGameweeks[r] === true;
         const hasDeadline = roundDeadlines[r] ? true : false;
@@ -1856,6 +1860,8 @@ function closeIntegrityModal() {
 function renderFixtures() {
     const container = document.getElementById('fixtures-container');
     const scheduleSection = document.getElementById('schedule-section');
+    if (!container) return; // Safety check
+
     if (tournamentPhase !== 'league') {
         if (scheduleSection) scheduleSection.classList.add('hidden');
         container.innerHTML = '<div class="text-center text-gray-400 py-8">🏆 League phase completed. Knockout stage is active above.</div>';
@@ -1878,7 +1884,10 @@ function renderFixtures() {
     }
     
     container.innerHTML = "";
-    const roundFixtures = fixtures.filter(f => f.round === currentSelectedRound && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
+    
+    // Defensive fix: Ensure fixtures is an array
+    const fixtureArray = Array.isArray(fixtures) ? fixtures : Object.values(fixtures || {});
+    const roundFixtures = fixtureArray.filter(f => f && f.round === currentSelectedRound && !teams[f.home]?.relegated && !teams[f.away]?.relegated);
     
     if (roundFixtures.length === 0) {
         container.innerHTML = '<div class="text-center text-gray-400 py-8">No fixtures this gameweek</div>';
@@ -1894,50 +1903,69 @@ function renderFixtures() {
             if (isAdmin) setDeadlineBtn.classList.remove('hidden');
             else setDeadlineBtn.classList.add('hidden');
         }
-        // The actual timer value is updated by updateTimerDisplay() called below
     }
     
     roundFixtures.forEach(f => {
+        if (!f) return; // Skip null elements
         const played = f.played;
         const cancelled = f.cancelled;
+        
         if (cancelled) {
-            container.innerHTML += `<div class="bg-gray-100 p-3 rounded-xl border border-red-200"><div class="flex justify-between items-center"><span class="line-through">${f.home}</span><span class="text-red-500 text-xs">CANCELLED</span><span class="line-through">${f.away}</span></div></div>`;
+            container.innerHTML += `<div class="bg-gray-100 p-3 rounded-xl border border-red-200"><div class="flex justify-between items-center"><span class="line-through">${f.home || 'TBD'}</span><span class="text-red-500 text-xs">CANCELLED</span><span class="line-through">${f.away || 'TBD'}</span></div></div>`;
             return;
         }
-       if (isAdmin) {
-    let homeDisplay = f.home === "VACANT"
-        ? `<span class="font-semibold text-sm text-red-500 cursor-pointer" onclick="editFixtureTeamName(${f.id}, 'home')">[VACANT]</span>`
-        : `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'home')">${f.home}</span>`;
-    let awayDisplay = f.away === "VACANT"
-        ? `<span class="font-semibold text-sm text-red-500 cursor-pointer" onclick="editFixtureTeamName(${f.id}, 'away')">[VACANT]</span>`
-        : `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'away')">${f.away}</span>`;
-
-    const homeScoreVal = played ? f.homeScore : '';
-    const awayScoreVal = played ? f.awayScore : '';
-
-    container.innerHTML += `
-        <div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div class="flex-1 flex items-center justify-center gap-2 text-center">${homeDisplay}</div>
-                <div class="flex items-center justify-center">
-                    <div class="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">
-                        <input type="number" id="home-score-${f.id}" value="${homeScoreVal}" placeholder="0"
-                               class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm">
-                        <span class="text-gray-400">:</span>
-                        <input type="number" id="away-score-${f.id}" value="${awayScoreVal}" placeholder="0"
-                               class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm">
+        
+        if (isAdmin) {
+            let homeDisplay = f.home === "VACANT" 
+                ? `<span class="font-semibold text-sm text-red-500 cursor-pointer" onclick="editFixtureTeamName(${f.id}, 'home')">[VACANT]</span>` 
+                : `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'home')">${f.home || 'TBD'}</span>`;
+            let awayDisplay = f.away === "VACANT" 
+                ? `<span class="font-semibold text-sm text-red-500 cursor-pointer" onclick="editFixtureTeamName(${f.id}, 'away')">[VACANT]</span>` 
+                : `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'away')">${f.away || 'TBD'}</span>`;
+            
+            const homeScoreVal = played ? f.homeScore : '';
+            const awayScoreVal = played ? f.awayScore : '';
+            
+            container.innerHTML += `
+                <div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div class="flex-1 flex items-center justify-center gap-2 text-center">${homeDisplay}</div>
+                        <div class="flex items-center justify-center">
+                            <div class="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">
+                                <input type="number" id="home-score-${f.id}" value="${homeScoreVal}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm">
+                                <span class="text-gray-400">:</span>
+                                <input type="number" id="away-score-${f.id}" value="${awayScoreVal}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm">
+                            </div>
+                        </div>
+                        <div class="flex-1 flex items-center justify-center gap-2 text-center">${awayDisplay}</div>
                     </div>
-                </div>
-                <div class="flex-1 flex items-center justify-center gap-2 text-center">${awayDisplay}</div>
-            </div>
-            <div class="mt-2 flex justify-center gap-1">
-                <button onclick="swapFixture(${f.id})" class="text-[10px] font-bold bg-amber-50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100">🔄 Swap</button>
-                <button onclick="saveResult(${f.id})" class="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full hover:bg-indigo-100">💾 Save</button>
-                <button onclick="showMatchComment(${f.id})" class="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-full hover:bg-gray-200">📖</button>
-                <button onclick="openBanterModal(${f.id})" class="text-[10px] font-bold bg-purple-50 text-purple-600 px-2 py-1 rounded-full hover:bg-purple-100">🤣 Banter</button>
-            </div>
-        </div>`;
-}
+                    <div class="mt-2 flex justify-center gap-1">
+                        <button onclick="swapFixture(${f.id})" class="text-[10px] font-bold bg-amber-50 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-100">🔄 Swap</button>
+                        <button onclick="saveResult(${f.id})" class="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full hover:bg-indigo-100">💾 Save</button>
+                        <button onclick="showMatchComment(${f.id})" class="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-full hover:bg-gray-200">📖</button>
+                        <button onclick="openBanterModal(${f.id})" class="text-[10px] font-bold bg-purple-50 text-purple-600 px-2 py-1 rounded-full hover:bg-purple-100">🤣 Banter</button>
+                    </div>
+                </div>`;
+        } else {
+            let homeName = f.home === "VACANT" ? "TBD" : (f.home || 'TBD');
+            let awayName = f.away === "VACANT" ? "TBD" : (f.away || 'TBD');
+            const predictionBtn = !played 
+                ? `<button onclick="openPredictionsModal(${f.id})" class="text-[11px] bg-gray-100 hover:bg-indigo-50 px-3 py-1 rounded-full">🔮 Predictions</button>` 
+                : `<div class="bg-gray-100 px-3 py-1 rounded-full font-mono font-bold text-sm">${f.homeScore || 0} - ${f.awayScore || 0}</div>`;
+            
+            container.innerHTML += `
+                <div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div class="flex-1 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${homeName}</div>
+                        <div class="flex justify-center">${predictionBtn}</div>
+                        <div class="flex-1 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${awayName}</div>
+                    </div>
+                    <div class="mt-2 flex justify-center gap-1">
+                        <button onclick="showMatchComment(${f.id})" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full">📖</button>
+                        <button onclick="openBanterModal(${f.id})" class="text-[11px] bg-purple-50 hover:bg-purple-100 px-3 py-1 rounded-full">🤣 Banter</button>
+                    </div>
+                </div>`;
+        }
     });
     
     // Update the countdown display
