@@ -4438,7 +4438,7 @@ function buildCelebrationTieCard(tie, champion) {
 
     const advanced = tie.winner === champion;
     const isFinal = tie.stage === 'FINAL';
-    const winLabel = isFinal ? '✓ WINNERS' : '✓ ADVANCED';
+    const winLabel = isFinal ? '✓ WINNER' : '✓ ADVANCED';
 
     div.innerHTML = `
         <div class="flex justify-between items-center mb-2">
