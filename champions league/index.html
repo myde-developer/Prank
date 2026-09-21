@@ -62,6 +62,19 @@
         <!-- ===== SETUP SECTION ===== -->
         <section id="setup-section" class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-6 hidden">
             <h2 class="text-lg font-bold flex items-center gap-2"><span class="text-indigo-500">🏟️</span> Tournament Setup</h2>
+            <div class="bg-gray-50 p-3 rounded-xl mb-3">
+    <label class="text-xs font-bold text-gray-600 uppercase">🏆 Qualification Format</label>
+    <div class="flex flex-col sm:flex-row gap-3 mt-2 text-sm">
+        <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="tournament-format" value="playoffs" checked class="accent-indigo-600">
+            <span><b>Playoff Weeks</b> — random draws each week</span>
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="tournament-format" value="groups" class="accent-indigo-600">
+            <span><b>Group Stage</b> — 4 groups × 5 players</span>
+        </label>
+    </div>
+</div>
             <div id="step-1" class="space-y-3">
                 <label class="text-xs font-semibold text-gray-500 uppercase">Number of players / teams</label>
                 <div class="flex gap-3">
@@ -75,6 +88,12 @@
                     <span class="text-xs font-mono text-gray-500">Admin Security Code</span>
                     <input type="text" id="tournament-password" value="090541" class="border border-gray-300 rounded-lg px-3 py-1 w-32 text-center font-mono" />
                 </div>
+                  <div class="bg-indigo-50/70 border border-indigo-200 rounded-xl p-3 space-y-2">
+    <label class="text-xs font-bold text-indigo-700 uppercase">📋 Bulk Import Players</label>
+    <p class="text-[11px] text-gray-500">Paste one name per line. Numbering and bullets are stripped automatically.</p>
+    <textarea id="bulk-import-text" rows="4" class="w-full bg-white border border-indigo-200 rounded-lg p-2 text-sm font-mono" placeholder="1. Ahmed&#10;2. Tunde&#10;3. Chidi"></textarea>
+    <button onclick="applyBulkImport()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold py-2 rounded-lg">Import & Fill</button>
+</div>
                 <div id="team-inputs-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
                 <button onclick="initializeTournament()" class="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 text-white py-3 rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition">🚀 Launch Tournament</button>
             </div>
@@ -104,27 +123,29 @@
                     <h2 class="font-bold text-gray-700 flex items-center gap-2"><span>📊</span> Qualification Standings</h2>
                     <span id="qualification-status" class="text-xs font-medium text-gray-500">—</span>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-xs min-w-[700px]">
-                        <thead class="bg-gray-100 text-gray-500 text-[10px] font-mono uppercase">
-                            <tr>
-                                <th class="py-2 px-2 text-center">Pos</th>
-                                <th class="py-2 px-2 text-left">Player</th>
-                                <th class="py-2 px-1 text-center">P</th>
-                                <th class="py-2 px-1 text-center">W</th>
-                                <th class="py-2 px-1 text-center">D</th>
-                                <th class="py-2 px-1 text-center">L</th>
-                                <th class="py-2 px-1 text-center">GF</th>
-                                <th class="py-2 px-1 text-center">GA</th>
-                                <th class="py-2 px-1 text-center">GD</th>
-                                <th class="py-2 px-2 text-center">PTS</th>
-                                <th class="py-2 px-2 text-center">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="qualification-table-body"></tbody>
-                    </table>
-                </div>
-                <div id="qualification-hint" class="text-center text-[11px] text-gray-400 bg-gray-50 py-2 border-t border-gray-200">Two qualification playoffs → combined standings → top 16 advance</div>
+                <div id="qualification-single-table" class="overflow-x-auto">
+    <table class="w-full text-xs min-w-[700px]">
+        <thead class="bg-gray-100 text-gray-500 text-[10px] font-mono uppercase">
+            <tr>
+                <th class="py-2 px-2 text-center">Pos</th>
+                <th class="py-2 px-2 text-left">Player</th>
+                <th class="py-2 px-1 text-center">P</th>
+                <th class="py-2 px-1 text-center">W</th>
+                <th class="py-2 px-1 text-center">D</th>
+                <th class="py-2 px-1 text-center">L</th>
+                <th class="py-2 px-1 text-center">GF</th>
+                <th class="py-2 px-1 text-center">GA</th>
+                <th class="py-2 px-1 text-center">GD</th>
+                <th class="py-2 px-2 text-center">PTS</th>
+                <th class="py-2 px-2 text-center">Status</th>
+            </tr>
+        </thead>
+        <tbody id="qualification-table-body"></tbody>
+    </table>
+</div>
+
+<div id="qualification-group-tables" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4 p-4"></div>
+                <div id="qualification-hint" class="text-center text-[11px] text-gray-400 bg-gray-50 py-2 border-t border-gray-200"></div>
             </div>
 
             <!-- Qualification Playoffs Fixtures -->
@@ -166,14 +187,74 @@
                 <div class="flex flex-wrap gap-2">
                     <button onclick="quickCommand('Create Playoff 1 randomly.')" class="text-[10px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">🔀 Playoff 1</button>
                     <button onclick="quickCommand('Create Playoff 2 randomly.')" class="text-[10px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">🔀 Playoff 2</button>
+                    <button onclick="quickCommand('Create Playoff 3 randomly.')" class="text-[10px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">🔀 Playoff 3</button>
+                    <button onclick="quickCommand('Create Playoff 4 randomly.')" class="text-[10px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">🔀 Playoff 4</button>
                     <button onclick="quickCommand('Qualify top 16.')" class="text-[10px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">✅ Top 16</button>
                     <button onclick="quickCommand('Create Round of 16 randomly. Two legs.')" class="text-[10px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">🏆 R16</button>
                     <button onclick="quickCommand('Create quarter-finals randomly. Two legs.')" class="text-[10px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">🏆 QF</button>
                     <button onclick="quickCommand('Create semi-finals randomly. Two legs.')" class="text-[10px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">🏆 SF</button>
+                    <button onclick="quickCommand('Create third place match. One leg.')" class="text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-700 px-3 py-1 rounded-full transition">🥉 3rd Place</button>
                     <button onclick="quickCommand('Create the final. One leg.')" class="text-[10px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">🏆 Final</button>
-  <button onclick="simulateTournament()" class="text-[10px] bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 rounded-full transition">🎮 Simulate</button>
+                    <button onclick="simulateTournament()" class="text-[10px] bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 rounded-full transition">🎮 Simulate</button>
                 </div>
             </div>
+
+<!-- ===== CHAMPION CELEBRATION MODAL ===== -->
+<div id="celebration-modal" class="fixed inset-0 z-50 hidden bg-gray-950/95 backdrop-blur-md overflow-y-auto">
+    <div class="min-h-screen py-6 px-3 sm:px-4">
+        <div class="max-w-3xl mx-auto bg-gradient-to-b from-slate-900 to-slate-800 rounded-2xl shadow-2xl border border-amber-500/30 overflow-hidden relative">
+
+            <!-- Close -->
+            <div class="flex justify-end p-3">
+                <button onclick="closeCelebrationModal()" class="text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
+            </div>
+
+            <!-- Trophy Image -->
+            <div class="text-center -mt-4">
+                <div id="celebration-trophy" class="w-44 h-44 mx-auto rounded-full bg-amber-500/10 border-2 border-amber-500/40 flex items-center justify-center overflow-hidden shadow-[0_0_60px_rgba(251,191,36,0.3)]">
+                    <span class="text-8xl">🏆</span>
+                </div>
+            </div>
+
+            <!-- Champion Name -->
+            <h1 id="celebration-champion-name" class="text-center text-3xl sm:text-4xl font-black text-amber-300 mt-5 tracking-wider px-4"></h1>
+            <p class="text-center text-amber-500/70 text-[10px] tracking-[0.35em] mt-1">TOURNAMENT CHAMPION</p>
+
+            <!-- Typewriter Intro -->
+            <div class="px-6 md:px-10 mt-8">
+                <p id="celebration-intro" class="text-slate-100 text-base sm:text-lg leading-relaxed min-h-[3rem] font-light"></p>
+            </div>
+
+            <!-- Champion Journey -->
+            <div id="celebration-journey" class="px-6 md:px-10 mt-10 space-y-8 pb-10"></div>
+
+            <!-- Admin bar -->
+            <div id="celebration-admin-bar" class="hidden px-6 py-4 bg-slate-950/60 border-t border-amber-500/20 flex flex-wrap justify-center gap-3">
+                <button onclick="openCelebrationEditor()" class="bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold px-5 py-2 rounded-full text-sm">✍️ Edit Celebration</button>
+                <button onclick="replayCelebration()" class="bg-slate-700 hover:bg-slate-600 text-white font-bold px-5 py-2 rounded-full text-sm">🔁 Replay</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== CELEBRATION EDITOR MODAL (Admin) ===== -->
+<div id="celebration-editor-modal" class="fixed inset-0 z-[60] hidden bg-gray-900/85 backdrop-blur-sm overflow-y-auto">
+    <div class="min-h-screen py-6 px-3 sm:px-4">
+        <div class="max-w-2xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">
+            <div class="p-5 border-b flex justify-between items-center sticky top-0 bg-white z-10">
+                <h3 class="font-bold text-lg">✍️ Champion Celebration Editor</h3>
+                <button onclick="closeCelebrationEditor()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+            </div>
+            <div class="p-5 space-y-5" id="celebration-editor-body">
+                <!-- Dynamically populated -->
+            </div>
+            <div class="p-4 bg-gray-50 flex gap-3 justify-end sticky bottom-0 border-t">
+                <button onclick="closeCelebrationEditor()" class="px-4 py-2 text-sm border rounded-lg">Cancel</button>
+                <button onclick="saveCelebrationContent()" class="px-5 py-2 text-sm bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold">💾 Save</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Tie Editor Modal (for knockout scores) -->
 <div id="tie-editor-modal" class="fixed inset-0 z-50 hidden bg-gray-900/60 backdrop-blur-sm items-center justify-center p-4">

@@ -62,6 +62,16 @@ function getStageWinners(stageId) {
     return winners;
 }
 
+function getStageLosers(stageId) {
+    const stage = tournament.knockoutStages[stageId];
+    if (!stage || !Array.isArray(stage.ties)) return [];
+    const losers = stage.ties.map(t => {
+        if (!t.winner) return null;
+        return t.winner === t.home ? t.away : t.home;
+    }).filter(l => l);
+    return losers;
+}
+
 // ==================== KNOCKOUT SCORE EDITOR ====================
 let currentEditingTie = null;
 let currentEditingStage = null;
@@ -140,7 +150,6 @@ function saveTieScores() {
         const awayVal = awayInput.value.trim();
 
         if (homeVal === '' || awayVal === '') {
-            // Leg not played – clear existing data
             leg.played = false;
             leg.homeScore = null;
             leg.awayScore = null;
@@ -151,7 +160,7 @@ function saveTieScores() {
             const h = parseInt(homeVal, 10);
             const a = parseInt(awayVal, 10);
             if (isNaN(h) || isNaN(a) || h < 0 || a < 0) {
-                alert(`Invalid score for Leg ${idx+1}. Please enter numbers ≥ 0.`);
+                alert(`Invalid score for Leg ${idx + 1}. Please enter numbers ≥ 0.`);
                 return;
             }
             leg.homeScore = h;
@@ -163,26 +172,11 @@ function saveTieScores() {
     });
 
     // --- 2. Determine winner if all legs are played ---
+    const isSingleLegStage = (stageId === 'FINAL' || stageId === 'THIRD_PLACE');
+
     if (allLegsPlayed) {
-        const agg = calculateAggregate(tie);
-        if (agg) {
-            if (agg.home > agg.away) {
-                tie.winner = tie.home;
-                tie.status = 'COMPLETED';
-            } else if (agg.away > agg.home) {
-                tie.winner = tie.away;
-                tie.status = 'COMPLETED';
-            } else {
-                // Aggregate tie – admin must resolve manually
-                tie.winner = null;
-                tie.status = 'COMPLETED'; // still completed, but no winner
-                showToast(`⚠️ Aggregate tie in ${getStageLabel(stageId)}: ${tie.home} vs ${tie.away} – resolve manually.`);
-                // Optionally, you can auto-resolve by random:
-                // tie.winner = Math.random() < 0.5 ? tie.home : tie.away;
-                // But we leave it for admin to decide.
-            }
-        } else {
-            // Only one leg (Final) – winner is the team with higher score
+        if (isSingleLegStage) {
+            // Single-leg: winner is the higher score
             const leg = tie.legs[0];
             if (leg && leg.played) {
                 if (leg.homeScore > leg.awayScore) {
@@ -194,41 +188,66 @@ function saveTieScores() {
                 } else {
                     tie.winner = null;
                     tie.status = 'COMPLETED';
-                    showToast(`⚠️ Final is tied – resolve manually.`);
+                    showToast(`⚠️ ${getStageLabel(stageId)} is tied – resolve manually.`);
+                }
+            }
+        } else {
+            // Two-leg: use aggregate
+            const agg = calculateAggregate(tie);
+            if (agg) {
+                if (agg.home > agg.away) {
+                    tie.winner = tie.home;
+                    tie.status = 'COMPLETED';
+                } else if (agg.away > agg.home) {
+                    tie.winner = tie.away;
+                    tie.status = 'COMPLETED';
+                } else {
+                    tie.winner = null;
+                    tie.status = 'COMPLETED';
+                    showToast(`⚠️ Aggregate tie in ${getStageLabel(stageId)}: ${tie.home} vs ${tie.away} – resolve manually.`);
                 }
             }
         }
     } else {
-        // Not all legs played – reset winner and status
         tie.winner = null;
         tie.status = 'PENDING';
     }
 
-    // --- 3. Update stage status if all ties in this stage have winners ---
+    // --- 3. Update stage status ---
     const allTiesHaveWinner = stage.ties.every(t => t.winner);
     if (allTiesHaveWinner) {
         stage.status = 'COMPLETED';
-        showToast(`✅ All ties in ${getStageLabel(stageId)} are complete!`);
-        // If this is the final stage and champion is set, update champion display
+
+        // ===== FINAL COMPLETED → Set champion & trigger celebration =====
         if (stageId === 'FINAL') {
             const finalTie = stage.ties[0];
             if (finalTie && finalTie.winner) {
                 tournament.champion = finalTie.winner;
                 tournament.championDate = Date.now();
+                saveToStorage();
+                renderKnockoutBracket();
+                updateTournamentStatusBar();
                 showToast(`🏆 ${tournament.champion} is the CHAMPION!`);
                 if (typeof confetti === 'function') {
                     confetti({ particleCount: 300, spread: 100, origin: { y: 0.6 } });
                 }
+                // Auto-open celebration after a short pause
+                setTimeout(() => {
+                    if (typeof openCelebrationModal === 'function') {
+                        openCelebrationModal();
+                    }
+                }, 1200);
             }
+        } else {
+            showToast(`✅ All ties in ${getStageLabel(stageId)} are complete!`);
         }
     } else {
-        // If some ties still pending, set stage status to IN_PROGRESS if not already
         if (stage.status !== 'COMPLETED' && stage.status !== 'ADVANCED') {
             stage.status = 'IN_PROGRESS';
         }
     }
 
-    // --- 4. Save, re-render, close modal ---
+    // --- 4. Save, re-render, close ---
     saveToStorage();
     renderKnockoutBracket();
     updateTournamentStatusBar();
@@ -238,7 +257,7 @@ function saveTieScores() {
 
 // ==================== TOURNAMENT DATA STRUCTURE ====================
 const TOURNAMENT_CONFIG = {
-    qualificationRounds: 2,
+    qualificationRounds: 4,       // ← was 2
     qualifiers: 16,
     knockoutStages: ['ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'FINAL'],
     legs: { ROUND_OF_16: 2, QUARTER_FINAL: 2, SEMI_FINAL: 2, FINAL: 1 }
@@ -252,15 +271,41 @@ let tournament = {
         ROUND_OF_16: { ties: [], status: 'NOT_CREATED' },
         QUARTER_FINAL: { ties: [], status: 'NOT_CREATED' },
         SEMI_FINAL: { ties: [], status: 'NOT_CREATED' },
+        THIRD_PLACE: { ties: [], status: 'NOT_CREATED' },
         FINAL: { ties: [], status: 'NOT_CREATED' }
     },
     currentStage: null,
     champion: null,
     championDate: null,
     commandHistory: [],
-    qualificationConfirmed: false   // <-- ADD THIS LINE
+    qualificationConfirmed: false,
+    format: 'playoffs',            // ← ADD
+    celebration: { intro: '', remarks: {}, trophyImage: null },   // ← ADD
+    aliases: {}                    // ← ADD
 };
 
+function applyBulkImport() {
+    const raw = document.getElementById('bulk-import-text').value.trim();
+    if (!raw) { showToast("Paste some names first"); return; }
+
+    const names = raw
+        .split('\n')
+        .map(l => l.replace(/^\s*\d+[\.\)\-:]*\s*/, '').replace(/^[-•*]\s*/, '').trim())
+        .filter(n => n.length > 0);
+
+    if (names.length === 0) { showToast("No valid names found"); return; }
+
+    const count = parseInt(document.getElementById('team-count').value);
+    let filled = 0;
+    for (let i = 1; i <= count; i++) {
+        const input = document.getElementById(`team-input-${i}`);
+        if (input && names[i - 1]) {
+            input.value = names[i - 1];
+            filled++;
+        }
+    }
+    showToast(`✅ Imported ${filled} name(s)`);
+}
 // ==================== ROLE SELECTION ====================
 function selectRole(role) {
     userRole = role;
@@ -333,7 +378,10 @@ function loadTournamentData(data) {
     tournamentPassword = data.password || "090541";
     teams = data.players || {};
 
-    // Qualification playoffs
+    // Format
+    tournament.format = data.format || 'playoffs';
+
+    // Qualification playoffs / groups
     if (data.fixtures && data.fixtures.length > 0 && !data.qualificationPlayoffs) {
         tournament.qualificationPlayoffs = [{ round: 1, fixtures: data.fixtures }];
     } else {
@@ -345,12 +393,15 @@ function loadTournamentData(data) {
         ROUND_OF_16: { ties: [], status: 'NOT_CREATED' },
         QUARTER_FINAL: { ties: [], status: 'NOT_CREATED' },
         SEMI_FINAL: { ties: [], status: 'NOT_CREATED' },
+        THIRD_PLACE: { ties: [], status: 'NOT_CREATED' },
         FINAL: { ties: [], status: 'NOT_CREATED' }
     };
     if (data.knockoutStages) {
         for (let stage in defaultStages) {
             if (data.knockoutStages[stage]) {
-                defaultStages[stage].ties = Array.isArray(data.knockoutStages[stage].ties) ? data.knockoutStages[stage].ties : [];
+                defaultStages[stage].ties = Array.isArray(data.knockoutStages[stage].ties)
+                    ? data.knockoutStages[stage].ties
+                    : [];
                 defaultStages[stage].status = data.knockoutStages[stage].status || 'NOT_CREATED';
             }
         }
@@ -362,7 +413,10 @@ function loadTournamentData(data) {
     tournament.championDate = data.championDate || null;
     tournament.commandHistory = data.commandHistory || [];
     tournament.qualificationConfirmed = data.qualificationConfirmed || false;
+    tournament.celebration = data.celebration || { intro: '', remarks: {}, trophyImage: null };
+    tournament.aliases = data.aliases || {};
 
+    // Recalculate standings & render everything
     updateQualificationStandings();
     renderQualificationTable();
     renderPlayoffTabs();
@@ -376,9 +430,33 @@ function loadTournamentData(data) {
     const dashboard = document.getElementById('dashboard-section');
     if (dashboard) dashboard.classList.remove('hidden');
 
+    // Show format chip on status bar
+    updateFormatChip();
+
     initBackToTop();
     initChatListener();
     if (userRole === 'admin') updateAdminUIElements();
+
+    // Show archive dropdown if archived seasons exist
+    if (typeof loadArchiveList === 'function') loadArchiveList();
+}
+
+// Small helper to show the current format on the status bar
+function updateFormatChip() {
+    const bar = document.getElementById('tournament-status-bar');
+    if (!bar) return;
+    let chip = document.getElementById('format-chip');
+    if (!chip) {
+        chip = document.createElement('span');
+        chip.id = 'format-chip';
+        chip.className = 'text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full';
+        const row = bar.querySelector('.flex.items-center.gap-4');
+        if (row) row.appendChild(chip);
+    }
+    const isGroups = tournament.format === 'groups';
+    chip.innerText = isGroups ? '👥 Groups' : '🎲 Playoffs';
+    chip.className = 'text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full ' +
+        (isGroups ? 'bg-purple-100 text-purple-700' : 'bg-indigo-100 text-indigo-700');
 }
 
 // ==================== HELPERS ====================
@@ -397,7 +475,10 @@ function saveToStorage() {
         champion: tournament.champion,
         championDate: tournament.championDate,
         commandHistory: tournament.commandHistory,
-        qualificationConfirmed: tournament.qualificationConfirmed   // <-- ADD THIS
+        qualificationConfirmed: tournament.qualificationConfirmed,
+        celebration: tournament.celebration || null,
+        format: tournament.format || 'playoffs',
+        aliases: tournament.aliases || {}
     };
     getTournamentRef().set(data);
 }
@@ -409,6 +490,122 @@ function getCurrentUserId() {
         localStorage.setItem('chatUserId', id);
     }
     return id;
+}
+
+// ==================== GROUP STAGE MODE ====================
+function generateGroupStage() {
+    if (!isAdmin) return;
+    const playerNames = Object.keys(teams).filter(n => !teams[n].relegated);
+    if (playerNames.length !== 20) {
+        showToast("Group stage requires exactly 20 players");
+        return;
+    }
+
+    const shuffled = shuffleArray([...playerNames]);
+    const groupNames = ['A', 'B', 'C', 'D'];
+    const groups = [];
+
+    groupNames.forEach((gName, gIdx) => {
+        const groupPlayers = shuffled.slice(gIdx * 5, gIdx * 5 + 5);
+        const rounds = generateRoundRobinWithRest(groupPlayers);
+        const fixtures = [];
+
+        rounds.forEach((roundPairs, roundIdx) => {
+            roundPairs.forEach(({ home, away }) => {
+                fixtures.push({
+                    id: Date.now() + gIdx * 1000 + roundIdx * 100 + Math.floor(Math.random() * 90),
+                    home,
+                    away,
+                    homeScore: null,
+                    awayScore: null,
+                    played: false,
+                    cancelled: false,
+                    events: [],
+                    report: null,
+                    predictions: [],
+                    banter: [],
+                    group: gName,
+                    round: roundIdx + 1
+                });
+            });
+        });
+
+        groups.push({
+            round: gIdx + 1,
+            groupName: gName,
+            fixtures
+        });
+    });
+
+    tournament.qualificationPlayoffs = groups;
+    tournament.format = 'groups';
+    saveToStorage();
+    updateQualificationStandings();
+    renderQualificationTable();
+    renderPlayoffTabs();
+    renderPlayoffFixtures();
+    showToast("✅ Group stage created — 4 groups × 5 players");
+}
+
+// Circle-method round robin with 1 resting player per round
+function generateRoundRobinWithRest(players) {
+    const arr = [...players];
+    if (arr.length % 2 !== 0) arr.push(null);
+
+    const n = arr.length;
+    const rounds = [];
+
+    for (let r = 0; r < n - 1; r++) {
+        const roundPairs = [];
+        for (let i = 0; i < n / 2; i++) {
+            const a = arr[i];
+            const b = arr[n - 1 - i];
+            if (a !== null && b !== null) {
+                roundPairs.push(r % 2 === 0 ? { home: a, away: b } : { home: b, away: a });
+            }
+        }
+        rounds.push(roundPairs);
+        const last = arr.pop();
+        arr.splice(1, 0, last);
+    }
+
+    return rounds;
+}
+
+function updateGroupQualifiers() {
+    if (tournament.format !== 'groups') return;
+    const groupNames = ['A', 'B', 'C', 'D'];
+    const qualifiedNames = new Set();
+
+    groupNames.forEach(gName => {
+        const group = tournament.qualificationPlayoffs.find(p => p.groupName === gName);
+        if (!group) return;
+        const groupPlayerNames = new Set();
+        group.fixtures.forEach(f => {
+            if (f.home) groupPlayerNames.add(f.home);
+            if (f.away) groupPlayerNames.add(f.away);
+        });
+        const groupPlayers = tournament.qualificationStandings.filter(p => groupPlayerNames.has(p.name));
+        groupPlayers.forEach((p, idx) => { if (idx < 4) qualifiedNames.add(p.name); });
+    });
+
+    tournament.qualificationStandings.forEach(p => {
+        p.qualified = qualifiedNames.has(p.name);
+    });
+    tournament.qualificationConfirmed = true;
+    saveToStorage();
+    renderQualificationTable();
+    showToast(`✅ ${qualifiedNames.size} players qualified (top 4 per group)`);
+}
+
+function getPlayerGroup(playerName) {
+    for (const group of tournament.qualificationPlayoffs) {
+        if (!group.groupName) continue;
+        for (const f of group.fixtures) {
+            if (f.home === playerName || f.away === playerName) return group.groupName;
+        }
+    }
+    return '?';
 }
 
 // ==================== QUALIFICATION PLAYOFFS ====================
@@ -480,15 +677,55 @@ function updateQualificationStandings() {
     tournament.qualificationStandings = sorted;
     const totalPlayed = tournament.qualificationPlayoffs.reduce((sum, p) => sum + p.fixtures.filter(f => f.played).length, 0);
     const totalFixtures = tournament.qualificationPlayoffs.reduce((sum, p) => sum + p.fixtures.length, 0);
+
     if (totalPlayed === totalFixtures && totalFixtures > 0) {
+    if (tournament.format === 'groups') {
+        sorted.forEach(p => { p.qualified = false; });
+        const groupNames = ['A', 'B', 'C', 'D'];
+        groupNames.forEach(gName => {
+            const group = tournament.qualificationPlayoffs.find(p => p.groupName === gName);
+            if (!group) return;
+            const groupPlayerNames = new Set();
+            group.fixtures.forEach(f => {
+                if (f.home) groupPlayerNames.add(f.home);
+                if (f.away) groupPlayerNames.add(f.away);
+            });
+            const groupPlayers = sorted.filter(p => groupPlayerNames.has(p.name));
+            groupPlayers.forEach((p, idx) => { if (idx < 4) p.qualified = true; });
+        });
+    } else {
         sorted.forEach((p, idx) => {
             p.qualified = (idx < TOURNAMENT_CONFIG.qualifiers);
         });
     }
+}
     saveToStorage();
 }
 
 function renderQualificationTable() {
+    const isGroups = tournament.format === 'groups';
+    const singleTable = document.getElementById('qualification-single-table');
+    const groupContainer = document.getElementById('qualification-group-tables');
+
+    if (isGroups) {
+        if (singleTable) singleTable.classList.add('hidden');
+        if (groupContainer) {
+            groupContainer.classList.remove('hidden');
+            renderGroupTables(groupContainer);
+        }
+        // Update status bar text
+        const statusSpan = document.getElementById('qualification-status');
+        if (statusSpan && tournament.qualificationConfirmed) {
+            statusSpan.innerText = '✅ Top 4 from each group qualified';
+            statusSpan.className = 'text-xs font-medium text-emerald-600';
+        }
+        return;
+    }
+
+    // ---------- PLAYOFFS MODE ----------
+    if (singleTable) singleTable.classList.remove('hidden');
+    if (groupContainer) groupContainer.classList.add('hidden');
+
     const tbody = document.getElementById('qualification-table-body');
     if (!tbody) return;
     const sorted = tournament.qualificationStandings;
@@ -496,6 +733,7 @@ function renderQualificationTable() {
         tbody.innerHTML = '<tr><td colspan="11" class="text-center py-8 text-gray-400">No qualification data yet.</td></tr>';
         return;
     }
+
     let html = '';
     sorted.forEach((p, idx) => {
         const pos = idx + 1;
@@ -519,6 +757,7 @@ function renderQualificationTable() {
         </tr>`;
     });
     tbody.innerHTML = html;
+
     const statusSpan = document.getElementById('qualification-status');
     if (statusSpan) {
         const totalPlayed = tournament.qualificationPlayoffs.reduce((sum, p) => sum + p.fixtures.filter(f => f.played).length, 0);
@@ -534,6 +773,68 @@ function renderQualificationTable() {
     }
 }
 
+function renderGroupTables(container) {
+    const groupNames = ['A', 'B', 'C', 'D'];
+    let html = '';
+
+    groupNames.forEach(gName => {
+        const group = tournament.qualificationPlayoffs.find(p => p.groupName === gName);
+        if (!group) return;
+
+        const playerNames = new Set();
+        group.fixtures.forEach(f => {
+            if (f.home) playerNames.add(f.home);
+            if (f.away) playerNames.add(f.away);
+        });
+
+        const groupStandings = tournament.qualificationStandings.filter(p => playerNames.has(p.name));
+
+        let rowsHtml = '';
+        groupStandings.forEach((p, idx) => {
+            const pos = idx + 1;
+            const isQualified = tournament.qualificationConfirmed && pos <= 4;
+            const isEliminated = tournament.qualificationConfirmed && pos === 5;
+            const rowClass = isQualified ? 'bg-emerald-50/60' : (isEliminated ? 'bg-rose-50/60' : '');
+            const statusIcon = isQualified ? '✅' : (isEliminated ? '❌' : '');
+            rowsHtml += `<tr class="${rowClass} hover:bg-gray-50 cursor-pointer" onclick="showTeamDetails('${p.name}')">
+                <td class="py-1.5 px-2 text-center font-bold text-[10px]">${pos}</td>
+                <td class="py-1.5 px-2 text-[11px] font-semibold">${p.name} ${statusIcon}</td>
+                <td class="py-1.5 px-1 text-center text-[10px]">${p.mp}</td>
+                <td class="py-1.5 px-1 text-center text-emerald-600 text-[10px]">${p.w}</td>
+                <td class="py-1.5 px-1 text-center text-[10px]">${p.d}</td>
+                <td class="py-1.5 px-1 text-center text-rose-500 text-[10px]">${p.l}</td>
+                <td class="py-1.5 px-1 text-center text-[10px]">${p.gf}</td>
+                <td class="py-1.5 px-1 text-center text-[10px]">${p.ga}</td>
+                <td class="py-1.5 px-2 text-center text-[10px] font-black text-indigo-600">${p.pts}</td>
+            </tr>`;
+        });
+
+        html += `<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div class="px-3 py-2 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white">
+                <h3 class="font-bold text-xs">Group ${gName}</h3>
+            </div>
+            <table class="w-full text-[10px]">
+                <thead class="bg-gray-50 text-gray-500 font-mono uppercase">
+                    <tr>
+                        <th class="py-1.5 px-2 text-center">#</th>
+                        <th class="py-1.5 px-2 text-left">Player</th>
+                        <th class="py-1.5 px-1 text-center">P</th>
+                        <th class="py-1.5 px-1 text-center">W</th>
+                        <th class="py-1.5 px-1 text-center">D</th>
+                        <th class="py-1.5 px-1 text-center">L</th>
+                        <th class="py-1.5 px-1 text-center">GF</th>
+                        <th class="py-1.5 px-1 text-center">GA</th>
+                        <th class="py-1.5 px-2 text-center">PTS</th>
+                    </tr>
+                </thead>
+                <tbody>${rowsHtml}</tbody>
+            </table>
+        </div>`;
+    });
+
+    container.innerHTML = html;
+}
+
 function renderPlayoffTabs() {
     const container = document.getElementById('playoff-tabs');
     if (!container) return;
@@ -547,7 +848,7 @@ function renderPlayoffTabs() {
         const btn = document.createElement('button');
         const isActive = (currentSelectedRound === p.round);
         btn.className = `px-3 py-1 text-[11px] font-mono rounded-full transition shrink-0 ${isActive ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
-        btn.innerText = `Playoff ${p.round}`;
+        btn.innerText = p.groupName ? `Group ${p.groupName}` : `Playoff ${p.round}`;
         btn.onclick = () => { currentSelectedRound = p.round; renderPlayoffTabs(); renderPlayoffFixtures(); };
         container.appendChild(btn);
     });
@@ -558,59 +859,103 @@ function renderPlayoffFixtures() {
     if (!container) return;
     const playoff = tournament.qualificationPlayoffs.find(p => p.round === currentSelectedRound);
     if (!playoff) {
-        container.innerHTML = '<div class="text-center text-gray-400 py-8">No fixtures for this playoff.</div>';
+        container.innerHTML = '<div class="text-center text-gray-400 py-8">No fixtures for this stage.</div>';
         return;
     }
-    const fixtures = playoff.fixtures;
-    if (fixtures.length === 0) {
-        container.innerHTML = '<div class="text-center text-gray-400 py-8">No fixtures.</div>';
-        return;
-    }
+
     let html = '';
-    fixtures.forEach(f => {
-        const played = f.played;
-        const cancelled = f.cancelled;
-        if (cancelled) {
-            html += `<div class="bg-gray-100 p-3 rounded-xl border border-red-200 flex justify-between"><span class="line-through">${f.home}</span><span class="text-red-500 text-xs">CANCELLED</span><span class="line-through">${f.away}</span></div>`;
-            return;
-        }
-        if (isAdmin) {
-            let homeDisplay = `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'home')">${f.home}</span>`;
-            let awayDisplay = `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'away')">${f.away}</span>`;
-            html += `<div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}">
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div class="flex-1 flex items-center justify-center gap-2 text-center">${homeDisplay}</div>
-                    <div class="flex items-center justify-center">
-                        <div class="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">
-                            <input type="number" id="home-score-${f.id}" value="${played ? f.homeScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm">
-                            <span class="text-gray-400">:</span>
-                            <input type="number" id="away-score-${f.id}" value="${played ? f.awayScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm">
-                        </div>
-                    </div>
-                    <div class="flex-1 flex items-center justify-center gap-2 text-center">${awayDisplay}</div>
-                </div>
-                <div class="mt-2 flex justify-center gap-1">
-                    <button onclick="saveQualificationResult(${f.id})" class="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full hover:bg-indigo-100">💾 Save</button>
-                    <button onclick="showMatchComment(${f.id})" class="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-full hover:bg-gray-200">📖</button>
-                    <button onclick="openBanterModal(${f.id})" class="text-[10px] font-bold bg-purple-50 text-purple-600 px-2 py-1 rounded-full hover:bg-purple-100">🤣 Banter</button>
-                </div>
-            </div>`;
-        } else {
-            const predictionBtn = !played ? `<button onclick="openPredictionsModal(${f.id})" class="text-[11px] bg-gray-100 hover:bg-indigo-50 px-3 py-1 rounded-full">🔮 Predictions</button>` : `<div class="bg-gray-100 px-3 py-1 rounded-full font-mono font-bold text-sm">${f.homeScore} - ${f.awayScore}</div>`;
-            html += `<div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card">
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div class="flex-1 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${f.home}</div>
-                    <div class="flex justify-center">${predictionBtn}</div>
-                    <div class="flex-1 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${f.away}</div>
-                </div>
-                <div class="mt-2 flex justify-center gap-1">
-                    <button onclick="showMatchComment(${f.id})" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full">📖</button>
-                    <button onclick="openBanterModal(${f.id})" class="text-[11px] bg-purple-50 hover:bg-purple-100 px-3 py-1 rounded-full">🤣 Banter</button>
+
+    // ---------- GROUPS MODE ----------
+    if (playoff.groupName) {
+        const byRound = {};
+        playoff.fixtures.forEach(f => {
+            const r = f.round || 1;
+            if (!byRound[r]) byRound[r] = [];
+            byRound[r].push(f);
+        });
+
+        const allPlayers = new Set();
+        playoff.fixtures.forEach(f => {
+            if (f.home) allPlayers.add(f.home);
+            if (f.away) allPlayers.add(f.away);
+        });
+
+        Object.keys(byRound).sort((a, b) => a - b).forEach(r => {
+            const roundFixtures = byRound[r];
+            const playingThisRound = new Set();
+            roundFixtures.forEach(f => {
+                if (f.home) playingThisRound.add(f.home);
+                if (f.away) playingThisRound.add(f.away);
+            });
+            const resting = [...allPlayers].filter(p => !playingThisRound.has(p));
+
+            html += `<div class="bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg p-2 mt-3 mb-2">
+                <div class="flex justify-between items-center flex-wrap gap-1">
+                    <span class="text-xs font-bold">Round ${r}</span>
+                    ${resting.length ? `<span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-full">💤 Rest: ${resting.join(', ')}</span>` : ''}
                 </div>
             </div>`;
-        }
+
+            roundFixtures.forEach(f => {
+                html += renderFixtureCard(f);
+            });
+        });
+
+        container.innerHTML = html;
+        return;
+    }
+
+    // ---------- PLAYOFFS MODE ----------
+    playoff.fixtures.forEach(f => {
+        html += renderFixtureCard(f);
     });
     container.innerHTML = html;
+}
+
+// Helper — reusable fixture card
+function renderFixtureCard(f) {
+    const played = f.played;
+    const cancelled = f.cancelled;
+
+    if (cancelled) {
+        return `<div class="bg-gray-100 p-3 rounded-xl border border-red-200 flex justify-between"><span class="line-through">${f.home}</span><span class="text-red-500 text-xs">CANCELLED</span><span class="line-through">${f.away}</span></div>`;
+    }
+
+    if (isAdmin) {
+        const homeDisplay = `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'home')">${f.home}</span>`;
+        const awayDisplay = `<span class="font-semibold cursor-pointer hover:text-indigo-600 transition text-sm" onclick="editFixtureTeamName(${f.id}, 'away')">${f.away}</span>`;
+        return `<div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card" data-fixture-id="${f.id}">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex-1 flex items-center justify-center gap-2 text-center">${homeDisplay}</div>
+                <div class="flex items-center justify-center">
+                    <div class="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">
+                        <input type="number" id="home-score-${f.id}" value="${played ? f.homeScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm">
+                        <span class="text-gray-400">:</span>
+                        <input type="number" id="away-score-${f.id}" value="${played ? f.awayScore : ''}" placeholder="0" class="w-10 text-center bg-transparent font-mono font-bold text-indigo-600 text-sm">
+                    </div>
+                </div>
+                <div class="flex-1 flex items-center justify-center gap-2 text-center">${awayDisplay}</div>
+            </div>
+            <div class="mt-2 flex justify-center gap-1">
+                <button onclick="saveQualificationResult(${f.id})" class="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full hover:bg-indigo-100">💾 Save</button>
+                <button onclick="showMatchComment(${f.id})" class="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-full hover:bg-gray-200">📖</button>
+                <button onclick="openBanterModal(${f.id})" class="text-[10px] font-bold bg-purple-50 text-purple-600 px-2 py-1 rounded-full hover:bg-purple-100">🤣</button>
+            </div>
+        </div>`;
+    }
+
+    const predictionBtn = !played ? `<button onclick="openPredictionsModal(${f.id})" class="text-[11px] bg-gray-100 hover:bg-indigo-50 px-3 py-1 rounded-full">🔮 Predictions</button>` : `<div class="bg-gray-100 px-3 py-1 rounded-full font-mono font-bold text-sm">${f.homeScore} - ${f.awayScore}</div>`;
+    return `<div class="bg-gray-50/60 p-3 rounded-xl border border-gray-100 shadow-sm w-full fixture-card">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="flex-1 text-right ${played && f.homeScore > f.awayScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${f.home}</div>
+            <div class="flex justify-center">${predictionBtn}</div>
+            <div class="flex-1 text-left ${played && f.awayScore > f.homeScore ? 'text-gray-900 font-bold' : 'text-gray-600'}">${f.away}</div>
+        </div>
+        <div class="mt-2 flex justify-center gap-1">
+            <button onclick="showMatchComment(${f.id})" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full">📖</button>
+            <button onclick="openBanterModal(${f.id})" class="text-[11px] bg-purple-50 hover:bg-purple-100 px-3 py-1 rounded-full">🤣</button>
+        </div>
+    </div>`;
 }
 
 function saveQualificationResult(fixtureId) {
@@ -660,6 +1005,9 @@ function detectIntent(normalized) {
 function detectStage(normalized) {
     if (normalized.includes('playoff 1') || normalized.includes('playoff1') || normalized.includes('qualification 1')) return { stage: 'PLAYOFF_1', type: 'qualification' };
     if (normalized.includes('playoff 2') || normalized.includes('playoff2') || normalized.includes('qualification 2')) return { stage: 'PLAYOFF_2', type: 'qualification' };
+    if (normalized.includes('playoff 3') || normalized.includes('playoff3') || normalized.includes('qualification 3')) return { stage: 'PLAYOFF_3', type: 'qualification' };
+    if (normalized.includes('playoff 4') || normalized.includes('playoff4') || normalized.includes('qualification 4')) return { stage: 'PLAYOFF_4', type: 'qualification' };
+    if (normalized.includes('third place') || normalized.includes('3rd place') || normalized.includes('bronze')) return { stage: 'THIRD_PLACE', type: 'knockout' };  // ← ADD
     if (normalized.includes('round of 16') || normalized.includes('r16') || normalized.includes('ro16') || normalized.includes('last 16')) return { stage: 'ROUND_OF_16', type: 'knockout' };
     if (normalized.includes('quarter final') || normalized.includes('quarter-final') || normalized.includes('quarterfinals') || normalized.includes('qf')) return { stage: 'QUARTER_FINAL', type: 'knockout' };
     if (normalized.includes('semi final') || normalized.includes('semi-final') || normalized.includes('semifinals') || normalized.includes('sf')) return { stage: 'SEMI_FINAL', type: 'knockout' };
@@ -682,6 +1030,7 @@ function detectLegs(normalized) {
 function getSource(stageObj) {
     if (stageObj.type === 'qualification') return 'ALL_PLAYERS';
     if (stageObj.stage === 'ROUND_OF_16') return 'QUALIFIED_TOP_16';
+    if (stageObj.stage === 'THIRD_PLACE') return 'SEMI_FINAL_LOSERS';   // ← ADD
     return 'PREVIOUS_STAGE_WINNERS';
 }
 
@@ -776,12 +1125,16 @@ function confirmCommand(command) {
 
 function executeParsedCommand(parsed, originalCommand) {
     if (parsed.intent === 'QUALIFY') {
+    if (tournament.format === 'groups') {
+        updateQualificationStandings();
+        updateGroupQualifiers();
+        addCommandHistory(originalCommand);
+        return;
+    }
     updateQualificationStandings();
     const sorted = tournament.qualificationStandings;
-    sorted.forEach((p, idx) => {
-        p.qualified = (idx < TOURNAMENT_CONFIG.qualifiers);
-    });
-    tournament.qualificationConfirmed = true;   // <-- ADD THIS
+    sorted.forEach((p, idx) => { p.qualified = (idx < TOURNAMENT_CONFIG.qualifiers); });
+    tournament.qualificationConfirmed = true;
     saveToStorage();
     renderQualificationTable();
     showToast(`Top ${TOURNAMENT_CONFIG.qualifiers} qualified.`);
@@ -789,11 +1142,13 @@ function executeParsedCommand(parsed, originalCommand) {
     return;
 }
     if (parsed.stageType === 'qualification') {
-        const round = parsed.stage === 'PLAYOFF_1' ? 1 : 2;
-        generateQualificationPlayoff(round);
-        addCommandHistory(originalCommand);
-        return;
-    }
+    const roundMap = { 'PLAYOFF_1': 1, 'PLAYOFF_2': 2, 'PLAYOFF_3': 3, 'PLAYOFF_4': 4 };
+    const round = roundMap[parsed.stage];
+    if (!round) { showToast("Unknown playoff round."); return; }
+    generateQualificationPlayoff(round);
+    addCommandHistory(originalCommand);
+    return;
+}
     if (parsed.stageType === 'knockout') {
         createKnockoutStage(parsed.stage, parsed.source, parsed.drawType, parsed.legs);
         addCommandHistory(originalCommand);
@@ -834,61 +1189,94 @@ function quickCommand(text) {
 // ==================== KNOCKOUT STAGE ENGINE ====================
 function createKnockoutStage(stageId, source, drawType, legs, force = false) {
     if (!isAdmin) return;
+
+    // Confirm overwrite if ties already exist
     if (tournament.knockoutStages[stageId].ties.length > 0 && !force) {
         if (!confirm(`${getStageLabel(stageId)} already exists. Overwrite?`)) return;
     }
 
     let eligible = [];
+
+    // ---------- SOURCE: TOP 16 QUALIFIED ----------
     if (source === 'QUALIFIED_TOP_16') {
-        eligible = tournament.qualificationStandings.filter(p => p.qualified).map(p => p.name);
+        eligible = tournament.qualificationStandings
+            .filter(p => p.qualified)
+            .map(p => p.name);
         if (eligible.length !== TOURNAMENT_CONFIG.qualifiers) {
             showToast(`Need exactly ${TOURNAMENT_CONFIG.qualifiers} qualified players. Found ${eligible.length}.`);
             return;
         }
-    } else if (source === 'PREVIOUS_STAGE_WINNERS') {
-        // Define previous stage for each knockout stage
+    }
+
+    // ---------- SOURCE: PREVIOUS STAGE WINNERS ----------
+    else if (source === 'PREVIOUS_STAGE_WINNERS') {
         const prevStageMap = {
-            'ROUND_OF_16': null,
+            'ROUND_OF_16': null,          // comes from QUALIFIED_TOP_16 instead
             'QUARTER_FINAL': 'ROUND_OF_16',
             'SEMI_FINAL': 'QUARTER_FINAL',
-            'FINAL': 'SEMI_FINAL'
+            'FINAL': 'SEMI_FINAL',
+            'THIRD_PLACE': 'SEMI_FINAL'   // (handled by SEMI_FINAL_LOSERS, but fallback here too)
         };
         const prevStage = prevStageMap[stageId];
         if (!prevStage) {
             showToast("No previous stage defined for this stage.");
             return;
         }
-
         const prevTies = tournament.knockoutStages[prevStage].ties;
         if (prevTies.length === 0) {
             showToast(`No ties found in ${getStageLabel(prevStage)}.`);
             return;
         }
-        // Check if every tie has a winner
         const allHaveWinners = prevTies.every(t => t.winner);
         if (!allHaveWinners) {
             showToast(`Not all ties in ${getStageLabel(prevStage)} have a winner. Complete all ties first.`);
             return;
         }
         eligible = prevTies.map(t => t.winner);
-    } else {
+    }
+
+    // ---------- SOURCE: SEMI-FINAL LOSERS (for Third Place) ----------
+    else if (source === 'SEMI_FINAL_LOSERS') {
+        const semiTies = tournament.knockoutStages['SEMI_FINAL'].ties;
+        if (semiTies.length !== 2) {
+            showToast("Semi-finals incomplete – cannot create third place match.");
+            return;
+        }
+        const allHaveWinners = semiTies.every(t => t.winner);
+        if (!allHaveWinners) {
+            showToast("Not all semi-final ties have a winner yet.");
+            return;
+        }
+        eligible = getStageLosers('SEMI_FINAL');
+        if (eligible.length !== 2) {
+            showToast("Could not determine both semi-final losers.");
+            return;
+        }
+    }
+
+    // ---------- UNKNOWN SOURCE ----------
+    else {
         showToast("Unknown source for stage.");
         return;
     }
 
+    // Odd-number check
     if (eligible.length % 2 !== 0) {
         showToast("Odd number of players – cannot create ties.");
         return;
     }
 
+    // Shuffle if requested
     let tiePlayers = [...eligible];
     if (drawType === 'RANDOM') shuffleArray(tiePlayers);
 
+    // ---------- BUILD TIES ----------
     const ties = [];
     for (let i = 0; i < tiePlayers.length; i += 2) {
         const home = tiePlayers[i];
         const away = tiePlayers[i + 1];
         const tieId = `${stageId}_tie_${i / 2 + 1}`;
+
         const tie = {
             tieId: tieId,
             stage: stageId,
@@ -898,10 +1286,12 @@ function createKnockoutStage(stageId, source, drawType, legs, force = false) {
             winner: null,
             status: 'PENDING'
         };
+
         for (let leg = 1; leg <= legs; leg++) {
             const isHomeLeg = (leg === 1);
             const legHome = isHomeLeg ? home : away;
             const legAway = isHomeLeg ? away : home;
+
             const match = {
                 id: Date.now() + i * 100 + leg,
                 tieId: tieId,
@@ -919,9 +1309,11 @@ function createKnockoutStage(stageId, source, drawType, legs, force = false) {
             };
             tie.legs.push(match);
         }
+
         ties.push(tie);
     }
 
+    // ---------- SAVE & RENDER ----------
     tournament.knockoutStages[stageId].ties = ties;
     tournament.knockoutStages[stageId].status = 'DRAW_CREATED';
     tournament.currentStage = stageId;
@@ -938,7 +1330,7 @@ function renderKnockoutBracket() {
         return;
     }
 
-    const stages = ['ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'FINAL'];
+    const stages = ['ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'THIRD_PLACE', 'FINAL'];
     let hasStage = false;
     let html = '<div class="bracket-grid">';
 
@@ -1021,17 +1413,20 @@ function renderKnockoutBracket() {
 
     // ---- ADD CHAMPION OVERLAY IF FINAL IS COMPLETE ----
     if (tournament.champion) {
-        html += `
-            <div class="champion-overlay">
-                <div class="champion-content">
-                    <div class="champion-trophy">🏆</div>
-                    <div class="champion-name">${tournament.champion}</div>
-                    <div class="champion-label">TOURNAMENT CHAMPION</div>
-                    ${tournament.championDate ? `<div class="champion-date">${new Date(tournament.championDate).toLocaleDateString()}</div>` : ''}
-                </div>
+    html += `
+        <div class="champion-overlay">
+            <div class="champion-content">
+                <div class="champion-trophy">🏆</div>
+                <div class="champion-name">${tournament.champion}</div>
+                <div class="champion-label">TOURNAMENT CHAMPION</div>
+                ${tournament.championDate ? `<div class="champion-date">${new Date(tournament.championDate).toLocaleDateString()}</div>` : ''}
+                <button onclick="openCelebrationModal()" class="mt-5 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold px-6 py-2.5 rounded-full text-sm pointer-events-auto transition shadow-lg">
+                    🎉 View Full Celebration
+                </button>
             </div>
-        `;
-    }
+        </div>
+    `;
+}
 
     const section = document.getElementById('knockout-bracket-section');
     if (!section) return;
@@ -1135,6 +1530,7 @@ function getStageLabel(stageId) {
         'ROUND_OF_16': 'Round of 16',
         'QUARTER_FINAL': 'Quarter-finals',
         'SEMI_FINAL': 'Semi-finals',
+        'THIRD_PLACE': ' Third Place',
         'FINAL': 'Final'
     };
     return map[stageId] || stageId;
@@ -1151,12 +1547,17 @@ function simulateTournament() {
         return;
     }
 
-    // ----- 1. Qualification Playoffs -----
-    if (!tournament.qualificationPlayoffs.some(p => p.round === 1)) {
-        generateQualificationPlayoff(1);
-    }
-    if (!tournament.qualificationPlayoffs.some(p => p.round === 2)) {
-        generateQualificationPlayoff(2);
+    // ========== STEP 1: Qualification (playoffs OR groups) ==========
+    if (tournament.format === 'groups') {
+        if (tournament.qualificationPlayoffs.length === 0) {
+            generateGroupStage();
+        }
+    } else {
+        for (let r = 1; r <= TOURNAMENT_CONFIG.qualificationRounds; r++) {
+            if (!tournament.qualificationPlayoffs.some(p => p.round === r)) {
+                generateQualificationPlayoff(r);
+            }
+        }
     }
 
     // Fill random scores for all qualification fixtures
@@ -1176,26 +1577,30 @@ function simulateTournament() {
     renderQualificationTable();
     renderPlayoffFixtures();
 
-    // ----- 2. Qualify top 16 -----
-    const sorted = tournament.qualificationStandings;
-    sorted.forEach((p, idx) => {
-        p.qualified = (idx < TOURNAMENT_CONFIG.qualifiers);
-    });
-    tournament.qualificationConfirmed = true;
-    saveToStorage();
-    renderQualificationTable();
+    // ========== STEP 2: Qualify top 16 ==========
+    if (tournament.format === 'groups') {
+        updateQualificationStandings();
+        updateGroupQualifiers();
+    } else {
+        const sorted = tournament.qualificationStandings;
+        sorted.forEach((p, idx) => {
+            p.qualified = (idx < TOURNAMENT_CONFIG.qualifiers);
+        });
+        tournament.qualificationConfirmed = true;
+        saveToStorage();
+        renderQualificationTable();
+    }
 
-    // ----- 3. Knockout stages (R16, QF, SF) using createKnockoutStage -----
-    const stages = ['ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL'];
+    // ========== STEP 3: Knockout stages (R16, QF, SF) ==========
+    const knockoutSequence = ['ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL'];
     let previousStage = null;
-    for (let stage of stages) {
-        let source = 'QUALIFIED_TOP_16';
-        if (previousStage) {
-            source = 'PREVIOUS_STAGE_WINNERS';
-        }
-        createKnockoutStage(stage, source, 'RANDOM', 2, true); // force = true
 
-        // Fill random scores and determine winners for this stage
+    for (let stage of knockoutSequence) {
+        let source = 'QUALIFIED_TOP_16';
+        if (previousStage) source = 'PREVIOUS_STAGE_WINNERS';
+
+        createKnockoutStage(stage, source, 'RANDOM', 2, true);
+
         const stageObj = tournament.knockoutStages[stage];
         stageObj.ties.forEach(tie => {
             tie.legs.forEach(leg => {
@@ -1222,27 +1627,56 @@ function simulateTournament() {
         previousStage = stage;
     }
 
-    // ----- 4. Create Final manually (bypass createKnockoutStage) -----
+    // ========== STEP 4: Third Place Match (SF losers, single leg) ==========
     const semiTies = tournament.knockoutStages['SEMI_FINAL'].ties;
-    if (semiTies.length !== 2) {
-        showToast("Semi-finals incomplete – cannot create final.");
-        return;
-    }
-    const finalists = semiTies.map(t => t.winner).filter(w => w);
-    if (finalists.length !== 2) {
-        showToast("Semi-finals winners not determined.");
-        return;
+    if (semiTies.length === 2 && semiTies.every(t => t.winner)) {
+        const losers = semiTies.map(t => t.winner === t.home ? t.away : t.home);
+        const thirdTie = {
+            tieId: 'THIRD_PLACE_tie_1',
+            stage: 'THIRD_PLACE',
+            home: losers[0],
+            away: losers[1],
+            legs: [{
+                id: Date.now() + 2000,
+                tieId: 'THIRD_PLACE_tie_1',
+                leg: 1,
+                home: losers[0],
+                away: losers[1],
+                homeScore: null,
+                awayScore: null,
+                played: false,
+                cancelled: false,
+                events: [], report: null, predictions: [], banter: []
+            }],
+            winner: null,
+            status: 'PENDING'
+        };
+        const leg = thirdTie.legs[0];
+        leg.homeScore = Math.floor(Math.random() * 4);
+        leg.awayScore = Math.floor(Math.random() * 4);
+        leg.played = true;
+        leg.report = `${leg.home} ${leg.homeScore}-${leg.awayScore} ${leg.away}`;
+        if (leg.homeScore > leg.awayScore) thirdTie.winner = thirdTie.home;
+        else if (leg.awayScore > leg.homeScore) thirdTie.winner = thirdTie.away;
+        else thirdTie.winner = Math.random() < 0.5 ? thirdTie.home : thirdTie.away;
+        thirdTie.status = 'COMPLETED';
+
+        tournament.knockoutStages['THIRD_PLACE'].ties = [thirdTie];
+        tournament.knockoutStages['THIRD_PLACE'].status = 'COMPLETED';
+        saveToStorage();
+        renderKnockoutBracket();
     }
 
-    // Build final tie (single leg)
-    const finalTie = {
-        tieId: 'FINAL_tie_1',
-        stage: 'FINAL',
-        home: finalists[0],
-        away: finalists[1],
-        legs: [
-            {
-                id: Date.now() + 1000,
+    // ========== STEP 5: Final (SF winners, single leg) ==========
+    if (semiTies.length === 2 && semiTies.every(t => t.winner)) {
+        const finalists = semiTies.map(t => t.winner);
+        const finalTie = {
+            tieId: 'FINAL_tie_1',
+            stage: 'FINAL',
+            home: finalists[0],
+            away: finalists[1],
+            legs: [{
+                id: Date.now() + 3000,
                 tieId: 'FINAL_tie_1',
                 leg: 1,
                 home: finalists[0],
@@ -1251,46 +1685,46 @@ function simulateTournament() {
                 awayScore: null,
                 played: false,
                 cancelled: false,
-                events: [],
-                report: null,
-                predictions: [],
-                banter: []
-            }
-        ],
-        winner: null,
-        status: 'PENDING'
-    };
+                events: [], report: null, predictions: [], banter: []
+            }],
+            winner: null,
+            status: 'PENDING'
+        };
+        const leg = finalTie.legs[0];
+        leg.homeScore = Math.floor(Math.random() * 4);
+        leg.awayScore = Math.floor(Math.random() * 4);
+        leg.played = true;
+        leg.report = `${leg.home} ${leg.homeScore}-${leg.awayScore} ${leg.away}`;
+        if (leg.homeScore > leg.awayScore) finalTie.winner = finalTie.home;
+        else if (leg.awayScore > leg.homeScore) finalTie.winner = finalTie.away;
+        else finalTie.winner = Math.random() < 0.5 ? finalTie.home : finalTie.away;
+        finalTie.status = 'COMPLETED';
 
-    tournament.knockoutStages['FINAL'].ties = [finalTie];
-    tournament.knockoutStages['FINAL'].status = 'DRAW_CREATED';
-    tournament.currentStage = 'FINAL';
-    saveToStorage();
-
-    // Fill random score for the final
-    const finalLeg = finalTie.legs[0];
-    finalLeg.homeScore = Math.floor(Math.random() * 4);
-    finalLeg.awayScore = Math.floor(Math.random() * 4);
-    finalLeg.played = true;
-    finalLeg.report = `${finalLeg.home} ${finalLeg.homeScore}-${finalLeg.awayScore} ${finalLeg.away}`;
-    if (finalLeg.homeScore > finalLeg.awayScore) {
-        finalTie.winner = finalTie.home;
-    } else if (finalLeg.awayScore > finalLeg.homeScore) {
-        finalTie.winner = finalTie.away;
-    } else {
-        finalTie.winner = Math.random() < 0.5 ? finalTie.home : finalTie.away;
+        tournament.knockoutStages['FINAL'].ties = [finalTie];
+        tournament.knockoutStages['FINAL'].status = 'COMPLETED';
+        tournament.champion = finalTie.winner;
+        tournament.championDate = Date.now();
+        tournament.currentStage = 'FINAL';
+        saveToStorage();
     }
-    finalTie.status = 'COMPLETED';
-    tournament.knockoutStages['FINAL'].status = 'COMPLETED';
-    tournament.champion = finalTie.winner;
-    tournament.championDate = Date.now();
-    saveToStorage();
 
+    // ========== STEP 6: Render & celebrate ==========
     renderKnockoutBracket();
     updateTournamentStatusBar();
+    updateFormatChip();
 
-    showToast(`🏆 ${tournament.champion} is the CHAMPION!`);
-    if (typeof confetti === 'function') {
-        confetti({ particleCount: 300, spread: 100, origin: { y: 0.6 } });
+    if (tournament.champion) {
+        showToast(`🏆 ${tournament.champion} is the CHAMPION!`);
+        if (typeof confetti === 'function') {
+            confetti({ particleCount: 300, spread: 100, origin: { y: 0.6 } });
+        }
+        setTimeout(() => {
+            if (typeof openCelebrationModal === 'function') {
+                openCelebrationModal();
+            }
+        }, 1400);
+    } else {
+        showToast("Simulation complete! Check the bracket.");
     }
 }
 
@@ -2160,6 +2594,10 @@ function initializeTournament() {
     const pass = document.getElementById('tournament-password').value.trim();
     if (pass) tournamentPassword = pass;
 
+    // Read chosen format
+    const formatEl = document.querySelector('input[name="tournament-format"]:checked');
+    const format = formatEl ? formatEl.value : 'playoffs';
+
     let list = [];
     for (let i = 1; i <= count; i++) {
         let name = document.getElementById(`team-input-${i}`).value.trim();
@@ -2185,21 +2623,32 @@ function initializeTournament() {
 
     // Reset tournament object
     tournament.players = teams;
+    tournament.format = format;
     tournament.qualificationPlayoffs = [];
     tournament.qualificationStandings = [];
     tournament.knockoutStages = {
         ROUND_OF_16: { ties: [], status: 'NOT_CREATED' },
         QUARTER_FINAL: { ties: [], status: 'NOT_CREATED' },
         SEMI_FINAL: { ties: [], status: 'NOT_CREATED' },
+        THIRD_PLACE: { ties: [], status: 'NOT_CREATED' },
         FINAL: { ties: [], status: 'NOT_CREATED' }
     };
     tournament.currentStage = null;
     tournament.champion = null;
     tournament.championDate = null;
     tournament.commandHistory = [];
+    tournament.qualificationConfirmed = false;
+    tournament.celebration = { intro: '', remarks: {}, trophyImage: null };
+    tournament.aliases = {};
 
-    // Save to Firebase
-    saveToStorage();
+    // ===== Auto-generate qualification fixtures based on format =====
+    if (format === 'groups') {
+        // Save first so generateGroupStage can use tournament state
+        saveToStorage();
+        generateGroupStage();
+    } else {
+        saveToStorage();
+    }
 
     // UI transition
     document.getElementById('setup-section').classList.add('hidden');
@@ -2212,6 +2661,7 @@ function initializeTournament() {
     renderPlayoffFixtures();
     renderKnockoutBracket();
     updateTournamentStatusBar();
+    updateFormatChip();
     generateTickerFacts();
 
     if (isAdmin) {
@@ -2221,7 +2671,8 @@ function initializeTournament() {
         document.getElementById('floating-admin-menu')?.classList.remove('hidden');
     }
 
-    showToast(`Tournament launched with ${Object.keys(teams).length} players!`);
+    const formatLabel = format === 'groups' ? 'Group Stage' : 'Playoff Weeks';
+    showToast(`🚀 ${formatLabel} launched with ${Object.keys(teams).length} players!`);
 }
 
 function openReplaceTeamModal(teamName) {
@@ -3780,6 +4231,308 @@ function closeCommentModal(save = false) {
     if (!save) pendingFixtureId = null;
 }
 
+// ==================== CHAMPION CELEBRATION ====================
+let celebrationTypingAbort = false;
+
+function openCelebrationModal() {
+    if (!tournament.champion) {
+        showToast("No champion yet.");
+        return;
+    }
+    const modal = document.getElementById('celebration-modal');
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    celebrationTypingAbort = false;
+
+    document.getElementById('celebration-champion-name').innerText = tournament.champion;
+
+    // Trophy image
+    const trophyEl = document.getElementById('celebration-trophy');
+    if (tournament.celebration?.trophyImage) {
+        trophyEl.innerHTML = `<img src="${tournament.celebration.trophyImage}" class="w-full h-full object-cover" alt="Trophy">`;
+    } else {
+        trophyEl.innerHTML = '<span class="text-8xl">🏆</span>';
+    }
+
+    // Admin bar
+    const adminBar = document.getElementById('celebration-admin-bar');
+    if (isAdmin) adminBar.classList.remove('hidden');
+    else adminBar.classList.add('hidden');
+
+    // Fire confetti again
+    if (typeof confetti === 'function') {
+        confetti({ particleCount: 200, spread: 120, origin: { y: 0.5 } });
+    }
+
+    // Play sequence
+    playCelebrationSequence();
+}
+
+function closeCelebrationModal() {
+    celebrationTypingAbort = true;
+    const modal = document.getElementById('celebration-modal');
+    if (modal) modal.classList.add('hidden');
+    document.body.style.overflow = '';
+}
+
+function replayCelebration() {
+    celebrationTypingAbort = false;
+    document.getElementById('celebration-intro').textContent = '';
+    document.getElementById('celebration-journey').innerHTML = '';
+    playCelebrationSequence();
+}
+
+async function playCelebrationSequence() {
+    const introEl = document.getElementById('celebration-intro');
+    introEl.textContent = '';
+    introEl.classList.add('typewriter-cursor');
+
+    const intro = tournament.celebration?.intro
+        || `${tournament.champion} are the champions of the DLS Tournament. Here's how they did it.`;
+
+    await typewrite(introEl, intro, 22);
+    introEl.classList.remove('typewriter-cursor');
+
+    if (!celebrationTypingAbort) {
+        await renderChampionJourney();
+    }
+}
+
+async function typewrite(el, text, speed = 25) {
+    el.textContent = '';
+    for (let i = 0; i < text.length; i++) {
+        if (celebrationTypingAbort) return;
+        el.textContent += text[i];
+        await new Promise(r => setTimeout(r, speed));
+    }
+}
+
+function getChampionJourney(champion) {
+    const journey = [];
+
+    // Qualification playoffs
+    tournament.qualificationPlayoffs.forEach(p => {
+        const matches = p.fixtures.filter(f => f.home === champion || f.away === champion);
+        if (matches.length > 0) {
+            journey.push({
+                key: `PLAYOFF_${p.round}`,
+                label: `Qualification Playoff ${p.round}`,
+                matches: matches.map(f => ({
+                    home: f.home, away: f.away,
+                    homeScore: f.homeScore, awayScore: f.awayScore,
+                    played: f.played
+                }))
+            });
+        }
+    });
+
+    // Knockout stages
+    const stageOrder = ['ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'THIRD_PLACE', 'FINAL'];
+    stageOrder.forEach(stageId => {
+        const stage = tournament.knockoutStages[stageId];
+        if (!stage || !Array.isArray(stage.ties) || stage.ties.length === 0) return;
+        const ties = stage.ties.filter(t => t.home === champion || t.away === champion);
+        if (ties.length === 0) return;
+        journey.push({
+            key: stageId,
+            label: getStageLabel(stageId),
+            ties: ties.map(t => ({
+                home: t.home, away: t.away,
+                winner: t.winner,
+                legs: t.legs.map(l => ({
+                    home: l.home, away: l.away,
+                    homeScore: l.homeScore, awayScore: l.awayScore,
+                    played: l.played
+                }))
+            }))
+        });
+    });
+
+    return journey;
+}
+
+async function renderChampionJourney() {
+    const container = document.getElementById('celebration-journey');
+    container.innerHTML = '';
+
+    const champion = tournament.champion;
+    const journey = getChampionJourney(champion);
+    const remarks = tournament.celebration?.remarks || {};
+
+    for (const section of journey) {
+        if (celebrationTypingAbort) return;
+
+        const sectionEl = document.createElement('div');
+        sectionEl.className = 'celebration-section';
+
+        // Stage label
+        const labelEl = document.createElement('h3');
+        labelEl.className = 'text-amber-400 font-bold text-xs tracking-widest uppercase mb-3 border-b border-amber-500/30 pb-2';
+        labelEl.textContent = section.label;
+        sectionEl.appendChild(labelEl);
+        container.appendChild(sectionEl);
+
+        // Remark (typed)
+        const remark = remarks[section.key];
+        if (remark) {
+            const remarkEl = document.createElement('p');
+            remarkEl.className = 'text-slate-300 italic text-sm mb-4 pl-3 border-l-2 border-amber-500 typewriter-cursor';
+            sectionEl.appendChild(remarkEl);
+            await typewrite(remarkEl, remark, 18);
+            remarkEl.classList.remove('typewriter-cursor');
+        }
+
+        // Matches
+        if (section.matches) {
+            section.matches.forEach(m => sectionEl.appendChild(buildCelebrationMatchCard(m, champion)));
+        }
+        // Ties
+        if (section.ties) {
+            section.ties.forEach(t => sectionEl.appendChild(buildCelebrationTieCard(t, champion)));
+        }
+    }
+}
+
+function buildCelebrationMatchCard(m, champion) {
+    const div = document.createElement('div');
+    div.className = 'bg-slate-800/50 rounded-lg p-3 mb-2 flex items-center justify-between';
+
+    const isHome = m.home === champion;
+    const scored = isHome ? m.homeScore : m.awayScore;
+    const conceded = isHome ? m.awayScore : m.homeScore;
+    const won = scored > conceded;
+    const drew = scored === conceded;
+    const color = won ? 'text-emerald-400' : (drew ? 'text-amber-400' : 'text-rose-400');
+    const badge = won ? 'W' : (drew ? 'D' : 'L');
+
+    div.innerHTML = `
+        <div class="flex items-center gap-3 flex-1">
+            <span class="text-[10px] font-bold ${color} bg-slate-900/50 rounded px-1.5 py-0.5">${m.played ? badge : '—'}</span>
+            <span class="text-slate-200 text-sm">${isHome ? 'vs ' + m.away : '@ ' + m.home}</span>
+        </div>
+        <span class="font-mono font-bold text-sm ${color}">${m.played ? `${scored}-${conceded}` : '—'}</span>
+    `;
+    return div;
+}
+
+function buildCelebrationTieCard(tie, champion) {
+    const div = document.createElement('div');
+    div.className = 'bg-slate-800/50 rounded-lg p-3 mb-2';
+
+    const legsHtml = tie.legs.map(l => {
+        const isHome = l.home === champion;
+        const scored = isHome ? l.homeScore : l.awayScore;
+        const conceded = isHome ? l.awayScore : l.homeScore;
+        const won = scored > conceded;
+        const drew = scored === conceded;
+        const color = won ? 'text-emerald-400' : (drew ? 'text-amber-400' : 'text-rose-400');
+        const label = isHome ? `vs ${l.away}` : `@ ${l.home}`;
+        return `<div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-400">${label}</span>
+            <span class="font-mono font-bold ${color}">${l.played ? `${scored}-${conceded}` : '—'}</span>
+        </div>`;
+    }).join('');
+
+    const advanced = tie.winner === champion;
+    div.innerHTML = `
+        <div class="flex justify-between items-center mb-2">
+            <span class="text-slate-200 text-sm font-semibold">${tie.home} vs ${tie.away}</span>
+            ${advanced ? '<span class="text-[10px] text-emerald-400 font-bold">✓ ADVANCED</span>' : ''}
+        </div>
+        ${legsHtml}
+    `;
+    return div;
+}
+
+// ============ ADMIN EDITOR ============
+function openCelebrationEditor() {
+    if (!isAdmin || !tournament.champion) return;
+    const modal = document.getElementById('celebration-editor-modal');
+    const body = document.getElementById('celebration-editor-body');
+    const journey = getChampionJourney(tournament.champion);
+    const remarks = tournament.celebration?.remarks || {};
+
+    let html = `
+        <div>
+            <label class="text-xs font-bold text-gray-500 uppercase">Intro Sentence (typewriter)</label>
+            <textarea id="celebration-intro-input" rows="3" class="w-full mt-1 bg-gray-50 border rounded-xl p-3 text-sm"
+                placeholder="${tournament.champion} wins the DLS Tournament! Here's their journey...">${(tournament.celebration?.intro || '').replace(/</g,'&lt;')}</textarea>
+        </div>
+        <div>
+            <label class="text-xs font-bold text-gray-500 uppercase">Trophy Image (max 500 KB)</label>
+            <input type="file" id="celebration-trophy-input" accept="image/*" class="w-full mt-1 text-sm" onchange="handleTrophyUpload(event)">
+            <p id="trophy-upload-status" class="text-xs text-gray-400 mt-1"></p>
+        </div>
+        <div>
+            <label class="text-xs font-bold text-gray-500 uppercase">Per‑Round Remarks (optional)</label>
+            <p class="text-xs text-gray-400 mb-2">Typed out after each round label with the typewriter effect.</p>
+            <div class="space-y-3">
+    `;
+
+    journey.forEach(section => {
+        html += `
+            <div>
+                <label class="text-xs font-semibold text-indigo-600">${section.label}</label>
+                <textarea data-remark-key="${section.key}" class="celebration-remark-input w-full mt-1 bg-gray-50 border rounded-lg p-2 text-sm" rows="2"
+                    placeholder="e.g. ${tournament.champion} almost got eliminated here...">${(remarks[section.key] || '').replace(/</g,'&lt;')}</textarea>
+            </div>
+        `;
+    });
+
+    html += `</div></div>`;
+    body.innerHTML = html;
+    modal.classList.remove('hidden');
+}
+
+function closeCelebrationEditor() {
+    document.getElementById('celebration-editor-modal').classList.add('hidden');
+}
+
+function handleTrophyUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    if (file.size > 500_000) {
+        alert("Image too large — please use an image under 500 KB.");
+        event.target.value = '';
+        return;
+    }
+    const status = document.getElementById('trophy-upload-status');
+    status.innerText = "Encoding...";
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        window._pendingTrophyImage = e.target.result;
+        status.innerText = "✅ Image ready — click Save to apply.";
+    };
+    reader.readAsDataURL(file);
+}
+
+function saveCelebrationContent() {
+    if (!isAdmin) return;
+    const intro = document.getElementById('celebration-intro-input').value.trim();
+    const remarks = {};
+    document.querySelectorAll('.celebration-remark-input').forEach(ta => {
+        const key = ta.dataset.remarkKey;
+        const val = ta.value.trim();
+        if (val) remarks[key] = val;
+    });
+
+    tournament.celebration = tournament.celebration || {};
+    tournament.celebration.intro = intro;
+    tournament.celebration.remarks = remarks;
+    if (window._pendingTrophyImage) {
+        tournament.celebration.trophyImage = window._pendingTrophyImage;
+        window._pendingTrophyImage = null;
+    }
+
+    saveToStorage();
+    closeCelebrationEditor();
+    showToast("✅ Celebration content saved");
+    // Refresh if the modal is open
+    if (!document.getElementById('celebration-modal').classList.contains('hidden')) {
+        replayCelebration();
+    }
+}
+
 // ==================== BANTER ====================
 function openBanterModal(fixtureId) {
     const f = fixtures.find(f => f.id === fixtureId);
@@ -3845,6 +4598,7 @@ window.onload = () => {
 };
 
 // ==================== EXPOSE FUNCTIONS ====================
+// Core
 window.selectRole = selectRole;
 window.handleAdminToggleClick = handleAdminToggleClick;
 window.verifyAdminPassword = verifyAdminPassword;
@@ -3852,6 +4606,15 @@ window.closePasswordModal = closePasswordModal;
 window.openChangePasswordModal = openChangePasswordModal;
 window.closeChangePasswordModal = closeChangePasswordModal;
 window.updateMasterPassword = updateMasterPassword;
+
+// Team / Player
+window.generateTeamInputs = generateTeamInputs;
+window.initializeTournament = initializeTournament;
+window.applyBulkImport = applyBulkImport;                  // ← ADDED
+window.showTeamDetails = showTeamDetails;
+window.closeTeamModal = closeTeamModal;
+window.showUpcomingFixtures = showUpcomingFixtures;
+window.closeUpcomingFixturesModal = closeUpcomingFixturesModal;
 window.openPenaltyModal = openPenaltyModal;
 window.closePenaltyModal = closePenaltyModal;
 window.adjustPenalty = adjustPenalty;
@@ -3859,36 +4622,45 @@ window.clearPenaltyPoints = clearPenaltyPoints;
 window.openReplaceTeamModal = openReplaceTeamModal;
 window.closeReplaceTeamModal = closeReplaceTeamModal;
 window.confirmReplaceTeam = confirmReplaceTeam;
-window.generateTeamInputs = generateTeamInputs;
-window.initializeTournament = initializeTournament;
-window.validateFixtureIntegrity = validateFixtureIntegrity;
-window.swapFixture = swapFixture;
-window.editFixtureTeamName = editFixtureTeamName;
-window.closeTeamSelectModal = closeTeamSelectModal;
-window.confirmTeamSelection = confirmTeamSelection;
-window.saveResult = saveResult;
-window.confirmComment = confirmComment;
-window.closeCommentModal = closeCommentModal;
+
+// Qualification
+window.saveQualificationResult = saveQualificationResult;
+
+// Command Center
+window.executeAdminCommandFromInput = executeAdminCommandFromInput;
+window.quickCommand = quickCommand;
+window.toggleCommandHistory = toggleCommandHistory;
+
+// Knockout / Tie editor
+window.renderKnockoutBracket = renderKnockoutBracket;
+window.openTieEditor = openTieEditor;                      // ← ADDED
+window.closeTieEditor = closeTieEditor;                    // ← ADDED
+window.saveTieScores = saveTieScores;                      // ← ADDED
+
+// Simulation
+window.simulateTournament = simulateTournament;            // ← ADDED
+
+// Match details / reports
 window.showMatchComment = showMatchComment;
 window.closeCommentViewer = closeCommentViewer;
 window.editViewerComment = editViewerComment;
 window.editViewerEvents = editViewerEvents;
+window.confirmComment = confirmComment;
+window.closeCommentModal = closeCommentModal;
+
+// Predictions
 window.openPredictionsModal = openPredictionsModal;
 window.closePredictionsModal = closePredictionsModal;
 window.submitPrediction = submitPrediction;
 window.deletePrediction = deletePrediction;
+
+// Banter
 window.openBanterModal = openBanterModal;
 window.closeBanterModal = closeBanterModal;
 window.postBanter = postBanter;
 window.deleteBanter = deleteBanter;
-window.relegateTeam = relegateTeam;
-window.restoreTeam = restoreTeam;
-window.showTeamDetails = showTeamDetails;
-window.closeTeamModal = closeTeamModal;
-window.resetTournament = resetTournament;
-window.saveKnockoutResult = saveKnockoutResult;
-window.showMatchCommentForKnockout = showMatchCommentForKnockout;
-window.editKnockoutResult = editKnockoutResult;
+
+// Chat & Polls
 window.openChatModal = openChatModal;
 window.closeChatModal = closeChatModal;
 window.sendChatMessage = sendChatMessage;
@@ -3902,20 +4674,15 @@ window.createPoll = createPoll;
 window.deletePoll = deletePoll;
 window.votePoll = votePoll;
 window.sendTypingStatus = sendTypingStatus;
-window.openDirectFixtureEditor = openDirectFixtureEditor;
-window.closeDirectEditor = closeDirectEditor;
-window.loadRoundForDirectEdit = loadRoundForDirectEdit;
-window.validateCurrentRound = validateCurrentRound;
-window.saveDirectEdits = saveDirectEdits;
-window.toggleGameweekRelease = toggleGameweekRelease;
-window.releaseNextRound = releaseNextRound;
-window.lockGameweek = lockGameweek;
-window.isGameweekReleased = isGameweekReleased;
-window.showUpcomingFixtures = showUpcomingFixtures;
-window.closeUpcomingFixturesModal = closeUpcomingFixturesModal;
-// Add these to the existing window.exports
-window.executeAdminCommandFromInput = executeAdminCommandFromInput;
-window.quickCommand = quickCommand;
-window.toggleCommandHistory = toggleCommandHistory;
-window.renderKnockoutBracket = renderKnockoutBracket;
-window.saveQualificationResult = saveQualificationResult; // if you want to expose
+
+// Celebration
+window.openCelebrationModal = openCelebrationModal;
+window.closeCelebrationModal = closeCelebrationModal;
+window.replayCelebration = replayCelebration;
+window.openCelebrationEditor = openCelebrationEditor;
+window.closeCelebrationEditor = closeCelebrationEditor;
+window.handleTrophyUpload = handleTrophyUpload;
+window.saveCelebrationContent = saveCelebrationContent;
+
+// Misc
+window.resetTournament = resetTournament;
