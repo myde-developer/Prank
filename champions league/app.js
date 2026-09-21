@@ -4287,10 +4287,11 @@ async function playCelebrationSequence() {
     introEl.textContent = '';
     introEl.classList.add('typewriter-cursor');
 
+    const formatWord = tournament.format === 'groups' ? 'the group stage' : 'the playoff weeks';
     const intro = tournament.celebration?.intro
-        || `${tournament.champion} are the champions of the DLS Tournament. Here's how they did it.`;
+        || `${tournament.champion} are the champions of the DLS Tournament after battling through ${formatWord}. Here's how they did it.`;
 
-    await typewrite(introEl, intro, 22);
+    await typewrite(introEl, intro, 50);
     introEl.classList.remove('typewriter-cursor');
 
     if (!celebrationTypingAbort) {
@@ -4298,7 +4299,7 @@ async function playCelebrationSequence() {
     }
 }
 
-async function typewrite(el, text, speed = 25) {
+async function typewrite(el, text, speed = 35) {
     el.textContent = '';
     for (let i = 0; i < text.length; i++) {
         if (celebrationTypingAbort) return;
@@ -4312,19 +4313,20 @@ function getChampionJourney(champion) {
 
     // Qualification playoffs
     tournament.qualificationPlayoffs.forEach(p => {
-        const matches = p.fixtures.filter(f => f.home === champion || f.away === champion);
-        if (matches.length > 0) {
-            journey.push({
-                key: `PLAYOFF_${p.round}`,
-                label: `Qualification Playoff ${p.round}`,
-                matches: matches.map(f => ({
-                    home: f.home, away: f.away,
-                    homeScore: f.homeScore, awayScore: f.awayScore,
-                    played: f.played
-                }))
-            });
-        }
-    });
+    const matches = p.fixtures.filter(f => f.home === champion || f.away === champion);
+    if (matches.length > 0) {
+        const isGroup = !!p.groupName;
+        journey.push({
+            key: isGroup ? `GROUP_${p.groupName}` : `PLAYOFF_${p.round}`,
+            label: isGroup ? `Group ${p.groupName}` : `Qualification Playoff ${p.round}`,
+            matches: matches.map(f => ({
+                home: f.home, away: f.away,
+                homeScore: f.homeScore, awayScore: f.awayScore,
+                played: f.played
+            }))
+        });
+    }
+});
 
     // Knockout stages
     const stageOrder = ['ROUND_OF_16', 'QUARTER_FINAL', 'SEMI_FINAL', 'THIRD_PLACE', 'FINAL'];
@@ -4378,7 +4380,7 @@ async function renderChampionJourney() {
             const remarkEl = document.createElement('p');
             remarkEl.className = 'text-slate-300 italic text-sm mb-4 pl-3 border-l-2 border-amber-500 typewriter-cursor';
             sectionEl.appendChild(remarkEl);
-            await typewrite(remarkEl, remark, 18);
+            await typewrite(remarkEl, remark, 42);
             remarkEl.classList.remove('typewriter-cursor');
         }
 
@@ -4408,7 +4410,7 @@ function buildCelebrationMatchCard(m, champion) {
     div.innerHTML = `
         <div class="flex items-center gap-3 flex-1">
             <span class="text-[10px] font-bold ${color} bg-slate-900/50 rounded px-1.5 py-0.5">${m.played ? badge : '—'}</span>
-            <span class="text-slate-200 text-sm">${isHome ? 'vs ' + m.away : '@ ' + m.home}</span>
+            <span class="text-slate-200 text-sm">${isHome ? 'vs ' + m.away : 'vs ' + m.home}</span>
         </div>
         <span class="font-mono font-bold text-sm ${color}">${m.played ? `${scored}-${conceded}` : '—'}</span>
     `;
@@ -4434,10 +4436,13 @@ function buildCelebrationTieCard(tie, champion) {
     }).join('');
 
     const advanced = tie.winner === champion;
+    const isFinal = tie.stage === 'FINAL';
+    const winLabel = isFinal ? '✓ WINNERS' : '✓ ADVANCED';
+
     div.innerHTML = `
         <div class="flex justify-between items-center mb-2">
             <span class="text-slate-200 text-sm font-semibold">${tie.home} vs ${tie.away}</span>
-            ${advanced ? '<span class="text-[10px] text-emerald-400 font-bold">✓ ADVANCED</span>' : ''}
+            ${advanced ? `<span class="text-[10px] text-emerald-400 font-bold">${winLabel}</span>` : ''}
         </div>
         ${legsHtml}
     `;
