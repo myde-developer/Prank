@@ -4339,14 +4339,15 @@ function getChampionJourney(champion) {
             key: stageId,
             label: getStageLabel(stageId),
             ties: ties.map(t => ({
-                home: t.home, away: t.away,
-                winner: t.winner,
-                legs: t.legs.map(l => ({
-                    home: l.home, away: l.away,
-                    homeScore: l.homeScore, awayScore: l.awayScore,
-                    played: l.played
-                }))
-            }))
+    stage: stageId,                 // ← ADD THIS LINE
+    home: t.home, away: t.away,
+    winner: t.winner,
+    legs: t.legs.map(l => ({
+        home: l.home, away: l.away,
+        homeScore: l.homeScore, awayScore: l.awayScore,
+        played: l.played
+    }))
+}))
         });
     });
 
@@ -4428,7 +4429,7 @@ function buildCelebrationTieCard(tie, champion) {
         const won = scored > conceded;
         const drew = scored === conceded;
         const color = won ? 'text-emerald-400' : (drew ? 'text-amber-400' : 'text-rose-400');
-        const label = isHome ? `vs ${l.away}` : `@ ${l.home}`;
+        const label = isHome ? `vs ${l.away}` : `vs ${l.home}`;
         return `<div class="flex justify-between text-xs mb-1">
             <span class="text-slate-400">${label}</span>
             <span class="font-mono font-bold ${color}">${l.played ? `${scored}-${conceded}` : '—'}</span>
