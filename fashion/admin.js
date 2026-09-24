@@ -1,5 +1,5 @@
 /* ==========================================================================
-   CAVE — Admin console
+   CRAVE — Admin console
    ========================================================================== */
 
 import {
@@ -20,7 +20,7 @@ const slugify = s => String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').r
 const initials = n => String(n).split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
 
 const FALLBACK_SETTINGS = {
-  eventName:'CAVE',
+  eventName:'CRAVE',
   tagline:'Best Fashionista of the Year 2026',
   pricePerVote:3,
   deadline:'2026-12-31T23:59',
@@ -119,7 +119,7 @@ function renderLogin(){
   $('#admin-root').innerHTML = `
   <div class="login-page">
     <div class="login-card">
-      <div class="login-brand">CAVE<em>©</em></div>
+      <div class="login-brand">CRAVE<em>©</em></div>
       <div class="login-sub">Administrator console</div>
       <h2>Sign in</h2>
       <p>Enter the admin PIN to continue. Default PIN is <span class="mono gold">cave2026</span> — change it once signed in.</p>
@@ -162,7 +162,7 @@ function renderShell(){
   <div class="shell">
     <aside class="side">
       <div class="side-brand">
-        <div class="side-brand-name">CAVE<em>©</em></div>
+        <div class="side-brand-name">CRAVE<em>©</em></div>
         <div class="side-brand-sub">Admin console</div>
       </div>
       <nav class="side-nav">
@@ -691,7 +691,7 @@ function bindSettings(){
 
   $('#save-settings').onclick = async () => {
     const payload = {
-      eventName: $('#s-name').value.trim() || 'CAVE',
+      eventName: $('#s-name').value.trim() || 'CRAVE',
       tagline:   $('#s-tag').value.trim(),
       pricePerVote: Math.max(0.5, parseFloat($('#s-price').value) || 3),
       deadline:  $('#s-deadline').value || S.settings.deadline,
@@ -858,7 +858,7 @@ onData(() => {
       $('#admin-root').innerHTML = `
         <div style="min-height:100vh;display:grid;place-items:center;color:var(--bone-dim)">
           <div style="text-align:center">
-            <div style="font-family:var(--serif);font-size:38px;letter-spacing:.06em;color:var(--bone);margin-bottom:12px">CAVE</div>
+            <div style="font-family:var(--serif);font-size:38px;letter-spacing:.06em;color:var(--bone);margin-bottom:12px">CRAVE</div>
             <div style="font-size:11px;letter-spacing:.28em;text-transform:uppercase">Loading console…</div>
           </div>
         </div>`;

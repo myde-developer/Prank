@@ -1,5 +1,5 @@
 /* ==========================================================================
-   CAVE — Viewer app (public site)
+   CRAVE — Viewer app (public site)
    ========================================================================== */
 
 import {
@@ -23,7 +23,7 @@ const roman = n => ['','I','II','III','IV','V','VI','VII','VIII','IX','X'][n] ||
    SEED DEFAULTS (mirror of admin defaults, used only as fallback)
    -------------------------------------------------------------------------- */
 const FALLBACK_SETTINGS = {
-  eventName:'CAVE',
+  eventName:'CRAVE',
   tagline:'Best Fashionista of the Year 2026',
   pricePerVote:3,
   deadline:'2026-12-31T23:59',
@@ -143,7 +143,7 @@ function navHTML(){
   <nav class="nav">
     <div class="nav-inner">
       <a class="brand" href="#/">
-        <span class="brand-mark">CAVE</span>
+        <span class="brand-mark">CRAVE</span>
         <span class="brand-sub">Awards · MMXXVI</span>
       </a>
       <div class="nav-links">
@@ -159,7 +159,7 @@ function footerHTML(){
   <footer>
     <div class="foot-inner">
       <div>
-        <div class="foot-brand">CAVE <em>©</em></div>
+        <div class="foot-brand">CRAVE <em>©</em></div>
         <div class="foot-meta">${esc(S.settings.tagline)} · Votes are final once confirmed</div>
       </div>
       <div class="foot-right">
@@ -216,7 +216,7 @@ function renderHome(){
           <i></i><i></i><i></i>
           <span>Admit one</span>
         </div>
-        <div class="ticket-brand">CAVE<em>©</em></div>
+        <div class="ticket-brand">CRAVE<em>©</em></div>
         <div class="ticket-sub">Best Fashionista of the Year</div>
 
         <div class="ticket-divider">Now open</div>
@@ -860,7 +860,7 @@ function bindVoteModal(){
 
 async function createOrder({ cid, votes, base, bonus, amount, method, detail, proof }){
   const order = {
-    ref: 'CAVE-' + rnd(5),
+    ref: 'CRAVE-' + rnd(5),
     contestantId: cid,
     votes, baseVotes: base, bonus,
     amount, method, detail,
@@ -900,7 +900,7 @@ onData(() => {
       $('#app').innerHTML = `
         <div style="min-height:100vh;display:grid;place-items:center;color:var(--bone-dim)">
           <div style="text-align:center">
-            <div style="font-family:var(--serif);font-size:44px;letter-spacing:.06em;color:var(--bone);margin-bottom:14px">CAVE</div>
+            <div style="font-family:var(--serif);font-size:44px;letter-spacing:.06em;color:var(--bone);margin-bottom:14px">CRAVE</div>
             <div style="font-size:11px;letter-spacing:.28em;text-transform:uppercase">Loading…</div>
           </div>
         </div>`;
