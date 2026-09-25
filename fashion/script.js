@@ -1,5 +1,5 @@
 /* ==========================================================================
-   CRAVE — Viewer app (public site)
+   CRAVE — Viewer (fixed vote flow)
    ========================================================================== */
 
 import {
@@ -19,9 +19,6 @@ const pad2  = n => String(n).padStart(2,'0');
 const initials = n => String(n).split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
 const roman = n => ['','I','II','III','IV','V','VI','VII','VIII','IX','X'][n] || String(n);
 
-/* --------------------------------------------------------------------------
-   SEED DEFAULTS (mirror of admin defaults, used only as fallback)
-   -------------------------------------------------------------------------- */
 const FALLBACK_SETTINGS = {
   eventName:'CRAVE',
   tagline:'Best Fashionista of the Year 2026',
@@ -48,9 +45,7 @@ const FALLBACK_SETTINGS = {
   ],
 };
 
-/* --------------------------------------------------------------------------
-   LIVE STATE
-   -------------------------------------------------------------------------- */
+/* -------- LIVE STATE -------- */
 let S = { settings: FALLBACK_SETTINGS, contestants: [], orders: [] };
 
 function refreshState(){
@@ -59,9 +54,7 @@ function refreshState(){
   S.orders      = Object.entries(DB.orders      || {}).map(([id,o]) => ({ id, ...o }));
 }
 
-/* --------------------------------------------------------------------------
-   DERIVED
-   -------------------------------------------------------------------------- */
+/* -------- DERIVED -------- */
 function votesFor(cid){
   const c = S.contestants.find(x => x.id === cid);
   return c ? (Number(c.votes) || 0) : 0;
@@ -76,16 +69,10 @@ function rankOf(cid){
   const i = leaderboard().findIndex(c => c.id === cid);
   return i < 0 ? null : i + 1;
 }
-function totalVotesCast(){
-  return S.contestants.reduce((a,c) => a + votesFor(c.id), 0);
-}
-function pendingOrders(){
-  return S.orders.filter(o => o.status === 'pending');
-}
+function totalVotesCast(){ return S.contestants.reduce((a,c) => a + votesFor(c.id), 0); }
+function pendingOrders(){ return S.orders.filter(o => o.status === 'pending'); }
 
-/* --------------------------------------------------------------------------
-   TOAST
-   -------------------------------------------------------------------------- */
+/* -------- TOAST -------- */
 function toast(msg, kind=''){
   const el = document.createElement('div');
   el.className = 'toast ' + kind;
@@ -95,13 +82,11 @@ function toast(msg, kind=''){
   setTimeout(() => el.remove(), 2800);
 }
 
-/* --------------------------------------------------------------------------
-   SHARED PIECES
-   -------------------------------------------------------------------------- */
+/* -------- SHARED -------- */
 function initialChar(c){ return esc((c.name || '?').trim()[0] || '?'); }
 
 function portraitHTML(c, extra=''){
-  const grad = `linear-gradient(155deg, ${esc(c.c1||'#444')}, ${esc(c.c2||'#111')})`;
+  const grad = `linear-gradient(150deg, ${esc(c.c1||'#c9a96a')}, ${esc(c.c2||'#1a140e')})`;
   if (c.photo){
     return `<div class="podium-portrait ${extra}" style="background:#000">
       <img src="${esc(c.photo)}" alt="${esc(c.name)}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">
@@ -112,7 +97,7 @@ function portraitHTML(c, extra=''){
   </div>`;
 }
 function tileHTML(c){
-  const grad = `linear-gradient(155deg, ${esc(c.c1||'#444')}, ${esc(c.c2||'#111')})`;
+  const grad = `linear-gradient(150deg, ${esc(c.c1||'#c9a96a')}, ${esc(c.c2||'#1a140e')})`;
   if (c.photo) return `<div class="roster-tile" style="background:#000"><img src="${esc(c.photo)}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></div>`;
   return `<div class="roster-tile" style="background:${grad}">${initialChar(c)}</div>`;
 }
@@ -123,16 +108,14 @@ function shareMessage(c){
   return `Help me win Best Fashionista of the Year at ${S.settings.eventName}! Every vote counts — vote for ${c.name} here:`;
 }
 
-/* --------------------------------------------------------------------------
-   HEADER / FOOTER
-   -------------------------------------------------------------------------- */
+/* -------- HEADER / FOOTER -------- */
 function tickerHTML(){
   const items = [
     `Best Fashionista of the Year 2026`,
     `One vote — ${money(S.settings.pricePerVote)}`,
-    `Pay with crypto or gift card`,
+    `Crypto or gift card`,
     `${num(totalVotesCast())} votes cast`,
-    `Voting closes ${new Date(S.settings.deadline).toLocaleDateString('en-US',{month:'long',day:'numeric'})}`,
+    `Closes ${new Date(S.settings.deadline).toLocaleDateString('en-US',{month:'long',day:'numeric'})}`,
     `Share your link to win`,
   ];
   const body = items.map(i => `<span class="ticker-item">${esc(i)}</span>`).join('');
@@ -144,11 +127,11 @@ function navHTML(){
     <div class="nav-inner">
       <a class="brand" href="#/">
         <span class="brand-mark">CRAVE</span>
-        <span class="brand-sub">Awards · MMXXVI</span>
+        <span class="brand-sub">Best Fashionista · 2026</span>
       </a>
       <div class="nav-links">
         <a href="#standings">Standings</a>
-        <a href="#how">How it works</a>
+        <a href="#how">Method</a>
         <a href="#standings" class="nav-cta">Vote now</a>
       </div>
     </div>
@@ -159,8 +142,8 @@ function footerHTML(){
   <footer>
     <div class="foot-inner">
       <div>
-        <div class="foot-brand">CRAVE <em>©</em></div>
-        <div class="foot-meta">${esc(S.settings.tagline)} · Votes are final once confirmed</div>
+        <div class="foot-brand">CRAVE<em>©</em></div>
+        <div class="foot-meta">${esc(S.settings.tagline)} · Votes final once confirmed</div>
       </div>
       <div class="foot-right">
         <a href="#standings">Standings</a>
@@ -170,9 +153,9 @@ function footerHTML(){
   </footer>`;
 }
 
-/* --------------------------------------------------------------------------
+/* ==========================================================================
    HOME
-   -------------------------------------------------------------------------- */
+   ========================================================================== */
 function renderHome(){
   const board = leaderboard();
   const top3 = board.slice(0,3);
@@ -188,62 +171,66 @@ function renderHome(){
       <div>
         <div class="hero-kicker">
           <span class="live-dot"></span>
-          <span>Voting is open · ${num(board.length)} in the running</span>
+          <span>Voting open · ${num(board.length)} contenders</span>
         </div>
         <h1 class="display">
-          <span class="word">Vote</span>
-          <span class="word">for the</span>
+          <span class="word">Vote for the</span>
           <span class="word"><em>Fashionista</em></span>
-          <span class="word outline">of the year</span>
+          <span class="word">of the year</span>
         </h1>
+        <p class="hero-blurb">
+          One vote costs <b>${money(S.settings.pricePerVote)}</b>. Pay with crypto or a gift card.
+          Your vote is counted the instant payment clears. Share your link. Rally your people.
+        </p>
       </div>
       <div class="hero-bottom">
-        <p class="hero-blurb">
-          One vote costs <b>${money(S.settings.pricePerVote)}</b>. Pay with crypto or a gift card —
-          your vote is credited the moment payment is confirmed. Share your link. Rally your people.
-          <b>Win the crown.</b>
-        </p>
+        <div class="hero-cta-row">
+          <a class="btn-hero" href="#standings">
+            See the standings
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+              <path d="M3 8h10M9 4l4 4-4 4"/>
+            </svg>
+          </a>
+          <a class="btn-hero-ghost" href="#how">How it works</a>
+        </div>
         <div class="hero-index">
+          <span>Issue</span>
           <b>N°01</b>
-          Issue MMXXVI
         </div>
       </div>
     </div>
 
     <aside class="hero-right">
-      <div class="ticket" id="ticket">
-        <div class="ticket-holes">
-          <i></i><i></i><i></i>
-          <span>Admit one</span>
+      <div class="vote-card">
+        <div class="vote-card-head">
+          <span class="vote-card-live"><i></i> Voting open</span>
+          <span class="vote-card-ref">MMXXVI</span>
         </div>
-        <div class="ticket-brand">CRAVE<em>©</em></div>
-        <div class="ticket-sub">Best Fashionista of the Year</div>
-
-        <div class="ticket-divider">Now open</div>
-
-        <div class="ticket-label">Voting closes in</div>
-        <div class="countdown" id="countdown"></div>
-
-        <div class="ticket-divider">Entry</div>
-
-        <div class="ticket-price">
-          <b>${money(S.settings.pricePerVote)}</b>
-          <span>Per vote</span>
+        <div class="vote-card-countdown">
+          <div class="vcc-label">Closes in</div>
+          <div class="countdown" id="countdown"></div>
         </div>
-
-        <a class="ticket-cta" href="#standings">
+        <div class="vote-card-price">
+          <span class="vcp-label">Per vote</span>
+          <span class="vcp-value">${money(S.settings.pricePerVote)}</span>
+        </div>
+        <a class="vote-card-cta" href="#standings">
           <span>Vote for someone</span>
-          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M7 2v10M3 8l4 4 4-4"/>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+            <path d="M3 8h10M9 4l4 4-4 4"/>
           </svg>
         </a>
+        <div class="vote-card-foot">
+          <span>${num(totalVotesCast())} votes cast</span>
+          <span>${num(pendingOrders().length)} pending</span>
+        </div>
       </div>
     </aside>
   </section>
 
   <section class="section wrap" id="standings">
     <div class="section-head">
-      <span class="section-num">N°02 — Standings</span>
+      <span class="section-num">02 / Standings</span>
       <h2 class="section-title">The <em>contenders</em></h2>
       <div class="section-meta">
         Total votes
@@ -255,7 +242,7 @@ function renderHome(){
     <div class="podium">
       ${top3.map((c,i) => `
         <button class="podium-card" data-place="${i+1}" data-open="${esc(c.slug)}">
-          <div class="podium-rank">${roman(i+1)}</div>
+          <div class="podium-rank">${pad2(i+1)}</div>
           <div class="podium-badge">${i===0?'Leading':i===1?'Second':'Third'}</div>
           ${portraitHTML(c)}
           <div class="podium-info">
@@ -263,7 +250,7 @@ function renderHome(){
             <div class="podium-tag">${esc(c.tagline||'')}</div>
             <div class="podium-votes">
               <b>${num(c.votes)}</b>
-              <span>Votes</span>
+              <span>votes</span>
             </div>
           </div>
         </button>`).join('')}
@@ -271,6 +258,13 @@ function renderHome(){
 
     ${rest.length ? `
     <div class="roster">
+      <div class="roster-header">
+        <span>Rank</span>
+        <span></span>
+        <span>Contender</span>
+        <span>Progress</span>
+        <span></span>
+      </div>
       ${rest.map((c,i) => {
         const rank = i+4;
         const pct = Math.max(2, Math.round((c.votes / max) * 100));
@@ -286,7 +280,7 @@ function renderHome(){
             <div class="roster-bar"><i style="width:${pct}%"></i></div>
             <div class="roster-stats">
               <b>${num(c.votes)}</b>
-              <span>${pct}% of leader</span>
+              <span>${pct}%</span>
             </div>
           </div>
           <button class="roster-vote" data-vote="${esc(c.id)}">Vote</button>
@@ -296,31 +290,31 @@ function renderHome(){
   </section>
 
   <section class="section wrap" id="how">
-    <div class="section-head" style="margin-bottom:0">
-      <span class="section-num">N°03 — Method</span>
+    <div class="section-head">
+      <span class="section-num">03 / Method</span>
       <h2 class="section-title">How it <em>works</em></h2>
       <div class="section-meta">Four steps</div>
     </div>
     <div class="how">
       <div class="how-step">
-        <div class="how-step-num">i</div>
-        <h3>Pick your fashionista</h3>
+        <div class="how-step-num">01</div>
+        <h3>Pick a contender</h3>
         <p>Browse the standings and open the profile of the designer or stylist you want to win.</p>
       </div>
       <div class="how-step">
-        <div class="how-step-num">ii</div>
+        <div class="how-step-num">02</div>
         <h3>Buy votes</h3>
-        <p>Each vote is ${money(S.settings.pricePerVote)}. Bundles carry bonus votes — bigger bundle, better value.</p>
+        <p>Each vote is ${money(S.settings.pricePerVote)}. Bundles carry bonus votes — bigger is better value.</p>
       </div>
       <div class="how-step">
-        <div class="how-step-num">iii</div>
+        <div class="how-step-num">03</div>
         <h3>Pay your way</h3>
-        <p>Crypto confirms automatically. Gift cards are reviewed by a human — usually within a few hours.</p>
+        <p>Crypto confirms automatically. Gift cards are reviewed by a human, usually within hours.</p>
       </div>
       <div class="how-step">
-        <div class="how-step-num">iv</div>
+        <div class="how-step-num">04</div>
         <h3>Share the link</h3>
-        <p>Every contestant has a personal link. Share it and rally your people — that is how the crown is won.</p>
+        <p>Every contestant has a personal link. Share it and rally your people.</p>
       </div>
     </div>
   </section>
@@ -342,9 +336,9 @@ function bindHome(){
   });
 }
 
-/* --------------------------------------------------------------------------
-   CONTESTANT DETAIL
-   -------------------------------------------------------------------------- */
+/* ==========================================================================
+   DETAIL
+   ========================================================================== */
 function renderContestant(slug){
   const c = S.contestants.find(x => x.slug === slug);
   if (!c){
@@ -354,7 +348,7 @@ function renderContestant(slug){
       <div class="wrap" style="padding:140px 40px;text-align:center">
         <div class="caps dim" style="margin-bottom:20px">N°404</div>
         <h1 class="section-title" style="margin-bottom:30px">Profile <em>not found</em></h1>
-        <a class="btn-primary" href="#/" style="display:inline-flex">Back to standings</a>
+        <a class="btn-hero" href="#/" style="display:inline-flex">Back to standings</a>
       </div>
       ${footerHTML()}`;
     return;
@@ -368,8 +362,7 @@ function renderContestant(slug){
   const url = contestantUrl(c.slug);
   const msg = shareMessage(c);
   const full = encodeURIComponent(msg + ' ' + url);
-
-  const grad = `linear-gradient(155deg, ${esc(c.c1||'#444')}, ${esc(c.c2||'#111')})`;
+  const grad = `linear-gradient(150deg, ${esc(c.c1||'#c9a96a')}, ${esc(c.c2||'#1a140e')})`;
 
   $('#app').innerHTML = `
   ${tickerHTML()}
@@ -377,32 +370,37 @@ function renderContestant(slug){
 
   <section class="detail">
     <div class="wrap">
+      <a class="back-link" href="#/">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path d="M11 7H3M7 3L3 7l4 4"/>
+        </svg>
+        Back to standings
+      </a>
       <div class="detail-grid">
-        <div style="position:sticky;top:120px">
+        <div class="detail-portrait-wrap">
           <div class="detail-portrait" style="background:${c.photo?'#000':grad}">
             ${c.photo
               ? `<img src="${esc(c.photo)}" alt="${esc(c.name)}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">`
               : `<span class="detail-initial">${initialChar(c)}</span>`}
-            <span class="detail-rank">${roman(rank||1)}</span>
+          </div>
+          <div class="detail-rank-chip">
+            <span>Rank</span>
+            <b>${pad2(rank)}</b>
           </div>
         </div>
         <div class="detail-meta">
-          <div>
-            <div class="caps">Rank ${pad2(rank)} of ${pad2(board.length)} · N°${pad2(rank)}</div>
-          </div>
+          <div class="caps accent">Rank ${pad2(rank)} of ${pad2(board.length)}</div>
           <h1 class="detail-name">${esc(c.name.split(' ')[0])}<br><em>${esc(c.name.split(' ').slice(1).join(' ') || '')}</em></h1>
           <div class="detail-tagline">${esc(c.tagline||'')}</div>
-          <div class="detail-bio">
-            <p>${esc(c.bio || 'No biography on record.')}</p>
-          </div>
+          <p class="detail-bio">${esc(c.bio || 'No biography on record.')}</p>
           <div class="detail-cta-row">
-            <button class="btn-primary" data-vote="${esc(c.id)}">
+            <button class="btn-hero" data-vote="${esc(c.id)}">
               Vote for ${esc(c.name.split(' ')[0])}
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M2 7h10M8 3l4 4-4 4"/>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+                <path d="M3 8h10M9 4l4 4-4 4"/>
               </svg>
             </button>
-            <a class="btn-ghost" href="#/">View standings</a>
+            <a class="btn-hero-ghost" href="#/">All contenders</a>
           </div>
         </div>
       </div>
@@ -410,24 +408,24 @@ function renderContestant(slug){
 
     <div class="detail-stats">
       <div class="detail-stat">
-        <b>${num(votes)}</b>
         <span>Votes recorded</span>
+        <b>${num(votes)}</b>
       </div>
       <div class="detail-stat">
-        <b>${pct}<em>%</em></b>
         <span>Of the leader</span>
+        <b>${pct}<em>%</em></b>
       </div>
       <div class="detail-stat">
+        <span>Price per vote</span>
         <b>${money(S.settings.pricePerVote)}</b>
-        <span>Per vote</span>
       </div>
     </div>
 
     <div class="wrap">
       <div class="share-block">
-        <div class="caps gold" style="margin-bottom:14px">N°04 — Share</div>
+        <div class="caps accent">04 / Share</div>
         <h2>Help <em>${esc(c.name.split(' ')[0])}</em> win</h2>
-        <p>Send this to your group chats, story, or DM. Every single vote brings the crown closer.</p>
+        <p>Send this to your group chats, story, or DM. Every vote brings the crown closer.</p>
 
         <div class="share-snippet">
           “${esc(msg)} <span class="url">${esc(url)}</span>”
@@ -435,7 +433,7 @@ function renderContestant(slug){
 
         <div class="share-url-row">
           <input readonly value="${esc(url)}" id="share-url">
-          <button id="copy-link">Copy link</button>
+          <button id="copy-link">Copy</button>
         </div>
 
         <div class="share-channels">
@@ -473,30 +471,30 @@ function renderContestant(slug){
   tickCountdown();
 }
 
-/* --------------------------------------------------------------------------
+/* ==========================================================================
    COUNTDOWN
-   -------------------------------------------------------------------------- */
+   ========================================================================== */
 function tickCountdown(){
   const el = $('#countdown');
   if (!el) return;
   const target = new Date(S.settings.deadline).getTime();
   const diff = target - Date.now();
   if (isNaN(target) || diff <= 0){
-    el.innerHTML = `<div class="cd-unit"><b>00</b><span>Days</span></div>
+    el.innerHTML = `<div class="cd-unit"><b>00</b><span>days</span></div>
       <span class="cd-sep">:</span>
-      <div class="cd-unit"><b>00</b><span>Hrs</span></div>
+      <div class="cd-unit"><b>00</b><span>hrs</span></div>
       <span class="cd-sep">:</span>
-      <div class="cd-unit"><b>00</b><span>Min</span></div>
+      <div class="cd-unit"><b>00</b><span>min</span></div>
       <span class="cd-sep">:</span>
-      <div class="cd-unit"><b>00</b><span>Sec</span></div>`;
+      <div class="cd-unit"><b>00</b><span>sec</span></div>`;
     return;
   }
   const s = Math.floor(diff/1000);
   const parts = [
-    [Math.floor(s/86400), 'Days'],
-    [Math.floor(s%86400/3600), 'Hrs'],
-    [Math.floor(s%3600/60), 'Min'],
-    [s%60, 'Sec'],
+    [Math.floor(s/86400), 'days'],
+    [Math.floor(s%86400/3600), 'hrs'],
+    [Math.floor(s%3600/60), 'min'],
+    [s%60, 'sec'],
   ];
   el.innerHTML = parts.map(([v,l],i) =>
     `<div class="cd-unit"><b>${pad2(v)}</b><span>${l}</span></div>${i<3?'<span class="cd-sep">:</span>':''}`
@@ -505,37 +503,71 @@ function tickCountdown(){
 setInterval(tickCountdown, 1000);
 
 /* ==========================================================================
-   VOTE FLOW
+   VOTE FLOW  —  FIXED
    ========================================================================== */
+
+/* NOTE: We now store INDICES for bundle/coin/brand, not object references.
+   Object references break whenever Firebase pushes a new settings snapshot. */
 const flow = {
-  open:false, step:1, cid:null, bundle:null, custom:'', method:null,
-  coin:null, brand:null, code:'', txHash:'', voterName:'', voterEmail:'', ref:null,
+  open: false,
+  step: 1,
+  cid: null,
+  bundleIdx: null,       // index into S.settings.bundles
+  custom: '',            // string from the custom input
+  method: null,
+  coinIdx: 0,            // index into S.settings.coins
+  brandIdx: 0,           // index into S.settings.giftBrands
+  code: '',
+  txHash: '',
+  voterName: '',
+  voterEmail: '',
+  ref: null,             // human ref, e.g. CRAVE-ABCDE
+  orderId: null,         // DB key
 };
 
 function openVote(cid){
   Object.assign(flow, {
-    open:true, step:1, cid, bundle:null, custom:'', method:null,
-    coin:null, brand:null, code:'', txHash:'', voterName:'', voterEmail:'', ref:null,
+    open: true, step: 1, cid,
+    bundleIdx: null, custom: '', method: null,
+    coinIdx: 0, brandIdx: 0,
+    code: '', txHash: '', voterName: '', voterEmail: '',
+    ref: null, orderId: null,
   });
   renderVoteModal();
 }
-function closeVote(){ flow.open=false; $('#modal-root').innerHTML=''; }
+
+/* NOTE: Don't call router() from inside closeVote — router calls closeVote itself. */
+function closeVote(){
+  const wasOpen = flow.open;
+  flow.open = false;
+  $('#modal-root').innerHTML = '';
+  if (wasOpen && booted && pendingRender){
+    pendingRender = false;
+    queueMicrotask(() => { if (!flow.open) router(); });
+  }
+}
 
 function selection(){
   if (!flow.cid) return null;
+
+  // Custom number takes priority
   if (flow.custom){
     const n = Math.max(1, Math.min(9999, parseInt(flow.custom,10) || 1));
-    return { base:n, bonus:0, total:n, price: n * S.settings.pricePerVote };
+    const ppv = Number(S.settings.pricePerVote) || 3;
+    return { base:n, bonus:0, total:n, price: n * ppv };
   }
-  if (flow.bundle){
-    const b = flow.bundle;
+
+  if (flow.bundleIdx != null){
+    const list = S.settings.bundles || [];
+    const b = list[flow.bundleIdx];
+    if (!b) return null;
     return { base:b.votes, bonus:b.bonus||0, total:b.votes+(b.bonus||0), price:b.price };
   }
   return null;
 }
 
 function asideHTML(c){
-  const grad = `linear-gradient(155deg, ${esc(c.c1||'#444')}, ${esc(c.c2||'#111')})`;
+  const grad = `linear-gradient(150deg, ${esc(c.c1||'#c9a96a')}, ${esc(c.c2||'#1a140e')})`;
   return `
   <aside class="modal-aside">
     <div class="modal-aside-portrait" style="background:${c.photo?'#000':grad}">
@@ -544,7 +576,7 @@ function asideHTML(c){
         : `<span class="detail-initial">${initialChar(c)}</span>`}
     </div>
     <div class="modal-aside-meta">
-      <div class="caps">You're voting for</div>
+      <div class="caps accent">You're voting for</div>
       <h3>${esc(c.name)}</h3>
       <p>${esc(c.tagline||'')}</p>
     </div>
@@ -557,16 +589,20 @@ function renderVoteModal(){
   if (!c){ closeVote(); return; }
   const sel = selection();
   const st = S.settings;
+  const bundles = st.bundles || [];
+  const coins = st.coins || [];
+  const brands = st.giftBrands || [];
 
   let body = '';
   let title = 'Choose your <em>votes</em>';
-  let kicker = `N°01 — Bundles`;
+  let kicker = '01 — Bundles';
 
+  /* -------- STEP 1 -------- */
   if (flow.step === 1){
     body = `
       <div class="bundles">
-        ${st.bundles.map((b,i) => {
-          const active = flow.bundle === st.bundles[i];
+        ${bundles.map((b,i) => {
+          const active = !flow.custom && flow.bundleIdx === i;
           return `<button class="bundle ${active?'sel':''}" data-bundle="${i}">
             ${b.bonus ? `<span class="bundle-bonus">+${b.bonus}</span>` : ''}
             <span class="bundle-num">${b.votes}</span>
@@ -577,18 +613,19 @@ function renderVoteModal(){
       </div>
       <div class="custom-row">
         <label>Custom</label>
-        <input type="number" min="1" max="9999" id="custom-votes" placeholder="Enter any number" value="${esc(flow.custom)}">
+        <input type="number" min="1" max="9999" id="custom-votes" placeholder="Any number" value="${esc(flow.custom)}" inputmode="numeric">
       </div>
       ${sel ? `<div class="summary">
-        <span><b>${sel.total}</b> vote${sel.total>1?'s':''}${sel.bonus?` · ${sel.base} + ${sel.bonus} bonus`:''}</span>
+        <span><b>${sel.total}</b> vote${sel.total>1?'s':''}${sel.bonus?` · +${sel.bonus} bonus`:''}</span>
         <span class="total">${money(sel.price)}</span>
       </div>` : ''}
-      <button class="cta" id="to-step-2" ${sel?'':'disabled'}>Continue to payment</button>`;
+      <button class="cta" id="to-step-2" ${sel?'':'disabled'}>Continue</button>`;
   }
 
+  /* -------- STEP 2 -------- */
   if (flow.step === 2){
     title = 'Choose your <em>method</em>';
-    kicker = 'N°02 — Payment';
+    kicker = '02 — Payment';
     body = `
       <div class="summary">
         <span><b>${sel.total}</b> vote${sel.total>1?'s':''} for ${esc(c.name.split(' ')[0])}</span>
@@ -613,10 +650,11 @@ function renderVoteModal(){
       <button class="cta-back" data-back>Back</button>`;
   }
 
+  /* -------- STEP 3 — CRYPTO -------- */
   if (flow.step === 3 && flow.method === 'crypto'){
-    if (!flow.coin) flow.coin = st.coins[0];
+    const coin = coins[flow.coinIdx] || coins[0];
     title = 'Send the <em>payment</em>';
-    kicker = 'N°03 — Crypto';
+    kicker = '03 — Crypto';
     body = `
       <div class="summary">
         <span><b>${sel.total}</b> vote${sel.total>1?'s':''}</span>
@@ -625,14 +663,14 @@ function renderVoteModal(){
       <div class="field">
         <label>Coin &amp; network</label>
         <select id="coin-select">
-          ${st.coins.map(co => `<option value="${esc(co.id)}" ${flow.coin.id===co.id?'selected':''}>${esc(co.label)} — ${esc(co.network)}</option>`).join('')}
+          ${coins.map((co,i) => `<option value="${i}" ${flow.coinIdx===i?'selected':''}>${esc(co.label)} — ${esc(co.network)}</option>`).join('')}
         </select>
       </div>
-      <div class="alert warn">
-        Send exactly <b>${money(sel.price)}</b> worth of ${esc(flow.coin.label)} on the <b>${esc(flow.coin.network)}</b> network.
+      <div class="alert warn" id="coin-warn">
+        Send exactly <b>${money(sel.price)}</b> worth of ${esc(coin.label)} on the <b>${esc(coin.network)}</b> network.
         Wrong-network transfers are permanently lost.
       </div>
-      <div class="addr">${esc(flow.coin.address)}</div>
+      <div class="addr" id="pay-addr">${esc(coin.address)}</div>
       <button class="cta-back" id="copy-addr" style="margin-bottom:16px">Copy address</button>
       <div class="field">
         <label>Transaction hash (optional)</label>
@@ -642,14 +680,15 @@ function renderVoteModal(){
         <div class="field"><label>Name (optional)</label><input id="vname" value="${esc(flow.voterName)}" placeholder="Ada"></div>
         <div class="field"><label>Email (optional)</label><input id="vemail" value="${esc(flow.voterEmail)}" placeholder="you@mail.com"></div>
       </div>
-      <button class="cta" id="submit-crypto">I have sent the payment</button>
+      <button class="cta" id="submit-crypto">I've sent the payment</button>
       <button class="cta-back" data-back>Back</button>`;
   }
 
+  /* -------- STEP 3 — GIFT CARD -------- */
   if (flow.step === 3 && flow.method === 'giftcard'){
-    if (!flow.brand) flow.brand = st.giftBrands[0];
+    const brand = brands[flow.brandIdx] || brands[0];
     title = 'Enter the <em>code</em>';
-    kicker = 'N°03 — Gift card';
+    kicker = '03 — Gift card';
     body = `
       <div class="summary">
         <span><b>${sel.total}</b> vote${sel.total>1?'s':''}</span>
@@ -658,12 +697,12 @@ function renderVoteModal(){
       <div class="field">
         <label>Brand</label>
         <select id="brand-select">
-          ${st.giftBrands.map(b => `<option value="${esc(b.id)}" ${flow.brand.id===b.id?'selected':''}>${esc(b.label)}</option>`).join('')}
+          ${brands.map((b,i) => `<option value="${i}" ${flow.brandIdx===i?'selected':''}>${esc(b.label)}</option>`).join('')}
         </select>
       </div>
-      <div class="alert info">${esc(flow.brand.note)}</div>
+      <div class="alert info" id="brand-note">${esc(brand.note)}</div>
       <div class="alert warn">
-        Buy a card worth at least <b>${money(sel.price)}</b>. A human reviews every code before votes are credited — usually within a few hours.
+        Buy a card worth at least <b>${money(sel.price)}</b>. A human reviews every code before votes are credited.
       </div>
       <div class="field">
         <label>Gift card code</label>
@@ -677,25 +716,26 @@ function renderVoteModal(){
       <button class="cta-back" data-back>Back</button>`;
   }
 
+  /* -------- STEP 4 — RECEIPT -------- */
   if (flow.step === 4){
-    const o = S.orders.find(x => x.ref === flow.ref);
+    const o = S.orders.find(x => x.id === flow.orderId) || S.orders.find(x => x.ref === flow.ref);
     const confirmed = o && o.status === 'confirmed';
     kicker = confirmed ? 'Credited' : 'Pending';
     title = confirmed ? 'Votes <em>credited</em>' : 'Payment <em>submitted</em>';
     body = `
       <div class="receipt">
-        <div class="receipt-icon">${confirmed?'✦':'⌛'}</div>
+        <div class="receipt-icon">${confirmed?'✓':'⌛'}</div>
         <h3>${confirmed ? 'Your votes count' : 'Waiting on confirmation'}</h3>
         <p>${confirmed
-          ? `Your ${sel.total} vote${sel.total>1?'s':''} for ${esc(c.name)} have been added to the standings.`
-          : `Your order is queued. Votes appear on the standings the moment payment clears.`}</p>
+          ? `Your ${sel ? sel.total : ''} vote${sel && sel.total>1?'s':''} for ${esc(c.name)} are on the board.`
+          : `Your order is queued. Votes appear the moment payment clears.`}</p>
         <div class="receipt-card">
-          Ref: <b>${esc(flow.ref)}</b><br>
-          Contestant: <b>${esc(c.name)}</b><br>
-          Votes: <b>${sel.total}</b><br>
-          Amount: <b>${money(sel.price)}</b><br>
-          Method: <b>${esc(o ? o.detail : '')}</b><br>
-          Status: <span class="status ${confirmed?'confirmed':''}">${o ? String(o.status).toUpperCase() : ''}</span>
+          <span>Ref</span><b>${esc(flow.ref || '—')}</b>
+          <span>Contestant</span><b>${esc(c.name)}</b>
+          <span>Votes</span><b>${sel ? sel.total : '—'}</b>
+          <span>Amount</span><b>${sel ? money(sel.price) : '—'}</b>
+          <span>Method</span><b>${esc(o ? o.detail : '—')}</b>
+          <span>Status</span><b class="status ${confirmed?'confirmed':''}">${o ? String(o.status).toUpperCase() : '—'}</b>
         </div>
         <button class="cta" id="share-after">Share ${esc(c.name.split(' ')[0])}'s link</button>
         <button class="cta-back" data-close>Close</button>
@@ -710,7 +750,7 @@ function renderVoteModal(){
         <div class="modal-main">
           <div class="modal-head">
             <div>
-              <div class="caps">${kicker}</div>
+              <div class="caps accent">${kicker}</div>
               <h2 class="modal-title">${title}</h2>
             </div>
             <button class="modal-close" data-close>×</button>
@@ -728,51 +768,114 @@ function renderVoteModal(){
   bindVoteModal();
 }
 
+/* --------------------------------------------------------------------------
+   Helper: refresh step-1 summary + continue button WITHOUT re-rendering
+   -------------------------------------------------------------------------- */
+function refreshStep1UI(root){
+  const sel = selection();
+
+  // Highlight correct bundle (only if custom is empty)
+  $$('[data-bundle]', root).forEach(b => {
+    const idx = +b.dataset.bundle;
+    b.classList.toggle('sel', !flow.custom && flow.bundleIdx === idx);
+  });
+
+  // Update or create summary
+  let summary = $('.summary', root);
+  const continueBtn = $('#to-step-2', root);
+
+  if (sel){
+    const html = `
+      <span><b>${sel.total}</b> vote${sel.total>1?'s':''}${sel.bonus?` · +${sel.bonus} bonus`:''}</span>
+      <span class="total">${money(sel.price)}</span>`;
+    if (summary) summary.innerHTML = html;
+    else if (continueBtn){
+      summary = document.createElement('div');
+      summary.className = 'summary';
+      summary.innerHTML = html;
+      continueBtn.before(summary);
+    }
+  } else if (summary){
+    summary.remove();
+  }
+
+  if (continueBtn) continueBtn.disabled = !sel;
+}
+
 function bindVoteModal(){
   const root = $('#modal-root');
+  if (!root) return;
 
   $$('[data-close]', root).forEach(b => b.onclick = closeVote);
-  $('[data-close-bg]', root).onclick = e => {
-    if (e.target.dataset.closeBg !== undefined) closeVote();
-  };
-  $$('[data-back]', root).forEach(b => b.onclick = () => { flow.step--; renderVoteModal(); });
-
-  $$('[data-bundle]', root).forEach(b => b.onclick = () => {
-    flow.bundle = S.settings.bundles[+b.dataset.bundle];
-    flow.custom = '';
+  const bg = $('[data-close-bg]', root);
+  if (bg) bg.onclick = e => { if (e.target.dataset.closeBg !== undefined) closeVote(); };
+  $$('[data-back]', root).forEach(b => b.onclick = () => {
+    flow.step = Math.max(1, flow.step - 1);
     renderVoteModal();
   });
+
+  /* -------- STEP 1 -------- */
+  $$('[data-bundle]', root).forEach(b => b.onclick = () => {
+    flow.bundleIdx = +b.dataset.bundle;
+    flow.custom = '';
+    const ci = $('#custom-votes', root);
+    if (ci) ci.value = '';
+    refreshStep1UI(root);
+  });
+
   const custom = $('#custom-votes', root);
-  if (custom) custom.oninput = e => {
-    flow.custom = e.target.value;
-    flow.bundle = null;
-    renderVoteModal();
-  };
+  if (custom){
+    /* NOTE: Do NOT re-render on every keystroke — that killed focus. */
+    custom.oninput = e => {
+      // Keep only digits
+      const v = e.target.value.replace(/[^0-9]/g,'').slice(0,4);
+      e.target.value = v;
+      flow.custom = v;
+      if (v) flow.bundleIdx = null;
+      refreshStep1UI(root);
+    };
+  }
+
   const next = $('#to-step-2', root);
   if (next) next.onclick = () => { flow.step = 2; renderVoteModal(); };
 
+  /* -------- STEP 2 -------- */
   $$('[data-method]', root).forEach(b => b.onclick = () => {
     flow.method = b.dataset.method;
     flow.step = 3;
     renderVoteModal();
   });
 
+  /* -------- STEP 3 — CRYPTO -------- */
   const coinSel = $('#coin-select', root);
   if (coinSel) coinSel.onchange = e => {
-    flow.coin = S.settings.coins.find(c => c.id === e.target.value);
-    renderVoteModal();
+    flow.coinIdx = +e.target.value;
+    const coin = (S.settings.coins || [])[flow.coinIdx];
+    const addrEl = $('#pay-addr', root);
+    const warnEl = $('#coin-warn', root);
+    if (addrEl && coin) addrEl.textContent = coin.address;
+    if (warnEl && coin){
+      const sel = selection();
+      warnEl.innerHTML = `Send exactly <b>${money(sel.price)}</b> worth of ${esc(coin.label)} on the <b>${esc(coin.network)}</b> network. Wrong-network transfers are permanently lost.`;
+    }
   };
+
   const copyAddr = $('#copy-addr', root);
   if (copyAddr) copyAddr.onclick = async () => {
-    try { await navigator.clipboard.writeText(flow.coin.address); toast('Address copied','good'); }
+    const coin = (S.settings.coins || [])[flow.coinIdx];
+    if (!coin) return;
+    try { await navigator.clipboard.writeText(coin.address); toast('Address copied','good'); }
     catch(e){ toast('Copy failed','bad'); }
   };
+
   const subCrypto = $('#submit-crypto', root);
   if (subCrypto) subCrypto.onclick = async () => {
-    flow.txHash = $('#txhash', root).value.trim();
-    flow.voterName = $('#vname', root).value.trim();
-    flow.voterEmail = $('#vemail', root).value.trim();
+    flow.txHash     = ($('#txhash', root)?.value || '').trim();
+    flow.voterName  = ($('#vname', root)?.value || '').trim();
+    flow.voterEmail = ($('#vemail', root)?.value || '').trim();
     const sel = selection();
+    const coin = (S.settings.coins || [])[flow.coinIdx];
+    if (!sel || !coin) return;
 
     subCrypto.disabled = true;
     let order;
@@ -780,15 +883,16 @@ function bindVoteModal(){
       order = await createOrder({
         cid: flow.cid, votes: sel.total, base: sel.base, bonus: sel.bonus,
         amount: sel.price, method: 'crypto',
-        detail: flow.coin.label + ' · ' + flow.coin.network,
+        detail: coin.label + ' · ' + coin.network,
         proof: { txHash: flow.txHash, code: '' },
       });
     } catch(e){
       subCrypto.disabled = false;
-      toast('Could not submit order: ' + e.message, 'bad');
+      toast('Could not submit: ' + e.message, 'bad');
       return;
     }
     flow.ref = order.ref;
+    flow.orderId = order.id;
     flow.step = 4;
 
     if (S.settings.autoConfirmCrypto){
@@ -806,34 +910,41 @@ function bindVoteModal(){
     renderVoteModal();
   };
 
+  /* -------- STEP 3 — GIFT CARD -------- */
   const brandSel = $('#brand-select', root);
   if (brandSel) brandSel.onchange = e => {
-    flow.brand = S.settings.giftBrands.find(b => b.id === e.target.value);
-    renderVoteModal();
+    flow.brandIdx = +e.target.value;
+    const brand = (S.settings.giftBrands || [])[flow.brandIdx];
+    const noteEl = $('#brand-note', root);
+    if (noteEl && brand) noteEl.textContent = brand.note;
   };
+
   const subGift = $('#submit-gift', root);
   if (subGift) subGift.onclick = async () => {
-    const code = $('#gift-code', root).value.trim();
+    const code = ($('#gift-code', root)?.value || '').trim();
     if (code.length < 6){ toast('Enter the full gift card code','bad'); return; }
-    flow.code = code;
-    flow.voterName = $('#vname', root).value.trim();
-    flow.voterEmail = $('#vemail', root).value.trim();
+    flow.code       = code;
+    flow.voterName  = ($('#vname', root)?.value || '').trim();
+    flow.voterEmail = ($('#vemail', root)?.value || '').trim();
     const sel = selection();
+    const brand = (S.settings.giftBrands || [])[flow.brandIdx];
+    if (!sel || !brand) return;
 
     subGift.disabled = true;
     let order;
     try {
       order = await createOrder({
         cid: flow.cid, votes: sel.total, base: sel.base, bonus: sel.bonus,
-        amount: sel.price, method: 'giftcard', detail: flow.brand.label,
+        amount: sel.price, method: 'giftcard', detail: brand.label,
         proof: { txHash: '', code },
       });
     } catch(e){
       subGift.disabled = false;
-      toast('Could not submit order: ' + e.message, 'bad');
+      toast('Could not submit: ' + e.message, 'bad');
       return;
     }
     flow.ref = order.ref;
+    flow.orderId = order.id;
     flow.step = 4;
 
     if (S.settings.autoConfirmGift){
@@ -850,11 +961,12 @@ function bindVoteModal(){
     renderVoteModal();
   };
 
+  /* -------- STEP 4 -------- */
   const shareAfter = $('#share-after', root);
   if (shareAfter) shareAfter.onclick = () => {
     const c = S.contestants.find(x => x.id === flow.cid);
     closeVote();
-    location.hash = '#/c/' + c.slug;
+    if (c) location.hash = '#/c/' + c.slug;
   };
 }
 
@@ -891,6 +1003,7 @@ window.addEventListener('hashchange', router);
    BOOT
    ========================================================================== */
 let booted = false;
+let pendingRender = false;
 
 onData(() => {
   refreshState();
@@ -898,10 +1011,10 @@ onData(() => {
   if (!DB.ready.contestants || !DB.ready.settings){
     if (!booted){
       $('#app').innerHTML = `
-        <div style="min-height:100vh;display:grid;place-items:center;color:var(--bone-dim)">
+        <div style="min-height:100vh;display:grid;place-items:center;color:var(--ink-3)">
           <div style="text-align:center">
-            <div style="font-family:var(--serif);font-size:44px;letter-spacing:.06em;color:var(--bone);margin-bottom:14px">CRAVE</div>
-            <div style="font-size:11px;letter-spacing:.28em;text-transform:uppercase">Loading…</div>
+            <div style="font-family:var(--sans);font-weight:800;font-size:34px;letter-spacing:-.03em;color:var(--ink);margin-bottom:14px">CRAVE</div>
+            <div style="font-family:var(--mono);font-size:10px;letter-spacing:.28em;text-transform:uppercase">Loading…</div>
           </div>
         </div>`;
     }
@@ -914,7 +1027,12 @@ onData(() => {
     return;
   }
 
-  if (!flow.open) router();
+  if (flow.open){
+    // Modal is open — don't blow away its DOM. Re-render once it closes.
+    pendingRender = true;
+  } else {
+    router();
+  }
 });
 
 subscribe();
