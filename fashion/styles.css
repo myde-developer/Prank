@@ -764,6 +764,7 @@ footer{
   padding:16px 22px;color:var(--ink-3);
   font-family:var(--mono);font-size:12.5px;
   outline:none;
+  min-width:0;
 }
 .share-url-row button{
   padding:0 26px;
@@ -792,7 +793,6 @@ footer{
 /* ==========================================================================
    VOTE MODAL
    ========================================================================== */
-
 .backdrop{
   position:fixed;inset:0;
   background:rgba(26,20,14,.55);
@@ -823,7 +823,6 @@ footer{
   to{opacity:1;transform:translateY(0)}
 }
 
-/* ---- aside (portrait + contestant info) ---- */
 .modal-aside{
   background:var(--card-2);
   padding:28px 24px;
@@ -856,12 +855,11 @@ footer{
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 
-/* ---- main scroll area ---- */
 .modal-main{
   padding:28px 32px 32px;
   overflow-y:auto;
   display:flex;flex-direction:column;
-  min-height:0;                     /* critical for flex + scroll */
+  min-height:0;
   -webkit-overflow-scrolling:touch;
 }
 
@@ -900,7 +898,7 @@ footer{
 }
 .steps i.on{background:var(--accent)}
 
-/* ---- bundles ---- */
+/* Bundles */
 .bundles{
   display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));
   gap:10px;margin-bottom:20px;
@@ -948,7 +946,7 @@ footer{
 }
 .bundle.sel .bundle-num{color:var(--accent)}
 
-/* ---- custom votes input ---- */
+/* Custom row */
 .custom-row{
   display:flex;gap:10px;align-items:stretch;margin-bottom:22px;
 }
@@ -974,7 +972,6 @@ footer{
   flex:none;
 }
 
-/* ---- summary strip ---- */
 .summary{
   display:flex;align-items:center;justify-content:space-between;
   gap:12px;
@@ -992,7 +989,7 @@ footer{
   flex:none;
 }
 
-/* ---- payment method tiles ---- */
+/* Payment tiles */
 .pay-tiles{
   display:grid;grid-template-columns:1fr 1fr;
   gap:12px;margin-bottom:20px;
@@ -1025,7 +1022,7 @@ footer{
   color:var(--ink-3);font-weight:600;
 }
 
-/* ---- fields ---- */
+/* Fields */
 .field{margin-bottom:14px}
 .field label{
   display:block;
@@ -1052,7 +1049,7 @@ footer{
 }
 .field-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 
-/* ---- alerts ---- */
+/* Alerts */
 .alert{
   padding:14px 18px;font-size:13.5px;line-height:1.6;
   margin-bottom:14px;border-radius:12px;
@@ -1064,7 +1061,6 @@ footer{
 .alert.ok{border-left-color:var(--green)}
 .alert b{color:var(--ink);font-weight:600}
 
-/* ---- address ---- */
 .addr{
   padding:18px 20px;margin-bottom:14px;
   background:var(--ink);color:var(--card);
@@ -1073,7 +1069,6 @@ footer{
   word-break:break-all;line-height:1.6;
 }
 
-/* ---- CTAs ---- */
 .cta{
   width:100%;padding:17px 22px;
   background:var(--accent);color:var(--card);
@@ -1099,7 +1094,7 @@ footer{
 }
 .cta-back:hover{color:var(--ink);border-color:var(--ink)}
 
-/* ---- receipt ---- */
+/* Receipt */
 .receipt{text-align:center;padding:8px 0}
 .receipt-icon{
   width:64px;height:64px;
@@ -1143,444 +1138,6 @@ footer{
 }
 .receipt-card .status{color:var(--amber)}
 .receipt-card .status.confirmed{color:var(--green)}
-
-/* ==========================================================================
-   VOTE MODAL — MOBILE
-   Full-screen sheet · sticky header · compact contestant strip
-   ========================================================================== */
-
-@media(max-width:820px){
-
-  /* ---- backdrop: no side padding, fill screen ---- */
-  .backdrop{
-    padding:0;
-    place-items:stretch;
-    overflow:hidden;
-  }
-
-  /* ---- modal: full-screen native-feeling sheet ---- */
-  .vote-modal{
-    display:flex;
-    flex-direction:column;
-    grid-template-columns:none;
-    width:100%;
-    max-width:none;
-    max-height:none;
-    height:100vh;
-    height:100dvh;                 /* dynamic viewport — handles mobile URL bars */
-    border:none;
-    border-radius:0;
-    box-shadow:none;
-    animation:sheetUp .35s var(--ease);
-    /* Respect notches / home indicator */
-    padding-top:env(safe-area-inset-top);
-    padding-bottom:env(safe-area-inset-bottom);
-  }
-  @keyframes sheetUp{
-    from{opacity:0;transform:translateY(24px)}
-    to{opacity:1;transform:translateY(0)}
-  }
-
-  /* ---- aside → compact horizontal strip ---- */
-  .modal-aside{
-    flex-direction:row;
-    align-items:center;
-    gap:14px;
-    padding:14px 18px;
-    border-right:none;
-    border-bottom:1px solid var(--line);
-    background:var(--card);
-    flex:none;
-  }
-  .modal-aside-portrait{
-    width:52px;height:52px;
-    aspect-ratio:1;
-    border-radius:50%;
-    flex:none;
-  }
-  .modal-aside-portrait .detail-initial{
-    font-size:22px;
-    letter-spacing:-.02em;
-  }
-  .modal-aside-meta{
-    margin:0;
-    flex:1;
-    min-width:0;
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
-    gap:2px;
-  }
-  .modal-aside-meta .caps{
-    font-size:9px;
-    letter-spacing:.22em;
-    margin-bottom:2px;
-    color:var(--accent);
-  }
-  .modal-aside-meta h3{
-    font-size:17px;
-    letter-spacing:-.02em;
-    margin-bottom:0;
-    line-height:1.15;
-  }
-  .modal-aside-meta p{
-    font-size:9.5px;
-    letter-spacing:.16em;
-  }
-
-  /* ---- main scroll area ---- */
-  .modal-main{
-    padding:18px 18px 24px;
-    flex:1;
-    min-height:0;
-    overflow-y:auto;
-    -webkit-overflow-scrolling:touch;
-    /* Give extra breathing room above iOS home indicator */
-    padding-bottom:max(24px, calc(env(safe-area-inset-bottom) + 20px));
-  }
-
-  /* ---- head ---- */
-  .modal-head{
-    margin-bottom:14px;
-    gap:12px;
-  }
-  .modal-head .caps{
-    font-size:9px;
-    letter-spacing:.22em;
-    margin-bottom:6px;
-  }
-  .modal-title{
-    font-size:22px;
-    line-height:1.05;
-    letter-spacing:-.03em;
-  }
-  .modal-close{
-    width:34px;height:34px;
-    font-size:16px;
-  }
-
-  /* ---- progress steps ---- */
-  .steps{
-    gap:5px;
-    margin-bottom:18px;
-  }
-  .steps i{height:3px}
-
-  /* ---- bundles: clean 2-up grid ---- */
-  .bundles{
-    grid-template-columns:repeat(2,1fr);
-    gap:10px;
-    margin-bottom:16px;
-  }
-  .bundle{
-    padding:14px 14px;
-    border-radius:12px;
-    min-height:96px;
-  }
-  .bundle-num{
-    font-size:26px;
-    margin-bottom:2px;
-  }
-  .bundle-unit{
-    font-size:8.5px;
-    letter-spacing:.2em;
-    margin-bottom:12px;
-  }
-  .bundle-price{
-    font-size:11.5px;
-  }
-  .bundle-bonus{
-    top:10px;right:10px;
-    font-size:8px;
-    padding:2px 6px;
-  }
-
-  /* ---- custom input ---- */
-  .custom-row{
-    gap:8px;
-    margin-bottom:16px;
-  }
-  .custom-row input{
-    padding:13px 14px;
-    font-size:16px;               /* prevents iOS auto-zoom */
-    min-height:50px;
-  }
-  .custom-row label{
-    padding:0 14px;
-    font-size:9px;
-    letter-spacing:.18em;
-  }
-
-  /* ---- summary ---- */
-  .summary{
-    padding:12px 16px;
-    margin-bottom:14px;
-    font-size:12px;
-    border-radius:10px;
-    gap:10px;
-  }
-  .summary .total{
-    font-size:20px;
-  }
-
-  /* ---- payment tiles → stacked rows ---- */
-  .pay-tiles{
-    grid-template-columns:1fr;
-    gap:10px;
-    margin-bottom:16px;
-  }
-  .pay-tile{
-    flex-direction:row;
-    align-items:center;
-    gap:14px;
-    padding:16px 16px;
-    min-height:auto;
-    border-radius:12px;
-  }
-  .pay-tile-icon{
-    font-size:20px;
-    width:42px;height:42px;
-    display:grid;place-items:center;
-    background:var(--accent-soft);
-    border-radius:50%;
-    flex:none;
-    color:var(--accent);
-  }
-  .pay-tile-title{
-    font-size:17px;
-    margin-bottom:2px;
-  }
-  .pay-tile-sub{
-    font-size:9px;
-  }
-
-  /* ---- fields ---- */
-  .field{margin-bottom:12px}
-  .field label{
-    font-size:9px;
-    letter-spacing:.2em;
-    margin-bottom:6px;
-  }
-  .field input,
-  .field select,
-  .field textarea{
-    padding:13px 14px;
-    font-size:16px;               /* prevents iOS auto-zoom */
-    border-radius:10px;
-    min-height:50px;
-  }
-  .field select{padding-right:38px}
-  .field-grid{
-    grid-template-columns:1fr;
-    gap:10px;
-  }
-
-  /* ---- alerts ---- */
-  .alert{
-    padding:12px 14px;
-    font-size:12.5px;
-    line-height:1.55;
-    margin-bottom:12px;
-    border-radius:10px;
-  }
-
-  /* ---- address ---- */
-  .addr{
-    padding:14px 16px;
-    margin-bottom:12px;
-    font-size:11.5px;
-    line-height:1.55;
-    border-radius:10px;
-  }
-
-  /* ---- CTAs: bigger touch targets ---- */
-  .cta{
-    padding:16px 22px;
-    font-size:10.5px;
-    letter-spacing:.2em;
-    min-height:54px;
-    margin-top:6px;
-  }
-  .cta-back{
-    padding:13px 22px;
-    font-size:9.5px;
-    min-height:48px;
-    margin-top:10px;
-  }
-
-  /* ---- receipt ---- */
-  .receipt{padding:2px 0}
-  .receipt-icon{
-    width:56px;height:56px;
-    font-size:26px;
-    margin-bottom:16px;
-  }
-  .receipt h3{
-    font-size:22px;
-    margin-bottom:8px;
-  }
-  .receipt p{
-    font-size:13.5px;
-    margin-bottom:18px;
-    max-width:100%;
-    padding:0 6px;
-  }
-  .receipt-card{
-    padding:16px 18px;
-    font-size:11.5px;
-    border-radius:12px;
-    margin-bottom:16px;
-    gap:8px 14px;
-  }
-  .receipt-card span{font-size:9px}
-}
-
-/* ==========================================================================
-   SMALL PHONES  (iPhone SE, etc.)
-   ========================================================================== */
-@media(max-width:380px){
-  .modal-aside{padding:12px 14px;gap:12px}
-  .modal-aside-portrait{width:44px;height:44px}
-  .modal-aside-portrait .detail-initial{font-size:18px}
-  .modal-aside-meta h3{font-size:15px}
-
-  .modal-main{padding:16px 14px 20px}
-  .modal-title{font-size:20px}
-
-  .bundles{gap:8px}
-  .bundle{padding:12px 12px;min-height:88px}
-  .bundle-num{font-size:22px}
-  .bundle-unit{margin-bottom:10px}
-
-  .field input,
-  .field select,
-  .field textarea{padding:12px 12px}
-  .cta{min-height:50px;padding:15px 20px}
-  .receipt h3{font-size:20px}
-  .receipt-card{padding:14px 16px;font-size:11px}
-}
-
-/* ==========================================================================
-   VOTE MODAL — MOBILE (scrollable)
-   ========================================================================== */
-@media(max-width:820px){
-
-  /* backdrop becomes the scroll container */
-  .backdrop{
-    padding:16px;
-    place-items:start center;
-    overflow-y:auto;
-    -webkit-overflow-scrolling:touch;
-  }
-
-  /* modal: natural height, no inner scroll traps */
-  .vote-modal{
-    display:block;              /* kill the 2-column grid */
-    width:100%;
-    max-width:520px;
-    max-height:none;            /* let it grow with content */
-    margin:16px auto;
-    border-radius:20px;
-    overflow:visible;
-  }
-
-  /* aside stacks on top as a compact strip */
-  .modal-aside{
-    flex-direction:row;
-    align-items:center;
-    gap:14px;
-    padding:14px 18px;
-    border-right:none;
-    border-bottom:1px solid var(--line);
-    border-radius:20px 20px 0 0;
-  }
-  .modal-aside-portrait{
-    width:56px;height:56px;
-    aspect-ratio:1;
-    border-radius:12px;
-    flex:none;
-  }
-  .modal-aside-portrait .detail-initial{
-    font-size:24px;
-  }
-  .modal-aside-meta{
-    margin:0;
-    flex:1;
-    min-width:0;
-  }
-  .modal-aside-meta .caps{margin-bottom:4px}
-  .modal-aside-meta h3{
-    font-size:18px;
-    margin-bottom:2px;
-    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  }
-  .modal-aside-meta p{
-    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  }
-
-  /* main content — no internal scrollbar */
-  .modal-main{
-    padding:20px 18px 24px;
-    overflow:visible;
-    max-height:none;
-  }
-
-  .modal-title{font-size:24px}
-
-  /* bundles 2-up on phones */
-  .bundles{
-    grid-template-columns:repeat(2,1fr);
-    gap:10px;
-  }
-  .bundle{min-height:96px;padding:14px 14px}
-
-  /* payment tiles stack as rows */
-  .pay-tiles{grid-template-columns:1fr;gap:10px}
-  .pay-tile{
-    flex-direction:row;
-    align-items:center;
-    gap:14px;
-    padding:16px;
-    min-height:auto;
-  }
-  .pay-tile-icon{
-    width:44px;height:44px;
-    display:grid;place-items:center;
-    background:var(--accent-soft);
-    border-radius:50%;
-    font-size:20px;
-    flex:none;
-  }
-  .pay-tile > div{flex:1;min-width:0}
-
-  /* inputs — 16px prevents iOS auto-zoom */
-  .field input,
-  .field select,
-  .field textarea{
-    font-size:16px;
-    padding:13px 14px;
-    min-height:48px;
-  }
-  .custom-row input{
-    font-size:16px;
-    min-height:48px;
-  }
-  .field-grid{grid-template-columns:1fr}
-
-  /* bigger touch targets */
-  .cta{
-    padding:16px 22px;
-    min-height:52px;
-    font-size:11px;
-  }
-  .cta-back{
-    padding:13px 22px;
-    min-height:46px;
-  }
-
-  .receipt h3{font-size:24px}
-  .receipt p{font-size:14px}
-}
 
 /* ==========================================================================
    TOAST
@@ -1656,19 +1213,100 @@ footer{
   .foot-right{text-align:left}
   .foot-right a{margin:0 20px 0 0}
 
-  .vote-modal{grid-template-columns:1fr;max-height:96vh}
-  .modal-aside{
-    border-right:none;border-bottom:1px solid var(--line);
-    padding:18px;
-    flex-direction:row;align-items:center;gap:16px;
+  /* --- MODAL: scrollable full-sheet on mobile --- */
+  .backdrop{
+    padding:16px;
+    place-items:start center;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
   }
-  .modal-aside-portrait{aspect-ratio:1;width:70px;flex:none}
-  .modal-aside-portrait .detail-initial{font-size:36px}
-  .modal-aside-meta{margin:0}
-  .modal-aside-meta h3{font-size:18px}
-  .modal-main{padding:22px 20px 26px}
-  .pay-tiles{grid-template-columns:1fr}
+  .vote-modal{
+    display:block;
+    width:100%;
+    max-width:520px;
+    max-height:none;
+    margin:16px auto;
+    border-radius:20px;
+    overflow:visible;
+  }
+  .modal-aside{
+    flex-direction:row;
+    align-items:center;
+    gap:14px;
+    padding:14px 18px;
+    border-right:none;
+    border-bottom:1px solid var(--line);
+    border-radius:20px 20px 0 0;
+  }
+  .modal-aside-portrait{
+    width:56px;height:56px;
+    aspect-ratio:1;
+    border-radius:12px;
+    flex:none;
+  }
+  .modal-aside-portrait .detail-initial{
+    font-size:24px;
+  }
+  .modal-aside-meta{
+    margin:0;
+    flex:1;
+    min-width:0;
+  }
+  .modal-aside-meta .caps{margin-bottom:4px}
+  .modal-aside-meta h3{
+    font-size:18px;
+    margin-bottom:2px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .modal-aside-meta p{
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .modal-main{
+    padding:20px 18px 24px;
+    overflow:visible;
+    max-height:none;
+  }
+  .modal-title{font-size:24px}
+
+  .bundles{grid-template-columns:repeat(2,1fr);gap:10px}
+  .bundle{min-height:96px;padding:14px}
+
+  .pay-tiles{grid-template-columns:1fr;gap:10px}
+  .pay-tile{
+    flex-direction:row;
+    align-items:center;
+    gap:14px;
+    padding:16px;
+    min-height:auto;
+  }
+  .pay-tile-icon{
+    width:44px;height:44px;
+    display:grid;place-items:center;
+    background:var(--accent-soft);
+    border-radius:50%;
+    font-size:20px;
+    flex:none;
+  }
+  .pay-tile > div{flex:1;min-width:0}
+
+  .field input,
+  .field select,
+  .field textarea{
+    font-size:16px;
+    padding:13px 14px;
+    min-height:48px;
+  }
+  .custom-row input{
+    font-size:16px;
+    min-height:48px;
+  }
   .field-grid{grid-template-columns:1fr}
+
+  .cta{padding:16px 22px;min-height:52px;font-size:11px}
+  .cta-back{padding:13px 22px;min-height:46px}
+
+  .receipt h3{font-size:24px}
+  .receipt p{font-size:14px}
 }
 
 @media(max-width:520px){
@@ -1676,9 +1314,14 @@ footer{
   .hero-left,.hero-right{padding-left:18px;padding-right:18px}
   .vote-card{padding:0}
   .display{font-size:clamp(44px,15vw,64px);margin:22px 0}
-  .bundles{grid-template-columns:repeat(2,1fr)}
-  .modal-aside{padding:14px}
+  .modal-aside{padding:12px 14px;gap:12px}
+  .modal-aside-portrait{width:48px;height:48px}
+  .modal-aside-portrait .detail-initial{font-size:20px}
+  .modal-aside-meta h3{font-size:16px}
+  .modal-main{padding:18px 16px 22px}
+  .modal-title{font-size:22px}
   .share-block{padding:26px 20px}
   .detail-stats{padding:0 18px 30px}
   .share-snippet{padding:20px 18px;font-size:14.5px}
+  .receipt-card{padding:16px 18px;font-size:11.5px}
 }
