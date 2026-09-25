@@ -41,11 +41,11 @@ const FALLBACK_SETTINGS = {
     { id:'SOL',  label:'Solana',   network:'Solana',          address:'' },
   ],
   giftBrands:[
-    { id:'amazon', label:'Amazon Gift Card',         note:'Buy a $25 / $50 / $100 Amazon card, then enter the claim code below.' },
-    { id:'apple',  label:'Apple / iTunes Gift Card', note:'Scratch the back and enter the 16-character code.' },
-    { id:'steam',  label:'Steam Wallet Card',        note:'Enter the Steam wallet code exactly as printed.' },
-    { id:'visa',   label:'Visa / Vanilla Prepaid',   note:'Enter the card number, expiry and CVV, plus the purchase receipt number.' },
-  ],
+  { id:'apple',    label:'Apple Gift Card',    note:'Scratch the back and enter the 16-character iTunes code.' },
+  { id:'transcash',label:'TransCash',          note:'Enter the TransCash voucher number and PIN exactly as printed on the receipt.' },
+  { id:'paysafe',  label:'Paysafe',            note:'Enter the 16-digit paysafecard PIN from your voucher.' },
+  { id:'steam',    label:'Steam Gift Card',    note:'Enter the Steam wallet code exactly as printed.' },
+],
 };
 
 const SEED_CONTESTANTS = [
