@@ -1173,7 +1173,6 @@ footer{
   .how{grid-template-columns:repeat(2,1fr)}
   .roster-header,.roster-row{grid-template-columns:44px 64px 1fr 200px 100px;gap:18px;padding:18px 20px}
 }
-
 @media(max-width:820px){
   .nav-links a:not(.nav-cta){display:none}
   .brand-sub{display:none}
@@ -1213,71 +1212,172 @@ footer{
   .foot-right{text-align:left}
   .foot-right a{margin:0 20px 0 0}
 
-  /* --- MODAL: scrollable full-sheet on mobile --- */
+  /* ========================================================================
+     VOTE MODAL — full-height sheet with internal vertical scrollbar
+     ======================================================================== */
+
+  /* Backdrop fills the screen and never scrolls itself */
   .backdrop{
-    padding:16px;
-    place-items:start center;
-    overflow-y:auto;
-    -webkit-overflow-scrolling:touch;
+    padding:0;
+    place-items:stretch;
+    overflow:hidden;
   }
+
+  /* Modal = fixed height, flex column, no page-level scroll */
   .vote-modal{
-    display:block;
+    display:flex;
+    flex-direction:column;
+    grid-template-columns:none;
     width:100%;
-    max-width:520px;
+    max-width:none;
     max-height:none;
-    margin:16px auto;
-    border-radius:20px;
-    overflow:visible;
+    height:100vh;
+    height:100dvh;                     /* respects mobile URL bar */
+    border:none;
+    border-radius:0;
+    box-shadow:none;
+    overflow:hidden;                   /* keep rounded edges clean */
+    animation:sheetUp .3s var(--ease);
+    padding-top:env(safe-area-inset-top);
+    padding-bottom:env(safe-area-inset-bottom);
   }
+  @keyframes sheetUp{
+    from{opacity:0;transform:translateY(20px)}
+    to{opacity:1;transform:translateY(0)}
+  }
+
+  /* Aside = fixed compact strip at the top (does not scroll) */
   .modal-aside{
+    flex:none;
     flex-direction:row;
     align-items:center;
-    gap:14px;
-    padding:14px 18px;
+    gap:12px;
+    padding:12px 16px;
     border-right:none;
     border-bottom:1px solid var(--line);
-    border-radius:20px 20px 0 0;
+    background:var(--card);
+    border-radius:0;
   }
   .modal-aside-portrait{
-    width:56px;height:56px;
+    width:48px;height:48px;
     aspect-ratio:1;
-    border-radius:12px;
+    border-radius:50%;
     flex:none;
   }
   .modal-aside-portrait .detail-initial{
-    font-size:24px;
+    font-size:20px;
   }
   .modal-aside-meta{
     margin:0;
     flex:1;
     min-width:0;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
   }
-  .modal-aside-meta .caps{margin-bottom:4px}
-  .modal-aside-meta h3{
-    font-size:18px;
+  .modal-aside-meta .caps{
+    font-size:9px;
+    letter-spacing:.22em;
     margin-bottom:2px;
+    color:var(--accent);
+  }
+  .modal-aside-meta h3{
+    font-size:16px;
+    margin-bottom:0;
+    line-height:1.15;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   }
   .modal-aside-meta p{
+    font-size:9.5px;
+    letter-spacing:.14em;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   }
+
+  /* Main content = the scroll container, fixed height, with visible scrollbar */
   .modal-main{
-    padding:20px 18px 24px;
-    overflow:visible;
-    max-height:none;
+    flex:1;
+    min-height:0;                      /* critical: allows flex child to shrink */
+    padding:20px 18px 28px;
+    overflow-y:auto;
+    overflow-x:hidden;
+    -webkit-overflow-scrolling:touch;  /* momentum on iOS */
+    overscroll-behavior:contain;       /* don't bounce the page behind */
+    scrollbar-width:thin;              /* Firefox */
+    scrollbar-color:var(--stone) var(--deep); /* Firefox — thumb | track */
+    padding-right:14px;                /* keep text clear of the scrollbar */
   }
-  .modal-title{font-size:24px}
 
-  .bundles{grid-template-columns:repeat(2,1fr);gap:10px}
-  .bundle{min-height:96px;padding:14px}
+  /* WebKit / Blink — always-visible styled scrollbar */
+  .modal-main::-webkit-scrollbar{
+    width:8px;
+    -webkit-appearance:none;
+  }
+  .modal-main::-webkit-scrollbar-track{
+    background:var(--deep);
+    border-radius:99px;
+  }
+  .modal-main::-webkit-scrollbar-thumb{
+    background:var(--stone);
+    border-radius:99px;
+    border:2px solid var(--deep);
+  }
+  .modal-main::-webkit-scrollbar-thumb:hover{
+    background:var(--accent);
+  }
 
-  .pay-tiles{grid-template-columns:1fr;gap:10px}
+  /* Content styling */
+  .modal-head{margin-bottom:14px;gap:12px}
+  .modal-head .caps{font-size:9px;letter-spacing:.22em;margin-bottom:6px}
+  .modal-title{font-size:22px;line-height:1.05;letter-spacing:-.03em}
+  .modal-close{width:34px;height:34px;font-size:16px}
+
+  .steps{gap:5px;margin-bottom:18px}
+  .steps i{height:3px}
+
+  .bundles{
+    grid-template-columns:repeat(2,1fr);
+    gap:10px;
+    margin-bottom:16px;
+  }
+  .bundle{
+    padding:14px 14px;
+    border-radius:12px;
+    min-height:96px;
+  }
+  .bundle-num{font-size:26px;margin-bottom:2px}
+  .bundle-unit{font-size:8.5px;letter-spacing:.2em;margin-bottom:12px}
+  .bundle-price{font-size:11.5px}
+  .bundle-bonus{top:10px;right:10px;font-size:8px;padding:2px 6px}
+
+  .custom-row{gap:8px;margin-bottom:16px}
+  .custom-row input{
+    padding:13px 14px;
+    font-size:16px;                   /* prevents iOS zoom on focus */
+    min-height:50px;
+  }
+  .custom-row label{padding:0 14px;font-size:9px;letter-spacing:.18em}
+
+  .summary{
+    padding:12px 16px;
+    margin-bottom:14px;
+    font-size:12px;
+    border-radius:10px;
+    gap:10px;
+  }
+  .summary .total{font-size:20px}
+
+  .pay-tiles{
+    grid-template-columns:1fr;
+    gap:10px;
+    margin-bottom:16px;
+  }
   .pay-tile{
     flex-direction:row;
     align-items:center;
     gap:14px;
     padding:16px;
     min-height:auto;
+    border-radius:12px;
   }
   .pay-tile-icon{
     width:44px;height:44px;
@@ -1286,27 +1386,76 @@ footer{
     border-radius:50%;
     font-size:20px;
     flex:none;
+    color:var(--accent);
   }
   .pay-tile > div{flex:1;min-width:0}
+  .pay-tile-title{font-size:17px;margin-bottom:2px}
+  .pay-tile-sub{font-size:9px}
 
+  .field{margin-bottom:12px}
+  .field label{font-size:9px;letter-spacing:.2em;margin-bottom:6px}
   .field input,
   .field select,
   .field textarea{
-    font-size:16px;
     padding:13px 14px;
-    min-height:48px;
+    font-size:16px;                   /* prevents iOS zoom on focus */
+    border-radius:10px;
+    min-height:50px;
   }
-  .custom-row input{
-    font-size:16px;
-    min-height:48px;
+  .field select{padding-right:38px}
+  .field-grid{grid-template-columns:1fr;gap:10px}
+
+  .alert{
+    padding:12px 14px;
+    font-size:12.5px;
+    line-height:1.55;
+    margin-bottom:12px;
+    border-radius:10px;
   }
-  .field-grid{grid-template-columns:1fr}
 
-  .cta{padding:16px 22px;min-height:52px;font-size:11px}
-  .cta-back{padding:13px 22px;min-height:46px}
+  .addr{
+    padding:14px 16px;
+    margin-bottom:12px;
+    font-size:11.5px;
+    line-height:1.55;
+    border-radius:10px;
+  }
 
-  .receipt h3{font-size:24px}
-  .receipt p{font-size:14px}
+  .cta{
+    padding:16px 22px;
+    font-size:10.5px;
+    letter-spacing:.2em;
+    min-height:54px;
+    margin-top:6px;
+  }
+  .cta-back{
+    padding:13px 22px;
+    font-size:9.5px;
+    min-height:48px;
+    margin-top:10px;
+  }
+
+  .receipt{padding:2px 0}
+  .receipt-icon{
+    width:56px;height:56px;
+    font-size:26px;
+    margin-bottom:16px;
+  }
+  .receipt h3{font-size:22px;margin-bottom:8px}
+  .receipt p{
+    font-size:13.5px;
+    margin-bottom:18px;
+    max-width:100%;
+    padding:0 6px;
+  }
+  .receipt-card{
+    padding:16px 18px;
+    font-size:11.5px;
+    border-radius:12px;
+    margin-bottom:16px;
+    gap:8px 14px;
+  }
+  .receipt-card span{font-size:9px}
 }
 
 @media(max-width:520px){
