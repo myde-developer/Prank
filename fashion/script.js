@@ -533,6 +533,7 @@ function openVote(cid){
     code: '', txHash: '', voterName: '', voterEmail: '',
     ref: null, orderId: null,
   });
+  document.body.style.overflow = 'hidden';
   renderVoteModal();
 }
 
@@ -540,6 +541,7 @@ function openVote(cid){
 function closeVote(){
   const wasOpen = flow.open;
   flow.open = false;
+  document.body.style.overflow = '';
   $('#modal-root').innerHTML = '';
   if (wasOpen && booted && pendingRender){
     pendingRender = false;
