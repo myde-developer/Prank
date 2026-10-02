@@ -47,6 +47,9 @@ let pendingReplaceOldTeam = null;
 let isLoadingLeague = false;
 let userRole = null;
 
+let _fixIdCounter = Date.now();
+function nextFixtureId() { return ++_fixIdCounter; }
+
 function shuffleArray(arr) {
     for (let i = arr.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -416,6 +419,14 @@ function loadTournamentData(data) {
     tournament.celebration = data.celebration || { intro: '', remarks: {}, trophyImage: null };
     tournament.aliases = data.aliases || {};
 
+// Fix duplicate IDs from old tournaments
+_fixIdCounter = Date.now();
+tournament.qualificationPlayoffs.forEach(p => p.fixtures.forEach(f => f.id = ++_fixIdCounter));
+for (const s in tournament.knockoutStages) {
+    tournament.knockoutStages[s].ties.forEach(t => t.legs.forEach(l => l.id = ++_fixIdCounter));
+}
+saveToStorage();
+
     // Recalculate standings & render everything
     updateQualificationStandings();
     renderQualificationTable();
@@ -513,7 +524,7 @@ function generateGroupStage() {
         rounds.forEach((roundPairs, roundIdx) => {
             roundPairs.forEach(({ home, away }) => {
                 fixtures.push({
-                    id: Date.now() + gIdx * 1000 + roundIdx * 100 + Math.floor(Math.random() * 90),
+                    id: nextFixtureId(),
                     home,
                     away,
                     homeScore: null,
