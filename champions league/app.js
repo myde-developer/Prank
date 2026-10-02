@@ -1210,14 +1210,35 @@ function createKnockoutStage(stageId, source, drawType, legs, force = false) {
 
     // ---------- SOURCE: TOP 16 QUALIFIED ----------
     if (source === 'QUALIFIED_TOP_16') {
+    // Groups mode → derive top 4 per group directly from standings
+    if (tournament.format === 'groups') {
+        const groupNames = ['A', 'B', 'C', 'D'];
+        eligible = [];
+        groupNames.forEach(gName => {
+            const group = tournament.qualificationPlayoffs.find(p => p.groupName === gName);
+            if (!group) return;
+            const groupPlayerNames = new Set();
+            group.fixtures.forEach(f => {
+                if (f.home) groupPlayerNames.add(f.home);
+                if (f.away) groupPlayerNames.add(f.away);
+            });
+            const groupPlayers = tournament.qualificationStandings
+                .filter(p => groupPlayerNames.has(p.name))
+                .slice(0, 4);
+            groupPlayers.forEach(p => eligible.push(p.name));
+        });
+    } else {
+        // Playoffs mode → top 16 in standings
         eligible = tournament.qualificationStandings
             .filter(p => p.qualified)
             .map(p => p.name);
-        if (eligible.length !== TOURNAMENT_CONFIG.qualifiers) {
-            showToast(`Need exactly ${TOURNAMENT_CONFIG.qualifiers} qualified players. Found ${eligible.length}.`);
-            return;
-        }
     }
+
+    if (eligible.length !== TOURNAMENT_CONFIG.qualifiers) {
+        showToast(`Need exactly ${TOURNAMENT_CONFIG.qualifiers} qualified players. Found ${eligible.length}.`);
+        return;
+    }
+}
 
     // ---------- SOURCE: PREVIOUS STAGE WINNERS ----------
     else if (source === 'PREVIOUS_STAGE_WINNERS') {
