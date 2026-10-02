@@ -263,6 +263,12 @@ const TOURNAMENT_CONFIG = {
     legs: { ROUND_OF_16: 2, QUARTER_FINAL: 2, SEMI_FINAL: 2, FINAL: 1 }
 };
 
+// ==================== FIXTURE ID GENERATOR ====================
+let _fixtureIdCounter = Date.now() % 100000000;   // unique base
+function nextFixtureId() {
+    return ++_fixtureIdCounter;
+}
+
 let tournament = {
     players: {},
     qualificationPlayoffs: [],
@@ -415,7 +421,8 @@ function loadTournamentData(data) {
     tournament.qualificationConfirmed = data.qualificationConfirmed || false;
     tournament.celebration = data.celebration || { intro: '', remarks: {}, trophyImage: null };
     tournament.aliases = data.aliases || {};
-
+    
+    regenerateAllFixtureIds();
     // Recalculate standings & render everything
     updateQualificationStandings();
     renderQualificationTable();
@@ -490,6 +497,19 @@ function getCurrentUserId() {
         localStorage.setItem('chatUserId', id);
     }
     return id;
+
+function regenerateAllFixtureIds() {
+    _fixtureIdCounter = Date.now() % 100000000;
+    tournament.qualificationPlayoffs.forEach(p => {
+        p.fixtures.forEach(f => { f.id = nextFixtureId(); });
+    });
+    for (const stage in tournament.knockoutStages) {
+        const ties = tournament.knockoutStages[stage].ties || [];
+        ties.forEach(tie => {
+            (tie.legs || []).forEach(leg => { leg.id = nextFixtureId(); });
+        });
+    }
+}
 }
 
 // ==================== GROUP STAGE MODE ====================
@@ -513,7 +533,7 @@ function generateGroupStage() {
         rounds.forEach((roundPairs, roundIdx) => {
             roundPairs.forEach(({ home, away }) => {
                 fixtures.push({
-                    id: Date.now() + gIdx * 1000 + roundIdx * 100 + Math.floor(Math.random() * 90),
+                    id: nextFixtureId(),
                     home,
                     away,
                     homeScore: null,
@@ -620,7 +640,7 @@ function generateQualificationPlayoff(roundIndex) {
     const fixtures = [];
     for (let i = 0; i < shuffled.length; i += 2) {
         fixtures.push({
-            id: Date.now() + i + Math.random()*1000,
+            id: nextFixtureId(),
             home: shuffled[i],
             away: shuffled[i+1],
             homeScore: null,
@@ -961,30 +981,42 @@ function renderFixtureCard(f) {
 function saveQualificationResult(fixtureId) {
     let found = null;
     for (let p of tournament.qualificationPlayoffs) {
-        const f = p.fixtures.find(f => f.id === fixtureId);
+        const f = p.fixtures.find(f => String(f.id) === String(fixtureId));
         if (f) { found = f; break; }
     }
-    if (!found) { showToast("Fixture not found"); return; }
-    const homeScore = document.getElementById(`home-score-${fixtureId}`).value;
-    const awayScore = document.getElementById(`away-score-${fixtureId}`).value;
-    if (homeScore === "" || awayScore === "") { alert("Enter both scores"); return; }
-    found.homeScore = parseInt(homeScore);
-    found.awayScore = parseInt(awayScore);
+    if (!found) {
+        console.warn("Fixture not found. Looking for id:", fixtureId);
+        showToast("⚠️ Fixture not found (check console)");
+        return;
+    }
+
+    const homeInput = document.getElementById(`home-score-${fixtureId}`);
+    const awayInput = document.getElementById(`away-score-${fixtureId}`);
+    if (!homeInput || !awayInput) {
+        console.warn("Score inputs missing for id:", fixtureId);
+        showToast("⚠️ Score inputs missing (check console)");
+        return;
+    }
+
+    const homeScore = homeInput.value.trim();
+    const awayScore = awayInput.value.trim();
+    if (homeScore === "" || awayScore === "") {
+        alert("Enter both scores");
+        return;
+    }
+
+    found.homeScore = parseInt(homeScore, 10);
+    found.awayScore = parseInt(awayScore, 10);
     found.played = true;
     found.events = [];
     found.report = `${found.home} ${found.homeScore}-${found.awayScore} ${found.away}`;
+
     updateQualificationStandings();
     renderQualificationTable();
     renderPlayoffFixtures();
     saveToStorage();
-    showToast(`Result saved: ${found.home} ${found.homeScore}-${found.awayScore} ${found.away}`);
-    const totalPlayed = tournament.qualificationPlayoffs.reduce((sum, p) => sum + p.fixtures.filter(f => f.played).length, 0);
-    const totalFixtures = tournament.qualificationPlayoffs.reduce((sum, p) => sum + p.fixtures.length, 0);
-    if (totalPlayed === totalFixtures && totalFixtures > 0) {
-        showToast("✅ All qualification matches completed! Top 16 qualify.");
-        updateQualificationStandings();
-        renderQualificationTable();
-    }
+
+    showToast(`✅ Saved: ${found.home} ${found.homeScore}-${found.awayScore} ${found.away}`);
 }
 
 // ==================== COMMAND PARSER ====================
