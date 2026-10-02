@@ -419,13 +419,15 @@ function loadTournamentData(data) {
     tournament.celebration = data.celebration || { intro: '', remarks: {}, trophyImage: null };
     tournament.aliases = data.aliases || {};
 
-// Fix duplicate IDs from old tournaments
-_fixIdCounter = Date.now();
-tournament.qualificationPlayoffs.forEach(p => p.fixtures.forEach(f => f.id = ++_fixIdCounter));
-for (const s in tournament.knockoutStages) {
-    tournament.knockoutStages[s].ties.forEach(t => t.legs.forEach(l => l.id = ++_fixIdCounter));
+// Repair IDs only if duplicates actually exist (avoids infinite write loop)
+if (hasDuplicateFixtureIds()) {
+    _fixIdCounter = Date.now();
+    tournament.qualificationPlayoffs.forEach(p => p.fixtures.forEach(f => f.id = ++_fixIdCounter));
+    for (const s in tournament.knockoutStages) {
+        tournament.knockoutStages[s].ties.forEach(t => t.legs.forEach(l => l.id = ++_fixIdCounter));
+    }
+    saveToStorage();
 }
-saveToStorage();
 
     // Recalculate standings & render everything
     updateQualificationStandings();
@@ -491,7 +493,9 @@ function saveToStorage() {
         format: tournament.format || 'playoffs',
         aliases: tournament.aliases || {}
     };
-    getTournamentRef().set(data);
+    getTournamentRef().set(data)
+        .then(() => console.log("✅ Firebase write OK"))
+        .catch(err => { console.error("❌ Firebase write FAILED:", err); showToast("⚠️ Save failed"); });
 }
 
 function getCurrentUserId() {
@@ -631,7 +635,7 @@ function generateQualificationPlayoff(roundIndex) {
     const fixtures = [];
     for (let i = 0; i < shuffled.length; i += 2) {
         fixtures.push({
-            id: Date.now() + i + Math.random()*1000,
+            id: nextFixtureId(),
             home: shuffled[i],
             away: shuffled[i+1],
             homeScore: null,
@@ -972,30 +976,57 @@ function renderFixtureCard(f) {
 function saveQualificationResult(fixtureId) {
     let found = null;
     for (let p of tournament.qualificationPlayoffs) {
-        const f = p.fixtures.find(f => f.id === fixtureId);
+        const f = p.fixtures.find(f => String(f.id) === String(fixtureId));
         if (f) { found = f; break; }
     }
-    if (!found) { showToast("Fixture not found"); return; }
-    const homeScore = document.getElementById(`home-score-${fixtureId}`).value;
-    const awayScore = document.getElementById(`away-score-${fixtureId}`).value;
+    if (!found) {
+        console.warn("Fixture not found. ID:", fixtureId);
+        showToast("⚠️ Fixture not found");
+        return;
+    }
+
+    const homeInput = document.getElementById(`home-score-${fixtureId}`);
+    const awayInput = document.getElementById(`away-score-${fixtureId}`);
+    if (!homeInput || !awayInput) {
+        console.warn("Score inputs missing. ID:", fixtureId);
+        showToast("⚠️ Score inputs missing");
+        return;
+    }
+
+    const homeScore = homeInput.value.trim();
+    const awayScore = awayInput.value.trim();
     if (homeScore === "" || awayScore === "") { alert("Enter both scores"); return; }
-    found.homeScore = parseInt(homeScore);
-    found.awayScore = parseInt(awayScore);
+
+    found.homeScore = parseInt(homeScore, 10);
+    found.awayScore = parseInt(awayScore, 10);
     found.played = true;
     found.events = [];
     found.report = `${found.home} ${found.homeScore}-${found.awayScore} ${found.away}`;
+
     updateQualificationStandings();
     renderQualificationTable();
     renderPlayoffFixtures();
     saveToStorage();
-    showToast(`Result saved: ${found.home} ${found.homeScore}-${found.awayScore} ${found.away}`);
-    const totalPlayed = tournament.qualificationPlayoffs.reduce((sum, p) => sum + p.fixtures.filter(f => f.played).length, 0);
-    const totalFixtures = tournament.qualificationPlayoffs.reduce((sum, p) => sum + p.fixtures.length, 0);
-    if (totalPlayed === totalFixtures && totalFixtures > 0) {
-        showToast("✅ All qualification matches completed! Top 16 qualify.");
-        updateQualificationStandings();
-        renderQualificationTable();
+    showToast(`✅ Saved: ${found.home} ${found.homeScore}-${found.awayScore} ${found.away}`);
+}
+
+function hasDuplicateFixtureIds() {
+    const seen = new Set();
+    for (const p of tournament.qualificationPlayoffs) {
+        for (const f of p.fixtures) {
+            if (seen.has(f.id)) return true;
+            seen.add(f.id);
+        }
     }
+    for (const s in tournament.knockoutStages) {
+        for (const t of tournament.knockoutStages[s].ties) {
+            for (const l of t.legs) {
+                if (seen.has(l.id)) return true;
+                seen.add(l.id);
+            }
+        }
+    }
+    return false;
 }
 
 // ==================== COMMAND PARSER ====================
@@ -1325,7 +1356,7 @@ function createKnockoutStage(stageId, source, drawType, legs, force = false) {
             const legAway = isHomeLeg ? away : home;
 
             const match = {
-                id: Date.now() + i * 100 + leg,
+                id: nextFixtureId(),
                 tieId: tieId,
                 leg: leg,
                 home: legHome,
