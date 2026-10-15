@@ -116,6 +116,33 @@ async function initializeRole() {
     checkAndLoadTournament();
 }
 
+function updateRoleUI() {
+    const adminToggle = document.getElementById('admin-toggle-container');
+    const resetContainer = document.getElementById('admin-reset-container');
+    const thActions = document.getElementById('th-admin-actions');
+    const hint = document.getElementById('admin-table-hint');
+    const floatMenu = document.getElementById('floating-admin-menu');
+    const relegationZone = document.getElementById('relegation-zone');
+
+    if (userRole === 'admin') {
+        // Admin: show everything
+        adminToggle?.classList.remove('hidden');
+        resetContainer?.classList.remove('hidden');
+        thActions?.classList.remove('hidden');
+        hint?.classList.remove('hidden');
+        floatMenu?.classList.remove('hidden');
+        relegationZone?.classList.remove('hidden');
+        updateAdminUIElements();
+    } else {
+        // Viewer: hide everything including the toggle
+        adminToggle?.classList.add('hidden');
+        resetContainer?.classList.add('hidden');
+        thActions?.classList.add('hidden');
+        hint?.classList.add('hidden');
+        floatMenu?.classList.add('hidden');
+        relegationZone?.classList.add('hidden');
+    }
+}
 
 function checkAndLoadTournament() {
 
@@ -1129,18 +1156,15 @@ function generateTickerFacts() {
 // ==================== ADMIN MODE ====================
 
 function handleAdminToggleClick() {
-    if (!isAdmin) {
-        // Try to activate admin via password modal
-        document.getElementById('admin-password-input').value = "";
-        document.getElementById('password-error').classList.add('hidden');
-        document.getElementById('password-modal').classList.remove('hidden');
-    } else {
-        // Deactivate admin and clear the saved flag
+    if (isAdmin) {
+        // Deactivate admin and hide the toggle
         deactivateAdminMode();
         localStorage.removeItem('dlsAdminFlag');
         localStorage.removeItem('dlsAdminCode');
+        isAdmin = false;
         userRole = 'viewer';
-        updateRoleUI();
+        updateRoleUI(); // hides the toggle
+        showToast("Logged out of admin mode");
     }
 }
 function closePasswordModal() { document.getElementById('password-modal').classList.add('hidden'); }
