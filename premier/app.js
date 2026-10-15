@@ -48,32 +48,74 @@ let pendingReplaceOldTeam = null;
 let isLoadingLeague = false;
 let userRole = null;
 
-// ==================== ROLE SELECTION ====================
-function selectRole(role) {
-    userRole = role;
-    sessionStorage.setItem('tournamentRole', role);
-    document.getElementById('role-selector').style.display = 'none';
-    
-    if (role === 'admin') {
-        const entered = prompt("Enter admin master password:");
-        if (entered === null) { location.reload(); return; }
-        getTournamentRef().child('password').once('value', (snapshot) => {
+// ==================== ROLE INITIALIZATION (AUTO) ====================
+async function initializeRole() {
+    userRole = null;
+    isAdmin = false;
+
+    // 1. Check URL for boss code: ?boss=CODE
+    const urlParams = new URLSearchParams(window.location.search);
+    const adminCode = urlParams.get('boss');
+
+    if (adminCode) {
+        try {
+            const snapshot = await getTournamentRef().child('password').once('value');
             const storedPass = snapshot.val();
-            const validPassword = storedPass ? entered === storedPass : entered === "090541";
+            const validPassword = storedPass ? adminCode === storedPass : adminCode === "090541";
+
             if (validPassword) {
                 isAdmin = true;
-                showToast("Admin access granted");
-                checkAndLoadTournament();
+                userRole = 'admin';
+                localStorage.setItem('dlsAdminFlag', 'true');
+                localStorage.setItem('dlsAdminCode', adminCode);
+                showToast("🔑 Admin mode activated");
             } else {
-                alert("Wrong password. Reload to try again.");
-                location.reload();
+                showToast("❌ Invalid boss code");
             }
-        });
-    } else {
-        isAdmin = false;
-        checkAndLoadTournament();
+        } catch (e) {
+            console.error("Error verifying admin code:", e);
+        }
+        // Remove the code from URL so it doesn't linger in history
+        window.history.replaceState({}, document.title, window.location.pathname);
     }
+
+    // 2. If not admin via URL, check localStorage for a saved flag
+    if (!isAdmin) {
+        const savedFlag = localStorage.getItem('dlsAdminFlag');
+        const savedCode = localStorage.getItem('dlsAdminCode');
+
+        if (savedFlag === 'true' && savedCode) {
+            try {
+                const snapshot = await getTournamentRef().child('password').once('value');
+                const storedPass = snapshot.val();
+                const validPassword = storedPass ? savedCode === storedPass : savedCode === "090541";
+
+                if (validPassword) {
+                    isAdmin = true;
+                    userRole = 'admin';
+                } else {
+                    // Password changed → invalidate saved admin
+                    localStorage.removeItem('dlsAdminFlag');
+                    localStorage.removeItem('dlsAdminCode');
+                }
+            } catch (e) {
+                console.error("Error verifying saved admin code:", e);
+            }
+        }
+    }
+
+    // 3. Default to viewer
+    if (!userRole) {
+        userRole = 'viewer';
+    }
+
+    // 4. Update UI based on role
+    updateRoleUI();
+
+    // 5. Load tournament data
+    checkAndLoadTournament();
 }
+
 
 function checkAndLoadTournament() {
 
@@ -1085,7 +1127,22 @@ function generateTickerFacts() {
 }
 
 // ==================== ADMIN MODE ====================
-function handleAdminToggleClick() { if (!isAdmin) { document.getElementById('admin-password-input').value = ""; document.getElementById('password-error').classList.add('hidden'); document.getElementById('password-modal').classList.remove('hidden'); } else deactivateAdminMode(); }
+
+function handleAdminToggleClick() {
+    if (!isAdmin) {
+        // Try to activate admin via password modal
+        document.getElementById('admin-password-input').value = "";
+        document.getElementById('password-error').classList.add('hidden');
+        document.getElementById('password-modal').classList.remove('hidden');
+    } else {
+        // Deactivate admin and clear the saved flag
+        deactivateAdminMode();
+        localStorage.removeItem('dlsAdminFlag');
+        localStorage.removeItem('dlsAdminCode');
+        userRole = 'viewer';
+        updateRoleUI();
+    }
+}
 function closePasswordModal() { document.getElementById('password-modal').classList.add('hidden'); }
 function verifyAdminPassword() { const val = document.getElementById('admin-password-input').value; if (val === tournamentPassword) { closePasswordModal(); activateAdminMode(); } else document.getElementById('password-error').classList.remove('hidden'); }
 function activateAdminMode() { isAdmin = true; updateAdminUIElements(); showToast("Admin mode ACTIVE"); }
@@ -3019,15 +3076,13 @@ function resetTournament() {
 }
 
 // ==================== INIT ====================
+
 window.onload = () => {
     // 1. Load the league data (Firebase sync)
     initRealtimeDatabaseSync();
 
-    // 2. Restore saved role (if any)
-    const savedRole = sessionStorage.getItem('tournamentRole');
-    if (savedRole === 'viewer' || savedRole === 'admin') {
-        selectRole(savedRole);
-    }
+    // 2. Auto-detect role from URL or localStorage
+    initializeRole();
 
     // 3. Start the countdown timer (updates every second)
     setInterval(() => {
@@ -3039,9 +3094,7 @@ window.onload = () => {
         checkAllDeadlines();
     }, 30000);
 
-    // 5. Also run a one‑time check after the league data is fully loaded
-    //    (the check is also triggered inside loadTournamentData, but we'll
-    //     call it again after a short delay to catch any missed deadlines)
+    // 5. One-time check after data loads
     setTimeout(() => {
         if (fixtures.length > 0) {
             checkAllDeadlines();
@@ -3050,7 +3103,8 @@ window.onload = () => {
 };
 
 // ==================== EXPOSE FUNCTIONS ====================
-window.selectRole = selectRole;
+window.initializeRole = initializeRole;
+window.updateRoleUI = updateRoleUI;
 window.handleAdminToggleClick = handleAdminToggleClick;
 window.verifyAdminPassword = verifyAdminPassword;
 window.closePasswordModal = closePasswordModal;
